@@ -159,6 +159,8 @@ The project has not published a release yet.
   optional Playwright rendering.
 - Safe `AI!`/`AI?` file watching with built-in and repository ignore rules,
   bounded reads, debounce, cancellation, and serialized session submission.
+- A loopback-only authenticated HTTP/SSE adapter over a shared application
+  service, with constant-time bearer checks and per-principal/session isolation.
 
 ### Changed
 

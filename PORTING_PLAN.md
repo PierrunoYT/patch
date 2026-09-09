@@ -424,7 +424,7 @@ and hostile child control sequences.
   protection; make Playwright an optional enhancement.
 - [x] Add `AI!`/`AI?` watch mode with ignore rules, file-size limits, debounce,
   and serialized interaction with active model turns.
-- [ ] Expose the same application service through a local authenticated web
+- [x] Expose the same application service through a local authenticated web
   server and SSE/WebSocket events. Keep session state isolated per user/session.
 - [ ] Add voice recording/transcription only as an optional package because
   native audio and ffmpeg complicate npm installation.

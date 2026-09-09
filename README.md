@@ -52,6 +52,8 @@ recorded using the documented
 Optional interfaces now include security-bounded [URL fetching](docs/url-fetching.md)
 without adding Playwright to the default installation and serialized
 [AI comment watch mode](docs/watch-mode.md).
+An authenticated, session-isolated [local HTTP/SSE interface](docs/web-interface.md)
+uses the same application-service contract without adding a web framework.
 
 Read [AGENTS.md](AGENTS.md) for repository guidance, including the requirement to
 create or update relevant documentation after every task or code change.
