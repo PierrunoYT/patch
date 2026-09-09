@@ -105,6 +105,9 @@ The project has not published a release yet.
 - Explicit per-command approval for model-suggested shell execution, with exact
   previews, repository-root working directories, bounded output, timeout, and
   cancellation.
+- Optional configured lint and test command adapters with config, environment,
+  and CLI precedence; absent commands remain disabled instead of guessing a
+  target repository's package-manager invocation.
 
 ### Changed
 

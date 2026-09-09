@@ -38,6 +38,11 @@ Malformed strategy output automatically produces a corrective reflection turn.
 Callers can inject lint and test checks that return diagnostics, allowing the
 same loop to repair failures without letting the session guess or execute
 commands. Lint runs before tests and a lint failure skips that round's tests.
+`createConfiguredChecks` provides the process adapter for this injection. It
+creates callbacks only for explicit `lint-cmd` and `test-cmd` values, runs them
+at the canonical repository root with bounded output and cancellation, and
+returns nonzero output to the reflection loop. It never infers commands from a
+target repository's package-manager files.
 The initial attempt may be followed by at most `maxReflections` corrections
 (three by default); exhaustion raises `ReflectionLimitError`. Failed responses
 and diagnostics are sent to the provider and retained in successful history.

@@ -27,6 +27,8 @@ const ConfigurationFileSchema = z
     encoding: TextEncodingSchema.optional(),
     git: z.boolean().optional(),
     "env-file": z.string().min(1).optional(),
+    "lint-cmd": z.string().trim().min(1).optional(),
+    "test-cmd": z.string().trim().min(1).optional(),
     files: z.array(z.string().min(1)).optional(),
   })
   .strict();
@@ -41,6 +43,8 @@ export interface BootstrapArguments {
   readonly encoding: TextEncoding;
   readonly git: boolean;
   readonly model: string | undefined;
+  readonly lintCommand: string | undefined;
+  readonly testCommand: string | undefined;
   readonly files: readonly string[];
 }
 
@@ -70,6 +74,8 @@ interface ParsedCommandLine {
   encoding: string | undefined;
   git: boolean | undefined;
   model: string | undefined;
+  lintCommand: string | undefined;
+  testCommand: string | undefined;
   files: string[];
 }
 
@@ -133,6 +139,8 @@ function parseCommandLine(
     encoding: undefined,
     git: undefined,
     model: undefined,
+    lintCommand: undefined,
+    testCommand: undefined,
     files: [],
   };
 
@@ -161,9 +169,13 @@ function parseCommandLine(
             ? "encoding"
             : option === "--model"
               ? "model"
-              : option === "--file"
-                ? "file"
-                : undefined;
+              : option === "--lint-cmd"
+                ? "lintCommand"
+                : option === "--test-cmd"
+                  ? "testCommand"
+                  : option === "--file"
+                    ? "file"
+                    : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
@@ -242,6 +254,14 @@ function resolveArguments(
       configuration.git ??
       true,
     model: commandLine.model ?? environment.PATCH_MODEL ?? configuration.model,
+    lintCommand:
+      commandLine.lintCommand ??
+      environment.PATCH_LINT_CMD ??
+      configuration["lint-cmd"],
+    testCommand:
+      commandLine.testCommand ??
+      environment.PATCH_TEST_CMD ??
+      configuration["test-cmd"],
     files:
       commandLine.files.length > 0
         ? [...commandLine.files]

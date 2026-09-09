@@ -15,5 +15,7 @@ terminate execution and return distinct `timed-out` or `cancelled` statuses.
 
 `executeModelCommands` processes suggestions serially, applying the same
 presentation and approval flow to each command, and stops after timeout or
-cancellation. This boundary does not select lint or test commands; those must
-come from explicit user configuration.
+cancellation. Lint and test execution reuses the bounded process behavior only
+through `createConfiguredChecks`, which creates a check when the corresponding
+user configuration is present. Patch deliberately does not select or guess a
+package-manager command when `lint-cmd` or `test-cmd` is absent.

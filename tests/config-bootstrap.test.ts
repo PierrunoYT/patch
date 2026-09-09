@@ -61,6 +61,8 @@ describe("bootstrapConfiguration", () => {
       model: "cwd-model",
       encoding: "utf-8",
       git: true,
+      lintCommand: undefined,
+      testCommand: undefined,
     });
 
     const environment = await bootstrapConfiguration({
@@ -85,6 +87,40 @@ describe("bootstrapConfiguration", () => {
       environment: { PATCH_MODEL: "environment-model" },
     });
     expect(commandLine.arguments.model).toBe("cli-model");
+  });
+
+  it("resolves explicit lint and test commands without adding defaults", async () => {
+    const parent = await temporaryDirectory();
+    const home = join(parent, "home");
+    const repository = join(parent, "repository");
+    await mkdir(home);
+    await initializeRepository(repository);
+    await writeFile(
+      join(repository, ".patch.conf.yml"),
+      "lint-cmd: configured-lint\ntest-cmd: configured-test\n",
+    );
+
+    const fromFile = await bootstrapConfiguration({
+      cwd: repository,
+      home,
+      environment: {},
+    });
+    expect(fromFile.arguments).toMatchObject({
+      lintCommand: "configured-lint",
+      testCommand: "configured-test",
+    });
+
+    const overridden = await bootstrapConfiguration({
+      argv: ["--test-cmd", "cli-test"],
+      cwd: repository,
+      home,
+      environment: { PATCH_LINT_CMD: "environment-lint" },
+    });
+
+    expect(overridden.arguments).toMatchObject({
+      lintCommand: "environment-lint",
+      testCommand: "cli-test",
+    });
   });
 
   it("corrects a provisional root from selected files and reruns without leaked dotenv values", async () => {

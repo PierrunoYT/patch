@@ -363,7 +363,7 @@ all ordinary CI tests use deterministic fakes and require no network.
   `/undo`, and `/exit`.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation.
-- [ ] Run only user-configured lint/test commands; do not guess package-manager
+- [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
 **Exit — first usable release:** an npm-installed binary can safely edit a real

@@ -38,9 +38,15 @@ matching aider's startup order.
 ## Current controls
 
 The bootstrap recognizes `--config`/`-c`, `--env-file`, `--encoding`,
-`--git`/`--no-git`, `--model`, repeated `--file`, and positional file paths.
-Their environment equivalents use the Patch namespace: `PATCH_CONFIG`,
-`PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, and `PATCH_MODEL`.
+`--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, repeated `--file`,
+and positional file paths. Their environment equivalents use the Patch
+namespace: `PATCH_CONFIG`, `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`,
+`PATCH_MODEL`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
+
+Lint and test commands may also be set as `lint-cmd` and `test-cmd` in YAML.
+Both are optional and have no built-in default: if a user does not configure a
+command, Patch does not inspect package files or infer an npm, yarn, pnpm, or
+bun invocation for the target repository.
 
 YAML configuration files are validated and merged in this order:
 

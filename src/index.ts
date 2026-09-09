@@ -23,6 +23,7 @@ export * from "./models/settings.js";
 export * from "./models/selection.js";
 export * from "./models/token-count.js";
 export * from "./models/usage.js";
+export * from "./process/configured-checks.js";
 export * from "./process/model-command.js";
 export * from "./providers/events.js";
 export * from "./providers/factory.js";
