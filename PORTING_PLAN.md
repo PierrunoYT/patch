@@ -352,7 +352,7 @@ all ordinary CI tests use deterministic fakes and require no network.
 - [x] Implement tracked files, staged/unstaged status, unborn and detached HEAD,
   `.gitignore`, `.aiderignore`, diffs, and repository-relative paths using
   NUL-delimited Git output.
-- [ ] Implement the write boundary: preview, authorize new/out-of-chat paths,
+- [x] Implement the write boundary: preview, authorize new/out-of-chat paths,
   checkpoint dirty files, apply, and report changed files.
 - [ ] Implement selected-file commits, optional hook verification, attribution,
   model-generated commit messages, and undo constrained to Patch commits.

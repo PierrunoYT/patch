@@ -13,6 +13,7 @@ export * from "./edits/strategy.js";
 export * from "./edits/transaction.js";
 export * from "./edits/types.js";
 export * from "./edits/whole-file.js";
+export * from "./edits/write-boundary.js";
 export * from "./io/filesystem.js";
 export * from "./io/safe-path.js";
 export * from "./input.js";

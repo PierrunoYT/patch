@@ -63,3 +63,10 @@ with an atomic write. Path handling is also stricter than aider's general
 which canonicalizes a path but does not enforce repository containment. The
 additional boundary implements Patch's documented requirement to prevent model
 edits from escaping the selected repository through `..` or symlinks.
+
+`applyAuthorizedEdits` is the final write workflow. It presents the complete
+staged preview before asking for per-path authorization, requires approval for
+every new or out-of-chat file, checkpoints dirty existing files through an
+injected repository callback, commits the already validated transaction, and
+returns the exact changed paths and checkpoint. Authorization failure occurs
+before checkpoints or writes.

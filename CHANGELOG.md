@@ -94,6 +94,8 @@ The project has not published a release yet.
   paths, with mixed-repository selections rejected.
 - A Git CLI repository adapter with NUL-safe status parsing, tracked files,
   combined diffs, ignore rules, and unborn/detached HEAD support.
+- A final write workflow that previews staged operations, authorizes new and
+  out-of-chat files, checkpoints dirty inputs, and reports changed paths.
 
 ### Changed
 
