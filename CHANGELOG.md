@@ -118,6 +118,8 @@ The project has not published a release yet.
   identifier heuristics, and chat-file weighting.
 - Syntax-aware tree-context rendering with compact scope headers, elisions,
   long-line limits, and strict token-budget binary search.
+- Atomic mtime/size/content-keyed tag caches with corruption recovery and
+  `manual`, `always`, `files`, and adaptive `auto` map refresh modes.
 
 ### Changed
 

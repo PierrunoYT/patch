@@ -38,3 +38,15 @@ groups selected lines by normalized path, truncates pathological source lines
 to 100 characters, omits chat files, and includes bare entries for files with
 no tags. Binary search chooses the largest ranked prefix whose injected token
 counter does not exceed the configured budget.
+
+`RepositoryMap` composes extraction, ranking, and rendering. Its atomic JSON tag
+cache is stored under the selected root by default, validates cached values,
+and keys each file by mtime, size, and SHA-256 content so timestamp collisions
+cannot return stale tags. Missing, corrupt, or unwritable caches fall back to a
+correct in-memory result and are rewritten when possible.
+
+Refresh modes match aider's contracts: `always` rebuilds each call; `files`
+caches by chat/other file lists; `manual` retains the last map; and `auto`
+caches maps whose previous build exceeded one second, including mentions in its
+key. A forced refresh bypasses every rendered-map mode while retaining valid
+content-keyed tag entries.

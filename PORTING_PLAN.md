@@ -380,7 +380,7 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
   PageRank.
 - [x] Port token-budget binary search and a TypeScript `TreeContextRenderer`
   equivalent to `grep_ast.TreeContext`.
-- [ ] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
+- [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
 - [ ] Compare normalized map output and rank ordering against upstream fixtures.
 - [ ] Add languages only with pinned grammar/query compatibility tests and npm
