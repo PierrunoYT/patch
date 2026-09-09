@@ -22,6 +22,9 @@ The project has not published a release yet.
   aider source revision metadata.
 - Node.js 22 continuous integration for formatting, linting, type checking,
   tests, builds, and clean installation of the packed executable.
+- A deterministic, revision-checked upstream fixture exporter covering config
+  precedence, message chunks, SEARCH/REPLACE behavior, Git diffs, and repository
+  maps without adding Python to the runtime package.
 
 ### Changed
 

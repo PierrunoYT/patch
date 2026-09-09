@@ -1,0 +1,160 @@
+{
+  "chatChunks": {
+    "cacheable": [
+      {
+        "content": "system",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "examples",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "readonly_files",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "repo",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "done",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "chat_files",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      }
+    ],
+    "order": [
+      "system",
+      "examples",
+      "readonly_files",
+      "repo",
+      "done",
+      "chat_files",
+      "cur",
+      "reminder"
+    ],
+    "withCacheHeaders": [
+      {
+        "content": "system",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "examples",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "readonly_files",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "repo",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "done",
+        "role": "user"
+      },
+      {
+        "content": [
+          {
+            "cache_control": {
+              "type": "ephemeral"
+            },
+            "text": "chat_files",
+            "type": "text"
+          }
+        ],
+        "role": "user"
+      },
+      {
+        "content": "cur",
+        "role": "user"
+      },
+      {
+        "content": "reminder",
+        "role": "user"
+      }
+    ]
+  },
+  "configPrecedence": {
+    "cli": "cli-model",
+    "configFiles": "cwd-model",
+    "environment": "environment-model"
+  },
+  "gitDiff": "diff --git a/staged.txt b/staged.txt\nindex 5c04105..07d44e5 100644\n--- a/staged.txt\n+++ b/staged.txt\n@@ -1 +1 @@\n-base staged\n+staged change\ndiff --git a/working.txt b/working.txt\nindex 5d1f1c6..dc42955 100644\n--- a/working.txt\n+++ b/working.txt\n@@ -1 +1 @@\n-base working\n+working change",
+  "repoMap": "\ndefinitions.py:\n\u2502def greet(name):\n\u22ee\n\nusage.py\n",
+  "schemaVersion": 1,
+  "searchReplace": {
+    "missingFilenameError": "<<<<<<< SEARCH\n\n^^^ Bad/missing filename. The filename must be alone on the line before the opening fence ```",
+    "parsed": [
+      [
+        "example.txt",
+        "old value\n",
+        "new value\n"
+      ],
+      [
+        null,
+        "npm test\n"
+      ]
+    ],
+    "replacements": {
+      "ellipsis": "new start\nkeep one\nmiddle\nkeep two\nnew end\n",
+      "exact": "before\nnew value\nafter\n",
+      "missingLeadingWhitespace": "    first\n    changed\n        updated\n"
+    }
+  },
+  "sources": {
+    "chatChunks": "aider/coders/chat_chunks.py:5-64",
+    "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",
+    "gitDiff": "aider/repo.py:375-417",
+    "repoMap": "aider/repomap.py:266-784",
+    "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590"
+  },
+  "upstream": {
+    "commit": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+    "repository": "https://github.com/Aider-AI/aider.git"
+  }
+}

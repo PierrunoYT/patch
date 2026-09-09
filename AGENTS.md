@@ -34,6 +34,9 @@
 - Run the complete local validation suite with `npm run check`.
 - Build the executable with `npm run build`, then inspect it with
   `npm start -- --help`.
+- Regenerate pinned compatibility fixtures with `npm run fixtures:upstream`;
+  this requires the external aider checkout described in
+  `docs/compatibility-fixtures.md`.
 - Use `npm run format` to apply formatting; do not hand-format generated output.
 
 ## Testing and verification
