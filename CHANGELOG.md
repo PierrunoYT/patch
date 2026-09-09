@@ -108,6 +108,8 @@ The project has not published a release yet.
 - Optional configured lint and test command adapters with config, environment,
   and CLI precedence; absent commands remain disabled instead of guessing a
   target repository's package-manager invocation.
+- Version-pinned Tree-sitter WASM grammars and attributed repository-map tag
+  queries resolved as packaged runtime resources outside branding assets.
 
 ### Changed
 

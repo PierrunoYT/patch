@@ -15,3 +15,7 @@ for (const name of [
 ]) {
   await cp(join(source, name), join(destination, name));
 }
+
+await cp(join(source, "repomap"), join(destination, "repomap"), {
+  recursive: true,
+});
