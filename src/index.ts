@@ -22,6 +22,7 @@ export * from "./models/selection.js";
 export * from "./models/token-count.js";
 export * from "./models/usage.js";
 export * from "./providers/events.js";
+export * from "./providers/factory.js";
 export * from "./providers/anthropic.js";
 export * from "./providers/diagnostics.js";
 export * from "./providers/fake.js";

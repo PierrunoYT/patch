@@ -88,6 +88,8 @@ The project has not published a release yet.
   estimates for unknown and multimodal prompts.
 - Usage reports with provider or catalog cost attribution and explicit unknown
   pricing instead of misleading zero-cost estimates.
+- A documented provider compatibility table and strict live-provider factory
+  that rejects unsupported providers before network access.
 
 ### Changed
 

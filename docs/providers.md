@@ -35,3 +35,17 @@ environment snapshot or a `credentialPresent` flag; it never reads or returns a
 secret value. Capability errors distinguish a model that does not declare a
 feature from an adapter that cannot represent it. `assertProviderReady` turns
 the structured result into `ProviderConfigurationError` for startup paths.
+
+## Compatibility
+
+| Model provider | Adapter | Streaming | Images | PDFs | Prompt cache markers |
+| --- | --- | --- | --- | --- | --- |
+| `openai` | OpenAI Chat Completions | yes | yes | no | no |
+| `anthropic` | Anthropic Messages | yes | yes | yes | yes |
+| `deepseek` | OpenAI-compatible Chat Completions | yes | model-dependent | no | model-dependent |
+
+`createProvider` is the live-provider construction boundary. It accepts only
+the providers above, resolves their provider-specific credential names without
+logging values, and throws `UnsupportedProviderError` for every other provider.
+Custom base URLs remain available for compatible gateways; supporting a new
+provider name requires an explicit adapter/table update and tests.

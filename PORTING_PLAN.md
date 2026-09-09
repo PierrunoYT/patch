@@ -339,7 +339,7 @@ partial output.
 - [x] Add model-aware token counting where reliable and conservative estimates
   elsewhere.
 - [x] Track usage and estimated cost while clearly labeling unknown pricing.
-- [ ] Publish a provider compatibility table; reject unsupported providers
+- [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
 **Exit:** opt-in provider integration tests pass when credentials are present;
