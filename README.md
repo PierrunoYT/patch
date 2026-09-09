@@ -8,6 +8,12 @@
   <strong>AI pair programming in your terminal.</strong>
 </p>
 
+<p align="center">
+  <a href="https://discord.gg/sk9Q28VnYG">
+    <img src="https://img.shields.io/badge/Discord-Join%20community-5865F2?logo=discord&amp;logoColor=white" alt="Join the Patch Discord community">
+  </a>
+</p>
+
 Patch is an early-stage TypeScript port of [Aider](https://github.com/Aider-AI/aider),
 using Node.js and npm. The goal is to bring Aider's terminal coding workflow to
 TypeScript while preserving upstream attribution under Apache-2.0.
