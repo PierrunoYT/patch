@@ -26,6 +26,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .option("--multiline", "read interactive input through EOF as one message")
     .option("--vim", "use Vi input bindings instead of Emacs bindings")
     .option("--editor <command>", "external editor used by Ctrl-X Ctrl-E")
+    .option("--no-color", "disable ANSI color and styling")
     .showHelpAfterError()
     .action(
       async (options: {
@@ -36,6 +37,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         multiline?: boolean;
         vim?: boolean;
         editor?: string;
+        color?: boolean;
       }) => {
         const history = new TerminalHistory({
           ...(options.inputHistoryFile === undefined

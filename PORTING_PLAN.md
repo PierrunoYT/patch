@@ -408,7 +408,7 @@ formats cannot leak incompatible protocol examples into subsequent prompts.
 - [x] Add command, file, and identifier completion.
 - [x] Add persistent input/chat history with explicit paths and privacy notes.
 - [x] Add multiline input, Emacs/Vi bindings, and external-editor support.
-- [ ] Add markdown streaming, syntax highlighting, diff previews, and no-color
+- [x] Add markdown streaming, syntax highlighting, diff previews, and no-color
   behavior.
 - [ ] Add optional `node-pty` execution for interactive commands and verify
   control-sequence sanitization.

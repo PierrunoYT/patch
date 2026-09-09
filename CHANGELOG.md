@@ -145,6 +145,9 @@ The project has not published a release yet.
 - Tagged and EOF multiline input, declarative Emacs and Vi keybindings, and
   shell-free external-editor invocation with private temporary files and
   guaranteed cleanup.
+- Incremental Markdown rendering, lightweight fenced-code syntax highlighting,
+  colored diff previews, hostile escape stripping, and TTY/`NO_COLOR`/CLI
+  no-color behavior without a rendering dependency.
 
 ### Changed
 

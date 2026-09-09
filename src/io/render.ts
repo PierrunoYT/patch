@@ -1,0 +1,138 @@
+/**
+ * Terminal rendering adapted from aider/io.py and aider/mdstream.py at revision
+ * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
+ * Modified into a dependency-free renderer with explicit no-color behavior.
+ */
+
+import type { Writable } from "node:stream";
+
+const ANSI = {
+  reset: "\u001b[0m",
+  bold: "\u001b[1m",
+  dim: "\u001b[2m",
+  red: "\u001b[31m",
+  green: "\u001b[32m",
+  cyan: "\u001b[36m",
+} as const;
+
+export interface RenderOptions {
+  readonly color?: boolean;
+  readonly environment?: NodeJS.ProcessEnv;
+  readonly isTTY?: boolean;
+}
+
+function useColor(options: RenderOptions): boolean {
+  if (options.color !== undefined) return options.color;
+  const environment = options.environment ?? process.env;
+  return (
+    environment.NO_COLOR === undefined &&
+    (options.isTTY ?? process.stdout.isTTY)
+  );
+}
+
+function paint(text: string, code: string, color: boolean): string {
+  return color ? `${code}${text}${ANSI.reset}` : text;
+}
+
+export function stripAnsi(text: string): string {
+  return text.replace(
+    // Intentional terminal-control matcher; hostile control sequences are removed.
+    // eslint-disable-next-line no-control-regex
+    /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001b\\))/gu,
+    "",
+  );
+}
+
+export function highlightSyntax(
+  source: string,
+  language: string,
+  options: RenderOptions = {},
+): string {
+  const color = useColor(options);
+  if (!color) return stripAnsi(source);
+  if (
+    !/^(?:js|jsx|ts|tsx|javascript|typescript|json|sh|bash)$/iu.test(language)
+  ) {
+    return stripAnsi(source);
+  }
+  return stripAnsi(source)
+    .replace(
+      /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/gu,
+      `${ANSI.green}$1${ANSI.reset}`,
+    )
+    .replace(
+      /\b(const|let|var|function|class|return|if|else|import|export|async|await)\b/gu,
+      `${ANSI.cyan}$1${ANSI.reset}`,
+    )
+    .replace(/(\/\/.*)$/gmu, `${ANSI.dim}$1${ANSI.reset}`);
+}
+
+function renderMarkdownLine(line: string, color: boolean): string {
+  const heading = /^(#{1,6})\s+(.*)$/u.exec(line);
+  if (heading !== null) return paint(heading[2] ?? "", ANSI.bold, color);
+  return stripAnsi(line)
+    .replace(/`([^`]+)`/gu, (_, code: string) => paint(code, ANSI.cyan, color))
+    .replace(/\*\*([^*]+)\*\*/gu, (_, text: string) =>
+      paint(text, ANSI.bold, color),
+    );
+}
+
+export class MarkdownStream {
+  readonly #write: (text: string) => void;
+  readonly #color: boolean;
+  #buffer = "";
+  #language: string | undefined;
+
+  constructor(
+    output: Pick<Writable, "write"> | ((text: string) => void),
+    options: RenderOptions = {},
+  ) {
+    this.#write =
+      typeof output === "function" ? output : (text) => void output.write(text);
+    this.#color = useColor(options);
+  }
+
+  write(chunk: string): void {
+    this.#buffer += chunk;
+    let newline = this.#buffer.indexOf("\n");
+    while (newline >= 0) {
+      this.#line(this.#buffer.slice(0, newline));
+      this.#buffer = this.#buffer.slice(newline + 1);
+      newline = this.#buffer.indexOf("\n");
+    }
+  }
+
+  end(): void {
+    if (this.#buffer !== "") this.#line(this.#buffer, false);
+    this.#buffer = "";
+  }
+
+  #line(line: string, newline = true): void {
+    const fence = /^```\s*([^\s`]*)/u.exec(line);
+    if (fence !== null) {
+      this.#language =
+        this.#language === undefined ? (fence[1] ?? "") : undefined;
+      return;
+    }
+    const rendered =
+      this.#language === undefined
+        ? renderMarkdownLine(line, this.#color)
+        : highlightSyntax(line, this.#language, { color: this.#color });
+    this.#write(`${rendered}${newline ? "\n" : ""}`);
+  }
+}
+
+export function renderDiff(diff: string, options: RenderOptions = {}): string {
+  const color = useColor(options);
+  return stripAnsi(diff)
+    .split("\n")
+    .map((line) => {
+      if (line.startsWith("+++") || line.startsWith("---"))
+        return paint(line, ANSI.bold, color);
+      if (line.startsWith("+")) return paint(line, ANSI.green, color);
+      if (line.startsWith("-")) return paint(line, ANSI.red, color);
+      if (line.startsWith("@@")) return paint(line, ANSI.cyan, color);
+      return line;
+    })
+    .join("\n");
+}

@@ -41,3 +41,14 @@ The editor is selected by `--editor`, then `VISUAL`, then `EDITOR`, with a
 platform default. Patch splits the configured command into argv without a shell,
 adds a private temporary Markdown file, waits for a successful exit, reads the
 result, and removes the temporary directory even after failure.
+
+## Markdown, syntax, and diffs
+
+`MarkdownStream` buffers only incomplete lines, so provider chunks can be
+rendered incrementally without breaking Markdown fences. Headings, emphasis,
+inline code, and fenced JavaScript, TypeScript, JSON, and shell source receive
+lightweight ANSI styling. `renderDiff` distinguishes headers, hunks, additions,
+and deletions. Both renderers strip control sequences from untrusted content.
+
+Color is enabled only for a TTY. `--no-color`, a `NO_COLOR` environment value,
+or an explicit adapter option disables all ANSI output while preserving text.
