@@ -369,7 +369,7 @@ async function nearestExistingDirectory(path: string): Promise<string> {
   }
 }
 
-async function discoverSelectedRoot(
+export async function discoverCommonGitRoot(
   files: readonly string[],
   cwd: string,
 ): Promise<string | undefined> {
@@ -503,7 +503,7 @@ export async function bootstrapConfiguration(
 
   let selectedRoot = first.rootForSearch;
   if (first.arguments.git && first.arguments.files.length > 0) {
-    selectedRoot = await discoverSelectedRoot(first.arguments.files, cwd);
+    selectedRoot = await discoverCommonGitRoot(first.arguments.files, cwd);
   }
 
   const rootCorrected =

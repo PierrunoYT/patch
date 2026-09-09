@@ -11,6 +11,7 @@ import {
   BootstrapArgumentError,
   ConfigurationFileError,
   RepositorySelectionError,
+  discoverCommonGitRoot,
 } from "../src/index.js";
 
 const executeFile = promisify(execFile);
@@ -373,5 +374,33 @@ describe("bootstrapConfiguration", () => {
     await expect(
       bootstrapConfiguration({ cwd: repository, home, environment: {} }),
     ).rejects.toBeInstanceOf(ConfigurationFileError);
+  });
+});
+
+describe("discoverCommonGitRoot", () => {
+  it("finds one worktree for existing and not-yet-created selected paths", async () => {
+    const repository = await temporaryDirectory();
+    await initializeRepository(repository);
+    await mkdir(join(repository, "src"));
+    await writeFile(join(repository, "src", "existing.ts"), "");
+
+    await expect(
+      discoverCommonGitRoot(
+        ["src/existing.ts", "src/future/new.ts"],
+        repository,
+      ),
+    ).resolves.toBe(repository);
+  });
+
+  it("rejects a selection split across independent worktrees", async () => {
+    const parent = await temporaryDirectory();
+    const first = join(parent, "first");
+    const second = join(parent, "second");
+    await initializeRepository(first);
+    await initializeRepository(second);
+
+    await expect(
+      discoverCommonGitRoot([first, second], parent),
+    ).rejects.toBeInstanceOf(RepositorySelectionError);
   });
 });

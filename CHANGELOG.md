@@ -90,6 +90,8 @@ The project has not published a release yet.
   pricing instead of misleading zero-cost estimates.
 - A documented provider compatibility table and strict live-provider factory
   that rejects unsupported providers before network access.
+- Canonical common-Git-worktree discovery for existing and future selected
+  paths, with mixed-repository selections rejected.
 
 ### Changed
 
