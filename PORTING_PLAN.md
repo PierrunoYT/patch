@@ -410,7 +410,7 @@ formats cannot leak incompatible protocol examples into subsequent prompts.
 - [x] Add multiline input, Emacs/Vi bindings, and external-editor support.
 - [x] Add markdown streaming, syntax highlighting, diff previews, and no-color
   behavior.
-- [ ] Add optional `node-pty` execution for interactive commands and verify
+- [x] Add optional `node-pty` execution for interactive commands and verify
   control-sequence sanitization.
 - [ ] Add shell completions, notifications, and clipboard text; keep native or
   image clipboard features optional.

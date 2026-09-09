@@ -148,6 +148,9 @@ The project has not published a release yet.
 - Incremental Markdown rendering, lightweight fenced-code syntax highlighting,
   colored diff previews, hostile escape stripping, and TTY/`NO_COLOR`/CLI
   no-color behavior without a rendering dependency.
+- Optional native `node-pty` interactive execution with argv commands, resize,
+  Ctrl-C, EOF, cancellation cleanup, and stateful child control-sequence
+  sanitization while preserving a portable default installation.
 
 ### Changed
 

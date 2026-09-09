@@ -52,3 +52,17 @@ and deletions. Both renderers strip control sequences from untrusted content.
 
 Color is enabled only for a TTY. `--no-color`, a `NO_COLOR` environment value,
 or an explicit adapter option disables all ANSI output while preserving text.
+
+## Optional interactive PTY
+
+`runPtyCommand` loads `node-pty` only when interactive execution is requested.
+The native package is an optional dependency, so failure to build or install it
+does not prevent the default CLI from installing; attempting PTY execution then
+returns a focused `PtyUnavailableError`. Commands use executable-plus-argv input
+and a canonical working directory.
+
+The PTY input contract supports data (including multiline text), Ctrl-C, EOF,
+and resize events. Abort kills the child and listeners are disposed at exit.
+Child output passes through a stateful sanitizer before streaming or capture;
+CSI, OSC, DCS, SOS, PM, APC, C0, and split control sequences cannot alter the
+parent terminal.
