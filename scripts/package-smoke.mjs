@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -100,6 +100,30 @@ try {
   );
   if (repoMap !== "repository-map-ok") {
     throw new Error("The packed repository-map resources could not be used");
+  }
+
+  const voice = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      "import('@pierrunoyt/patch/voice').then(({ VoiceInput }) => process.stdout.write(VoiceInput.name));",
+    ],
+    { cwd: consumerDirectory, encoding: "utf8" },
+  );
+  if (voice !== "VoiceInput") {
+    throw new Error("The optional packed voice entry point could not load");
+  }
+  for (const optionalPackage of [
+    "playwright",
+    "naudiodon",
+    "node-record-lpcm16",
+  ]) {
+    if (existsSync(join(consumerDirectory, "node_modules", optionalPackage))) {
+      throw new Error(
+        `Default install unexpectedly included ${optionalPackage}`,
+      );
+    }
   }
 
   process.stdout.write(help);

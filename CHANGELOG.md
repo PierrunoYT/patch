@@ -161,6 +161,8 @@ The project has not published a release yet.
   bounded reads, debounce, cancellation, and serialized session submission.
 - A loopback-only authenticated HTTP/SSE adapter over a shared application
   service, with constant-time bearer checks and per-principal/session isolation.
+- An optional voice-input package subpath with bounded temporary recordings,
+  cancellation, injected recorder/transcriber ports, and ffmpeg/OpenAI adapters.
 
 ### Changed
 

@@ -6,6 +6,16 @@
   "bin": {
     "patch": "dist/cli.js"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./voice": {
+      "types": "./dist/interfaces/voice.d.ts",
+      "import": "./dist/interfaces/voice.js"
+    }
+  },
   "files": [
     "dist",
     "assets/logo.svg",

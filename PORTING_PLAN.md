@@ -426,7 +426,7 @@ and hostile child control sequences.
   and serialized interaction with active model turns.
 - [x] Expose the same application service through a local authenticated web
   server and SSE/WebSocket events. Keep session state isolated per user/session.
-- [ ] Add voice recording/transcription only as an optional package because
+- [x] Add voice recording/transcription only as an optional package because
   native audio and ffmpeg complicate npm installation.
 
 **Exit:** optional features do not increase the install footprint or native
