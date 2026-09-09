@@ -128,6 +128,8 @@ The project has not published a release yet.
   parser and matcher.
 - Fenced unified-diff parsing and pure hunk application with distinct missing
   and non-unique context diagnostics.
+- Typed patch add, delete, update, and move actions with exact, trailing-space,
+  and surrounding-space fuzz accounting.
 
 ### Changed
 

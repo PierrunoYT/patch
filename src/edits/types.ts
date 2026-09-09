@@ -76,6 +76,7 @@ export const EditBatchSchema = z
   .object({
     edits: z.array(EditSchema),
     shellCommands: z.array(z.string().min(1)).default([]),
+    fuzz: z.number().int().nonnegative().optional(),
   })
   .strict();
 

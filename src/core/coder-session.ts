@@ -90,6 +90,7 @@ export interface RetryPolicy {
 
 export interface RunTurnOptions {
   readonly prompt?: TurnPrompt;
+  readonly snapshots?: readonly FileSnapshot[];
   readonly signal?: AbortSignal;
   readonly onEvent?: (event: CompletionEvent) => void;
   readonly checks?: ReflectionChecks;
@@ -321,17 +322,18 @@ export class CoderSession {
     return structuredClone(this.#state);
   }
 
-  parseResponse(response: string): EditBatch {
+  parseResponse(response: string, files?: readonly FileSnapshot[]): EditBatch {
     return EditBatchSchema.parse(
       this.strategy.parse(response, {
         editablePaths: this.#state.editablePaths,
         fence: this.fence,
+        ...(files === undefined ? {} : { files }),
       }),
     );
   }
 
   resolveResponse(response: string, snapshots: readonly FileSnapshot[]) {
-    return resolveEditBatch(this.parseResponse(response), snapshots);
+    return resolveEditBatch(this.parseResponse(response, snapshots), snapshots);
   }
 
   async stageResponse(
@@ -339,7 +341,7 @@ export class CoderSession {
     snapshots: readonly FileSnapshot[],
     files: FileSystemAdapter,
   ): Promise<EditTransaction> {
-    const parsed = this.parseResponse(response);
+    const parsed = this.parseResponse(response, snapshots);
     await this.#approveEditPaths(parsed);
     return EditTransaction.stage(files, resolveEditBatch(parsed, snapshots));
   }
@@ -441,11 +443,12 @@ export class CoderSession {
     response: string,
     reasoning = "",
     reflectedMessages: readonly ChatMessage[] = [],
+    snapshots?: readonly FileSnapshot[],
   ): EditBatch {
     if (this.#activeTurn?.id !== turn.id) {
       throw new Error("Cannot finalize an inactive session turn");
     }
-    const parsed = this.parseResponse(response);
+    const parsed = this.parseResponse(response, snapshots);
     const assistantMessage = ChatMessageSchema.parse({
       role: "assistant",
       content: response,
@@ -591,7 +594,7 @@ export class CoderSession {
         let source: "malformed" | "lint" | "test" | undefined;
         let diagnostic: string | undefined;
         try {
-          edits = this.parseResponse(response);
+          edits = this.parseResponse(response, options.snapshots);
         } catch (error) {
           source = "malformed";
           diagnostic = errorText(error);
@@ -614,6 +617,7 @@ export class CoderSession {
             response,
             reasoning,
             reflectedMessages,
+            options.snapshots,
           );
           return {
             response,

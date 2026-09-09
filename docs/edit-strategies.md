@@ -61,6 +61,18 @@ prefixes, and ignores hunks without a change. Resolution uses exact contiguous
 context and reports `UnifiedDiffNoMatchError` separately from
 `UnifiedDiffNotUniqueError`; ambiguous context is never applied.
 
+## Patch actions
+
+`PatchEditStrategy` parses typed `Add File`, `Delete File`, `Update File`, and
+`Move to` actions. Update context is matched exactly first, then by trailing
+whitespace (fuzz 1), then surrounding whitespace (fuzz 100); the batch reports
+the accumulated fuzz. Parsing computes complete rewrite or move content from
+explicit snapshots, while the existing resolver and transaction retain
+all-or-nothing validation and contained writes.
+Patch session turns therefore require `RunTurnOptions.snapshots` when updates or
+moves are possible. `*** End of File` prefers context at the actual end and
+adds the upstream 10,000 fuzz penalty when it must fall back elsewhere.
+
 ## Dry-run resolution
 
 `resolveEditBatch` evaluates a complete parsed batch against caller-supplied

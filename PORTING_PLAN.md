@@ -393,7 +393,7 @@ within token budgets on Linux, macOS, and Windows.
 
 - [x] Port fenced diff as a prompt variant over SEARCH/REPLACE.
 - [x] Port unified diff with no-match versus non-unique-match diagnostics.
-- [ ] Port patch add/delete/update/move actions and fuzz accounting.
+- [x] Port patch add/delete/update/move actions and fuzz accounting.
 - [ ] Port architect/editor handoff with explicit user acceptance.
 - [ ] Port context mode's repeated file selection with a bounded convergence
   loop.
