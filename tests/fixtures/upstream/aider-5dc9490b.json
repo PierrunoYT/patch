@@ -124,6 +124,21 @@
     "configFiles": "cwd-model",
     "environment": "environment-model"
   },
+  "editFormats": [
+    "architect",
+    "ask",
+    "context",
+    "diff",
+    "diff-fenced",
+    "editor-diff",
+    "editor-diff-fenced",
+    "editor-whole",
+    "help",
+    "patch",
+    "udiff",
+    "udiff-simple",
+    "whole"
+  ],
   "gitDiff": "diff --git a/staged.txt b/staged.txt\nindex 5c04105..07d44e5 100644\n--- a/staged.txt\n+++ b/staged.txt\n@@ -1 +1 @@\n-base staged\n+staged change\ndiff --git a/working.txt b/working.txt\nindex 5d1f1c6..dc42955 100644\n--- a/working.txt\n+++ b/working.txt\n@@ -1 +1 @@\n-base working\n+working change",
   "repoMap": "\ndefinitions.py:\n\u2502def greet(name):\n\u22ee\n\nusage.py\n",
   "schemaVersion": 1,
@@ -149,6 +164,7 @@
   "sources": {
     "chatChunks": "aider/coders/chat_chunks.py:5-64",
     "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",
+    "editFormats": "aider/coders/__init__.py:1-34",
     "gitDiff": "aider/repo.py:375-417",
     "repoMap": "aider/repomap.py:266-784",
     "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590"

@@ -199,6 +199,7 @@ def main():
     os.environ["AIDER_ANALYTICS"] = "false"
     sys.path.insert(0, str(checkout))
 
+    from aider import coders
     from aider.args import get_parser
     from aider.coders import editblock_coder
     from aider.coders.chat_chunks import ChatChunks
@@ -213,12 +214,18 @@ def main():
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",
             "chatChunks": "aider/coders/chat_chunks.py:5-64",
+            "editFormats": "aider/coders/__init__.py:1-34",
             "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590",
             "gitDiff": "aider/repo.py:375-417",
             "repoMap": "aider/repomap.py:266-784",
         },
         "configPrecedence": export_config_precedence(get_parser),
         "chatChunks": export_chat_chunks(ChatChunks),
+        "editFormats": sorted(
+            coder.edit_format
+            for coder in coders.__all__
+            if getattr(coder, "edit_format", None) is not None
+        ),
         "searchReplace": export_search_replace(editblock_coder),
         "gitDiff": export_git_diff(InputOutput, GitRepo),
         "repoMap": export_repo_map(InputOutput, Model, RepoMap),

@@ -8,6 +8,7 @@ The exporter currently captures:
 
 - config file, environment, and CLI precedence;
 - message chunk ordering and prompt-cache boundaries;
+- the registered edit-format list;
 - SEARCH/REPLACE parsing, errors, exact edits, indentation handling, and
   `...` elision;
 - staged and unstaged Git diff behavior; and

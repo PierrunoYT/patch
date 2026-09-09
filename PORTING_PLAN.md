@@ -259,7 +259,7 @@ packed tarball from a clean temporary project.
 - [x] Build an upstream fixture exporter outside the shipped package. Capture
   normalized outputs from pinned aider for config precedence, prompt chunks,
   edit parsing/application, Git state, and repository maps.
-- [ ] Define schemas for messages, provider events, edits, repository results,
+- [x] Define schemas for messages, provider events, edits, repository results,
   command effects, model settings, and session state.
 - [ ] Add a deterministic fake provider that can stream text, reasoning,
   fragmented tool calls, usage, retryable errors, truncation, and cancellation.
@@ -511,7 +511,7 @@ slice should be:
 
 1. [x] package/build/test/legal foundation;
 2. safe text-file and path adapters;
-3. provider-neutral message and edit types;
+3. [x] provider-neutral message and edit types;
 4. SEARCH/REPLACE parser and applicator;
 5. golden fixtures from upstream `test_editblock.py`; and
 6. a tiny CLI that applies a saved model response in `--dry-run` mode.

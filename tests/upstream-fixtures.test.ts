@@ -3,12 +3,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import upstream from "../upstream.json" with { type: "json" };
+import { EditFormatSchema } from "../src/index.js";
 
 interface UpstreamFixture {
   schemaVersion: number;
   upstream: { repository: string; commit: string };
   configPrecedence: Record<string, string>;
   chatChunks: { order: string[] };
+  editFormats: string[];
   searchReplace: { parsed: unknown[]; replacements: Record<string, string> };
   gitDiff: string;
   repoMap: string;
@@ -49,6 +51,7 @@ describe("upstream compatibility fixtures", () => {
       "cur",
       "reminder",
     ]);
+    expect([...EditFormatSchema.options].sort()).toEqual(fixture.editFormats);
     expect(fixture.searchReplace.parsed).toHaveLength(2);
     expect(fixture.searchReplace.replacements.exact).toContain("new value");
     expect(fixture.gitDiff).toContain("staged change");

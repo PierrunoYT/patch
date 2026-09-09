@@ -25,6 +25,9 @@ The project has not published a release yet.
 - A deterministic, revision-checked upstream fixture exporter covering config
   precedence, message chunks, SEARCH/REPLACE behavior, Git diffs, and repository
   maps without adding Python to the runtime package.
+- Strict runtime schemas and inferred TypeScript contracts for messages,
+  provider streams, edits, repositories, commands, model settings, and session
+  state.
 
 ### Changed
 
