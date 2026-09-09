@@ -80,6 +80,8 @@ The project has not published a release yet.
   including custom endpoints, usage, finish reasons, and classified failures.
 - Anthropic Messages streaming with system-message separation, ephemeral cache
   controls, multimodal blocks, thinking, tools, usage, and stop-reason mapping.
+- Non-recursive main, weak, and editor model selection with explicit role and
+  editor-format overrides.
 
 ### Changed
 

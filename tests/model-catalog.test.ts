@@ -31,9 +31,11 @@ describe("ModelCatalog", () => {
     const catalog = await ModelCatalog.load();
 
     expect(catalog.list()).toEqual([
+      "claude-haiku-4-5",
       "claude-sonnet-4-6",
       "deepseek/deepseek-chat",
       "gpt-4o",
+      "gpt-4o-mini",
     ]);
     expect(catalog.resolve("4o")).toMatchObject({
       requestedName: "4o",

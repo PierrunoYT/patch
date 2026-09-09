@@ -18,6 +18,7 @@ export * from "./io/safe-path.js";
 export * from "./input.js";
 export * from "./models/catalog.js";
 export * from "./models/settings.js";
+export * from "./models/selection.js";
 export * from "./providers/events.js";
 export * from "./providers/anthropic.js";
 export * from "./providers/fake.js";

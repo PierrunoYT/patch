@@ -12,6 +12,15 @@
     systemRole: true
     tools: true
 
+- name: gpt-4o-mini
+  provider: openai
+  editFormat: diff
+  useRepoMap: true
+  capabilities:
+    streaming: true
+    systemRole: true
+    tools: true
+
 - name: claude-sonnet-4-6
   provider: anthropic
   editFormat: diff
@@ -26,6 +35,17 @@
     tools: true
     images: true
     documents: true
+    promptCaching: true
+
+- name: claude-haiku-4-5
+  provider: anthropic
+  editFormat: diff
+  useRepoMap: true
+  capabilities:
+    streaming: true
+    systemRole: true
+    tools: true
+    images: true
     promptCaching: true
 
 - name: deepseek/deepseek-chat

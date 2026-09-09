@@ -1,8 +1,9 @@
 # Model catalog
 
 Patch packages a small, provider-neutral model catalog under `src/resources/`.
-The initial entries are `gpt-4o`, `claude-sonnet-4-6`, and
-`deepseek/deepseek-chat`, with the aliases `4o`, `sonnet`, and `deepseek`.
+The initial entries are `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`,
+`claude-haiku-4-5`, and `deepseek/deepseek-chat`, with the aliases `4o`,
+`sonnet`, and `deepseek`.
 
 The aliases and selection behavior are adapted from
 [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L98-L125),
@@ -29,3 +30,10 @@ The build copies these runtime resources into `dist/resources`, and the package
 smoke test loads the catalog from a clean tarball installation. This initial
 catalog is intentionally narrow: provider expansion should add tested settings
 rather than importing aider's LiteLLM-specific catalog wholesale.
+
+`selectModels` resolves the main model first and then resolves weak and editor
+roles independently. A missing, disabled, or same-name secondary role reuses
+the main object. This avoids recursively constructing each secondary model's
+own secondary models. Explicit role names and editor edit formats override the
+main model's defaults; standard editor formats otherwise receive aider's
+`editor-` prefix.
