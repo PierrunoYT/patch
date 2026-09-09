@@ -136,6 +136,9 @@ The project has not published a release yet.
   iteration bound, and cancellation through deterministic provider turns.
 - Capability-gated prompt cache boundaries and bounded keepalive, assistant
   prefill continuation, and read-only image/PDF context composition.
+- Deterministic, terminal-library-neutral command, repository-file, and Unicode
+  identifier completion with command-aware candidates and quiet short-prefix
+  behavior.
 
 ### Changed
 

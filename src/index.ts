@@ -29,6 +29,7 @@ export * from "./edits/unified-diff.js";
 export * from "./edits/whole-file.js";
 export * from "./edits/write-boundary.js";
 export * from "./io/filesystem.js";
+export * from "./io/completion.js";
 export * from "./io/safe-path.js";
 export * from "./input.js";
 export * from "./models/catalog.js";

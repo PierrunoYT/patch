@@ -405,7 +405,7 @@ formats cannot leak incompatible protocol examples into subsequent prompts.
 
 ### Phase 8 — Rich terminal parity
 
-- [ ] Add command, file, and identifier completion.
+- [x] Add command, file, and identifier completion.
 - [ ] Add persistent input/chat history with explicit paths and privacy notes.
 - [ ] Add multiline input, Emacs/Vi bindings, and external-editor support.
 - [ ] Add markdown streaming, syntax highlighting, diff previews, and no-color
