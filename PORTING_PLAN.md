@@ -309,7 +309,7 @@ or a documented, safer rejection.
 
 ### Phase 3 — Conversation engine
 
-- [ ] Implement `CoderSession` using an injected `EditStrategy` rather than a
+- [x] Implement `CoderSession` using an injected `EditStrategy` rather than a
   subclass per complete session.
 - [ ] Implement per-turn initialization, prompt composition, token-budget
   checks, response assembly, and history transitions.

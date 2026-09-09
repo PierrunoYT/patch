@@ -29,7 +29,9 @@ boundaries are pinned to upstream behavior. Staged
 provisional Git root, searches config and dotenv paths, and corrects the root
 from selected files. A validated, packaged [model catalog](docs/model-catalog.md)
 provides the first provider-neutral aliases, settings, and metadata. There is no
-published package or stable interface.
+published package or stable interface. The initial
+[coder session](docs/coder-session.md) composes injected providers and edit
+strategies through dry-run resolution and transactional staging.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

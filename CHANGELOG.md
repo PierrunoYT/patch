@@ -63,6 +63,8 @@ The project has not published a release yet.
   result before authorization or writes, then revalidates before commit.
 - Property-based edit-engine coverage for malformed fences, repeated matches,
   empty files, Unicode, CRLF, duplicate filenames, and traversal attempts.
+- An initial `CoderSession` that composes injected provider and edit-strategy
+  contracts through validated parsing, dry-run resolution, and edit staging.
 
 ### Changed
 
