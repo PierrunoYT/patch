@@ -28,6 +28,9 @@ The project has not published a release yet.
 - Strict runtime schemas and inferred TypeScript contracts for messages,
   provider streams, edits, repositories, commands, model settings, and session
   state.
+- A validated, deterministic fake provider for testing streamed text,
+  reasoning, fragmented tool calls, usage, errors, truncation, retries, and
+  cancellation without network access.
 
 ### Changed
 

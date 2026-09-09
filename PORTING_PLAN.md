@@ -261,7 +261,7 @@ packed tarball from a clean temporary project.
   edit parsing/application, Git state, and repository maps.
 - [x] Define schemas for messages, provider events, edits, repository results,
   command effects, model settings, and session state.
-- [ ] Add a deterministic fake provider that can stream text, reasoning,
+- [x] Add a deterministic fake provider that can stream text, reasoning,
   fragmented tool calls, usage, retryable errors, truncation, and cancellation.
 
 **Exit:** `npm ci`, typecheck, tests, build, pack, clean-install, and `patch

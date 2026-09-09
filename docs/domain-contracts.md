@@ -45,3 +45,21 @@ Provider adapters must translate their SDK-specific structures into these
 events and retain unrecognized error details only in the optional `raw` field.
 The session core should consume the normalized union and must not import a
 provider SDK.
+
+## Deterministic provider testing
+
+`FakeProvider` is a development and test adapter for exercising consumers of
+the provider contract without network access. Its constructor validates an
+ordered script of turns, and each `stream()` call consumes exactly one turn and
+records the validated request. A turn can contain any provider event plus
+nonnegative millisecond delays. This supports exact scripts for text and
+reasoning deltas, fragmented tool calls, usage accounting, retryable error
+events, and length-limit finishes. Multiple turns let orchestration tests model
+a failed request followed by a retry.
+
+An aborted request ends with a normalized `finish` event whose reason is
+`cancelled`; remaining actions in that turn are not emitted. Requesting more
+turns than the script contains throws a descriptive error so an unexpected
+model call cannot pass silently. The fake performs no retries or provider I/O
+itself—those remain responsibilities of the session core and production
+provider adapters.
