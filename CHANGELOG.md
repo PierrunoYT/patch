@@ -75,6 +75,7 @@ The project has not published a release yet.
   before they can enter a session or staged edit transaction.
 - Atomic model/provider/strategy switching with state transfer and removal or
   summarization of history that uses an incompatible edit format.
+- CLI one-shot `--message`, `--message-file`, and serial interactive line input.
 
 ### Changed
 

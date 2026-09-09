@@ -321,7 +321,7 @@ or a documented, safer rejection.
   editing unselected files.
 - [x] Implement strategy/model switching with state transfer. Summarize or
   clear incompatible assistant protocol examples when the edit format changes.
-- [ ] Add one-shot `--message`, `--message-file`, and interactive line input.
+- [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
 **Exit:** a fake-provider end-to-end test completes a streamed multi-turn edit,
 handles one malformed response through reflection, and cancels without writing

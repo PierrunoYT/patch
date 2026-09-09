@@ -51,8 +51,9 @@ npm run check
 npm start -- --help
 ```
 
-The executable currently exposes help only. It does not edit files or call a
-model.
+The executable accepts `--message`, `--message-file`, or interactive line input.
+Provider configuration is still in progress, so submitting a message does not
+yet call a live model. See [input modes](docs/input-modes.md).
 
 ## Technology direction and references
 

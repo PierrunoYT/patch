@@ -15,6 +15,7 @@ export * from "./edits/types.js";
 export * from "./edits/whole-file.js";
 export * from "./io/filesystem.js";
 export * from "./io/safe-path.js";
+export * from "./input.js";
 export * from "./models/catalog.js";
 export * from "./models/settings.js";
 export * from "./providers/events.js";
