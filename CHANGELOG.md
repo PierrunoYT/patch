@@ -33,6 +33,9 @@ The project has not published a release yet.
   cancellation without network access.
 - Canonical, root-contained path resolution that rejects traversal, escaping
   symlinks, dangling symlinks, and out-of-root existing or missing targets.
+- Encoding-aware text reads and atomic writes with line-ending and byte-order
+  mark preservation, dry-run previews, permission retention, and containment
+  revalidation before replacement.
 
 ### Changed
 

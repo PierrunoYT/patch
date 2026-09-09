@@ -271,7 +271,7 @@ packed tarball from a clean temporary project.
 
 - [x] Implement safe path resolution that rejects writes outside the selected
   root after symlink resolution.
-- [ ] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
+- [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
 - [ ] Port prompt resources and fence selection.
 - [ ] Implement chat roles and the upstream chunk order: system, examples,

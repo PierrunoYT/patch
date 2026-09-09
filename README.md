@@ -19,9 +19,10 @@ linting, formatting, tests, automated CI, npm package smoke testing, a minimal
 `patch --help` executable, validated
 [domain contracts](docs/domain-contracts.md), a deterministic provider test
 harness, [safe path resolution](docs/filesystem-safety.md), and upstream license
-and revision metadata. Model connections, file editing, Git workflows, and
-interactive sessions have not been implemented yet. There is no published
-package or stable interface.
+and revision metadata. The filesystem adapter also provides validated text
+encoding, line-ending preservation, dry runs, and atomic replacement. Model
+connections, edit parsing, Git workflows, and interactive sessions have not
+been implemented yet. There is no published package or stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is
