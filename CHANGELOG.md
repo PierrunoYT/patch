@@ -52,6 +52,9 @@ The project has not published a release yet.
   emit file edits or shell commands.
 - Whole-file fenced-block parsing with upstream-compatible filename inference,
   reliability ordering, duplicate suppression, and trailing-newline behavior.
+- SEARCH/REPLACE parsing and pure application with shell-block separation,
+  exact and indentation-aware matching, paired elision, ambiguity rejection,
+  and contextual failure diagnostics.
 
 ### Changed
 

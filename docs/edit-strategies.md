@@ -29,3 +29,20 @@ The parser preserves the model's trailing-newline choice, accepts an unclosed
 final block like upstream, supports both symmetric backtick and distinct XML
 fences, and rejects unnamed blocks when more than one file is eligible. It only
 returns proposed rewrites and performs no filesystem access.
+
+## SEARCH/REPLACE
+
+`SearchReplaceEditStrategy` and `applySearchReplace` port the parser and active
+replacement paths from
+[`editblock_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/editblock_coder.py#L15-L217).
+The parser recognizes five-to-nine-character SEARCH markers, carries filenames
+between consecutive blocks, separates common shell fences, and returns proposed
+`replace` edits without reading or writing files. Malformed blocks include the
+parsed response prefix and expected marker in their error.
+
+The pure replacement function tries exact lines, uniform leading-whitespace
+normalization, a spurious leading blank line, and paired `...` elision in that
+order. It matches the pinned upstream fixture for each successful mode and
+adds one intentional safety rule: a SEARCH section matching multiple locations
+is rejected instead of silently changing the first one. Missing and ambiguous
+matches have distinct errors suitable for a later reflection loop.

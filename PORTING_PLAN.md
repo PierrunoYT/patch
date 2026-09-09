@@ -293,7 +293,7 @@ endings.
 - [x] Port `ask` as a no-write strategy.
 - [x] Port whole-file fenced blocks, including filename inference and trailing
   newline behavior.
-- [ ] Port SEARCH/REPLACE parsing, shell block separation, exact replacement,
+- [x] Port SEARCH/REPLACE parsing, shell block separation, exact replacement,
   leading-whitespace normalization, `...` elision, ambiguity detection, and
   failure diagnostics.
 - [ ] Add a dry-run resolution pass before authorization or writes.
