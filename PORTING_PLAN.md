@@ -277,7 +277,7 @@ packed tarball from a clean temporary project.
 - [x] Implement chat roles and the upstream chunk order: system, examples,
   read-only files, repository map, old history, editable files, current turn,
   reminder.
-- [ ] Implement provisional Git-root discovery, config search, preliminary CLI
+- [x] Implement provisional Git-root discovery, config search, preliminary CLI
   parse, dotenv loading, final parse, and true-root correction.
 - [ ] Specify and test precedence among defaults, home config, repository
   config, working-directory config, `.env`, environment, and CLI.

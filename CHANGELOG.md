@@ -40,6 +40,9 @@ The project has not published a release yet.
   compatibility fixtures for candidate order, collisions, and fallback.
 - Validated chat chunks with upstream-compatible role ordering, immutable cache
   marking, defensive output copies, and normalized provider cache boundaries.
+- Staged configuration bootstrap with Git CLI root discovery, ordered Patch
+  config and dotenv searches, strict final argument parsing, and one-pass root
+  correction for files selected from another repository.
 
 ### Changed
 

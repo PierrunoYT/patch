@@ -24,8 +24,10 @@ encoding, line-ending preservation, dry runs, and atomic replacement. Model
 connections, edit parsing, Git workflows, and interactive sessions have not
 been implemented yet. Shared [prompt resources and fence selection](docs/prompts.md)
 and typed chat composition with upstream-compatible ordering and cache
-boundaries are pinned to upstream behavior. There is no published package or
-stable interface.
+boundaries are pinned to upstream behavior. Staged
+[configuration bootstrap](docs/configuration-bootstrap.md) now discovers a
+provisional Git root, searches config and dotenv paths, and corrects the root
+from selected files. There is no published package or stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is
