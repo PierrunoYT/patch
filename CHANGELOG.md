@@ -76,6 +76,8 @@ The project has not published a release yet.
 - Atomic model/provider/strategy switching with state transfer and removal or
   summarization of history that uses an incompatible edit format.
 - CLI one-shot `--message`, `--message-file`, and serial interactive line input.
+- OpenAI-compatible Chat Completions streaming through the official npm client,
+  including custom endpoints, usage, finish reasons, and classified failures.
 
 ### Changed
 

@@ -53,7 +53,8 @@ npm start -- --help
 
 The executable accepts `--message`, `--message-file`, or interactive line input.
 Provider configuration is still in progress, so submitting a message does not
-yet call a live model. See [input modes](docs/input-modes.md).
+yet call a live model. The provider layer now includes an
+[OpenAI-compatible adapter](docs/providers.md). See [input modes](docs/input-modes.md).
 
 ## Technology direction and references
 

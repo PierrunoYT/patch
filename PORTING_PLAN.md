@@ -329,7 +329,7 @@ partial output.
 
 ### Phase 4 — Real model providers
 
-- [ ] Implement OpenAI Chat Completions-compatible streaming, custom base URL,
+- [x] Implement OpenAI Chat Completions-compatible streaming, custom base URL,
   API key, timeout, request options, usage, and finish reasons.
 - [ ] Implement Anthropic streaming and system/cache-control differences.
 - [ ] Implement main, weak, and editor model selection without recursive
