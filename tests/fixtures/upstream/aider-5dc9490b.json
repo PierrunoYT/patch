@@ -232,8 +232,70 @@
     "shellCmdReminder": "",
     "systemReminder": ""
   },
-  "repoMap": "\ndefinitions.py:\n\u2502def greet(name):\n\u22ee\n\nusage.py\n",
-  "schemaVersion": 3,
+  "repoMap": {
+    "normalizedMap": [
+      "definitions.py:",
+      "def greet(name):",
+      "def farewell(name):",
+      "usage.py"
+    ],
+    "rankOrder": [
+      "definitions.py:greet:0",
+      "definitions.py:farewell:3"
+    ],
+    "rendered": "\ndefinitions.py:\n\u2502def greet(name):\n\u22ee\n\u2502def farewell(name):\n\u22ee\n\nusage.py\n",
+    "tags": [
+      {
+        "kind": "definition",
+        "line": 0,
+        "name": "greet",
+        "path": "definitions.py"
+      },
+      {
+        "kind": "definition",
+        "line": 3,
+        "name": "farewell",
+        "path": "definitions.py"
+      },
+      {
+        "kind": "reference",
+        "line": 2,
+        "name": "greet",
+        "path": "usage.py"
+      },
+      {
+        "kind": "reference",
+        "line": 2,
+        "name": "print",
+        "path": "usage.py"
+      },
+      {
+        "kind": "reference",
+        "line": 3,
+        "name": "greet",
+        "path": "usage.py"
+      },
+      {
+        "kind": "reference",
+        "line": 3,
+        "name": "print",
+        "path": "usage.py"
+      },
+      {
+        "kind": "reference",
+        "line": 4,
+        "name": "farewell",
+        "path": "usage.py"
+      },
+      {
+        "kind": "reference",
+        "line": 4,
+        "name": "print",
+        "path": "usage.py"
+      }
+    ]
+  },
+  "schemaVersion": 4,
   "searchReplace": {
     "missingFilenameError": "<<<<<<< SEARCH\n\n^^^ Bad/missing filename. The filename must be alone on the line before the opening fence ```",
     "parsed": [

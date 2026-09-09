@@ -50,3 +50,10 @@ caches by chat/other file lists; `manual` retains the last map; and `auto`
 caches maps whose previous build exceeded one second, including mentions in its
 key. A forced refresh bypasses every rendered-map mode while retaining valid
 content-keyed tag entries.
+
+The pinned upstream fixture exporter records raw tags, ranked definitions, and
+both exact and normalized rendering for an asymmetric Python example. Patch
+compares tags and rank order exactly. Rendering removes only tree glyphs,
+elisions, and trailing whitespace before comparison because Patch's
+`TreeContextRenderer` is intentionally a TypeScript equivalent rather than a
+byte-for-byte port of `grep_ast` internals.

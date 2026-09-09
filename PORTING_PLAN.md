@@ -382,7 +382,7 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
   equivalent to `grep_ast.TreeContext`.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
-- [ ] Compare normalized map output and rank ordering against upstream fixtures.
+- [x] Compare normalized map output and rank ordering against upstream fixtures.
 - [ ] Add languages only with pinned grammar/query compatibility tests and npm
   package smoke coverage.
 

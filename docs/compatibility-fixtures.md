@@ -13,7 +13,8 @@ The exporter currently captures:
 - SEARCH/REPLACE parsing, errors, exact edits, indentation handling, and
   `...` elision;
 - staged and unstaged Git diff behavior; and
-- a small Python repository map.
+- a small Python repository map, including normalized tags, definition rank
+  order, and rendered context.
 
 ## Regenerating fixtures
 

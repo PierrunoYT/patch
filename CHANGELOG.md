@@ -120,6 +120,8 @@ The project has not published a release yet.
   long-line limits, and strict token-budget binary search.
 - Atomic mtime/size/content-keyed tag caches with corruption recovery and
   `manual`, `always`, `files`, and adaptive `auto` map refresh modes.
+- Pinned aider compatibility fixtures for repository-map tags, definition rank
+  order, normalized context rendering, and token ceilings.
 
 ### Changed
 

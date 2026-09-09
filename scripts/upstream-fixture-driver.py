@@ -228,10 +228,14 @@ def export_repo_map(InputOutput, Model, RepoMap):
         definitions = root / "definitions.py"
         usage = root / "usage.py"
         definitions.write_text(
-            'def greet(name):\n    return f"Hello {name}"\n', encoding="utf-8"
+            'def greet(name):\n    return f"Hello {name}"\n\n'
+            'def farewell(name):\n    return f"Goodbye {name}"\n',
+            encoding="utf-8",
         )
         usage.write_text(
-            'from definitions import greet\n\nprint(greet("Ada"))\n', encoding="utf-8"
+            'from definitions import farewell, greet\n\n'
+            'print(greet("Ada"))\nprint(greet("Grace"))\nprint(farewell("Linus"))\n',
+            encoding="utf-8",
         )
         repository_map = RepoMap(
             map_tokens=512,
@@ -240,7 +244,42 @@ def export_repo_map(InputOutput, Model, RepoMap):
             io=InputOutput(pretty=False, fancy_input=False),
             refresh="always",
         )
-        return repository_map.get_repo_map([], [str(definitions), str(usage)])
+        files = [str(definitions), str(usage)]
+
+        def normalize_tag(tag):
+            return {
+                "path": tag.rel_fname.replace(os.sep, "/"),
+                "line": tag.line,
+                "name": tag.name,
+                "kind": "definition" if tag.kind == "def" else "reference",
+            }
+
+        tags = []
+        for file in files:
+            tags.extend(
+                normalize_tag(tag)
+                for tag in repository_map.get_tags(file, Path(file).name)
+                if tag.line >= 0
+            )
+        tags = [dict(items) for items in sorted({tuple(sorted(tag.items())) for tag in tags})]
+        ranked = repository_map.get_ranked_tags([], files, set(), set())
+        rank_order = [
+            f"{tag.rel_fname.replace(os.sep, '/')}:{tag.name}:{tag.line}"
+            for tag in ranked
+            if hasattr(tag, "kind")
+        ]
+        rendered = repository_map.get_repo_map([], files)
+        normalized = [
+            line.removeprefix("│").rstrip()
+            for line in rendered.splitlines()
+            if line.strip() and line.strip() != "⋮"
+        ]
+        return {
+            "tags": tags,
+            "rankOrder": rank_order,
+            "rendered": rendered,
+            "normalizedMap": normalized,
+        }
 
 
 def main():
@@ -274,7 +313,7 @@ def main():
     from aider.repomap import RepoMap
 
     fixture = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "upstream": {"repository": remote, "commit": commit},
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",

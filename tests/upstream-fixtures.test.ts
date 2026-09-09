@@ -34,7 +34,12 @@ interface UpstreamFixture {
   editFormats: string[];
   searchReplace: { parsed: unknown[]; replacements: Record<string, string> };
   gitDiff: string;
-  repoMap: string;
+  repoMap: {
+    tags: unknown[];
+    rankOrder: string[];
+    rendered: string;
+    normalizedMap: string[];
+  };
 }
 
 const fixture = JSON.parse(
@@ -49,7 +54,7 @@ const fixture = JSON.parse(
 
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
-    expect(fixture.schemaVersion).toBe(3);
+    expect(fixture.schemaVersion).toBe(4);
     expect(fixture.upstream).toEqual({
       repository: upstream.repository,
       commit: upstream.commit,
@@ -77,7 +82,7 @@ describe("upstream compatibility fixtures", () => {
     expect(fixture.searchReplace.replacements.exact).toContain("new value");
     expect(fixture.gitDiff).toContain("staged change");
     expect(fixture.gitDiff).toContain("working change");
-    expect(fixture.repoMap).toContain("greet");
+    expect(fixture.repoMap.rendered).toContain("greet");
   });
 
   it("matches upstream common prompts exactly", () => {
