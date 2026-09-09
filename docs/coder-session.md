@@ -24,6 +24,13 @@ activated. `finalizeTurn` validates the complete response through the strategy
 before atomically adding the user and assistant messages to durable history;
 `abandonTurn` clears transient state without changing history.
 
-Provider streaming, retries, reflection, and cancellation remain separate
-Phase 3 tasks. The current token estimate is deliberately conservative and will
-be replaced by model-aware counters where providers expose reliable tokenizers.
+Reflection remains a separate Phase 3 task. The current token estimate is
+deliberately conservative and will be replaced by model-aware counters where
+providers expose reliable tokenizers.
+
+`runTurn` now consumes validated provider events, incrementally assembles text
+and reasoning, reports each event to an optional observer, and records usage.
+Classified retryable errors use bounded exponential backoff; context-window
+errors bypass retries. Cancellation, missing finish events, and output-limit
+truncation preserve diagnostic partial text but never append partial history or
+stage edits. Successful responses alone pass through `finalizeTurn`.

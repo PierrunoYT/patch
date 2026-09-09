@@ -7,9 +7,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   AskEditStrategy,
   CoderSession,
+  ContextWindowExceededError,
   FakeProvider,
   FileSystemAdapter,
   WholeFileEditStrategy,
+  TruncatedResponseError,
+  TurnCancelledError,
   type EditBatch,
   type EditStrategy,
 } from "../src/index.js";
@@ -227,5 +230,148 @@ describe("CoderSession", () => {
       partialResponse: "",
     });
     expect(() => session.finalizeTurn(turn, "late")).toThrow(/inactive/);
+  });
+
+  it("assembles streamed text and reasoning while retrying transient failures", async () => {
+    const root = await temporaryDirectory();
+    const delays: number[] = [];
+    const provider = new FakeProvider([
+      {
+        actions: [
+          {
+            type: "error",
+            kind: "rate-limit",
+            message: "slow down",
+            retryable: true,
+          },
+        ],
+      },
+      {
+        actions: [
+          { type: "reasoning-delta", text: "think" },
+          { type: "text-delta", text: "ans" },
+          { type: "text-delta", text: "wer" },
+          { type: "usage", inputTokens: 12, outputTokens: 3, cost: 0.25 },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider,
+      strategy: new AskEditStrategy(),
+      retry: {
+        initialDelayMs: 10,
+        sleep: async (milliseconds) => {
+          delays.push(milliseconds);
+        },
+      },
+    });
+    const observed: string[] = [];
+
+    const result = await session.runTurn("question", {
+      onEvent: (event) => observed.push(event.type),
+    });
+
+    expect(result).toMatchObject({ response: "answer", reasoning: "think" });
+    expect(delays).toEqual([10]);
+    expect(provider.requests).toHaveLength(2);
+    expect(observed).toEqual([
+      "error",
+      "reasoning-delta",
+      "text-delta",
+      "text-delta",
+      "usage",
+      "finish",
+    ]);
+    expect(session.snapshot()).toMatchObject({
+      phase: "waiting",
+      inputTokens: 12,
+      outputTokens: 3,
+      totalCost: 0.25,
+      messages: [
+        { role: "user", content: "question" },
+        { role: "assistant", content: "answer", reasoning: "think" },
+      ],
+    });
+  });
+
+  it("classifies context overflow and output truncation without adding history", async () => {
+    const root = await temporaryDirectory();
+    const overflow = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            {
+              type: "error",
+              kind: "context-window",
+              message: "too large",
+              retryable: false,
+            },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+    await expect(overflow.runTurn("question")).rejects.toBeInstanceOf(
+      ContextWindowExceededError,
+    );
+    expect(overflow.snapshot()).toMatchObject({
+      phase: "interrupted",
+      messages: [],
+    });
+
+    const truncated = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "partial" },
+            { type: "finish", reason: "length" },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+    await expect(truncated.runTurn("question")).rejects.toMatchObject({
+      constructor: TruncatedResponseError,
+      partialResponse: "partial",
+    });
+    expect(truncated.snapshot().messages).toEqual([]);
+  });
+
+  it("cancels a stream without finalizing partial output", async () => {
+    const root = await temporaryDirectory();
+    const controller = new AbortController();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "partial" },
+            { type: "delay", milliseconds: 1_000 },
+            { type: "text-delta", text: "forbidden" },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+
+    await expect(
+      session.runTurn("question", {
+        signal: controller.signal,
+        onEvent: (event) => {
+          if (event.type === "text-delta") {
+            controller.abort();
+          }
+        },
+      }),
+    ).rejects.toBeInstanceOf(TurnCancelledError);
+    expect(session.snapshot()).toMatchObject({
+      phase: "interrupted",
+      partialResponse: "partial",
+      messages: [],
+    });
   });
 });

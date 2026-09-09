@@ -67,6 +67,8 @@ The project has not published a release yet.
   contracts through validated parsing, dry-run resolution, and edit staging.
 - Session turn preparation and finalization with ordered prompt chunks,
   conservative token budgets, response validation, and atomic history updates.
+- Provider-event streaming with response/reasoning assembly, usage tracking,
+  bounded exponential retries, cancellation, context overflow, and truncation.
 
 ### Changed
 

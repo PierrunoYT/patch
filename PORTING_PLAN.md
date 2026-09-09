@@ -313,7 +313,7 @@ or a documented, safer rejection.
   subclass per complete session.
 - [x] Implement per-turn initialization, prompt composition, token-budget
   checks, response assembly, and history transitions.
-- [ ] Implement streaming events, exponential backoff for classified transient
+- [x] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.
 - [ ] Implement bounded reflection for malformed edits, lint failures, and test
   failures. Default to aider's maximum of three reflections.

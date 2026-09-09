@@ -11,7 +11,9 @@ import { EditTransaction } from "../edits/transaction.js";
 import { EditBatchSchema, type EditBatch } from "../edits/types.js";
 import type { FileSystemAdapter } from "../io/filesystem.js";
 import {
+  CompletionEventSchema,
   CompletionRequestSchema,
+  type CompletionEvent,
   type CompletionRequest,
   type ModelProvider,
 } from "../providers/events.js";
@@ -32,6 +34,7 @@ export interface CoderSessionOptions {
   readonly readOnlyPaths?: readonly string[];
   readonly messages?: readonly ChatMessage[];
   readonly fence?: readonly [string, string];
+  readonly retry?: Partial<RetryPolicy>;
 }
 
 export interface TurnPrompt {
@@ -50,6 +53,25 @@ export interface PreparedTurn {
   readonly inputTokens: number;
 }
 
+export interface RetryPolicy {
+  readonly maxAttempts: number;
+  readonly initialDelayMs: number;
+  readonly sleep: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+}
+
+export interface RunTurnOptions {
+  readonly prompt?: TurnPrompt;
+  readonly signal?: AbortSignal;
+  readonly onEvent?: (event: CompletionEvent) => void;
+}
+
+export interface CompletedTurn {
+  readonly response: string;
+  readonly reasoning: string;
+  readonly edits: EditBatch;
+  readonly events: readonly CompletionEvent[];
+}
+
 export class TokenBudgetExceededError extends Error {
   override readonly name = "TokenBudgetExceededError";
 
@@ -58,6 +80,61 @@ export class TokenBudgetExceededError extends Error {
       `Prompt needs about ${tokens} tokens but the model limit is ${maximum}`,
     );
   }
+}
+
+export class ProviderStreamError extends Error {
+  override readonly name: string = "ProviderStreamError";
+  readonly kind: string;
+
+  constructor(kind: string, message: string) {
+    super(message);
+    this.kind = kind;
+  }
+}
+
+export class ContextWindowExceededError extends ProviderStreamError {
+  override readonly name = "ContextWindowExceededError";
+
+  constructor(message: string) {
+    super("context-window", message);
+  }
+}
+
+export class TruncatedResponseError extends Error {
+  override readonly name = "TruncatedResponseError";
+  readonly partialResponse: string;
+
+  constructor(partialResponse: string) {
+    super("The provider stopped because the output token limit was reached");
+    this.partialResponse = partialResponse;
+  }
+}
+
+export class TurnCancelledError extends Error {
+  override readonly name = "TurnCancelledError";
+}
+
+function defaultSleep(
+  milliseconds: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(
+      new TurnCancelledError("The session turn was cancelled"),
+    );
+  }
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      signal?.removeEventListener("abort", cancel);
+      resolve();
+    };
+    const cancel = () => {
+      clearTimeout(timer);
+      reject(new TurnCancelledError("The session turn was cancelled"));
+    };
+    const timer = setTimeout(finish, milliseconds);
+    signal?.addEventListener("abort", cancel, { once: true });
+  });
 }
 
 function contentLength(message: ChatMessage): number {
@@ -88,6 +165,7 @@ export class CoderSession {
   readonly provider: ModelProvider;
   readonly strategy: EditStrategy;
   readonly fence: readonly [string, string];
+  readonly #retry: RetryPolicy;
   #state: SessionState;
   #nextTurnId = 1;
   #activeTurn: PreparedTurn | undefined;
@@ -97,6 +175,11 @@ export class CoderSession {
     this.provider = options.provider;
     this.strategy = options.strategy;
     this.fence = [...(options.fence ?? ["```", "```"])];
+    this.#retry = {
+      maxAttempts: options.retry?.maxAttempts ?? 3,
+      initialDelayMs: options.retry?.initialDelayMs ?? 125,
+      sleep: options.retry?.sleep ?? defaultSleep,
+    };
     this.#state = SessionStateSchema.parse({
       config: this.config,
       phase: "waiting",
@@ -192,7 +275,11 @@ export class CoderSession {
     return structuredClone(turn);
   }
 
-  finalizeTurn(turn: PreparedTurn, response: string): EditBatch {
+  finalizeTurn(
+    turn: PreparedTurn,
+    response: string,
+    reasoning = "",
+  ): EditBatch {
     if (this.#activeTurn?.id !== turn.id) {
       throw new Error("Cannot finalize an inactive session turn");
     }
@@ -200,6 +287,7 @@ export class CoderSession {
     const assistantMessage = ChatMessageSchema.parse({
       role: "assistant",
       content: response,
+      reasoning: reasoning === "" ? undefined : reasoning,
     });
     this.#state = SessionStateSchema.parse({
       ...this.#state,
@@ -223,5 +311,103 @@ export class CoderSession {
       pendingEdits: [],
       partialResponse: "",
     });
+  }
+
+  async runTurn(
+    userInput: string,
+    options: RunTurnOptions = {},
+  ): Promise<CompletedTurn> {
+    const turn = this.prepareTurn(userInput, options.prompt);
+    const events: CompletionEvent[] = [];
+    let delay = this.#retry.initialDelayMs;
+
+    try {
+      for (let attempt = 1; attempt <= this.#retry.maxAttempts; attempt += 1) {
+        let response = "";
+        let reasoning = "";
+        let retry = false;
+        let finished = false;
+
+        for await (const rawEvent of this.provider.stream(
+          turn.request,
+          options.signal,
+        )) {
+          const event = CompletionEventSchema.parse(rawEvent);
+          events.push(event);
+          options.onEvent?.(structuredClone(event));
+          switch (event.type) {
+            case "text-delta":
+              response += event.text;
+              this.#state = SessionStateSchema.parse({
+                ...this.#state,
+                partialResponse: response,
+              });
+              break;
+            case "reasoning-delta":
+              reasoning += event.text;
+              break;
+            case "usage":
+              this.#state = SessionStateSchema.parse({
+                ...this.#state,
+                inputTokens: event.inputTokens,
+                outputTokens: event.outputTokens,
+                totalCost: this.#state.totalCost + (event.cost ?? 0),
+              });
+              break;
+            case "error":
+              if (event.kind === "context-window") {
+                throw new ContextWindowExceededError(event.message);
+              }
+              if (event.retryable && attempt < this.#retry.maxAttempts) {
+                retry = true;
+                break;
+              }
+              throw new ProviderStreamError(event.kind, event.message);
+            case "finish":
+              finished = true;
+              if (event.reason === "cancelled" || options.signal?.aborted) {
+                throw new TurnCancelledError("The session turn was cancelled");
+              }
+              if (event.reason === "length") {
+                throw new TruncatedResponseError(response);
+              }
+              break;
+            case "tool-call-delta":
+              break;
+          }
+          if (retry || finished) {
+            break;
+          }
+        }
+
+        if (retry) {
+          this.#state = SessionStateSchema.parse({
+            ...this.#state,
+            partialResponse: "",
+            outputTokens: 0,
+          });
+          await this.#retry.sleep(delay, options.signal);
+          delay *= 2;
+          continue;
+        }
+        if (!finished) {
+          throw new ProviderStreamError(
+            "provider",
+            "The provider stream ended without a finish event",
+          );
+        }
+        const edits = this.finalizeTurn(turn, response, reasoning);
+        return { response, reasoning, edits, events };
+      }
+      throw new ProviderStreamError("provider", "Provider retries exhausted");
+    } catch (error) {
+      this.#activeTurn = undefined;
+      this.#state = SessionStateSchema.parse({
+        ...this.#state,
+        phase: "interrupted",
+        pendingEdits: [],
+      });
+      throw error;
+    }
   }
 }
