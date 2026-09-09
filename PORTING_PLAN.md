@@ -422,7 +422,7 @@ and hostile child control sequences.
 
 - [x] Add URL fetching with size limits, timeouts, content-type checks, and SSRF
   protection; make Playwright an optional enhancement.
-- [ ] Add `AI!`/`AI?` watch mode with ignore rules, file-size limits, debounce,
+- [x] Add `AI!`/`AI?` watch mode with ignore rules, file-size limits, debounce,
   and serialized interaction with active model turns.
 - [ ] Expose the same application service through a local authenticated web
   server and SSE/WebSocket events. Keep session state isolated per user/session.

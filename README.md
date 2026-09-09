@@ -50,7 +50,8 @@ See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 recorded using the documented
 [compatibility-fixture workflow](docs/compatibility-fixtures.md).
 Optional interfaces now include security-bounded [URL fetching](docs/url-fetching.md)
-without adding Playwright to the default installation.
+without adding Playwright to the default installation and serialized
+[AI comment watch mode](docs/watch-mode.md).
 
 Read [AGENTS.md](AGENTS.md) for repository guidance, including the requirement to
 create or update relevant documentation after every task or code change.

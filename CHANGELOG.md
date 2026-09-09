@@ -157,6 +157,8 @@ The project has not published a release yet.
 - DNS-pinned, redirect-revalidated URL fetching with SSRF protection, textual
   content checks, byte and time limits, cancellation, and dynamically loaded
   optional Playwright rendering.
+- Safe `AI!`/`AI?` file watching with built-in and repository ignore rules,
+  bounded reads, debounce, cancellation, and serialized session submission.
 
 ### Changed
 
