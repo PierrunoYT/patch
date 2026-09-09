@@ -2,8 +2,15 @@ import { Command } from "commander";
 
 import { runInput, type InputDependencies } from "./input.js";
 import { TerminalHistory } from "./io/history.js";
+import {
+  generateShellCompletion,
+  notifyUser,
+  type CompletionShell,
+} from "./io/integrations.js";
 
-export type ProgramDependencies = Partial<InputDependencies>;
+export type ProgramDependencies = Partial<InputDependencies> & {
+  readonly writeOutput?: (text: string) => void;
+};
 
 async function unavailableProvider(): Promise<never> {
   throw new Error("No model provider is configured");
@@ -27,6 +34,12 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .option("--vim", "use Vi input bindings instead of Emacs bindings")
     .option("--editor <command>", "external editor used by Ctrl-X Ctrl-E")
     .option("--no-color", "disable ANSI color and styling")
+    .option("--notifications", "notify when a response is ready")
+    .option("--notifications-command <command>", "argv notification command")
+    .option(
+      "--shell-completions <shell>",
+      "print bash, zsh, or fish completions",
+    )
     .showHelpAfterError()
     .action(
       async (options: {
@@ -38,7 +51,21 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         vim?: boolean;
         editor?: string;
         color?: boolean;
+        notifications?: boolean;
+        notificationsCommand?: string;
+        shellCompletions?: CompletionShell;
       }) => {
+        if (options.shellCompletions !== undefined) {
+          if (!["bash", "zsh", "fish"].includes(options.shellCompletions)) {
+            throw new Error(
+              `Unsupported completion shell: ${options.shellCompletions}`,
+            );
+          }
+          (dependencies.writeOutput ?? ((text) => process.stdout.write(text)))(
+            generateShellCompletion(options.shellCompletions),
+          );
+          return;
+        }
         const history = new TerminalHistory({
           ...(options.inputHistoryFile === undefined
             ? {}
@@ -48,7 +75,22 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             : { chat: options.chatHistoryFile }),
         });
         await runInput(options, {
-          handleMessage: dependencies.handleMessage ?? unavailableProvider,
+          handleMessage: async (message) => {
+            const response = await (
+              dependencies.handleMessage ?? unavailableProvider
+            )(message);
+            if (options.notifications === true) {
+              await notifyUser(
+                options.notificationsCommand === undefined
+                  ? {}
+                  : { command: options.notificationsCommand },
+                dependencies.writeOutput === undefined
+                  ? {}
+                  : { write: dependencies.writeOutput },
+              );
+            }
+            return response;
+          },
           ...(dependencies.lines === undefined
             ? {}
             : { lines: dependencies.lines }),

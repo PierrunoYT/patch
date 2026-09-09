@@ -32,6 +32,7 @@ export * from "./io/filesystem.js";
 export * from "./io/completion.js";
 export * from "./io/editor.js";
 export * from "./io/history.js";
+export * from "./io/integrations.js";
 export * from "./io/keybindings.js";
 export * from "./io/render.js";
 export * from "./io/safe-path.js";

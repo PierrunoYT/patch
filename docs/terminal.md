@@ -66,3 +66,17 @@ and resize events. Abort kills the child and listeners are disposed at exit.
 Child output passes through a stateful sanitizer before streaming or capture;
 CSI, OSC, DCS, SOS, PM, APC, C0, and split control sequences cannot alter the
 parent terminal.
+
+## Shells, notifications, and clipboard
+
+`patch --shell-completions bash|zsh|fish` prints a deterministic completion
+script without starting a session. `--notifications` rings the terminal bell
+after a response; `--notifications-command` replaces the bell with an explicit
+argv command and never invokes a shell.
+
+`/copy` and `/paste` represent text-only clipboard effects. The adapter uses
+`pbcopy`/`pbpaste`, `clip.exe`/PowerShell, `wl-copy`/`wl-paste`, or `xclip` when
+available. These native utilities are not npm dependencies and missing commands
+produce `ClipboardUnavailableError`. Image clipboard access and richer native
+notification APIs remain optional, unsupported enhancements; they do not affect
+the portable default installation.

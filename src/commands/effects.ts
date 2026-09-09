@@ -69,6 +69,8 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
     })
     .strict(),
   z.object({ type: z.literal("undo") }).strict(),
+  z.object({ type: z.literal("clipboard-copy") }).strict(),
+  z.object({ type: z.literal("clipboard-paste") }).strict(),
 ]);
 
 export type SessionConfigPatch = z.infer<typeof SessionConfigPatchSchema>;

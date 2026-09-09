@@ -91,8 +91,17 @@ export function parseCommand(input: string): CommandEffect {
     case "test":
     case "lint":
     case "undo":
+    case "copy":
+    case "paste":
       rejectArgument(command, argument);
-      effect = { type: command };
+      effect = {
+        type:
+          command === "copy"
+            ? "clipboard-copy"
+            : command === "paste"
+              ? "clipboard-paste"
+              : command,
+      };
       break;
     case "model":
       effect = { type: "model", model: requireArgument(command, argument) };

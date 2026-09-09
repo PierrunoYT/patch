@@ -60,6 +60,24 @@ describe("CLI", () => {
     expect(received).toEqual(["hello", "from task.txt"]);
   });
 
+  it("prints shell completions without starting an input session", async () => {
+    let output = "";
+    await createProgram({ writeOutput: (text) => (output += text) }).parseAsync(
+      ["--shell-completions", "bash"],
+      { from: "user" },
+    );
+    expect(output).toContain("complete -F _patch patch");
+  });
+
+  it("notifies after a completed response when explicitly enabled", async () => {
+    let output = "";
+    await createProgram({
+      handleMessage: () => "done",
+      writeOutput: (text) => (output += text),
+    }).parseAsync(["--message", "hello", "--notifications"], { from: "user" });
+    expect(output).toBe("\u0007");
+  });
+
   it("processes non-empty interactive lines serially until EOF", async () => {
     const received: string[] = [];
     const lines = (async function* () {

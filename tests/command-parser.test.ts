@@ -36,6 +36,12 @@ describe("parseCommand", () => {
     });
   });
 
+  it("parses text clipboard commands without native image behavior", () => {
+    expect(parseCommand("/copy")).toEqual({ type: "clipboard-copy" });
+    expect(parseCommand("/paste")).toEqual({ type: "clipboard-paste" });
+    expect(() => parseCommand("/copy now")).toThrow(/does not accept/u);
+  });
+
   it.each([
     "/add",
     "/read-only",

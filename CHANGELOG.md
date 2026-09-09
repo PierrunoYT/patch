@@ -151,6 +151,9 @@ The project has not published a release yet.
 - Optional native `node-pty` interactive execution with argv commands, resize,
   Ctrl-C, EOF, cancellation cleanup, and stateful child control-sequence
   sanitization while preserving a portable default installation.
+- Bash, Zsh, and Fish completion generation, opt-in bell or argv-command
+  notifications, and text-only clipboard commands backed by optional platform
+  utilities with image/native enhancements explicitly optional.
 
 ### Changed
 

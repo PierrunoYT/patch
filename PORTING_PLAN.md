@@ -412,7 +412,7 @@ formats cannot leak incompatible protocol examples into subsequent prompts.
   behavior.
 - [x] Add optional `node-pty` execution for interactive commands and verify
   control-sequence sanitization.
-- [ ] Add shell completions, notifications, and clipboard text; keep native or
+- [x] Add shell completions, notifications, and clipboard text; keep native or
   image clipboard features optional.
 
 **Exit:** PTY tests cover Ctrl-C, EOF, resize, multiline input, process cleanup,
