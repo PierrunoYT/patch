@@ -35,6 +35,15 @@ describe("UnifiedDiffEditStrategy", () => {
     ).toThrow(UnifiedDiffNotUniqueError);
   });
 
+  it("distinguishes whitespace-only lines from empty hunk sides", () => {
+    expect(applyUnifiedDiff("prefix\n \nsuffix\n", " \n", "", "a.ts")).toBe(
+      "prefix\nsuffix\n",
+    );
+    expect(applyUnifiedDiff("existing\n", "", "added\n", "a.ts")).toBe(
+      "existing\nadded\n",
+    );
+  });
+
   it("replaces every generated unique asymmetric hunk exactly", () => {
     fc.assert(
       fc.property(

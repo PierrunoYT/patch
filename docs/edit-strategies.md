@@ -59,7 +59,9 @@ examples without duplicating edit semantics.
 the most recent file header across hunks, strips conventional `a/` and `b/`
 prefixes, and ignores hunks without a change. Resolution uses exact contiguous
 context and reports `UnifiedDiffNoMatchError` separately from
-`UnifiedDiffNotUniqueError`; ambiguous context is never applied.
+`UnifiedDiffNotUniqueError`; ambiguous context is never applied. Empty hunk
+sides represent pure additions or deletions, while whitespace-only source lines
+remain exact match content rather than being mistaken for an empty side.
 
 ## Patch actions
 

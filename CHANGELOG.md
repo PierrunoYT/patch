@@ -164,6 +164,11 @@ The project has not published a release yet.
 - An optional voice-input package subpath with bounded temporary recordings,
   cancellation, injected recorder/transcriber ports, and ffmpeg/OpenAI adapters.
 
+### Fixed
+
+- Unified-diff application now distinguishes whitespace-only source lines from
+  empty hunk sides used by pure additions and deletions.
+
 ### Changed
 
 - Updated the project overview to link the porting plan and accurately describe

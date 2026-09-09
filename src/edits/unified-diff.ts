@@ -29,7 +29,10 @@ function beforeAfter(lines: readonly string[]): [string, string] {
     if (operation === " " || operation === "-") before.push(content);
     if (operation === " " || operation === "+") after.push(content);
   }
-  return [before.join("\n") + "\n", after.join("\n") + "\n"];
+  return [
+    before.length === 0 ? "" : `${before.join("\n")}\n`,
+    after.length === 0 ? "" : `${after.join("\n")}\n`,
+  ];
 }
 
 export function applyUnifiedDiff(
@@ -38,7 +41,7 @@ export function applyUnifiedDiff(
   after: string,
   path: string,
 ): string {
-  if (before.trim() === "") return content + after;
+  if (before === "") return content + after;
   const matches: number[] = [];
   for (
     let index = content.indexOf(before);
