@@ -12,12 +12,26 @@ import { dirname, join, parse, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { parse as parseDotenv } from "dotenv";
+import { parse as parseYaml } from "yaml";
+import { z } from "zod";
 
 import { TextEncodingSchema, type TextEncoding } from "../io/filesystem.js";
 
 const executeFile = promisify(execFile);
 const CONFIG_FILE_NAME = ".patch.conf.yml";
 const DOTENV_FILE_NAME = ".env";
+
+const ConfigurationFileSchema = z
+  .object({
+    model: z.string().min(1).optional(),
+    encoding: TextEncodingSchema.optional(),
+    git: z.boolean().optional(),
+    "env-file": z.string().min(1).optional(),
+    files: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+
+type ConfigurationFile = z.infer<typeof ConfigurationFileSchema>;
 
 export type BootstrapEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -75,6 +89,16 @@ export class BootstrapArgumentError extends Error {
 
 export class RepositorySelectionError extends Error {
   override readonly name = "RepositorySelectionError";
+}
+
+export class ConfigurationFileError extends Error {
+  override readonly name = "ConfigurationFileError";
+  readonly path: string;
+
+  constructor(path: string, cause: unknown) {
+    super(`Invalid configuration file: ${path}`, { cause });
+    this.path = path;
+  }
 }
 
 function optionValue(
@@ -191,9 +215,13 @@ function environmentBoolean(
 function resolveArguments(
   commandLine: ParsedCommandLine,
   environment: BootstrapEnvironment,
+  configuration: ConfigurationFile = {},
 ): BootstrapArguments {
   const encodingValue =
-    commandLine.encoding ?? environment.PATCH_ENCODING ?? "utf-8";
+    commandLine.encoding ??
+    environment.PATCH_ENCODING ??
+    configuration.encoding ??
+    "utf-8";
   const encoding = TextEncodingSchema.safeParse(encodingValue);
   if (!encoding.success) {
     throw new BootstrapArgumentError(
@@ -203,14 +231,21 @@ function resolveArguments(
 
   return {
     configFile: commandLine.configFile ?? environment.PATCH_CONFIG,
-    envFile: commandLine.envFile ?? environment.PATCH_ENV_FILE,
+    envFile:
+      commandLine.envFile ??
+      environment.PATCH_ENV_FILE ??
+      configuration["env-file"],
     encoding: encoding.data,
     git:
       commandLine.git ??
       environmentBoolean(environment.PATCH_GIT, "PATCH_GIT") ??
+      configuration.git ??
       true,
-    model: commandLine.model ?? environment.PATCH_MODEL,
-    files: [...commandLine.files],
+    model: commandLine.model ?? environment.PATCH_MODEL ?? configuration.model,
+    files:
+      commandLine.files.length > 0
+        ? [...commandLine.files]
+        : [...(configuration.files ?? [])],
   };
 }
 
@@ -262,6 +297,23 @@ async function existingFiles(paths: readonly string[]): Promise<string[]> {
     }
   }
   return existing;
+}
+
+async function loadConfigurationFiles(
+  paths: readonly string[],
+): Promise<ConfigurationFile> {
+  const merged: ConfigurationFile = {};
+  for (const path of paths) {
+    try {
+      const value = ConfigurationFileSchema.parse(
+        parseYaml(await readFile(path, "utf8")),
+      );
+      Object.assign(merged, value);
+    } catch (error) {
+      throw new ConfigurationFileError(path, error);
+    }
+  }
+  return merged;
 }
 
 async function canonicalDirectory(path: string): Promise<string> {
@@ -370,13 +422,14 @@ async function runBootstrapPass(
   suppliedRoot: string | undefined,
 ): Promise<BootstrapPass> {
   const preliminaryCommandLine = parseCommandLine(argv, true);
-  const preliminaryArguments = resolveArguments(
-    preliminaryCommandLine,
-    baseEnvironment,
-  );
   const rootForSearch = discoverFromCwd
     ? await discoverGitRoot(cwd)
     : suppliedRoot;
+
+  const bootstrapArguments = resolveArguments(
+    preliminaryCommandLine,
+    baseEnvironment,
+  );
 
   const configSearchPaths = await uniquePaths([
     join(home, CONFIG_FILE_NAME),
@@ -384,11 +437,17 @@ async function runBootstrapPass(
       ? undefined
       : join(rootForSearch, CONFIG_FILE_NAME),
     join(cwd, CONFIG_FILE_NAME),
-    preliminaryArguments.configFile === undefined
+    bootstrapArguments.configFile === undefined
       ? undefined
-      : resolve(cwd, preliminaryArguments.configFile),
+      : resolve(cwd, bootstrapArguments.configFile),
   ]);
   const configFiles = await existingFiles(configSearchPaths);
+  const configuration = await loadConfigurationFiles(configFiles);
+  const preliminaryArguments = resolveArguments(
+    preliminaryCommandLine,
+    baseEnvironment,
+    configuration,
+  );
 
   const dotenvSearchPaths = await uniquePaths([
     join(home, DOTENV_FILE_NAME),
@@ -417,7 +476,7 @@ async function runBootstrapPass(
 
   return {
     rootForSearch,
-    arguments: resolveArguments(finalCommandLine, environment),
+    arguments: resolveArguments(finalCommandLine, environment, configuration),
     configSearchPaths,
     configFiles,
     dotenvSearchPaths,

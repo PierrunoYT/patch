@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   bootstrapConfiguration,
   BootstrapArgumentError,
+  ConfigurationFileError,
   RepositorySelectionError,
 } from "../src/index.js";
 
@@ -35,6 +36,56 @@ afterEach(async () => {
 });
 
 describe("bootstrapConfiguration", () => {
+  it("applies defaults, ordered configs, environment, dotenv, and CLI precedence", async () => {
+    const parent = await temporaryDirectory();
+    const home = join(parent, "home");
+    const repository = join(parent, "repository");
+    const cwd = join(repository, "nested");
+    await mkdir(home);
+    await initializeRepository(repository);
+    await mkdir(cwd);
+    await writeFile(join(home, ".patch.conf.yml"), "model: home-model\n");
+    await writeFile(
+      join(repository, ".patch.conf.yml"),
+      "model: repository-model\n",
+    );
+    await writeFile(join(cwd, ".patch.conf.yml"), "model: cwd-model\n");
+
+    const configured = await bootstrapConfiguration({
+      cwd,
+      home,
+      environment: {},
+    });
+    expect(configured.arguments).toMatchObject({
+      model: "cwd-model",
+      encoding: "utf-8",
+      git: true,
+    });
+
+    const environment = await bootstrapConfiguration({
+      cwd,
+      home,
+      environment: { PATCH_MODEL: "environment-model" },
+    });
+    expect(environment.arguments.model).toBe("environment-model");
+
+    await writeFile(join(cwd, ".env"), "PATCH_MODEL=dotenv-model\n");
+    const dotenv = await bootstrapConfiguration({
+      cwd,
+      home,
+      environment: { PATCH_MODEL: "environment-model" },
+    });
+    expect(dotenv.arguments.model).toBe("dotenv-model");
+
+    const commandLine = await bootstrapConfiguration({
+      argv: ["--model", "cli-model"],
+      cwd,
+      home,
+      environment: { PATCH_MODEL: "environment-model" },
+    });
+    expect(commandLine.arguments.model).toBe("cli-model");
+  });
+
   it("corrects a provisional root from selected files and reruns without leaked dotenv values", async () => {
     const parent = await temporaryDirectory();
     const home = join(parent, "home");
@@ -301,5 +352,26 @@ describe("bootstrapConfiguration", () => {
         environment: { PATCH_GIT: "sometimes" },
       }),
     ).rejects.toThrow("PATCH_GIT must be");
+  });
+
+  it("rejects malformed and unknown YAML configuration", async () => {
+    const parent = await temporaryDirectory();
+    const home = join(parent, "home");
+    const repository = join(parent, "repository");
+    await mkdir(home);
+    await initializeRepository(repository);
+    await writeFile(
+      join(repository, ".patch.conf.yml"),
+      "model: [unterminated\n",
+    );
+
+    await expect(
+      bootstrapConfiguration({ cwd: repository, home, environment: {} }),
+    ).rejects.toBeInstanceOf(ConfigurationFileError);
+
+    await writeFile(join(repository, ".patch.conf.yml"), "unknown: value\n");
+    await expect(
+      bootstrapConfiguration({ cwd: repository, home, environment: {} }),
+    ).rejects.toBeInstanceOf(ConfigurationFileError);
   });
 });

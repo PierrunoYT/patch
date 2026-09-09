@@ -42,17 +42,25 @@ The bootstrap recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 Their environment equivalents use the Patch namespace: `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, and `PATCH_MODEL`.
 
-Dotenv files are loaded in search order with later values overriding earlier
-ones, as aider does with `override=True`. Command-line values have final
-precedence. The returned environment is an isolated copy for later config and
+YAML configuration files are validated and merged in this order:
+
+1. built-in defaults;
+2. home config;
+3. repository config;
+4. working-directory config; and
+5. an explicit config file.
+
+Process environment values override YAML. Dotenv files are then loaded in
+search order with later values overriding both earlier dotenv files and the
+initial environment, as aider does with `override=True`. Command-line values
+have final precedence. The returned environment is an isolated copy for later
 provider resolution; callers must never log it because it can contain secrets.
 Neither the caller's environment object nor `process.env` is mutated.
 
 Patch intentionally uses `.patch.conf.yml` and `PATCH_*` rather than aider's
 names. It does not search aider's OAuth key file because Patch does not yet have
-an OAuth feature. YAML parsing and complete defaults/config/environment/CLI
-precedence are the next Phase 1 task; this bootstrap reports ordered config
-candidates without interpreting them.
+an OAuth feature. Patch currently validates only bootstrap keys; later feature
+tasks will extend the strict YAML schema alongside their CLI controls.
 
 The executable remains help-only while the session runtime is under
 construction, so this module is currently exercised through its public API and

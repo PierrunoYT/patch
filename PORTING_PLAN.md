@@ -279,7 +279,7 @@ packed tarball from a clean temporary project.
   reminder.
 - [x] Implement provisional Git-root discovery, config search, preliminary CLI
   parse, dotenv loading, final parse, and true-root correction.
-- [ ] Specify and test precedence among defaults, home config, repository
+- [x] Specify and test precedence among defaults, home config, repository
   config, working-directory config, `.env`, environment, and CLI.
 - [ ] Load and validate model aliases, model settings, and JSON5 metadata from
   packaged resources.

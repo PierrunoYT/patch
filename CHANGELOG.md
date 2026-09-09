@@ -43,6 +43,9 @@ The project has not published a release yet.
 - Staged configuration bootstrap with Git CLI root discovery, ordered Patch
   config and dotenv searches, strict final argument parsing, and one-pass root
   correction for files selected from another repository.
+- Validated YAML configuration with explicit precedence across defaults, home,
+  repository, working-directory and explicit config files, environment,
+  dotenv, and command-line values.
 
 ### Changed
 
