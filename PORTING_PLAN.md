@@ -391,7 +391,7 @@ within token budgets on Linux, macOS, and Windows.
 
 ### Phase 7 — Advanced edit and orchestration modes
 
-- [ ] Port fenced diff as a prompt variant over SEARCH/REPLACE.
+- [x] Port fenced diff as a prompt variant over SEARCH/REPLACE.
 - [ ] Port unified diff with no-match versus non-unique-match diagnostics.
 - [ ] Port patch add/delete/update/move actions and fuzz accounting.
 - [ ] Port architect/editor handoff with explicit user acceptance.

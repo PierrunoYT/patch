@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import upstream from "../upstream.json" with { type: "json" };
 import {
   applySearchReplace,
+  FENCED_SEARCH_REPLACE_REMINDER,
+  FencedSearchReplaceEditStrategy,
   SearchReplaceAmbiguousError,
   SearchReplaceEditStrategy,
   SearchReplaceNoMatchError,
@@ -36,6 +38,32 @@ const context = {
 };
 
 describe("SearchReplaceEditStrategy", () => {
+  it("uses the same parser under the independent fenced prompt protocol", () => {
+    const fenced = new FencedSearchReplaceEditStrategy();
+    const search = "<".repeat(7) + " SEARCH";
+    const divider = "=".repeat(7);
+    const replace = ">".repeat(7) + " REPLACE";
+    const response = `\`\`\`text
+example.txt
+${search}
+old value
+${divider}
+new value
+${replace}
+\`\`\``;
+
+    expect(fenced.format).toBe("diff-fenced");
+    expect(fenced.parse(response, context).edits).toEqual([
+      {
+        kind: "replace",
+        path: "example.txt",
+        search: "old value\n",
+        replacement: "new value\n",
+      },
+    ]);
+    expect(FENCED_SEARCH_REPLACE_REMINDER).toContain("enclosed");
+  });
+
   it("matches the pinned upstream parsed edit and shell block", () => {
     const response = `Here is the change:
 

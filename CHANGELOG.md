@@ -124,6 +124,8 @@ The project has not published a release yet.
   order, normalized context rendering, and token ceilings.
 - Clean-install npm package smoke coverage that loads packaged queries and WASM
   grammars and extracts JavaScript, TypeScript, Python, Go, and Rust tags.
+- Fenced SEARCH/REPLACE as an independent prompt protocol over the shared diff
+  parser and matcher.
 
 ### Changed
 

@@ -76,3 +76,8 @@ Do not edit these files!
   renameWithShell: "",
   goAheadTip: "",
 } as const satisfies CommonPromptResources;
+
+/** Prompt variant from aider/coders/editblock_fenced_prompts.py. */
+export const FENCED_SEARCH_REPLACE_REMINDER = `Every SEARCH/REPLACE block must be enclosed by the active code fence.
+Inside the fence, put the language on the opening fence, then the full file path alone on a line, followed by <<<<<<< SEARCH, =======, and >>>>>>> REPLACE markers.
+Include enough exact context for every SEARCH section to identify one location.`;

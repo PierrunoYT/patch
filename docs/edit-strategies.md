@@ -47,6 +47,12 @@ adds one intentional safety rule: a SEARCH section matching multiple locations
 is rejected instead of silently changing the first one. Missing and ambiguous
 matches have distinct errors suitable for a later reflection loop.
 
+`FencedSearchReplaceEditStrategy` is the pinned upstream `diff-fenced` prompt
+variant. It intentionally reuses the SEARCH/REPLACE wire parser and matcher but
+has an independent format identity and reminder requiring every block to be
+inside the active fence. This lets format switches discard incompatible
+examples without duplicating edit semantics.
+
 ## Dry-run resolution
 
 `resolveEditBatch` evaluates a complete parsed batch against caller-supplied

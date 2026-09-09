@@ -110,7 +110,7 @@ function parsingFailure(
 }
 
 export class SearchReplaceEditStrategy implements EditStrategy {
-  readonly format = "diff" as const;
+  readonly format: "diff" | "diff-fenced" = "diff";
 
   parse(response: string, context: EditStrategyContext): EditBatch {
     const lines = splitLinesKeepingEndings(response);
@@ -203,6 +203,16 @@ export class SearchReplaceEditStrategy implements EditStrategy {
 
     return { edits, shellCommands };
   }
+}
+
+/**
+ * Ported from aider/coders/editblock_fenced_coder.py at revision
+ * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
+ * The wire grammar is deliberately shared with SEARCH/REPLACE; only the
+ * prompt protocol and format identity differ.
+ */
+export class FencedSearchReplaceEditStrategy extends SearchReplaceEditStrategy {
+  override readonly format = "diff-fenced" as const;
 }
 
 function prepare(content: string): { content: string; lines: string[] } {
