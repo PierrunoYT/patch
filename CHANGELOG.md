@@ -50,6 +50,8 @@ The project has not published a release yet.
   JSON5 metadata, deterministic overrides, and clean-install resource checks.
 - A provider-neutral edit-strategy contract and an `ask` strategy that cannot
   emit file edits or shell commands.
+- Whole-file fenced-block parsing with upstream-compatible filename inference,
+  reliability ordering, duplicate suppression, and trailing-newline behavior.
 
 ### Changed
 

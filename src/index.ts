@@ -7,6 +7,7 @@ export * from "./core/session.js";
 export * from "./edits/ask.js";
 export * from "./edits/strategy.js";
 export * from "./edits/types.js";
+export * from "./edits/whole-file.js";
 export * from "./io/filesystem.js";
 export * from "./io/safe-path.js";
 export * from "./models/catalog.js";

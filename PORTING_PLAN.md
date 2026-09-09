@@ -291,7 +291,7 @@ endings.
 ### Phase 2 — Edit engines
 
 - [x] Port `ask` as a no-write strategy.
-- [ ] Port whole-file fenced blocks, including filename inference and trailing
+- [x] Port whole-file fenced blocks, including filename inference and trailing
   newline behavior.
 - [ ] Port SEARCH/REPLACE parsing, shell block separation, exact replacement,
   leading-whitespace normalization, `...` elision, ambiguity detection, and

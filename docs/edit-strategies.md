@@ -14,3 +14,18 @@ and the inherited no-op edit behavior in
 It always returns an empty edit batch, even when a response contains text that
 resembles file or shell blocks. Its system prompt asks for analysis and avoids
 claims that files were changed.
+
+## Whole file
+
+`WholeFileEditStrategy` ports aider's
+[`WholeFileCoder.get_edits`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/wholefile_coder.py#L26-L128).
+It parses complete fenced file bodies into `rewrite` edits. A filename can come
+from the line before a fence, a prior backtick-quoted editable-file mention, or
+the sole editable file. Explicit names outrank mention and single-file
+inference, common `path/to/` prefixes for root-level files are corrected, and
+duplicate rewrites keep the most reliable block.
+
+The parser preserves the model's trailing-newline choice, accepts an unclosed
+final block like upstream, supports both symmetric backtick and distinct XML
+fences, and rejects unnamed blocks when more than one file is eligible. It only
+returns proposed rewrites and performs no filesystem access.
