@@ -14,7 +14,8 @@ The project has not published a release yet.
   implementation tasks, compatibility testing, security risks, and release
   criteria, pinned to aider commit `5dc9490b`.
 - Contributor guidance for implementation, verification, attribution, asset
-  placement, and required documentation maintenance after every completed task.
+  placement, required documentation maintenance, and commits after every
+  completed task.
 - TypeScript and npm project foundations with strict type checking, linting,
   formatting, tests, build output, package validation, and a minimal CLI.
 - Apache-2.0 licensing, upstream attribution guidance, and machine-readable

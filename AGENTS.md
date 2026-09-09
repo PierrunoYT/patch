@@ -58,3 +58,9 @@
   changes.
 - Document intentional differences from aider and link behavior claims to the
   pinned upstream source or compatibility tests.
+
+## Completion
+
+- After completing and verifying each task, commit its cohesive code and
+  documentation changes before considering the task complete.
+- Do not push commits unless the user explicitly requests a push.
