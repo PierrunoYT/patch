@@ -378,7 +378,7 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
   version-pinned npm grammar packages; never place them in `assets/`.
 - [x] Build the weighted reference graph and deterministic personalized
   PageRank.
-- [ ] Port token-budget binary search and a TypeScript `TreeContextRenderer`
+- [x] Port token-budget binary search and a TypeScript `TreeContextRenderer`
   equivalent to `grep_ast.TreeContext`.
 - [ ] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.

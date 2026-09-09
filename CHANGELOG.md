@@ -116,6 +116,8 @@ The project has not published a release yet.
   language support with pinned grammar/query tests.
 - Deterministic weighted reference-graph ranking with personalized PageRank,
   identifier heuristics, and chat-file weighting.
+- Syntax-aware tree-context rendering with compact scope headers, elisions,
+  long-line limits, and strict token-budget binary search.
 
 ### Changed
 
