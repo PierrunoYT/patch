@@ -18,9 +18,10 @@ Patch is at the foundation stage. The repository has a strict TypeScript build,
 linting, formatting, tests, automated CI, npm package smoke testing, a minimal
 `patch --help` executable, validated
 [domain contracts](docs/domain-contracts.md), a deterministic provider test
-harness, and upstream license and revision metadata. Model connections, file
-editing, Git workflows, and interactive sessions have not been implemented yet.
-There is no published package or stable interface.
+harness, [safe path resolution](docs/filesystem-safety.md), and upstream license
+and revision metadata. Model connections, file editing, Git workflows, and
+interactive sessions have not been implemented yet. There is no published
+package or stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

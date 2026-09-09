@@ -31,6 +31,8 @@ The project has not published a release yet.
 - A validated, deterministic fake provider for testing streamed text,
   reasoning, fragmented tool calls, usage, errors, truncation, retries, and
   cancellation without network access.
+- Canonical, root-contained path resolution that rejects traversal, escaping
+  symlinks, dangling symlinks, and out-of-root existing or missing targets.
 
 ### Changed
 

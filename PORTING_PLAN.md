@@ -269,7 +269,7 @@ packed tarball from a clean temporary project.
 
 ### Phase 1 — Files, configuration, and messages
 
-- [ ] Implement safe path resolution that rejects writes outside the selected
+- [x] Implement safe path resolution that rejects writes outside the selected
   root after symlink resolution.
 - [ ] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
