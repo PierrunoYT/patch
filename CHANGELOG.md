@@ -110,6 +110,8 @@ The project has not published a release yet.
   target repository's package-manager invocation.
 - Version-pinned Tree-sitter WASM grammars and attributed repository-map tag
   queries resolved as packaged runtime resources outside branding assets.
+- Root-contained `web-tree-sitter` definition/reference extraction with
+  deterministic source locations and unsupported-language handling.
 
 ### Changed
 

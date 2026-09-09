@@ -14,3 +14,9 @@ working directory. Branding-only `assets/` remains unchanged.
 The initial grammar set is JavaScript, TypeScript, Python, Go, and Rust. A new
 language requires a pinned grammar, an attributed tag query, compatibility
 fixtures, extraction tests, and packed-package smoke coverage.
+
+`TagExtractor` resolves every requested file through `SafePathResolver`, reads
+UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and
+returns zero-based definition/reference tags. Unsupported extensions and empty
+files return no tags. Symlink escapes and traversal outside the selected root
+are rejected before reading.

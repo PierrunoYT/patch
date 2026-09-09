@@ -7,7 +7,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "sourceMap": true,
-    "types": ["node"]
+    "types": ["emscripten", "node"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["tests"]

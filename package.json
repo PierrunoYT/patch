@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/emscripten": "^1.41.5",
     "@types/node": "^26.5.0",
     "eslint": "^10.10.0",
     "fast-check": "^4.9.0",
