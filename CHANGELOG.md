@@ -100,6 +100,8 @@ The project has not published a release yet.
   injected message generation, and marker-constrained undo.
 - Child-process-only Git identity overrides that leave global environment state
   unchanged.
+- Runtime-validated parsing for the MVP file, model, process, Git, and lifecycle
+  slash commands, including quoted paths and strict argument handling.
 
 ### Changed
 

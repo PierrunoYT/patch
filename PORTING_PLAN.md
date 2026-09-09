@@ -358,7 +358,7 @@ all ordinary CI tests use deterministic fakes and require no network.
   model-generated commit messages, and undo constrained to Patch commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
-- [ ] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,
+- [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,
   `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
   `/undo`, and `/exit`.
 - [ ] Require approval for each model-suggested shell command, show the exact

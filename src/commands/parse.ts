@@ -1,0 +1,125 @@
+/**
+ * Slash-command behavior ported from aider/commands.py at revision
+ * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
+ * Modified to return inert, validated effects instead of mutating a coder.
+ */
+
+import { EditFormatSchema } from "../edits/types.js";
+import { CommandEffectSchema, type CommandEffect } from "./effects.js";
+
+export class CommandParseError extends Error {
+  override readonly name = "CommandParseError";
+}
+
+function requireArgument(command: string, argument: string): string {
+  if (argument === "") {
+    throw new CommandParseError(`/${command} requires an argument`);
+  }
+  return argument;
+}
+
+function rejectArgument(command: string, argument: string): void {
+  if (argument !== "") {
+    throw new CommandParseError(`/${command} does not accept arguments`);
+  }
+}
+
+function parsePaths(
+  command: string,
+  argument: string,
+  required: boolean,
+): string[] {
+  const paths: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | undefined;
+  let escaped = false;
+  const finish = () => {
+    if (current !== "") paths.push(current);
+    current = "";
+  };
+
+  for (const character of argument) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+    } else if (character === "\\") {
+      escaped = true;
+    } else if (quote !== undefined) {
+      if (character === quote) quote = undefined;
+      else current += character;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (/\s/u.test(character)) {
+      finish();
+    } else {
+      current += character;
+    }
+  }
+  if (escaped || quote !== undefined) {
+    throw new CommandParseError(`/${command} has an unterminated quoted path`);
+  }
+  finish();
+  if (required && paths.length === 0) {
+    throw new CommandParseError(`/${command} requires at least one path`);
+  }
+  return paths;
+}
+
+export function parseCommand(input: string): CommandEffect {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith("/")) {
+    return CommandEffectSchema.parse({ type: "submit", message: input });
+  }
+
+  const match = /^\/(\S+)(?:\s+(.*))?$/su.exec(trimmed);
+  if (match === null) {
+    throw new CommandParseError("A slash command requires a name");
+  }
+  const command = match[1]?.toLowerCase() ?? "";
+  const argument = match[2]?.trim() ?? "";
+  let effect: unknown;
+  switch (command) {
+    case "add":
+    case "read-only":
+      effect = { type: command, paths: parsePaths(command, argument, true) };
+      break;
+    case "drop":
+      effect = { type: "drop", paths: parsePaths(command, argument, false) };
+      break;
+    case "ls":
+    case "clear":
+    case "test":
+    case "lint":
+    case "undo":
+      rejectArgument(command, argument);
+      effect = { type: command };
+      break;
+    case "model":
+      effect = { type: "model", model: requireArgument(command, argument) };
+      break;
+    case "chat-mode": {
+      const mode = requireArgument(command, argument);
+      if (mode !== "code" && !EditFormatSchema.safeParse(mode).success) {
+        throw new CommandParseError(`Unknown chat mode: ${mode}`);
+      }
+      effect = { type: "chat-mode", mode };
+      break;
+    }
+    case "run":
+      effect = { type: "run", command: requireArgument(command, argument) };
+      break;
+    case "commit":
+      effect = {
+        type: "commit",
+        ...(argument === "" ? {} : { message: argument }),
+      };
+      break;
+    case "exit":
+      rejectArgument(command, argument);
+      effect = { type: "exit", code: 0 };
+      break;
+    default:
+      throw new CommandParseError(`Unknown command: /${command}`);
+  }
+  return CommandEffectSchema.parse(effect);
+}

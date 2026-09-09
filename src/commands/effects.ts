@@ -35,6 +35,40 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
       code: z.number().int().min(0).max(255),
     })
     .strict(),
+  z
+    .object({
+      type: z.literal("add"),
+      paths: z.array(z.string().min(1)).min(1),
+    })
+    .strict(),
+  z
+    .object({ type: z.literal("drop"), paths: z.array(z.string().min(1)) })
+    .strict(),
+  z
+    .object({
+      type: z.literal("read-only"),
+      paths: z.array(z.string().min(1)).min(1),
+    })
+    .strict(),
+  z.object({ type: z.literal("ls") }).strict(),
+  z.object({ type: z.literal("clear") }).strict(),
+  z.object({ type: z.literal("model"), model: z.string().min(1) }).strict(),
+  z
+    .object({
+      type: z.literal("chat-mode"),
+      mode: z.union([EditFormatSchema, z.literal("code")]),
+    })
+    .strict(),
+  z.object({ type: z.literal("run"), command: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("test") }).strict(),
+  z.object({ type: z.literal("lint") }).strict(),
+  z
+    .object({
+      type: z.literal("commit"),
+      message: z.string().min(1).optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal("undo") }).strict(),
 ]);
 
 export type SessionConfigPatch = z.infer<typeof SessionConfigPatchSchema>;
