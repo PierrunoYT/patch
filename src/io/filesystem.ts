@@ -46,6 +46,11 @@ export interface WriteTextResult {
   dryRun: boolean;
 }
 
+export interface DeleteFileResult {
+  path: string;
+  dryRun: boolean;
+}
+
 interface PreparedWrite {
   bytes: Buffer;
   lineEnding: LineEnding;
@@ -255,6 +260,26 @@ export class FileSystemAdapter {
       bytesWritten: prepared.bytes.length,
       dryRun: false,
     };
+  }
+
+  async deleteFile(
+    target: string,
+    options: unknown = {},
+  ): Promise<DeleteFileResult> {
+    const { dryRun } = WriteTextOptionsSchema.parse(options);
+    const initialPath = await this.#paths.resolve(target);
+    const information = await stat(initialPath);
+    if (!information.isFile()) {
+      throw new Error(`Cannot delete a non-file path: ${target}`);
+    }
+    if (!dryRun) {
+      const path = await this.#paths.resolve(target);
+      if (path !== initialPath) {
+        throw new PathChangedDuringWriteError(target);
+      }
+      await unlink(path);
+    }
+    return { path: initialPath, dryRun };
   }
 
   async #prepareWrite(path: string, content: string): Promise<PreparedWrite> {

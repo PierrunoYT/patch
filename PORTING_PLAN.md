@@ -298,7 +298,7 @@ endings.
   failure diagnostics.
 - [x] Add a dry-run resolution pass before authorization or writes.
 - [x] Represent create, update, and delete operations explicitly.
-- [ ] Add transactional staging of proposed file contents so parser or
+- [x] Add transactional staging of proposed file contents so parser or
   validation failures cannot leave a partial multi-file update. Document this
   intentional safety improvement if it differs from upstream.
 - [ ] Property-test malformed fences, repeated text, empty files, Unicode,

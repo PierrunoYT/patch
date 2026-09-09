@@ -63,3 +63,20 @@ decisions at the caller boundary. Errors identify the failing edit index and
 path while preserving the underlying matching failure as their cause. A series
 of edits that returns a file to its original state emits no operation, and
 shell suggestions are copied without execution.
+
+## Transactional staging
+
+`EditTransaction.stage` validates every resolved operation against the current
+safe filesystem before authorization or mutation. It checks containment,
+missing/existing state, exact original content, encoding, and write shape using
+the filesystem adapter's dry-run methods. Staging does not create parent
+directories or alter files. Suggested shell commands remain inert metadata.
+
+After the caller obtains explicit user authorization, `commit` revalidates the
+entire batch before its first mutation, then uses atomic per-file replacement
+and contained deletion. This intentionally improves on aider's per-edit apply
+loop: parser, matcher, stale-snapshot, containment, and encoding failures cannot
+leave a partial multi-file update. Filesystem failures during the commit itself
+can still occur between operations because portable filesystems do not provide
+an atomic transaction spanning multiple paths; repository checkpoint/rollback
+belongs to the later Git workflow.

@@ -59,6 +59,8 @@ The project has not published a release yet.
   sequential same-file edits and all-or-nothing failure results.
 - Explicit resolved create, update, and delete operations, including
   deterministic move expansion and original content for stale-write protection.
+- Transactional edit staging that validates every path, snapshot, and encoded
+  result before authorization or writes, then revalidates before commit.
 
 ### Changed
 

@@ -8,6 +8,7 @@ export * from "./edits/ask.js";
 export * from "./edits/resolve.js";
 export * from "./edits/search-replace.js";
 export * from "./edits/strategy.js";
+export * from "./edits/transaction.js";
 export * from "./edits/types.js";
 export * from "./edits/whole-file.js";
 export * from "./io/filesystem.js";
