@@ -18,6 +18,7 @@ import {
   type ModelProvider,
 } from "../providers/events.js";
 import { ChatChunks } from "./chat-chunks.js";
+import { findFileMentions } from "./file-mentions.js";
 import { ChatMessageSchema, type ChatMessage } from "./messages.js";
 import {
   SessionConfigSchema,
@@ -35,7 +36,18 @@ export interface CoderSessionOptions {
   readonly messages?: readonly ChatMessage[];
   readonly fence?: readonly [string, string];
   readonly retry?: Partial<RetryPolicy>;
+  readonly availablePaths?: readonly string[];
+  readonly approvePath?: PathApproval;
 }
+
+export interface PathApprovalRequest {
+  readonly path: string;
+  readonly reason: "user-mention" | "model-edit";
+}
+
+export type PathApproval = (
+  request: PathApprovalRequest,
+) => boolean | Promise<boolean>;
 
 export interface TurnPrompt {
   readonly system?: readonly ChatMessage[];
@@ -140,6 +152,16 @@ export class ReflectionLimitError extends Error {
   }
 }
 
+export class PathApprovalDeniedError extends Error {
+  override readonly name = "PathApprovalDeniedError";
+  readonly path: string;
+
+  constructor(path: string) {
+    super(`Editing unselected path requires approval: ${path}`);
+    this.path = path;
+  }
+}
+
 function diagnosticMessage(
   source: "malformed" | "lint" | "test",
   text: string,
@@ -204,6 +226,8 @@ export class CoderSession {
   readonly strategy: EditStrategy;
   readonly fence: readonly [string, string];
   readonly #retry: RetryPolicy;
+  readonly #availablePaths: readonly string[];
+  readonly #approvePath: PathApproval | undefined;
   #state: SessionState;
   #nextTurnId = 1;
   #activeTurn: PreparedTurn | undefined;
@@ -218,6 +242,8 @@ export class CoderSession {
       initialDelayMs: options.retry?.initialDelayMs ?? 125,
       sleep: options.retry?.sleep ?? defaultSleep,
     };
+    this.#availablePaths = [...(options.availablePaths ?? [])];
+    this.#approvePath = options.approvePath;
     this.#state = SessionStateSchema.parse({
       config: this.config,
       phase: "waiting",
@@ -258,10 +284,52 @@ export class CoderSession {
     snapshots: readonly FileSnapshot[],
     files: FileSystemAdapter,
   ): Promise<EditTransaction> {
-    return EditTransaction.stage(
-      files,
-      this.resolveResponse(response, snapshots),
-    );
+    const parsed = this.parseResponse(response);
+    await this.#approveEditPaths(parsed);
+    return EditTransaction.stage(files, resolveEditBatch(parsed, snapshots));
+  }
+
+  async #approveEditPaths(batch: EditBatch): Promise<void> {
+    const selected = new Set(this.#state.editablePaths);
+    for (const edit of batch.edits) {
+      const paths =
+        edit.kind === "move" ? [edit.fromPath, edit.path] : [edit.path];
+      for (const path of paths) {
+        if (selected.has(path)) {
+          continue;
+        }
+        if (
+          this.#state.readOnlyPaths.includes(path) ||
+          !(await this.#approvePath?.({ path, reason: "model-edit" }))
+        ) {
+          throw new PathApprovalDeniedError(path);
+        }
+        selected.add(path);
+        this.#state = SessionStateSchema.parse({
+          ...this.#state,
+          editablePaths: [...this.#state.editablePaths, path],
+        });
+      }
+    }
+  }
+
+  async #approveMentionedPaths(userInput: string): Promise<void> {
+    const selected = [
+      ...this.#state.editablePaths,
+      ...this.#state.readOnlyPaths,
+    ];
+    for (const path of findFileMentions(
+      userInput,
+      this.#availablePaths.filter((candidate) => !selected.includes(candidate)),
+      selected,
+    )) {
+      if (await this.#approvePath?.({ path, reason: "user-mention" })) {
+        this.#state = SessionStateSchema.parse({
+          ...this.#state,
+          editablePaths: [...this.#state.editablePaths, path],
+        });
+      }
+    }
   }
 
   prepareTurn(userInput: string, prompt: TurnPrompt = {}): PreparedTurn {
@@ -361,6 +429,7 @@ export class CoderSession {
     userInput: string,
     options: RunTurnOptions = {},
   ): Promise<CompletedTurn> {
+    await this.#approveMentionedPaths(userInput);
     const turn = this.prepareTurn(userInput, options.prompt);
     const events: CompletionEvent[] = [];
     const reflectedMessages: ChatMessage[] = [];
@@ -464,6 +533,7 @@ export class CoderSession {
           diagnostic = errorText(error);
         }
         if (edits !== undefined) {
+          await this.#approveEditPaths(edits);
           const candidate = { response, reasoning, edits };
           if (this.config.autoLint) {
             diagnostic = await options.checks?.lint?.(candidate);

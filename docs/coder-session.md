@@ -41,3 +41,9 @@ commands. Lint runs before tests and a lint failure skips that round's tests.
 The initial attempt may be followed by at most `maxReflections` corrections
 (three by default); exhaustion raises `ReflectionLimitError`. Failed responses
 and diagnostics are sent to the provider and retained in successful history.
+
+Repository-relative paths mentioned by the user are detected from an explicit
+candidate list. They join the editable set only when the injected approval
+callback accepts each path. Parsed model edits receive the same check before
+checks, staging, or writes; an unselected/new path is rejected when approval is
+absent or denied, and read-only paths remain non-editable.

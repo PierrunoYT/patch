@@ -71,6 +71,8 @@ The project has not published a release yet.
   bounded exponential retries, cancellation, context overflow, and truncation.
 - Bounded corrective reflection for malformed edits and injected lint/test
   diagnostics, with failed response context retained for the next attempt.
+- File-mention detection and mandatory approval for new or unselected paths
+  before they can enter a session or staged edit transaction.
 
 ### Changed
 

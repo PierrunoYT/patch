@@ -10,6 +10,7 @@ import {
   ContextWindowExceededError,
   FakeProvider,
   FileSystemAdapter,
+  PathApprovalDeniedError,
   ReflectionLimitError,
   WholeFileEditStrategy,
   TruncatedResponseError,
@@ -495,6 +496,61 @@ describe("CoderSession", () => {
       phase: "interrupted",
       reflectionCount: 1,
       messages: [],
+    });
+  });
+
+  it("requires explicit approval for mentioned and model-selected paths", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(join(root, "mentioned.ts"), "before\n");
+    const approvals: string[] = [];
+    const session = new CoderSession({
+      config: config(root, "whole"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "new.ts\n```ts\nnew\n```" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]),
+      strategy: new WholeFileEditStrategy(),
+      availablePaths: ["mentioned.ts"],
+      approvePath: ({ path, reason }) => {
+        approvals.push(`${reason}:${path}`);
+        return true;
+      },
+    });
+
+    await session.runTurn("Compare mentioned.ts and create the requested file");
+
+    expect(approvals).toEqual([
+      "user-mention:mentioned.ts",
+      "model-edit:new.ts",
+    ]);
+    expect(session.snapshot().editablePaths).toEqual([
+      "mentioned.ts",
+      "new.ts",
+    ]);
+  });
+
+  it("cannot stage an unselected edit without approval", async () => {
+    const root = await temporaryDirectory();
+    const files = await FileSystemAdapter.create(root);
+    const session = new CoderSession({
+      config: config(root, "whole"),
+      provider: new FakeProvider([]),
+      strategy: new WholeFileEditStrategy(),
+    });
+
+    await expect(
+      session.stageResponse(
+        "new.ts\n```ts\nnew\n```",
+        [{ path: "new.ts", content: null }],
+        files,
+      ),
+    ).rejects.toBeInstanceOf(PathApprovalDeniedError);
+    await expect(readFile(join(root, "new.ts"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
     });
   });
 });

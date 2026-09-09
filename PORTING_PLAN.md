@@ -317,7 +317,7 @@ or a documented, safer rejection.
   failures, `AbortSignal` cancellation, context overflow, and truncation.
 - [x] Implement bounded reflection for malformed edits, lint failures, and test
   failures. Default to aider's maximum of three reflections.
-- [ ] Implement file-mention detection and explicit approval before adding or
+- [x] Implement file-mention detection and explicit approval before adding or
   editing unselected files.
 - [ ] Implement strategy/model switching with state transfer. Summarize or
   clear incompatible assistant protocol examples when the edit format changes.

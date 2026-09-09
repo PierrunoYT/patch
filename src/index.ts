@@ -2,6 +2,7 @@ export * from "./commands/effects.js";
 export * from "./config/bootstrap.js";
 export * from "./core/chat-chunks.js";
 export * from "./core/coder-session.js";
+export * from "./core/file-mentions.js";
 export * from "./core/fences.js";
 export * from "./core/messages.js";
 export * from "./core/session.js";
