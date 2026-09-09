@@ -297,7 +297,7 @@ endings.
   leading-whitespace normalization, `...` elision, ambiguity detection, and
   failure diagnostics.
 - [x] Add a dry-run resolution pass before authorization or writes.
-- [ ] Represent create, update, and delete operations explicitly.
+- [x] Represent create, update, and delete operations explicitly.
 - [ ] Add transactional staging of proposed file contents so parser or
   validation failures cannot leave a partial multi-file update. Document this
   intentional safety improvement if it differs from upstream.

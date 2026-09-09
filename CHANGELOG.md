@@ -57,6 +57,8 @@ The project has not published a release yet.
   and contextual failure diagnostics.
 - Pure edit-batch dry-run resolution against immutable file snapshots, with
   sequential same-file edits and all-or-nothing failure results.
+- Explicit resolved create, update, and delete operations, including
+  deterministic move expansion and original content for stale-write protection.
 
 ### Changed
 

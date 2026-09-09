@@ -33,11 +33,12 @@ describe("resolveEditBatch", () => {
     );
 
     expect(result).toEqual({
-      files: [
+      operations: [
         {
+          kind: "update",
           path: "file.ts",
           before: "one\ntwo\n",
-          after: "first\nsecond\n",
+          content: "first\nsecond\n",
         },
       ],
       shellCommands: ["npm test\n"],
@@ -115,7 +116,45 @@ describe("resolveEditBatch", () => {
           shellCommands: [],
         },
         [{ path: "file.ts", content: "original\n" }],
-      ).files,
+      ).operations,
     ).toEqual([]);
+  });
+
+  it("classifies final contents as explicit create, update, and delete operations", () => {
+    const result = resolveEditBatch(
+      {
+        edits: [
+          { kind: "create", path: "new.ts", content: "new\n" },
+          { kind: "rewrite", path: "changed.ts", content: "changed\n" },
+          { kind: "delete", path: "deleted.ts" },
+          { kind: "move", fromPath: "old.ts", path: "moved.ts" },
+        ],
+        shellCommands: [],
+      },
+      [
+        { path: "new.ts", content: null },
+        { path: "changed.ts", content: "before\n" },
+        { path: "deleted.ts", content: "delete me\n" },
+        { path: "old.ts", content: "move me\n" },
+        { path: "moved.ts", content: null },
+      ],
+    );
+
+    expect(result.operations).toEqual([
+      { kind: "create", path: "new.ts", content: "new\n" },
+      {
+        kind: "update",
+        path: "changed.ts",
+        before: "before\n",
+        content: "changed\n",
+      },
+      {
+        kind: "delete",
+        path: "deleted.ts",
+        before: "delete me\n",
+      },
+      { kind: "delete", path: "old.ts", before: "move me\n" },
+      { kind: "create", path: "moved.ts", content: "move me\n" },
+    ]);
   });
 });

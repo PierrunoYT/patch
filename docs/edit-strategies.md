@@ -51,12 +51,15 @@ matches have distinct errors suitable for a later reflection loop.
 
 `resolveEditBatch` evaluates a complete parsed batch against caller-supplied
 immutable file snapshots. Edits to the same file are resolved sequentially in
-an isolated working map, while the returned change records retain the original
-and final contents. The resolver performs no filesystem access or writes, so a
+an isolated working map. Final results are classified as explicit `create`,
+`update`, or `delete` operations; updates and deletes retain the original
+content for later stale-snapshot checks or rollback. Moves become a delete and
+create pair. The resolver performs no filesystem access or writes, so a
 parse or replacement failure cannot leave a partially applied batch.
 
 Every model-selected path must have an explicit snapshot, including a `null`
 snapshot for a confirmed missing path. This keeps safe path lookup and approval
 decisions at the caller boundary. Errors identify the failing edit index and
-path while preserving the underlying matching failure as their cause. No-op
-final results are omitted and shell suggestions are copied without execution.
+path while preserving the underlying matching failure as their cause. A series
+of edits that returns a file to its original state emits no operation, and
+shell suggestions are copied without execution.

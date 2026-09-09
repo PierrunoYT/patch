@@ -7,14 +7,30 @@ export interface FileSnapshot {
   readonly content: string | null;
 }
 
-export interface ResolvedFileChange {
+export interface ResolvedCreateFile {
+  readonly kind: "create";
   readonly path: string;
-  readonly before: string | null;
-  readonly after: string | null;
+  readonly content: string;
 }
 
+export interface ResolvedUpdateFile {
+  readonly kind: "update";
+  readonly path: string;
+  readonly before: string;
+  readonly content: string;
+}
+
+export interface ResolvedDeleteFile {
+  readonly kind: "delete";
+  readonly path: string;
+  readonly before: string;
+}
+
+export type ResolvedFileOperation =
+  ResolvedCreateFile | ResolvedUpdateFile | ResolvedDeleteFile;
+
 export interface ResolvedEditBatch {
-  readonly files: readonly ResolvedFileChange[];
+  readonly operations: readonly ResolvedFileOperation[];
   readonly shellCommands: readonly string[];
 }
 
@@ -81,7 +97,9 @@ export function resolveEditBatch(
   for (const [index, edit] of batch.edits.entries()) {
     try {
       const current = requireSnapshot(working, edit.path);
-      markTouched(edit.path);
+      if (edit.kind !== "move") {
+        markTouched(edit.path);
+      }
       switch (edit.kind) {
         case "create":
           if (current !== null) {
@@ -118,6 +136,7 @@ export function resolveEditBatch(
             throw new Error(`Cannot move missing file ${edit.fromPath}`);
           }
           markTouched(edit.fromPath);
+          markTouched(edit.path);
           working.set(edit.fromPath, null);
           working.set(edit.path, edit.content ?? source);
           break;
@@ -129,13 +148,27 @@ export function resolveEditBatch(
   }
 
   return {
-    files: touched
-      .map((path) => ({
-        path,
-        before: original.get(path) ?? null,
-        after: working.get(path) ?? null,
-      }))
-      .filter((file) => file.before !== file.after),
+    operations: touched.flatMap((path): ResolvedFileOperation[] => {
+      const before = original.get(path) ?? null;
+      const after = working.get(path) ?? null;
+      if (before === after) {
+        return [];
+      }
+      if (before === null && after !== null) {
+        return [{ kind: "create", path, content: after }];
+      }
+      if (before !== null && after === null) {
+        return [{ kind: "delete", path, before }];
+      }
+      return [
+        {
+          kind: "update",
+          path,
+          before: before ?? "",
+          content: after ?? "",
+        },
+      ];
+    }),
     shellCommands: [...batch.shellCommands],
   };
 }
