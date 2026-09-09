@@ -82,6 +82,8 @@ The project has not published a release yet.
   controls, multimodal blocks, thinking, tools, usage, and stop-reason mapping.
 - Non-recursive main, weak, and editor model selection with explicit role and
   editor-format overrides.
+- Secret-safe provider credential and model/adapter capability preflight
+  diagnostics.
 
 ### Changed
 

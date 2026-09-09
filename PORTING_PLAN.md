@@ -334,7 +334,7 @@ partial output.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
-- [ ] Add provider-specific credential diagnostics and supported-capability
+- [x] Add provider-specific credential diagnostics and supported-capability
   checks.
 - [ ] Add model-aware token counting where reliable and conservative estimates
   elsewhere.

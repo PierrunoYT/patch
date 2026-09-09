@@ -26,3 +26,12 @@ tool calls, thinking, usage, cached tokens, and stop reasons to the shared
 contract. Constructor options support custom endpoints, timeout, headers, and
 Fetch injection. Errors use the same provider-neutral classifications as the
 OpenAI adapter.
+
+## Preflight diagnostics
+
+`diagnoseProvider` checks provider-specific credential names and requested
+capabilities before constructing a live workflow. It accepts an explicit
+environment snapshot or a `credentialPresent` flag; it never reads or returns a
+secret value. Capability errors distinguish a model that does not declare a
+feature from an adapter that cannot represent it. `assertProviderReady` turns
+the structured result into `ProviderConfigurationError` for startup paths.

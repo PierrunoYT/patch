@@ -21,6 +21,7 @@ export * from "./models/settings.js";
 export * from "./models/selection.js";
 export * from "./providers/events.js";
 export * from "./providers/anthropic.js";
+export * from "./providers/diagnostics.js";
 export * from "./providers/fake.js";
 export * from "./providers/openai.js";
 export * from "./repository/types.js";
