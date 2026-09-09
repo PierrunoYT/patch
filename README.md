@@ -92,6 +92,8 @@ See [usage and safety limits](docs/usage.md) before editing real projects.
 
 The implementation uses TypeScript with Node.js and npm. Bun is an option
 to evaluate later, not a current runtime or tooling requirement.
+See the [Aider-to-Patch porting plan](PORTING_PLAN.md) for the pinned upstream
+baseline, target architecture, implementation phases, and verification criteria.
 
 Ported files identify their Aider source revision and modifications. Reference
 checkouts remain outside this repository; only scoped, tested ports are integrated.
