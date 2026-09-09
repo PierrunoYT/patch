@@ -250,11 +250,11 @@ packed tarball from a clean temporary project.
 
 ### Phase 0 — Project and compatibility foundation
 
-- [ ] Add `package.json`, lockfile, strict `tsconfig.json`, linting, formatting,
+- [x] Add `package.json`, lockfile, strict `tsconfig.json`, linting, formatting,
   Vitest, and Node.js 22 engine requirements.
-- [ ] Add the Apache-2.0 `LICENSE`, upstream attribution in `NOTICE`, and a
+- [x] Add the Apache-2.0 `LICENSE`, upstream attribution in `NOTICE`, and a
   standard header/template for directly ported files.
-- [ ] Record the pinned upstream commit in a machine-readable file.
+- [x] Record the pinned upstream commit in a machine-readable file.
 - [ ] Add CI for typecheck, lint, tests, build, and `npm pack` smoke testing.
 - [ ] Build an upstream fixture exporter outside the shipped package. Capture
   normalized outputs from pinned aider for config precedence, prompt chunks,
@@ -509,7 +509,7 @@ a documented intentional difference.
 Do not begin by porting `main.py` or the full `Coder` class. The first reviewable
 slice should be:
 
-1. package/build/test/legal foundation;
+1. [x] package/build/test/legal foundation;
 2. safe text-file and path adapters;
 3. provider-neutral message and edit types;
 4. SEARCH/REPLACE parser and applicator;

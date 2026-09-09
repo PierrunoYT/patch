@@ -1,0 +1,12 @@
+Patch
+Copyright 2026 Patch contributors
+
+This product includes software derived from aider, AI pair programming in your
+terminal:
+
+  https://github.com/Aider-AI/aider
+
+The porting baseline is aider commit
+5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Aider is licensed under the Apache
+License, Version 2.0. Ported portions have been modified for TypeScript,
+Node.js, and Patch.

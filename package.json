@@ -1,0 +1,49 @@
+{
+  "name": "@pierrunoyt/patch",
+  "version": "0.0.0",
+  "description": "A TypeScript port of aider for Node.js",
+  "type": "module",
+  "bin": {
+    "patch": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "assets/logo.svg",
+    "assets/logo-icon.svg",
+    "CHANGELOG.md",
+    "NOTICE",
+    "PORTING_PLAN.md",
+    "upstream.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run pack:check",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"*.{json,js}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"*.{json,js}\"",
+    "lint": "eslint src tests",
+    "pack:check": "npm pack --dry-run",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PierrunoYT/patch.git"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.5.0",
+    "eslint": "^10.10.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.0"
+  }
+}

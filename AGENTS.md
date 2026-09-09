@@ -28,6 +28,14 @@
 - Keep `assets/` limited to `logo.svg` and `logo-icon.svg`. Runtime resources
   belong under the source tree and must be included explicitly in npm packages.
 
+## Commands
+
+- Install exactly from the lockfile with `npm ci`.
+- Run the complete local validation suite with `npm run check`.
+- Build the executable with `npm run build`, then inspect it with
+  `npm start -- --help`.
+- Use `npm run format` to apply formatting; do not hand-format generated output.
+
 ## Testing and verification
 
 - Add tests for each behavior change. Prefer focused unit tests, real temporary

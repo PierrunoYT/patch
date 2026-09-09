@@ -10,12 +10,17 @@ The project has not published a release yet.
 
 - Initial project overview and development status.
 - Patch wordmark and icon assets.
-- A phased TypeScript, Node.js, and npm porting plan pinned to an analyzed aider
-  source revision.
+- A phased TypeScript, Node.js, and npm porting plan covering architecture,
+  implementation tasks, compatibility testing, security risks, and release
+  criteria, pinned to aider commit `5dc9490b`.
 - Contributor guidance for implementation, verification, attribution, asset
-  placement, and documentation maintenance.
+  placement, and required documentation maintenance after every completed task.
+- TypeScript and npm project foundations with strict type checking, linting,
+  formatting, tests, build output, package validation, and a minimal CLI.
+- Apache-2.0 licensing, upstream attribution guidance, and machine-readable
+  aider source revision metadata.
 
-### Removed
+### Changed
 
-- Bundled Tree-sitter grammar binaries, manifests, and license copies from the
-  brand assets directory.
+- Updated the project overview to link the porting plan and accurately describe
+  the current foundation-stage implementation.
