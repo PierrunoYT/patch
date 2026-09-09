@@ -397,7 +397,7 @@ export class CoderSession {
       role: "user",
       content: userInput,
     });
-    const messages = new ChatChunks({
+    const chunks = new ChatChunks({
       system: prompt.system,
       examples: prompt.examples,
       readonlyFiles: prompt.readOnlyFiles,
@@ -406,7 +406,12 @@ export class CoderSession {
       chatFiles: prompt.editableFiles,
       current: [userMessage],
       reminder: prompt.reminder,
-    }).allMessages();
+    });
+    const messages = (
+      this.#config.model.capabilities.promptCaching
+        ? chunks.withCacheControl()
+        : chunks
+    ).allMessages();
     const inputTokens = this.#tokenCounter(messages, this.#config.model);
     const maximum = this.config.model.maxInputTokens;
     if (maximum !== undefined && inputTokens > maximum) {
@@ -493,12 +498,15 @@ export class CoderSession {
     const reflectedMessages: ChatMessage[] = [];
     let request = turn.request;
     let usage: UsageReport | undefined;
+    let responsePrefix = "";
+    let continuationCount = 0;
 
     try {
       while (true) {
         let delay = this.#retry.initialDelayMs;
-        let response = "";
+        let response = responsePrefix;
         let reasoning = "";
+        let continueOutput = false;
         for (
           let attempt = 1;
           attempt <= this.#retry.maxAttempts;
@@ -507,7 +515,7 @@ export class CoderSession {
           let retry = false;
           let finished = false;
           let accountedAttemptCost = 0;
-          response = "";
+          response = responsePrefix;
           reasoning = "";
 
           for await (const rawEvent of this.provider.stream(
@@ -560,6 +568,13 @@ export class CoderSession {
                   );
                 }
                 if (event.reason === "length") {
+                  if (
+                    this.#config.model.capabilities.assistantPrefill &&
+                    continuationCount < 3
+                  ) {
+                    continueOutput = true;
+                    break;
+                  }
                   throw new TruncatedResponseError(response);
                 }
                 break;
@@ -588,6 +603,19 @@ export class CoderSession {
             );
           }
           break;
+        }
+
+        if (continueOutput) {
+          continuationCount += 1;
+          responsePrefix = response;
+          request = CompletionRequestSchema.parse({
+            ...request,
+            messages: [
+              ...request.messages,
+              { role: "assistant", content: response },
+            ],
+          });
+          continue;
         }
 
         let edits: EditBatch | undefined;
@@ -643,6 +671,8 @@ export class CoderSession {
           content: diagnosticMessage(source, diagnostic),
         });
         reflectedMessages.push(assistant, reflection);
+        responsePrefix = "";
+        continuationCount = 0;
         request = CompletionRequestSchema.parse({
           ...request,
           messages: [...request.messages, assistant, reflection],

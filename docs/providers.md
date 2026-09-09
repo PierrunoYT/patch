@@ -49,3 +49,16 @@ the providers above, resolves their provider-specific credential names without
 logging values, and throws `UnsupportedProviderError` for every other provider.
 Custom base URLs remain available for compatible gateways; supporting a new
 provider name requires an explicit adapter/table update and tests.
+
+## Capability-aware context and continuation
+
+`CoderSession` adds ephemeral prompt-cache boundaries only for models declaring
+`promptCaching`. `keepPromptCacheAlive` performs a caller-scheduled, bounded
+number of warming turns and stops on cancellation; it is a no-op for incapable
+models. Models declaring `assistantPrefill` can continue up to three truncated
+responses by sending accumulated output as the next assistant prefix.
+
+`buildReadOnlyMediaMessage` labels image and PDF references and includes only
+parts supported by the selected model. PDFs are always context-only and remain
+subject to the Anthropic adapter's document support; OpenAI Chat Completions
+continues to reject them at its boundary.

@@ -29,8 +29,9 @@ and revision metadata. The filesystem adapter also provides validated text
 encoding, line-ending preservation, dry runs, and atomic replacement. Model
 connections, edit parsing, Git workflows, and interactive sessions have not
 been implemented yet. Shared [prompt resources and fence selection](docs/prompts.md)
-and typed chat composition with upstream-compatible ordering and cache
-boundaries are pinned to upstream behavior. Staged
+and typed chat composition with upstream-compatible ordering, capability-aware
+cache boundaries, continuation, and read-only media context are pinned to
+upstream behavior. Staged
 [configuration bootstrap](docs/configuration-bootstrap.md) now discovers a
 provisional Git root, searches config and dotenv paths, and corrects the root
 from selected files. A validated, packaged [model catalog](docs/model-catalog.md)

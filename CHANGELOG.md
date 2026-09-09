@@ -134,6 +134,8 @@ The project has not published a release yet.
   explicit acceptance before invoking an independently configured editor.
 - Context-mode file selection with order-independent convergence, a strict
   iteration bound, and cancellation through deterministic provider turns.
+- Capability-gated prompt cache boundaries and bounded keepalive, assistant
+  prefill continuation, and read-only image/PDF context composition.
 
 ### Changed
 

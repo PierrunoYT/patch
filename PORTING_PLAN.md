@@ -397,7 +397,7 @@ within token budgets on Linux, macOS, and Windows.
 - [x] Port architect/editor handoff with explicit user acceptance.
 - [x] Port context mode's repeated file selection with a bounded convergence
   loop.
-- [ ] Add prompt caching, cache keepalive, assistant-prefill continuation,
+- [x] Add prompt caching, cache keepalive, assistant-prefill continuation,
   images, and PDF read-only context where provider capabilities allow it.
 
 **Exit:** each format has independent golden and property tests, and switching
