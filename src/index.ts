@@ -20,6 +20,7 @@ export * from "./edits/search-replace.js";
 export * from "./edits/strategy.js";
 export * from "./edits/transaction.js";
 export * from "./edits/types.js";
+export * from "./edits/unified-diff.js";
 export * from "./edits/whole-file.js";
 export * from "./edits/write-boundary.js";
 export * from "./io/filesystem.js";

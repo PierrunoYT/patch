@@ -126,6 +126,8 @@ The project has not published a release yet.
   grammars and extracts JavaScript, TypeScript, Python, Go, and Rust tags.
 - Fenced SEARCH/REPLACE as an independent prompt protocol over the shared diff
   parser and matcher.
+- Fenced unified-diff parsing and pure hunk application with distinct missing
+  and non-unique context diagnostics.
 
 ### Changed
 

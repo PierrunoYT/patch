@@ -1,4 +1,5 @@
 import { applySearchReplace } from "./search-replace.js";
+import { applyUnifiedDiff } from "./unified-diff.js";
 import type { EditBatch } from "./types.js";
 
 export interface FileSnapshot {
@@ -113,12 +114,19 @@ export function resolveEditBatch(
         case "replace":
           working.set(
             edit.path,
-            applySearchReplace(
-              current ?? "",
-              edit.search,
-              edit.replacement,
-              edit.path,
-            ),
+            edit.protocol === "udiff"
+              ? applyUnifiedDiff(
+                  current ?? "",
+                  edit.search,
+                  edit.replacement,
+                  edit.path,
+                )
+              : applySearchReplace(
+                  current ?? "",
+                  edit.search,
+                  edit.replacement,
+                  edit.path,
+                ),
           );
           break;
         case "delete":

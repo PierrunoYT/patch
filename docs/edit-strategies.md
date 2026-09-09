@@ -53,6 +53,14 @@ has an independent format identity and reminder requiring every block to be
 inside the active fence. This lets format switches discard incompatible
 examples without duplicating edit semantics.
 
+## Unified diff
+
+`UnifiedDiffEditStrategy` parses git-style hunks inside `diff` fences, carries
+the most recent file header across hunks, strips conventional `a/` and `b/`
+prefixes, and ignores hunks without a change. Resolution uses exact contiguous
+context and reports `UnifiedDiffNoMatchError` separately from
+`UnifiedDiffNotUniqueError`; ambiguous context is never applied.
+
 ## Dry-run resolution
 
 `resolveEditBatch` evaluates a complete parsed batch against caller-supplied

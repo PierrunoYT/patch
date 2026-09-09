@@ -32,6 +32,7 @@ const ReplaceEditSchema = z
     path: RelativePathSchema,
     search: z.string(),
     replacement: z.string(),
+    protocol: z.literal("udiff").optional(),
   })
   .strict();
 
