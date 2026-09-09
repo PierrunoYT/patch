@@ -356,7 +356,7 @@ all ordinary CI tests use deterministic fakes and require no network.
   checkpoint dirty files, apply, and report changed files.
 - [x] Implement selected-file commits, optional hook verification, attribution,
   model-generated commit messages, and undo constrained to Patch commits.
-- [ ] Never mutate global `process.env` for commit identity; pass environment to
+- [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
 - [ ] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,
   `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,

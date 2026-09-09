@@ -98,6 +98,8 @@ The project has not published a release yet.
   out-of-chat files, checkpoints dirty inputs, and reports changed paths.
 - Selected-file Git commits with hook control, identity/co-author attribution,
   injected message generation, and marker-constrained undo.
+- Child-process-only Git identity overrides that leave global environment state
+  unchanged.
 
 ### Changed
 

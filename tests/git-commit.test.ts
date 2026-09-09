@@ -155,4 +155,45 @@ describe("GitRepository commits", () => {
       ).stdout.trim(),
     ).toBe("new.txt");
   });
+
+  it("keeps process identity environment unchanged", async () => {
+    const { root, git } = await fixture();
+    await writeFile(join(root, "selected.txt"), "changed\n");
+    const originalAuthor = process.env.GIT_AUTHOR_NAME;
+    const originalCommitter = process.env.GIT_COMMITTER_NAME;
+    process.env.GIT_AUTHOR_NAME = "Parent Author";
+    process.env.GIT_COMMITTER_NAME = "Parent Committer";
+    try {
+      await git.commit({
+        paths: ["selected.txt"],
+        message: "isolated identity",
+        verify: true,
+        attribution: {
+          authorName: "Child Author",
+          committerName: "Child Committer",
+        },
+      });
+
+      expect(process.env.GIT_AUTHOR_NAME).toBe("Parent Author");
+      expect(process.env.GIT_COMMITTER_NAME).toBe("Parent Committer");
+      expect(
+        (
+          await executeFile("git", [
+            "-C",
+            root,
+            "show",
+            "-s",
+            "--format=%an|%cn",
+            "HEAD",
+          ])
+        ).stdout.trim(),
+      ).toBe("Child Author|Child Committer");
+    } finally {
+      if (originalAuthor === undefined) delete process.env.GIT_AUTHOR_NAME;
+      else process.env.GIT_AUTHOR_NAME = originalAuthor;
+      if (originalCommitter === undefined)
+        delete process.env.GIT_COMMITTER_NAME;
+      else process.env.GIT_COMMITTER_NAME = originalCommitter;
+    }
+  });
 });

@@ -22,6 +22,8 @@ Pathspecs are rejected before Git invocation when they escape the worktree.
 Selected-file commits stage and commit only explicit pathspecs, preserve
 unrelated staged changes, honor hook verification unless `verify` is false, and
 support separately attributed author/committer names plus co-author trailers.
+Identity overrides are merged into the Git child process environment and never
+mutate the parent Node.js `process.env`.
 `commitGenerated` supplies the selected diff to an injected model callback when
 no message is provided. Every such commit receives a `Patch-Commit: true`
 trailer. Undo uses a mixed reset only when the current HEAD carries that marker,
