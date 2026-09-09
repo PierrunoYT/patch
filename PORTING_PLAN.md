@@ -361,7 +361,7 @@ all ordinary CI tests use deterministic fakes and require no network.
 - [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,
   `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
   `/undo`, and `/exit`.
-- [ ] Require approval for each model-suggested shell command, show the exact
+- [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation.
 - [ ] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.

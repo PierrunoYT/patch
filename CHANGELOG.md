@@ -102,6 +102,9 @@ The project has not published a release yet.
   unchanged.
 - Runtime-validated parsing for the MVP file, model, process, Git, and lifecycle
   slash commands, including quoted paths and strict argument handling.
+- Explicit per-command approval for model-suggested shell execution, with exact
+  previews, repository-root working directories, bounded output, timeout, and
+  cancellation.
 
 ### Changed
 
