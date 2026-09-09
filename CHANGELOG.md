@@ -142,6 +142,9 @@ The project has not published a release yet.
 - Opt-in persistent input and chat history with explicit CLI paths, multiline
   JSONL input records, Markdown transcripts, private creation modes, and
   retention and secret-exposure documentation.
+- Tagged and EOF multiline input, declarative Emacs and Vi keybindings, and
+  shell-free external-editor invocation with private temporary files and
+  guaranteed cleanup.
 
 ### Changed
 

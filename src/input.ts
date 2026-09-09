@@ -10,6 +10,7 @@ import { createInterface } from "node:readline/promises";
 export interface InputOptions {
   readonly message?: string;
   readonly messageFile?: string;
+  readonly multiline?: boolean;
 }
 
 export interface InputDependencies {
@@ -45,6 +46,40 @@ function terminalLines(): AsyncIterable<string> {
   return createInterface({ input: process.stdin, output: process.stdout });
 }
 
+export async function* collectInputMessages(
+  lines: AsyncIterable<string>,
+  multiline = false,
+): AsyncIterable<string> {
+  let block: string[] | undefined;
+  let closing = "}";
+  for await (const line of lines) {
+    if (block !== undefined) {
+      if (line === closing) {
+        yield block.join("\n");
+        block = undefined;
+        closing = "}";
+      } else {
+        block.push(line);
+      }
+      continue;
+    }
+    const marker = /^\{([\p{Letter}\p{Number}]*)$/u.exec(line);
+    if (marker !== null) {
+      block = [];
+      closing = `${marker[1] ?? ""}}`;
+    } else if (!multiline && line.trim() !== "") {
+      yield line;
+    } else if (multiline) {
+      block = [line];
+      closing = "\u0000";
+    }
+  }
+  if (block !== undefined && closing === "\u0000") {
+    const message = block.join("\n");
+    if (message.trim() !== "") yield message;
+  }
+}
+
 export async function runInput(
   options: InputOptions,
   dependencies: InputDependencies,
@@ -63,9 +98,10 @@ export async function runInput(
     return;
   }
 
-  for await (const line of dependencies.lines ?? terminalLines()) {
-    if (line.trim() !== "") {
-      await submit(line, dependencies);
-    }
+  for await (const message of collectInputMessages(
+    dependencies.lines ?? terminalLines(),
+    options.multiline,
+  )) {
+    await submit(message, dependencies);
   }
 }

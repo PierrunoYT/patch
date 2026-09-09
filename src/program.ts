@@ -23,6 +23,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "append submitted input as JSON Lines",
     )
     .option("--chat-history-file <path>", "write chat Markdown to this path")
+    .option("--multiline", "read interactive input through EOF as one message")
+    .option("--vim", "use Vi input bindings instead of Emacs bindings")
+    .option("--editor <command>", "external editor used by Ctrl-X Ctrl-E")
     .showHelpAfterError()
     .action(
       async (options: {
@@ -30,6 +33,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         messageFile?: string;
         inputHistoryFile?: string;
         chatHistoryFile?: string;
+        multiline?: boolean;
+        vim?: boolean;
+        editor?: string;
       }) => {
         const history = new TerminalHistory({
           ...(options.inputHistoryFile === undefined

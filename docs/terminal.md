@@ -27,3 +27,17 @@ POSIX modes, but users remain responsible for choosing a private location,
 retention, backups, and deletion. History is not redacted or encrypted. Avoid
 enabling it in shared or synchronized directories. Disabling the options stops
 future writes and does not delete existing files.
+
+## Multiline input, bindings, and editors
+
+Interactive input accepts `{`/`}` blocks and tagged `{name`/`name}` blocks.
+`--multiline` instead collects terminal lines through EOF as one message. Emacs
+bindings are the default; `--vim` selects Vi semantics. In multiline mode Enter
+inserts a newline and Alt-Enter submits; Vi normal-mode Enter submits. Outside
+multiline mode those Enter behaviors are reversed. Ctrl-Up/Ctrl-Down navigate
+history and Ctrl-X Ctrl-E invokes an external editor.
+
+The editor is selected by `--editor`, then `VISUAL`, then `EDITOR`, with a
+platform default. Patch splits the configured command into argv without a shell,
+adds a private temporary Markdown file, waits for a successful exit, reads the
+result, and removes the temporary directory even after failure.
