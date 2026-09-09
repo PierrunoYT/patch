@@ -254,6 +254,7 @@ describe("CoderSession", () => {
         actions: [
           { type: "reasoning-delta", text: "think" },
           { type: "text-delta", text: "ans" },
+          { type: "usage", inputTokens: 12, outputTokens: 1, cost: 0.1 },
           { type: "text-delta", text: "wer" },
           { type: "usage", inputTokens: 12, outputTokens: 3, cost: 0.25 },
           { type: "finish", reason: "stop" },
@@ -278,12 +279,14 @@ describe("CoderSession", () => {
     });
 
     expect(result).toMatchObject({ response: "answer", reasoning: "think" });
+    expect(result.usage).toMatchObject({ cost: 0.25, costSource: "provider" });
     expect(delays).toEqual([10]);
     expect(provider.requests).toHaveLength(2);
     expect(observed).toEqual([
       "error",
       "reasoning-delta",
       "text-delta",
+      "usage",
       "text-delta",
       "usage",
       "finish",

@@ -338,7 +338,7 @@ partial output.
   checks.
 - [x] Add model-aware token counting where reliable and conservative estimates
   elsewhere.
-- [ ] Track usage and estimated cost while clearly labeling unknown pricing.
+- [x] Track usage and estimated cost while clearly labeling unknown pricing.
 - [ ] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 

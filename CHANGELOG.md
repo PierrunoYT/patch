@@ -86,6 +86,8 @@ The project has not published a release yet.
   diagnostics.
 - Model-aware OpenAI token counting with explicitly labeled conservative
   estimates for unknown and multimodal prompts.
+- Usage reports with provider or catalog cost attribution and explicit unknown
+  pricing instead of misleading zero-cost estimates.
 
 ### Changed
 

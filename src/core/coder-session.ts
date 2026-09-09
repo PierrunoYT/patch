@@ -16,6 +16,7 @@ import {
   countMessageTokens,
   type MessageTokenCounter,
 } from "../models/token-count.js";
+import { reportUsage, type UsageReport } from "../models/usage.js";
 import {
   CompletionEventSchema,
   CompletionRequestSchema,
@@ -99,6 +100,7 @@ export interface CompletedTurn {
   readonly reasoning: string;
   readonly edits: EditBatch;
   readonly events: readonly CompletionEvent[];
+  readonly usage?: UsageReport;
 }
 
 export interface ReflectionCandidate {
@@ -487,6 +489,7 @@ export class CoderSession {
     const events: CompletionEvent[] = [];
     const reflectedMessages: ChatMessage[] = [];
     let request = turn.request;
+    let usage: UsageReport | undefined;
 
     try {
       while (true) {
@@ -500,6 +503,7 @@ export class CoderSession {
         ) {
           let retry = false;
           let finished = false;
+          let accountedAttemptCost = 0;
           response = "";
           reasoning = "";
 
@@ -521,14 +525,21 @@ export class CoderSession {
               case "reasoning-delta":
                 reasoning += event.text;
                 break;
-              case "usage":
+              case "usage": {
+                usage = reportUsage(this.#config.model, event);
+                const reportedCost = usage.cost ?? 0;
                 this.#state = SessionStateSchema.parse({
                   ...this.#state,
                   inputTokens: event.inputTokens,
                   outputTokens: event.outputTokens,
-                  totalCost: this.#state.totalCost + (event.cost ?? 0),
+                  totalCost:
+                    this.#state.totalCost +
+                    Math.max(0, reportedCost - accountedAttemptCost),
+                  lastUsage: usage,
                 });
+                accountedAttemptCost = reportedCost;
                 break;
+              }
               case "error":
                 if (event.kind === "context-window") {
                   throw new ContextWindowExceededError(event.message);
@@ -604,7 +615,13 @@ export class CoderSession {
             reasoning,
             reflectedMessages,
           );
-          return { response, reasoning, edits: finalized, events };
+          return {
+            response,
+            reasoning,
+            edits: finalized,
+            events,
+            ...(usage === undefined ? {} : { usage }),
+          };
         }
         if (this.#state.reflectionCount >= this.config.maxReflections) {
           throw new ReflectionLimitError(

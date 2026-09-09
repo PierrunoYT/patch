@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { EditSchema } from "../edits/types.js";
 import { ModelSettingsSchema } from "../models/settings.js";
+import { UsageReportSchema } from "../models/usage.js";
 import { ChatMessageSchema } from "./messages.js";
 
 function findDuplicate(paths: string[]): string | undefined {
@@ -52,6 +53,7 @@ export const SessionStateSchema = z
     inputTokens: z.number().int().nonnegative(),
     outputTokens: z.number().int().nonnegative(),
     totalCost: z.number().nonnegative(),
+    lastUsage: UsageReportSchema.optional(),
     lastPatchCommit: z.string().min(1).nullable(),
   })
   .strict()

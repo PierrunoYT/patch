@@ -46,3 +46,11 @@ conservative UTF-16-length estimate and return `method: "conservative"` so the
 result cannot be mistaken for an exact provider count. `CoderSession` uses this
 model-aware boundary for prompt budgets and permits an injected counter when a
 provider exposes a more authoritative tokenizer.
+
+## Usage and cost
+
+`reportUsage` retains provider token counts and cached-token metadata. A
+provider-reported cost takes precedence; otherwise Patch estimates cost from
+both per-million catalog prices. If either price is absent, cost is `null` with
+`costSource: "unknown"` rather than displaying a misleading zero. Session
+totals add only known costs and retain the labeled latest report.
