@@ -420,7 +420,7 @@ and hostile child control sequences.
 
 ### Phase 9 — Optional interfaces
 
-- [ ] Add URL fetching with size limits, timeouts, content-type checks, and SSRF
+- [x] Add URL fetching with size limits, timeouts, content-type checks, and SSRF
   protection; make Playwright an optional enhancement.
 - [ ] Add `AI!`/`AI?` watch mode with ignore rules, file-size limits, debounce,
   and serialized interaction with active model turns.

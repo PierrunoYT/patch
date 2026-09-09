@@ -154,6 +154,9 @@ The project has not published a release yet.
 - Bash, Zsh, and Fish completion generation, opt-in bell or argv-command
   notifications, and text-only clipboard commands backed by optional platform
   utilities with image/native enhancements explicitly optional.
+- DNS-pinned, redirect-revalidated URL fetching with SSRF protection, textual
+  content checks, byte and time limits, cancellation, and dynamically loaded
+  optional Playwright rendering.
 
 ### Changed
 
