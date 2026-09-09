@@ -11,3 +11,10 @@ This behavior is adapted from aider's repository initialization in
 modified to use async `git` subprocesses and canonical Node.js paths. It is also
 used by staged configuration bootstrap when selected files correct the initial
 working-directory root.
+
+`GitRepository` exposes tracked files, staged/unstaged/untracked status, unborn
+and detached HEAD, combined index/worktree diffs, dirtiness, ignore checks, and
+repository-relative paths. Machine-readable filename lists use NUL delimiters,
+so whitespace and newline characters cannot corrupt parsing. `.aiderignore` is
+passed to Git as an additional excludes file alongside normal Git ignore rules.
+Pathspecs are rejected before Git invocation when they escape the worktree.

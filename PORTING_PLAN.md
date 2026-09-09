@@ -349,7 +349,7 @@ all ordinary CI tests use deterministic fakes and require no network.
 
 - [x] Discover one common Git worktree for selected paths and reject paths from
   multiple repositories.
-- [ ] Implement tracked files, staged/unstaged status, unborn and detached HEAD,
+- [x] Implement tracked files, staged/unstaged status, unborn and detached HEAD,
   `.gitignore`, `.aiderignore`, diffs, and repository-relative paths using
   NUL-delimited Git output.
 - [ ] Implement the write boundary: preview, authorize new/out-of-chat paths,

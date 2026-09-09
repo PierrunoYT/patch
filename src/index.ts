@@ -28,4 +28,5 @@ export * from "./providers/diagnostics.js";
 export * from "./providers/fake.js";
 export * from "./providers/openai.js";
 export * from "./repository/types.js";
+export * from "./repository/git.js";
 export * from "./resources/prompts.js";

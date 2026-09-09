@@ -92,6 +92,8 @@ The project has not published a release yet.
   that rejects unsupported providers before network access.
 - Canonical common-Git-worktree discovery for existing and future selected
   paths, with mixed-repository selections rejected.
+- A Git CLI repository adapter with NUL-safe status parsing, tracked files,
+  combined diffs, ignore rules, and unborn/detached HEAD support.
 
 ### Changed
 
