@@ -13,13 +13,32 @@ export interface InputOptions {
 }
 
 export interface InputDependencies {
-  readonly handleMessage: (message: string) => void | Promise<void>;
+  readonly handleMessage: (
+    message: string,
+  ) => void | string | Promise<void | string>;
+  readonly recordInput?: (message: string) => void | Promise<void>;
+  readonly recordChat?: (
+    role: "user" | "assistant",
+    message: string,
+  ) => void | Promise<void>;
   readonly lines?: AsyncIterable<string>;
   readonly readMessageFile?: (path: string) => Promise<string>;
 }
 
 export class InputModeError extends Error {
   override readonly name = "InputModeError";
+}
+
+async function submit(
+  message: string,
+  dependencies: InputDependencies,
+): Promise<void> {
+  await dependencies.recordInput?.(message);
+  await dependencies.recordChat?.("user", message);
+  const response = await dependencies.handleMessage(message);
+  if (typeof response === "string") {
+    await dependencies.recordChat?.("assistant", response);
+  }
 }
 
 function terminalLines(): AsyncIterable<string> {
@@ -34,19 +53,19 @@ export async function runInput(
     throw new InputModeError("--message and --message-file cannot be combined");
   }
   if (options.message !== undefined) {
-    await dependencies.handleMessage(options.message);
+    await submit(options.message, dependencies);
     return;
   }
   if (options.messageFile !== undefined) {
     const read =
       dependencies.readMessageFile ?? ((path) => readFile(path, "utf8"));
-    await dependencies.handleMessage(await read(options.messageFile));
+    await submit(await read(options.messageFile), dependencies);
     return;
   }
 
   for await (const line of dependencies.lines ?? terminalLines()) {
     if (line.trim() !== "") {
-      await dependencies.handleMessage(line);
+      await submit(line, dependencies);
     }
   }
 }

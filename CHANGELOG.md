@@ -139,6 +139,9 @@ The project has not published a release yet.
 - Deterministic, terminal-library-neutral command, repository-file, and Unicode
   identifier completion with command-aware candidates and quiet short-prefix
   behavior.
+- Opt-in persistent input and chat history with explicit CLI paths, multiline
+  JSONL input records, Markdown transcripts, private creation modes, and
+  retention and secret-exposure documentation.
 
 ### Changed
 

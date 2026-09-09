@@ -67,6 +67,8 @@ The executable accepts `--message`, `--message-file`, or interactive line input.
 Provider configuration is still in progress, so submitting a message does not
 yet call a live model. The provider layer now includes an
 [OpenAI-compatible adapter](docs/providers.md). See [input modes](docs/input-modes.md).
+Rich terminal contracts and history privacy guidance are documented in
+[rich terminal behavior](docs/terminal.md).
 
 ## Technology direction and references
 

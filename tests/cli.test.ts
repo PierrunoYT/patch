@@ -1,3 +1,7 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { createProgram } from "../src/program.js";
@@ -11,6 +15,33 @@ describe("CLI", () => {
     expect(help).toContain("--help");
     expect(help).toContain("--message <text>");
     expect(help).toContain("--message-file <path>");
+    expect(help).toContain("--input-history-file <path>");
+    expect(help).toContain("--chat-history-file <path>");
+  });
+
+  it("persists explicitly configured input and returned chat messages", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-cli-history-"));
+    const input = join(root, "input.jsonl");
+    const chat = join(root, "chat.md");
+
+    await createProgram({
+      handleMessage: (message) => `reply to ${message}`,
+    }).parseAsync(
+      [
+        "--message",
+        "hello",
+        "--input-history-file",
+        input,
+        "--chat-history-file",
+        chat,
+      ],
+      { from: "user" },
+    );
+
+    expect(await readFile(input, "utf8")).toBe('"hello"\n');
+    expect(await readFile(chat, "utf8")).toBe(
+      "## User\n\nhello\n\n## Assistant\n\nreply to hello\n\n",
+    );
   });
 
   it("runs one-shot text and message-file input exactly once", async () => {
