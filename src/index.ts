@@ -1,4 +1,5 @@
 export * from "./commands/effects.js";
+export * from "./core/chat-chunks.js";
 export * from "./core/fences.js";
 export * from "./core/messages.js";
 export * from "./core/session.js";

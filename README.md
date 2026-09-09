@@ -23,8 +23,9 @@ and revision metadata. The filesystem adapter also provides validated text
 encoding, line-ending preservation, dry runs, and atomic replacement. Model
 connections, edit parsing, Git workflows, and interactive sessions have not
 been implemented yet. Shared [prompt resources and fence selection](docs/prompts.md)
-are pinned to upstream behavior. There is no published package or stable
-interface.
+and typed chat composition with upstream-compatible ordering and cache
+boundaries are pinned to upstream behavior. There is no published package or
+stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

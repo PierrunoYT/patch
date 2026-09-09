@@ -12,6 +12,7 @@ The contracts are internal and may change before the first release.
 | Module | Contract | Upstream behavior reference |
 | --- | --- | --- |
 | `src/core/messages.ts` | System, user, assistant, and tool messages; text, image, and PDF content; tool calls | [`chat_chunks.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/chat_chunks.py#L5-L64), [`sendchat.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/sendchat.py#L5-L61) |
+| `src/core/chat-chunks.ts` | Validated prompt chunks, canonical message ordering, and provider-neutral cache boundaries | [`chat_chunks.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/chat_chunks.py#L5-L64) |
 | `src/providers/events.ts` | Provider-neutral completion requests and streamed text, reasoning, tool-call, usage, finish, and error events | [`base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L1419-L1523) |
 | `src/edits/types.ts` | Edit formats and create, replace, rewrite, delete, and move operations | [`coders/__init__.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/__init__.py#L1-L34), [`patch_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/patch_coder.py#L13-L93) |
 | `src/repository/types.ts` | Repository status, diffs, commit requests/results, and adapter interface | [`repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L52-L126), [`repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L201-L417) |
@@ -45,6 +46,15 @@ Provider adapters must translate their SDK-specific structures into these
 events and retain unrecognized error details only in the optional `raw` field.
 The session core should consume the normalized union and must not import a
 provider SDK.
+
+`ChatChunks` validates every message on construction and emits defensive copies
+in this order: system, examples, read-only files, repository map, completed
+history, editable files, current turn, then reminder. Empty chunks add nothing.
+Cache marking returns a new chunk value and uses camel-case `cacheControl`; a
+provider adapter is responsible for translating that marker to its wire format.
+The cache boundaries match aider: examples or system, repository map or
+read-only files, and editable files. `cacheableMessages()` ends at the last
+available boundary or returns all messages when no boundary exists.
 
 ## Deterministic provider testing
 

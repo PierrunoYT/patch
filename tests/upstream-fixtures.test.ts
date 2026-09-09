@@ -5,9 +5,11 @@ import { describe, expect, it } from "vitest";
 import upstream from "../upstream.json" with { type: "json" };
 import {
   ALL_FENCES,
+  ChatChunks,
   COMMON_PROMPTS,
   EditFormatSchema,
   selectFence,
+  type ChatMessage,
 } from "../src/index.js";
 
 interface FenceResult {
@@ -19,7 +21,11 @@ interface UpstreamFixture {
   schemaVersion: number;
   upstream: { repository: string; commit: string };
   configPrecedence: Record<string, string>;
-  chatChunks: { order: string[] };
+  chatChunks: {
+    order: string[];
+    withCacheHeaders: ChatMessage[];
+    cacheable: ChatMessage[];
+  };
   fences: {
     candidates: [string, string][];
     cases: Record<string, FenceResult>;
@@ -43,7 +49,7 @@ const fixture = JSON.parse(
 
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
-    expect(fixture.schemaVersion).toBe(2);
+    expect(fixture.schemaVersion).toBe(3);
     expect(fixture.upstream).toEqual({
       repository: upstream.repository,
       commit: upstream.commit,
@@ -93,5 +99,25 @@ describe("upstream compatibility fixtures", () => {
     expect(selectFence(ALL_FENCES.flat())).toEqual(
       fixture.fences.cases.exhausted,
     );
+  });
+
+  it("matches upstream chunk ordering and prompt-cache boundaries", () => {
+    const message = (content: string): ChatMessage => ({
+      role: "user",
+      content,
+    });
+    const chunks = new ChatChunks({
+      system: [message("system")],
+      examples: [message("examples")],
+      done: [message("done")],
+      repo: [message("repo")],
+      readonlyFiles: [message("readonly_files")],
+      chatFiles: [message("chat_files")],
+      current: [message("cur")],
+      reminder: [message("reminder")],
+    }).withCacheControl();
+
+    expect(chunks.allMessages()).toEqual(fixture.chatChunks.withCacheHeaders);
+    expect(chunks.cacheableMessages()).toEqual(fixture.chatChunks.cacheable);
   });
 });

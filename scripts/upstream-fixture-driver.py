@@ -50,6 +50,17 @@ def export_config_precedence(get_parser):
 
 
 def export_chat_chunks(ChatChunks):
+    def normalize(messages):
+        normalized = json.loads(json.dumps(messages))
+        for message in normalized:
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            for part in content:
+                if "cache_control" in part:
+                    part["cacheControl"] = part.pop("cache_control")
+        return normalized
+
     names = (
         "system",
         "examples",
@@ -68,8 +79,8 @@ def export_chat_chunks(ChatChunks):
 
     return {
         "order": order,
-        "withCacheHeaders": chunks.all_messages(),
-        "cacheable": chunks.cacheable_messages(),
+        "withCacheHeaders": normalize(chunks.all_messages()),
+        "cacheable": normalize(chunks.cacheable_messages()),
     }
 
 
@@ -263,7 +274,7 @@ def main():
     from aider.repomap import RepoMap
 
     fixture = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "upstream": {"repository": remote, "commit": commit},
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",

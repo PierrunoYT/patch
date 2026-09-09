@@ -38,6 +38,8 @@ The project has not published a release yet.
   revalidation before replacement.
 - Pinned common prompt resources and source-aware fence selection with exact
   compatibility fixtures for candidate order, collisions, and fallback.
+- Validated chat chunks with upstream-compatible role ordering, immutable cache
+  marking, defensive output copies, and normalized provider cache boundaries.
 
 ### Changed
 

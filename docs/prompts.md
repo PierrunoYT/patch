@@ -34,3 +34,17 @@ If every candidate collides, selection reports `fellBack: true` and returns
 triple backticks. The caller owns presentation of the corresponding warning.
 Pinned fixtures cover the candidate order, backtick prefix behavior, indentation,
 and exhausted fallback.
+
+## Message chunk order
+
+`ChatChunks` keeps each independently generated prompt section separate until a
+provider request is assembled. It validates system, user, assistant, and tool
+roles, then emits the upstream order: system, examples, read-only files,
+repository map, completed history, editable files, current turn, and reminder.
+Omitted sections default to empty arrays.
+
+Prompt caching marks the final text message in three stable sections: examples
+(or system when there are no examples), repository map (or read-only files when
+there is no map), and editable files. The operation returns new chunks rather
+than mutating session history. Provider adapters translate Patch's normalized
+`cacheControl` field to provider-specific request syntax.

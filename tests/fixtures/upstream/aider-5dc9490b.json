@@ -8,7 +8,7 @@
       {
         "content": [
           {
-            "cache_control": {
+            "cacheControl": {
               "type": "ephemeral"
             },
             "text": "examples",
@@ -24,7 +24,7 @@
       {
         "content": [
           {
-            "cache_control": {
+            "cacheControl": {
               "type": "ephemeral"
             },
             "text": "repo",
@@ -40,7 +40,7 @@
       {
         "content": [
           {
-            "cache_control": {
+            "cacheControl": {
               "type": "ephemeral"
             },
             "text": "chat_files",
@@ -68,7 +68,7 @@
       {
         "content": [
           {
-            "cache_control": {
+            "cacheControl": {
               "type": "ephemeral"
             },
             "text": "examples",
@@ -84,7 +84,7 @@
       {
         "content": [
           {
-            "cache_control": {
+            "cacheControl": {
               "type": "ephemeral"
             },
             "text": "repo",
@@ -100,7 +100,7 @@
       {
         "content": [
           {
-            "cache_control": {
+            "cacheControl": {
               "type": "ephemeral"
             },
             "text": "chat_files",
@@ -233,7 +233,7 @@
     "systemReminder": ""
   },
   "repoMap": "\ndefinitions.py:\n\u2502def greet(name):\n\u22ee\n\nusage.py\n",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "searchReplace": {
     "missingFilenameError": "<<<<<<< SEARCH\n\n^^^ Bad/missing filename. The filename must be alone on the line before the opening fence ```",
     "parsed": [

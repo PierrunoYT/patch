@@ -274,7 +274,7 @@ packed tarball from a clean temporary project.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
 - [x] Port shared prompt resources and fence selection.
-- [ ] Implement chat roles and the upstream chunk order: system, examples,
+- [x] Implement chat roles and the upstream chunk order: system, examples,
   read-only files, repository map, old history, editable files, current turn,
   reminder.
 - [ ] Implement provisional Git-root discovery, config search, preliminary CLI
