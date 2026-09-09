@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2048" viewBox="0 0 2048 2048" role="img" aria-labelledby="title description">
+  <title id="title">Patch icon</title>
+  <desc id="description">A single mint geometric P with a stepped patch silhouette, centered on a square charcoal background.</desc>
+  <rect width="2048" height="2048" rx="224" fill="#11151C"/>
+  <!-- 1400-unit symbol, with equal 324-unit margins on all four sides. -->
+  <path id="symbol" transform="translate(-1156 -476) scale(10)" fill="#70EDBF" fill-rule="evenodd"
+        d="M172 80H264Q288 80 288 104V154Q288 178 264 178H222V196H194V220H148V104Q148 80 172 80Z
+           M194 116V142H246Q252 142 252 136V122Q252 116 246 116Z"/>
+</svg>

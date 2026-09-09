@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="686" viewBox="0 0 896 300" role="img" aria-labelledby="title description">
+  <title id="title">Patch</title>
+  <desc id="description">Mint PATCH lettering in a bold stepped geometric style, centered on charcoal with no separate icon.</desc>
+
+  <rect id="background" width="896" height="300" rx="32" fill="#11151C"/>
+
+  <!-- Visible bounds: x=100.8 to x=795.2, y=80 to y=220. -->
+  <g id="lockup" transform="translate(-319.2 -60) scale(1.4)">
+    <!-- Solid vector letters share the symbol's rounded corners and stepped cuts. -->
+    <g id="wordmark" fill="#70EDBF" fill-rule="evenodd">
+      <path aria-label="P" d="M318 100H362Q380 100 380 118V150Q380 168 362 168H342V184H326V200H300V118Q300 100 318 100Z
+                              M326 126V142H350Q354 142 354 138V130Q354 126 350 126Z"/>
+      <path aria-label="A" d="M428 100H460Q484 100 484 124V200H458V174H430V200H404V124Q404 100 428 100Z
+                              M434 126Q430 126 430 130V148H458V130Q458 126 454 126Z"/>
+      <path aria-label="T" d="M508 100H588V126H562V184H548V200H534V126H508Z"/>
+      <path aria-label="C" d="M636 100H692V126H644Q638 126 638 132V168Q638 174 644 174H692V200H636Q612 200 612 176V124Q612 100 636 100Z"/>
+      <path aria-label="H" d="M716 100H742V136H770V100H796V200H770V162H742V200H716Z"/>
+    </g>
+  </g>
+</svg>
