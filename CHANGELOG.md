@@ -84,6 +84,8 @@ The project has not published a release yet.
   editor-format overrides.
 - Secret-safe provider credential and model/adapter capability preflight
   diagnostics.
+- Model-aware OpenAI token counting with explicitly labeled conservative
+  estimates for unknown and multimodal prompts.
 
 ### Changed
 

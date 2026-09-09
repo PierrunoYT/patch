@@ -37,3 +37,12 @@ the main object. This avoids recursively constructing each secondary model's
 own secondary models. Explicit role names and editor edit formats override the
 main model's defaults; standard editor formats otherwise receive aider's
 `editor-` prefix.
+
+## Token counting
+
+`countMessageTokens` uses `tiktoken` with `o200k_base` or `cl100k_base` for
+recognized OpenAI text-only models. Unknown models and multimodal prompts use a
+conservative UTF-16-length estimate and return `method: "conservative"` so the
+result cannot be mistaken for an exact provider count. `CoderSession` uses this
+model-aware boundary for prompt budgets and permits an injected counter when a
+provider exposes a more authoritative tokenizer.

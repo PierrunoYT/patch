@@ -336,7 +336,7 @@ partial output.
   construction bugs.
 - [x] Add provider-specific credential diagnostics and supported-capability
   checks.
-- [ ] Add model-aware token counting where reliable and conservative estimates
+- [x] Add model-aware token counting where reliable and conservative estimates
   elsewhere.
 - [ ] Track usage and estimated cost while clearly labeling unknown pricing.
 - [ ] Publish a provider compatibility table; reject unsupported providers

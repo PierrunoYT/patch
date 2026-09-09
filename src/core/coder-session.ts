@@ -12,6 +12,11 @@ import { EditBatchSchema, type EditBatch } from "../edits/types.js";
 import type { FileSystemAdapter } from "../io/filesystem.js";
 import { ModelSettingsSchema } from "../models/settings.js";
 import {
+  conservativeMessageTokens,
+  countMessageTokens,
+  type MessageTokenCounter,
+} from "../models/token-count.js";
+import {
   CompletionEventSchema,
   CompletionRequestSchema,
   type CompletionEvent,
@@ -39,6 +44,7 @@ export interface CoderSessionOptions {
   readonly retry?: Partial<RetryPolicy>;
   readonly availablePaths?: readonly string[];
   readonly approvePath?: PathApproval;
+  readonly tokenCounter?: MessageTokenCounter;
 }
 
 export interface PathApprovalRequest {
@@ -211,27 +217,10 @@ function defaultSleep(
   });
 }
 
-function contentLength(message: ChatMessage): number {
-  if (typeof message.content === "string") {
-    return message.content.length;
-  }
-  if (message.content === null) {
-    return 0;
-  }
-  return message.content.reduce(
-    (length, part) =>
-      length + (part.type === "text" ? part.text.length : part.data.length),
-    0,
-  );
-}
-
 export function estimateMessageTokens(
   messages: readonly ChatMessage[],
 ): number {
-  return messages.reduce(
-    (tokens, message) => tokens + 4 + Math.ceil(contentLength(message) / 4),
-    0,
-  );
+  return conservativeMessageTokens(messages);
 }
 
 export class CoderSession {
@@ -242,6 +231,7 @@ export class CoderSession {
   readonly #retry: RetryPolicy;
   readonly #availablePaths: readonly string[];
   readonly #approvePath: PathApproval | undefined;
+  readonly #tokenCounter: MessageTokenCounter;
   #state: SessionState;
   #nextTurnId = 1;
   #activeTurn: PreparedTurn | undefined;
@@ -258,6 +248,9 @@ export class CoderSession {
     };
     this.#availablePaths = [...(options.availablePaths ?? [])];
     this.#approvePath = options.approvePath;
+    this.#tokenCounter =
+      options.tokenCounter ??
+      ((messages, model) => countMessageTokens(messages, model).tokens);
     this.#state = SessionStateSchema.parse({
       config: this.config,
       phase: "waiting",
@@ -410,7 +403,7 @@ export class CoderSession {
       current: [userMessage],
       reminder: prompt.reminder,
     }).allMessages();
-    const inputTokens = estimateMessageTokens(messages);
+    const inputTokens = this.#tokenCounter(messages, this.#config.model);
     const maximum = this.config.model.maxInputTokens;
     if (maximum !== undefined && inputTokens > maximum) {
       throw new TokenBudgetExceededError(inputTokens, maximum);
