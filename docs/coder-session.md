@@ -68,3 +68,11 @@ start the separate editor session, whose model and edit protocol are
 independently configured. Denial or an empty plan cannot consume an editor
 turn, and a shared abort signal prevents the editor from starting after
 cancellation.
+
+## Context selection
+
+`selectContextFiles` asks a dedicated read-only context session for the complete
+set of files, repeats with the prior selection, and stops when the set is stable
+regardless of response order. It defaults to three iterations and reports when
+the bound, rather than convergence, ended selection. Cancellation is forwarded
+to every provider turn and no filesystem state changes during selection.

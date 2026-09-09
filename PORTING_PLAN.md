@@ -395,7 +395,7 @@ within token budgets on Linux, macOS, and Windows.
 - [x] Port unified diff with no-match versus non-unique-match diagnostics.
 - [x] Port patch add/delete/update/move actions and fuzz accounting.
 - [x] Port architect/editor handoff with explicit user acceptance.
-- [ ] Port context mode's repeated file selection with a bounded convergence
+- [x] Port context mode's repeated file selection with a bounded convergence
   loop.
 - [ ] Add prompt caching, cache keepalive, assistant-prefill continuation,
   images, and PDF read-only context where provider capabilities allow it.

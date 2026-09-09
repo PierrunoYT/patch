@@ -14,7 +14,7 @@ If you need to describe code changes, do so briefly.
 Do not return full diffs or claim to have changed files.`;
 
 export class AskEditStrategy implements EditStrategy {
-  readonly format: "ask" | "architect" = "ask";
+  readonly format: "ask" | "architect" | "context" = "ask";
 
   parse(response: string, context: EditStrategyContext): EditBatch {
     void response;
@@ -25,4 +25,8 @@ export class AskEditStrategy implements EditStrategy {
 
 export class ArchitectEditStrategy extends AskEditStrategy {
   override readonly format = "architect" as const;
+}
+
+export class ContextEditStrategy extends AskEditStrategy {
+  override readonly format = "context" as const;
 }

@@ -132,6 +132,8 @@ The project has not published a release yet.
   and surrounding-space fuzz accounting.
 - Architect/editor orchestration that exposes the completed plan and requires
   explicit acceptance before invoking an independently configured editor.
+- Context-mode file selection with order-independent convergence, a strict
+  iteration bound, and cancellation through deterministic provider turns.
 
 ### Changed
 
