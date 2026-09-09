@@ -4,6 +4,8 @@ export * from "./core/chat-chunks.js";
 export * from "./core/fences.js";
 export * from "./core/messages.js";
 export * from "./core/session.js";
+export * from "./edits/ask.js";
+export * from "./edits/strategy.js";
 export * from "./edits/types.js";
 export * from "./io/filesystem.js";
 export * from "./io/safe-path.js";

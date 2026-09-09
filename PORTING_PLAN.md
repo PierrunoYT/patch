@@ -290,7 +290,7 @@ endings.
 
 ### Phase 2 — Edit engines
 
-- [ ] Port `ask` as a no-write strategy.
+- [x] Port `ask` as a no-write strategy.
 - [ ] Port whole-file fenced blocks, including filename inference and trailing
   newline behavior.
 - [ ] Port SEARCH/REPLACE parsing, shell block separation, exact replacement,

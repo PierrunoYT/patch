@@ -48,6 +48,8 @@ The project has not published a release yet.
   dotenv, and command-line values.
 - A packaged, validated model catalog with aliases, YAML settings, commented
   JSON5 metadata, deterministic overrides, and clean-install resource checks.
+- A provider-neutral edit-strategy contract and an `ask` strategy that cannot
+  emit file edits or shell commands.
 
 ### Changed
 
