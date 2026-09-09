@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type RepoMapLanguage =
-  "go" | "javascript" | "python" | "rust" | "typescript";
+  "go" | "javascript" | "python" | "rust" | "typescript" | "tsx";
 
 const RESOURCE_ROOT = fileURLToPath(
   new URL("../resources/repomap", import.meta.url),

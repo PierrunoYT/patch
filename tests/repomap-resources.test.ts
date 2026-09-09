@@ -12,6 +12,7 @@ import {
 const languages: readonly RepoMapLanguage[] = [
   "javascript",
   "typescript",
+  "tsx",
   "python",
   "go",
   "rust",

@@ -55,6 +55,59 @@ describe("TagExtractor", () => {
     ).resolves.toEqual([]);
   });
 
+  it.each([
+    {
+      extension: "ts",
+      source:
+        "export class Greeter {}\nconst value: Greeter = new Greeter();\n",
+      definition: "Greeter",
+      reference: "Greeter",
+    },
+    {
+      extension: "tsx",
+      source:
+        "interface Props { name: string }\nexport function Greeting(props: Props) { return <p>{props.name}</p>; }\n",
+      definition: "Greeting",
+      reference: "Props",
+    },
+    {
+      extension: "py",
+      source: "def greet(name):\n    return format(name)\n\ngreet('Ada')\n",
+      definition: "greet",
+      reference: "format",
+    },
+    {
+      extension: "go",
+      source:
+        "package main\ntype Greeter struct {}\nfunc greet() { format(); }\nfunc main() { greet() }\n",
+      definition: "greet",
+      reference: "format",
+    },
+    {
+      extension: "rs",
+      source:
+        "struct Greeter {}\nfn greet() { format(); }\nfn main() { greet(); }\n",
+      definition: "greet",
+      reference: "format",
+    },
+  ])(
+    "extracts definitions and references from .$extension",
+    async ({ extension, source, definition, reference }) => {
+      const root = await fixture();
+      const path = `src/sample.${extension}`;
+      await writeFile(join(root, path), source);
+
+      const tags = await (await TagExtractor.create(root)).extract(path);
+
+      expect(tags).toContainEqual(
+        expect.objectContaining({ name: definition, kind: "definition" }),
+      );
+      expect(tags).toContainEqual(
+        expect.objectContaining({ name: reference, kind: "reference" }),
+      );
+    },
+  );
+
   it("rejects paths outside the selected repository root", async () => {
     const root = await fixture();
     await expect(

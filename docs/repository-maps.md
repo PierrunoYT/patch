@@ -11,9 +11,11 @@ runtime dependencies. The build copies queries to `dist/resources/repomap`, and
 all resources are resolved relative to `import.meta.url`, never the process
 working directory. Branding-only `assets/` remains unchanged.
 
-The initial grammar set is JavaScript, TypeScript, Python, Go, and Rust. A new
-language requires a pinned grammar, an attributed tag query, compatibility
-fixtures, extraction tests, and packed-package smoke coverage.
+The initial grammar set is JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`),
+TypeScript (`.ts`, `.tsx`), Python (`.py`, `.pyi`), Go (`.go`), and Rust
+(`.rs`). TypeScript and TSX use their corresponding grammars. A new language
+requires a pinned grammar, an attributed tag query, compatibility fixtures,
+extraction tests, and packed-package smoke coverage.
 
 `TagExtractor` resolves every requested file through `SafePathResolver`, reads
 UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and

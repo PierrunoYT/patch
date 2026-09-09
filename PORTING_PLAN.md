@@ -373,7 +373,7 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
 ### Phase 6 — Repository maps
 
 - [x] Port definitions/references extraction with `web-tree-sitter`.
-- [ ] Initially support JavaScript, TypeScript, Python, Go, and Rust.
+- [x] Initially support JavaScript, TypeScript, Python, Go, and Rust.
 - [x] Keep query files and WASM grammars under `src/resources/repomap/` or use
   version-pinned npm grammar packages; never place them in `assets/`.
 - [ ] Build the weighted reference graph and deterministic personalized

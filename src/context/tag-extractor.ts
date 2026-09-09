@@ -33,7 +33,7 @@ const EXTENSIONS: Readonly<Record<string, RepoMapLanguage>> = {
   ".pyi": "python",
   ".rs": "rust",
   ".ts": "typescript",
-  ".tsx": "typescript",
+  ".tsx": "tsx",
 } as const;
 
 let parserInitialization: Promise<void> | undefined;
