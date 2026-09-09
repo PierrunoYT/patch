@@ -78,6 +78,8 @@ The project has not published a release yet.
 - CLI one-shot `--message`, `--message-file`, and serial interactive line input.
 - OpenAI-compatible Chat Completions streaming through the official npm client,
   including custom endpoints, usage, finish reasons, and classified failures.
+- Anthropic Messages streaming with system-message separation, ephemeral cache
+  controls, multimodal blocks, thinking, tools, usage, and stop-reason mapping.
 
 ### Changed
 

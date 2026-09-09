@@ -16,3 +16,13 @@ rejected because Chat Completions does not define a portable PDF representation.
 
 Default tests use mocked Fetch responses and never require credentials or
 network access.
+
+## Anthropic Messages
+
+`AnthropicProvider` uses the official `@anthropic-ai/sdk` npm client. It moves
+system messages into Anthropic's top-level `system` field, preserves ephemeral
+cache-control markers on text blocks, and maps text, images, PDFs, tool results,
+tool calls, thinking, usage, cached tokens, and stop reasons to the shared
+contract. Constructor options support custom endpoints, timeout, headers, and
+Fetch injection. Errors use the same provider-neutral classifications as the
+OpenAI adapter.

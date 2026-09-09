@@ -331,7 +331,7 @@ partial output.
 
 - [x] Implement OpenAI Chat Completions-compatible streaming, custom base URL,
   API key, timeout, request options, usage, and finish reasons.
-- [ ] Implement Anthropic streaming and system/cache-control differences.
+- [x] Implement Anthropic streaming and system/cache-control differences.
 - [ ] Implement main, weak, and editor model selection without recursive
   construction bugs.
 - [ ] Add provider-specific credential diagnostics and supported-capability
