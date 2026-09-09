@@ -55,6 +55,8 @@ The project has not published a release yet.
 - SEARCH/REPLACE parsing and pure application with shell-block separation,
   exact and indentation-aware matching, paired elision, ambiguity rejection,
   and contextual failure diagnostics.
+- Pure edit-batch dry-run resolution against immutable file snapshots, with
+  sequential same-file edits and all-or-nothing failure results.
 
 ### Changed
 

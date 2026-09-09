@@ -5,6 +5,7 @@ export * from "./core/fences.js";
 export * from "./core/messages.js";
 export * from "./core/session.js";
 export * from "./edits/ask.js";
+export * from "./edits/resolve.js";
 export * from "./edits/search-replace.js";
 export * from "./edits/strategy.js";
 export * from "./edits/types.js";

@@ -296,7 +296,7 @@ endings.
 - [x] Port SEARCH/REPLACE parsing, shell block separation, exact replacement,
   leading-whitespace normalization, `...` elision, ambiguity detection, and
   failure diagnostics.
-- [ ] Add a dry-run resolution pass before authorization or writes.
+- [x] Add a dry-run resolution pass before authorization or writes.
 - [ ] Represent create, update, and delete operations explicitly.
 - [ ] Add transactional staging of proposed file contents so parser or
   validation failures cannot leave a partial multi-file update. Document this
