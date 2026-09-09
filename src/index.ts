@@ -9,6 +9,7 @@ export * from "./context/tag-cache.js";
 export * from "./context/tag-extractor.js";
 export * from "./context/tree-context.js";
 export * from "./core/chat-chunks.js";
+export * from "./core/architect.js";
 export * from "./core/coder-session.js";
 export * from "./core/file-mentions.js";
 export * from "./core/fences.js";

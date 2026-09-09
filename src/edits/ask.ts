@@ -14,11 +14,15 @@ If you need to describe code changes, do so briefly.
 Do not return full diffs or claim to have changed files.`;
 
 export class AskEditStrategy implements EditStrategy {
-  readonly format = "ask" as const;
+  readonly format: "ask" | "architect" = "ask";
 
   parse(response: string, context: EditStrategyContext): EditBatch {
     void response;
     void context;
     return { edits: [], shellCommands: [] };
   }
+}
+
+export class ArchitectEditStrategy extends AskEditStrategy {
+  override readonly format = "architect" as const;
 }

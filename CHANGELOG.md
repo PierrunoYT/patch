@@ -130,6 +130,8 @@ The project has not published a release yet.
   and non-unique context diagnostics.
 - Typed patch add, delete, update, and move actions with exact, trailing-space,
   and surrounding-space fuzz accounting.
+- Architect/editor orchestration that exposes the completed plan and requires
+  explicit acceptance before invoking an independently configured editor.
 
 ### Changed
 

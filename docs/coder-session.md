@@ -59,3 +59,12 @@ strategy format must match the model. When formats differ, callers may inject a
 history summarizer; without one, Patch removes old assistant protocol output
 while retaining user intent so the replacement model does not imitate an
 incompatible edit syntax.
+
+## Architect/editor handoff
+
+`ArchitectOrchestrator` runs a read-only architect session first and exposes its
+complete plan to an injected acceptance callback. Only explicit acceptance can
+start the separate editor session, whose model and edit protocol are
+independently configured. Denial or an empty plan cannot consume an editor
+turn, and a shared abort signal prevents the editor from starting after
+cancellation.
