@@ -22,3 +22,11 @@ UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and
 returns zero-based definition/reference tags. Unsupported extensions and empty
 files return no tags. Symlink escapes and traversal outside the selected root
 are rejected before reading.
+
+Ranking builds aider's weighted reference multigraph and runs local PageRank
+with a fixed damping factor, convergence tolerance, and sorted iteration order.
+Repeated references use square-root scaling; descriptive, private, widely
+defined, and explicitly mentioned identifiers receive aider-compatible
+multipliers. Chat-file references are weighted more strongly, while chat-file
+definitions are omitted from the result. File and identifier mentions seed the
+personalization and dangling-node distribution.

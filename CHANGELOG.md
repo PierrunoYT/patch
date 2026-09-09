@@ -114,6 +114,8 @@ The project has not published a release yet.
   deterministic source locations and unsupported-language handling.
 - Initial JavaScript, TypeScript/TSX, Python, Go, and Rust repository-map
   language support with pinned grammar/query tests.
+- Deterministic weighted reference-graph ranking with personalized PageRank,
+  identifier heuristics, and chat-file weighting.
 
 ### Changed
 

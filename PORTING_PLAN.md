@@ -376,7 +376,7 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
 - [x] Initially support JavaScript, TypeScript, Python, Go, and Rust.
 - [x] Keep query files and WASM grammars under `src/resources/repomap/` or use
   version-pinned npm grammar packages; never place them in `assets/`.
-- [ ] Build the weighted reference graph and deterministic personalized
+- [x] Build the weighted reference graph and deterministic personalized
   PageRank.
 - [ ] Port token-budget binary search and a TypeScript `TreeContextRenderer`
   equivalent to `grep_ast.TreeContext`.

@@ -1,6 +1,7 @@
 export * from "./commands/effects.js";
 export * from "./commands/parse.js";
 export * from "./config/bootstrap.js";
+export * from "./context/repo-graph.js";
 export * from "./context/repomap-resources.js";
 export * from "./context/tag-extractor.js";
 export * from "./core/chat-chunks.js";
