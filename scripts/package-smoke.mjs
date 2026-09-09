@@ -65,6 +65,43 @@ try {
     throw new Error("The packed model catalog could not load its resources");
   }
 
+  const repoMap = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `
+        import { mkdir, writeFile } from 'node:fs/promises';
+        import { join } from 'node:path';
+        import { TagExtractor } from './dist/index.js';
+        const root = join(process.cwd(), '.repomap-smoke');
+        await mkdir(root);
+        const fixtures = {
+          'sample.js': 'function javascriptName() {}\\njavascriptName();\\n',
+          'sample.ts': 'function typescriptName(): void {}\\ntypescriptName();\\n',
+          'sample.py': 'def python_name():\\n    pass\\n\\npython_name()\\n',
+          'sample.go': 'package main\\nfunc goName() {}\\nfunc main() { goName() }\\n',
+          'sample.rs': 'fn rust_name() {}\\nfn main() { rust_name(); }\\n',
+        };
+        for (const [path, source] of Object.entries(fixtures)) {
+          await writeFile(join(root, path), source);
+        }
+        const extractor = await TagExtractor.create(root);
+        for (const path of Object.keys(fixtures)) {
+          const tags = await extractor.extract(path);
+          if (!tags.some((tag) => tag.kind === 'definition')) {
+            throw new Error('Packed repository-map extraction failed for ' + path);
+          }
+        }
+        process.stdout.write('repository-map-ok');
+      `,
+    ],
+    { cwd: packageRoot, encoding: "utf8" },
+  );
+  if (repoMap !== "repository-map-ok") {
+    throw new Error("The packed repository-map resources could not be used");
+  }
+
   process.stdout.write(help);
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });

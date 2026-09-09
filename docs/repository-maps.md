@@ -57,3 +57,8 @@ compares tags and rank order exactly. Rendering removes only tree glyphs,
 elisions, and trailing whitespace before comparison because Patch's
 `TreeContextRenderer` is intentionally a TypeScript equivalent rather than a
 byte-for-byte port of `grep_ast` internals.
+
+The npm package smoke test installs the generated tarball into a clean project,
+loads the public `TagExtractor`, and parses JavaScript, TypeScript, Python, Go,
+and Rust. This verifies that compiled ESM, copied queries, `web-tree-sitter`, and
+the pinned grammar package all resolve without access to the Patch source tree.

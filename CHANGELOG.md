@@ -122,6 +122,8 @@ The project has not published a release yet.
   `manual`, `always`, `files`, and adaptive `auto` map refresh modes.
 - Pinned aider compatibility fixtures for repository-map tags, definition rank
   order, normalized context rendering, and token ceilings.
+- Clean-install npm package smoke coverage that loads packaged queries and WASM
+  grammars and extracts JavaScript, TypeScript, Python, Go, and Rust tags.
 
 ### Changed
 

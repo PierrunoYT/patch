@@ -383,7 +383,7 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
 - [x] Compare normalized map output and rank ordering against upstream fixtures.
-- [ ] Add languages only with pinned grammar/query compatibility tests and npm
+- [x] Add languages only with pinned grammar/query compatibility tests and npm
   package smoke coverage.
 
 **Exit:** representative multi-language fixtures produce stable, useful maps

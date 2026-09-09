@@ -39,7 +39,10 @@ published package or stable interface. The initial
 [coder session](docs/coder-session.md) composes injected providers and edit
 strategies through dry-run resolution and transactional staging. Lint and test
 checks run only when explicitly configured; Patch never guesses commands from
-the target repository's package-manager files.
+the target repository's package-manager files. The packaged
+[repository-map engine](docs/repository-maps.md) extracts five initial language
+families with Tree-sitter, ranks references deterministically, and renders
+syntax context within token budgets using persistent content-aware caches.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is
