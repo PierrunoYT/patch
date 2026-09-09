@@ -311,7 +311,7 @@ or a documented, safer rejection.
 
 - [x] Implement `CoderSession` using an injected `EditStrategy` rather than a
   subclass per complete session.
-- [ ] Implement per-turn initialization, prompt composition, token-budget
+- [x] Implement per-turn initialization, prompt composition, token-budget
   checks, response assembly, and history transitions.
 - [ ] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.

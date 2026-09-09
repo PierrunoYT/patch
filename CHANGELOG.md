@@ -65,6 +65,8 @@ The project has not published a release yet.
   empty files, Unicode, CRLF, duplicate filenames, and traversal attempts.
 - An initial `CoderSession` that composes injected provider and edit-strategy
   contracts through validated parsing, dry-run resolution, and edit staging.
+- Session turn preparation and finalization with ordered prompt chunks,
+  conservative token budgets, response validation, and atomic history updates.
 
 ### Changed
 

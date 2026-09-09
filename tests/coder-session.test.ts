@@ -139,4 +139,93 @@ describe("CoderSession", () => {
         }),
     ).toThrow();
   });
+
+  it("composes ordered prompts and transitions completed turns into history", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+      messages: [{ role: "user", content: "old" }],
+    });
+    const turn = session.prepareTurn("current", {
+      system: [{ role: "system", content: "system" }],
+      examples: [{ role: "user", content: "example" }],
+      readOnlyFiles: [{ role: "user", content: "readonly" }],
+      repository: [{ role: "user", content: "repo" }],
+      editableFiles: [{ role: "user", content: "editable" }],
+      reminder: [{ role: "user", content: "reminder" }],
+    });
+
+    expect(turn.request.messages.map((message) => message.content)).toEqual([
+      "system",
+      "example",
+      "readonly",
+      "repo",
+      "old",
+      "editable",
+      "current",
+      "reminder",
+    ]);
+    expect(session.snapshot()).toMatchObject({
+      phase: "streaming",
+      inputTokens: turn.inputTokens,
+      partialResponse: "",
+    });
+
+    expect(session.finalizeTurn(turn, "answer")).toEqual({
+      edits: [],
+      shellCommands: [],
+    });
+    expect(session.snapshot()).toMatchObject({
+      phase: "waiting",
+      messages: [
+        { role: "user", content: "old" },
+        { role: "user", content: "current" },
+        { role: "assistant", content: "answer" },
+      ],
+      partialResponse: "answer",
+    });
+  });
+
+  it("rejects over-budget prompts before activating a turn", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: {
+        ...config(root, "ask"),
+        model: {
+          name: "tiny/model",
+          provider: "fake",
+          editFormat: "ask",
+          maxInputTokens: 5,
+        },
+      },
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+    });
+
+    expect(() => session.prepareTurn("a prompt beyond five tokens")).toThrow(
+      /model limit is 5/,
+    );
+    expect(session.snapshot().phase).toBe("waiting");
+  });
+
+  it("supports abandoning a prepared turn without adding history", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+    });
+    const turn = session.prepareTurn("temporary");
+
+    session.abandonTurn(turn);
+
+    expect(session.snapshot()).toMatchObject({
+      phase: "waiting",
+      messages: [],
+      partialResponse: "",
+    });
+    expect(() => session.finalizeTurn(turn, "late")).toThrow(/inactive/);
+  });
 });

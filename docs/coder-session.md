@@ -17,7 +17,13 @@ parse through the injected strategy, resolve against immutable snapshots, and
 stage a filesystem transaction. Staging never commits; explicit authorization
 must occur before a caller invokes the returned transaction's `commit` method.
 
-Per-turn initialization, prompt composition, provider streaming, history
-transitions, reflection, and cancellation remain separate Phase 3 tasks. Keeping
-those concerns out of this first boundary makes strategy injection testable
-without prematurely combining the conversation state machine with file writes.
+`prepareTurn` resets transient edit and usage state, composes typed prompt chunks
+in upstream-compatible order, applies a conservative token estimate, and
+returns a validated provider request. Over-budget prompts fail before a turn is
+activated. `finalizeTurn` validates the complete response through the strategy
+before atomically adding the user and assistant messages to durable history;
+`abandonTurn` clears transient state without changing history.
+
+Provider streaming, retries, reflection, and cancellation remain separate
+Phase 3 tasks. The current token estimate is deliberately conservative and will
+be replaced by model-aware counters where providers expose reliable tokenizers.
