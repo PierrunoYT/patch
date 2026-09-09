@@ -12,6 +12,8 @@ import {
   FileSystemAdapter,
   PathApprovalDeniedError,
   ReflectionLimitError,
+  SearchReplaceEditStrategy,
+  SessionSwitchError,
   WholeFileEditStrategy,
   TruncatedResponseError,
   TurnCancelledError,
@@ -552,5 +554,73 @@ describe("CoderSession", () => {
     await expect(readFile(join(root, "new.ts"), "utf8")).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("switches models and strategies while transferring compatible state", async () => {
+    const root = await temporaryDirectory();
+    const originalProvider = new FakeProvider([]);
+    const replacementProvider = new FakeProvider([]);
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: originalProvider,
+      strategy: new AskEditStrategy(),
+      editablePaths: ["file.ts"],
+      messages: [
+        { role: "user", content: "old question" },
+        { role: "assistant", content: "old answer" },
+      ],
+    });
+
+    await session.switch({
+      model: {
+        name: "other/model",
+        provider: "fake",
+        editFormat: "ask",
+      },
+      provider: replacementProvider,
+      strategy: new AskEditStrategy(),
+    });
+
+    expect(session.provider).toBe(replacementProvider);
+    expect(session.config.model.name).toBe("other/model");
+    expect(session.snapshot()).toMatchObject({
+      editablePaths: ["file.ts"],
+      messages: [
+        { role: "user", content: "old question" },
+        { role: "assistant", content: "old answer" },
+      ],
+    });
+  });
+
+  it("removes incompatible assistant protocol output on format changes", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+      messages: [
+        { role: "user", content: "keep user intent" },
+        { role: "assistant", content: "old protocol" },
+      ],
+    });
+
+    await session.switch({
+      model: { name: "diff/model", provider: "fake", editFormat: "diff" },
+      provider: new FakeProvider([]),
+      strategy: new SearchReplaceEditStrategy(),
+    });
+
+    expect(session.snapshot().messages).toEqual([
+      { role: "user", content: "keep user intent" },
+    ]);
+    expect(session.strategy.format).toBe("diff");
+    await expect(
+      session.switch({
+        model: { name: "bad/model", provider: "fake", editFormat: "whole" },
+        provider: new FakeProvider([]),
+        strategy: new AskEditStrategy(),
+      }),
+    ).rejects.toBeInstanceOf(SessionSwitchError);
+    expect(session.config.model.name).toBe("diff/model");
   });
 });

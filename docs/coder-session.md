@@ -47,3 +47,10 @@ candidate list. They join the editable set only when the injected approval
 callback accepts each path. Parsed model edits receive the same check before
 checks, staging, or writes; an unselected/new path is rejected when approval is
 absent or denied, and read-only paths remain non-editable.
+
+`switch` atomically replaces the validated model, provider, and strategy while
+retaining selected paths, usage, and compatible conversation state. The
+strategy format must match the model. When formats differ, callers may inject a
+history summarizer; without one, Patch removes old assistant protocol output
+while retaining user intent so the replacement model does not imitate an
+incompatible edit syntax.

@@ -73,6 +73,8 @@ The project has not published a release yet.
   diagnostics, with failed response context retained for the next attempt.
 - File-mention detection and mandatory approval for new or unselected paths
   before they can enter a session or staged edit transaction.
+- Atomic model/provider/strategy switching with state transfer and removal or
+  summarization of history that uses an incompatible edit format.
 
 ### Changed
 

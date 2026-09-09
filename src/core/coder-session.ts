@@ -10,6 +10,7 @@ import type { EditStrategy } from "../edits/strategy.js";
 import { EditTransaction } from "../edits/transaction.js";
 import { EditBatchSchema, type EditBatch } from "../edits/types.js";
 import type { FileSystemAdapter } from "../io/filesystem.js";
+import { ModelSettingsSchema } from "../models/settings.js";
 import {
   CompletionEventSchema,
   CompletionRequestSchema,
@@ -48,6 +49,15 @@ export interface PathApprovalRequest {
 export type PathApproval = (
   request: PathApprovalRequest,
 ) => boolean | Promise<boolean>;
+
+export interface SessionSwitchOptions {
+  readonly model: unknown;
+  readonly provider: ModelProvider;
+  readonly strategy: EditStrategy;
+  readonly summarizeHistory?: (
+    messages: readonly ChatMessage[],
+  ) => readonly ChatMessage[] | Promise<readonly ChatMessage[]>;
+}
 
 export interface TurnPrompt {
   readonly system?: readonly ChatMessage[];
@@ -162,6 +172,10 @@ export class PathApprovalDeniedError extends Error {
   }
 }
 
+export class SessionSwitchError extends Error {
+  override readonly name = "SessionSwitchError";
+}
+
 function diagnosticMessage(
   source: "malformed" | "lint" | "test",
   text: string,
@@ -221,9 +235,9 @@ export function estimateMessageTokens(
 }
 
 export class CoderSession {
-  readonly config: SessionConfig;
-  readonly provider: ModelProvider;
-  readonly strategy: EditStrategy;
+  #config: SessionConfig;
+  #provider: ModelProvider;
+  #strategy: EditStrategy;
   readonly fence: readonly [string, string];
   readonly #retry: RetryPolicy;
   readonly #availablePaths: readonly string[];
@@ -233,9 +247,9 @@ export class CoderSession {
   #activeTurn: PreparedTurn | undefined;
 
   constructor(options: CoderSessionOptions) {
-    this.config = SessionConfigSchema.parse(options.config);
-    this.provider = options.provider;
-    this.strategy = options.strategy;
+    this.#config = SessionConfigSchema.parse(options.config);
+    this.#provider = options.provider;
+    this.#strategy = options.strategy;
     this.fence = [...(options.fence ?? ["```", "```"])];
     this.#retry = {
       maxAttempts: options.retry?.maxAttempts ?? 3,
@@ -260,6 +274,52 @@ export class CoderSession {
       totalCost: 0,
       lastPatchCommit: null,
     });
+  }
+
+  get config(): SessionConfig {
+    return structuredClone(this.#config);
+  }
+
+  get provider(): ModelProvider {
+    return this.#provider;
+  }
+
+  get strategy(): EditStrategy {
+    return this.#strategy;
+  }
+
+  async switch(options: SessionSwitchOptions): Promise<void> {
+    if (this.#activeTurn !== undefined) {
+      throw new SessionSwitchError("Cannot switch during an active turn");
+    }
+    const model = ModelSettingsSchema.parse(options.model);
+    if (options.strategy.format !== model.editFormat) {
+      throw new SessionSwitchError(
+        `Strategy format ${options.strategy.format} does not match model format ${model.editFormat}`,
+      );
+    }
+
+    let messages = this.#state.messages;
+    if (model.editFormat !== this.#strategy.format) {
+      messages = options.summarizeHistory
+        ? [...(await options.summarizeHistory(structuredClone(messages)))]
+        : messages.filter((message) => message.role !== "assistant");
+      messages = messages.map((message) => ChatMessageSchema.parse(message));
+    }
+    const config = SessionConfigSchema.parse({ ...this.#config, model });
+    const state = SessionStateSchema.parse({
+      ...this.#state,
+      config,
+      messages,
+      phase: "waiting",
+      pendingEdits: [],
+      partialResponse: "",
+      reflectionCount: 0,
+    });
+    this.#config = config;
+    this.#provider = options.provider;
+    this.#strategy = options.strategy;
+    this.#state = state;
   }
 
   snapshot(): SessionState {

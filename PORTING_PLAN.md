@@ -319,7 +319,7 @@ or a documented, safer rejection.
   failures. Default to aider's maximum of three reflections.
 - [x] Implement file-mention detection and explicit approval before adding or
   editing unselected files.
-- [ ] Implement strategy/model switching with state transfer. Summarize or
+- [x] Implement strategy/model switching with state transfer. Summarize or
   clear incompatible assistant protocol examples when the edit format changes.
 - [ ] Add one-shot `--message`, `--message-file`, and interactive line input.
 
