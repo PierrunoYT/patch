@@ -20,6 +20,8 @@ The project has not published a release yet.
   formatting, tests, build output, package validation, and a minimal CLI.
 - Apache-2.0 licensing, upstream attribution guidance, and machine-readable
   aider source revision metadata.
+- Node.js 22 continuous integration for formatting, linting, type checking,
+  tests, builds, and clean installation of the packed executable.
 
 ### Changed
 

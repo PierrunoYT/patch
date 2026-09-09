@@ -255,7 +255,7 @@ packed tarball from a clean temporary project.
 - [x] Add the Apache-2.0 `LICENSE`, upstream attribution in `NOTICE`, and a
   standard header/template for directly ported files.
 - [x] Record the pinned upstream commit in a machine-readable file.
-- [ ] Add CI for typecheck, lint, tests, build, and `npm pack` smoke testing.
+- [x] Add CI for typecheck, lint, tests, build, and `npm pack` smoke testing.
 - [ ] Build an upstream fixture exporter outside the shipped package. Capture
   normalized outputs from pinned aider for config precedence, prompt chunks,
   edit parsing/application, Git state, and repository maps.
