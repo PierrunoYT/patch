@@ -10,9 +10,13 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 
 import {
+  CommitRequestSchema,
+  CommitResultSchema,
   DiffResultSchema,
   RepositoryStatusSchema,
   type DiffResult,
+  type CommitRequest,
+  type CommitResult,
   type RepositoryStatus,
 } from "./types.js";
 
@@ -20,6 +24,23 @@ const executeFile = promisify(execFile);
 
 export class GitRepositoryError extends Error {
   override readonly name = "GitRepositoryError";
+}
+
+export interface GeneratedCommitRequest {
+  readonly paths: readonly string[];
+  readonly message?: string;
+  readonly generateMessage?: (diff: DiffResult) => string | Promise<string>;
+  readonly verify?: boolean;
+  readonly attribution?: CommitRequest["attribution"];
+}
+
+export interface UndoResult {
+  readonly commit: string;
+  readonly paths: readonly string[];
+}
+
+export class UndoNotAllowedError extends Error {
+  override readonly name = "UndoNotAllowedError";
 }
 
 function nulFields(output: string): string[] {
@@ -49,7 +70,10 @@ export class GitRepository {
     return repository;
   }
 
-  async #git(arguments_: readonly string[]): Promise<string> {
+  async #git(
+    arguments_: readonly string[],
+    environment: Readonly<Record<string, string>> = {},
+  ): Promise<string> {
     try {
       const { stdout } = await executeFile(
         "git",
@@ -57,7 +81,7 @@ export class GitRepository {
         {
           encoding: "utf8",
           maxBuffer: 16 * 1024 * 1024,
-          env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+          env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", ...environment },
         },
       );
       return stdout;
@@ -139,17 +163,24 @@ export class GitRepository {
     const pathspec = selected.length === 0 ? [] : ["--", ...selected];
     const hasHead =
       (await this.#tryGit(["rev-parse", "--verify", "HEAD"])) !== undefined;
-    const patch = hasHead
+    const trackedPatch = hasHead
       ? await this.#git(["diff", "--no-ext-diff", "HEAD", ...pathspec])
       : `${await this.#git(["diff", "--no-ext-diff", "--cached", ...pathspec])}${await this.#git(["diff", "--no-ext-diff", ...pathspec])}`;
     const status = await this.status();
+    const selectedSet = new Set(selected);
+    const untrackedPaths = status.untrackedPaths.filter(
+      (path) => selected.length === 0 || selectedSet.has(path),
+    );
+    const untrackedSummary = untrackedPaths
+      .map((path) => `Untracked file: ${path}\n`)
+      .join("");
     const changed = new Set([
       ...status.stagedPaths,
       ...status.modifiedPaths,
       ...status.untrackedPaths,
     ]);
     return DiffResultSchema.parse({
-      patch,
+      patch: `${trackedPatch}${untrackedSummary}`,
       paths: selected.length === 0 ? [...changed].sort() : selected,
     });
   }
@@ -188,5 +219,91 @@ export class GitRepository {
       ...status.modifiedPaths,
       ...status.untrackedPaths,
     ].includes(selected);
+  }
+
+  async commit(request: CommitRequest): Promise<CommitResult | undefined> {
+    const validated = CommitRequestSchema.parse(request);
+    const paths = validated.paths.map((path) => this.relativePath(path));
+    const diff = await this.diff(paths);
+    if (diff.patch === "") {
+      return undefined;
+    }
+    await this.#git(["add", "--", ...paths]);
+    const trailers = [
+      validated.attribution?.coAuthor === undefined
+        ? undefined
+        : `Co-authored-by: ${validated.attribution.coAuthor}`,
+      "Patch-Commit: true",
+    ].filter((line): line is string => line !== undefined);
+    const fullMessage = `${validated.message}\n\n${trailers.join("\n")}`;
+    const environment: Record<string, string> = {};
+    if (validated.attribution?.authorName !== undefined) {
+      environment.GIT_AUTHOR_NAME = validated.attribution.authorName;
+    }
+    if (validated.attribution?.committerName !== undefined) {
+      environment.GIT_COMMITTER_NAME = validated.attribution.committerName;
+    }
+    await this.#git(
+      [
+        "commit",
+        ...(validated.verify ? [] : ["--no-verify"]),
+        "-m",
+        fullMessage,
+        "--",
+        ...paths,
+      ],
+      environment,
+    );
+    const commit = (await this.#git(["rev-parse", "HEAD"])).trim();
+    return CommitResultSchema.parse({
+      commit,
+      message: validated.message,
+      paths,
+    });
+  }
+
+  async commitGenerated(
+    request: GeneratedCommitRequest,
+  ): Promise<CommitResult | undefined> {
+    const paths = request.paths.map((path) => this.relativePath(path));
+    const diff = await this.diff(paths);
+    if (diff.patch === "") {
+      return undefined;
+    }
+    const message =
+      request.message ?? (await request.generateMessage?.(diff))?.trim();
+    if (!message) {
+      throw new GitRepositoryError(
+        "A commit message or message generator is required",
+      );
+    }
+    return this.commit({
+      paths,
+      message,
+      verify: request.verify ?? true,
+      ...(request.attribution === undefined
+        ? {}
+        : { attribution: request.attribution }),
+    });
+  }
+
+  async undoLastPatchCommit(): Promise<UndoResult> {
+    const commit = (await this.#git(["rev-parse", "HEAD"])).trim();
+    const message = await this.#git(["show", "-s", "--format=%B", "HEAD"]);
+    if (!/^Patch-Commit: true$/mu.test(message)) {
+      throw new UndoNotAllowedError("HEAD was not created by Patch");
+    }
+    const paths = nulFields(
+      await this.#git([
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        "-z",
+        "HEAD",
+      ]),
+    );
+    await this.#git(["reset", "--mixed", "HEAD^"]);
+    return { commit, paths };
   }
 }

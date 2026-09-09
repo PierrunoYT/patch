@@ -354,7 +354,7 @@ all ordinary CI tests use deterministic fakes and require no network.
   NUL-delimited Git output.
 - [x] Implement the write boundary: preview, authorize new/out-of-chat paths,
   checkpoint dirty files, apply, and report changed files.
-- [ ] Implement selected-file commits, optional hook verification, attribution,
+- [x] Implement selected-file commits, optional hook verification, attribution,
   model-generated commit messages, and undo constrained to Patch commits.
 - [ ] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.

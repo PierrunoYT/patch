@@ -18,3 +18,12 @@ repository-relative paths. Machine-readable filename lists use NUL delimiters,
 so whitespace and newline characters cannot corrupt parsing. `.aiderignore` is
 passed to Git as an additional excludes file alongside normal Git ignore rules.
 Pathspecs are rejected before Git invocation when they escape the worktree.
+
+Selected-file commits stage and commit only explicit pathspecs, preserve
+unrelated staged changes, honor hook verification unless `verify` is false, and
+support separately attributed author/committer names plus co-author trailers.
+`commitGenerated` supplies the selected diff to an injected model callback when
+no message is provided. Every such commit receives a `Patch-Commit: true`
+trailer. Undo uses a mixed reset only when the current HEAD carries that marker,
+preserving the reverted file contents in the worktree and refusing arbitrary
+user commits.

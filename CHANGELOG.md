@@ -96,6 +96,8 @@ The project has not published a release yet.
   combined diffs, ignore rules, and unborn/detached HEAD support.
 - A final write workflow that previews staged operations, authorizes new and
   out-of-chat files, checkpoints dirty inputs, and reports changed paths.
+- Selected-file Git commits with hook control, identity/co-author attribution,
+  injected message generation, and marker-constrained undo.
 
 ### Changed
 
