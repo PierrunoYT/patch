@@ -281,7 +281,7 @@ packed tarball from a clean temporary project.
   parse, dotenv loading, final parse, and true-root correction.
 - [x] Specify and test precedence among defaults, home config, repository
   config, working-directory config, `.env`, environment, and CLI.
-- [ ] Load and validate model aliases, model settings, and JSON5 metadata from
+- [x] Load and validate model aliases, model settings, and JSON5 metadata from
   packaged resources.
 
 **Exit:** compatibility fixtures prove config and message composition behavior;

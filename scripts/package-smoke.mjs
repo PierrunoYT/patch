@@ -44,6 +44,27 @@ try {
     throw new Error("The packed executable did not print Patch help");
   }
 
+  const packageRoot = join(
+    consumerDirectory,
+    "node_modules",
+    "@pierrunoyt",
+    "patch",
+  );
+  const model = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      "import { ModelCatalog } from './dist/index.js'; " +
+        "const model = (await ModelCatalog.load()).resolve('4o'); " +
+        "process.stdout.write(model.canonicalName);",
+    ],
+    { cwd: packageRoot, encoding: "utf8" },
+  );
+  if (model !== "gpt-4o") {
+    throw new Error("The packed model catalog could not load its resources");
+  }
+
   process.stdout.write(help);
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });

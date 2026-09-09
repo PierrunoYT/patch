@@ -46,6 +46,8 @@ The project has not published a release yet.
 - Validated YAML configuration with explicit precedence across defaults, home,
   repository, working-directory and explicit config files, environment,
   dotenv, and command-line values.
+- A packaged, validated model catalog with aliases, YAML settings, commented
+  JSON5 metadata, deterministic overrides, and clean-install resource checks.
 
 ### Changed
 

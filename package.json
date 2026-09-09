@@ -16,7 +16,7 @@
     "upstream.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-runtime-resources.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run smoke:package",
     "fixtures:upstream": "node scripts/export-upstream-fixtures.mjs",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js}\"",
@@ -38,6 +38,7 @@
   "dependencies": {
     "commander": "^15.0.0",
     "dotenv": "^17.4.2",
+    "json5": "^2.2.3",
     "yaml": "^2.9.0",
     "zod": "^4.5.4"
   },

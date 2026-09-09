@@ -1,0 +1,41 @@
+# Adapted from aider/resources/model-settings.yml at revision
+# 5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Field names and capabilities were
+# normalized for Patch's provider-neutral model contract.
+- name: gpt-4o
+  provider: openai
+  editFormat: diff
+  editorEditFormat: editor-diff
+  weakModel: gpt-4o-mini
+  useRepoMap: true
+  capabilities:
+    streaming: true
+    systemRole: true
+    tools: true
+
+- name: claude-sonnet-4-6
+  provider: anthropic
+  editFormat: diff
+  editorEditFormat: editor-diff
+  weakModel: claude-haiku-4-5
+  editorModel: claude-sonnet-4-6
+  useRepoMap: true
+  maxOutputTokens: 64000
+  capabilities:
+    streaming: true
+    systemRole: true
+    tools: true
+    images: true
+    documents: true
+    promptCaching: true
+
+- name: deepseek/deepseek-chat
+  provider: deepseek
+  editFormat: diff
+  editorEditFormat: editor-diff
+  useRepoMap: true
+  maxOutputTokens: 8192
+  capabilities:
+    streaming: true
+    systemRole: true
+    promptCaching: true
+    assistantPrefill: true

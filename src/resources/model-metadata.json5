@@ -1,0 +1,16 @@
+// Adapted from aider/resources/model-metadata.json at revision
+// 5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Token costs were converted from
+// per-token values to Patch's per-million-token contract.
+{
+  "deepseek/deepseek-chat": {
+    provider: "deepseek",
+    maxInputTokens: 128000,
+    maxOutputTokens: 8192,
+    inputCostPerMillion: 0.28,
+    outputCostPerMillion: 0.42,
+    capabilities: {
+      assistantPrefill: true,
+      promptCaching: true,
+    },
+  },
+}

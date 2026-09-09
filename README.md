@@ -27,7 +27,9 @@ and typed chat composition with upstream-compatible ordering and cache
 boundaries are pinned to upstream behavior. Staged
 [configuration bootstrap](docs/configuration-bootstrap.md) now discovers a
 provisional Git root, searches config and dotenv paths, and corrects the root
-from selected files. There is no published package or stable interface.
+from selected files. A validated, packaged [model catalog](docs/model-catalog.md)
+provides the first provider-neutral aliases, settings, and metadata. There is no
+published package or stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

@@ -1,0 +1,8 @@
+// Adapted from aider/models.py at revision
+// 5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Modified for Patch's initial
+// supported model catalog.
+{
+  "4o": "gpt-4o",
+  sonnet: "claude-sonnet-4-6",
+  deepseek: "deepseek/deepseek-chat",
+}
