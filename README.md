@@ -67,6 +67,10 @@ Directly ported files will identify their aider source revision and
 modifications. Reference checkouts remain outside this repository; only scoped,
 tested ports will be integrated.
 
+## Community
+
+Join the [Patch Discord community](https://discord.gg/sk9Q28VnYG).
+
 ## License
 
 Licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for upstream attribution.
