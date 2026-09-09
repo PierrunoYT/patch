@@ -315,7 +315,7 @@ or a documented, safer rejection.
   checks, response assembly, and history transitions.
 - [x] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.
-- [ ] Implement bounded reflection for malformed edits, lint failures, and test
+- [x] Implement bounded reflection for malformed edits, lint failures, and test
   failures. Default to aider's maximum of three reflections.
 - [ ] Implement file-mention detection and explicit approval before adding or
   editing unselected files.

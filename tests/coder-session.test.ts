@@ -10,6 +10,7 @@ import {
   ContextWindowExceededError,
   FakeProvider,
   FileSystemAdapter,
+  ReflectionLimitError,
   WholeFileEditStrategy,
   TruncatedResponseError,
   TurnCancelledError,
@@ -371,6 +372,128 @@ describe("CoderSession", () => {
     expect(session.snapshot()).toMatchObject({
       phase: "interrupted",
       partialResponse: "partial",
+      messages: [],
+    });
+  });
+
+  it("reflects malformed edit output and preserves the correction context", async () => {
+    const root = await temporaryDirectory();
+    const strategy: EditStrategy = {
+      format: "ask",
+      parse: (response) => {
+        if (response === "malformed") {
+          throw new Error("missing required edit markers");
+        }
+        return { edits: [], shellCommands: [] };
+      },
+    };
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "malformed" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: "corrected" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider,
+      strategy,
+    });
+
+    await expect(session.runTurn("edit this")).resolves.toMatchObject({
+      response: "corrected",
+    });
+
+    expect(provider.requests[1]?.messages.slice(-2)).toMatchObject([
+      { role: "assistant", content: "malformed" },
+      { role: "user", content: expect.stringContaining("edit format") },
+    ]);
+    expect(session.snapshot()).toMatchObject({
+      reflectionCount: 1,
+      messages: [
+        { role: "user", content: "edit this" },
+        { role: "assistant", content: "malformed" },
+        { role: "user", content: expect.stringContaining("edit format") },
+        { role: "assistant", content: "corrected" },
+      ],
+    });
+  });
+
+  it("reflects injected lint and test diagnostics in order", async () => {
+    const root = await temporaryDirectory();
+    const provider = new FakeProvider(
+      ["first", "second", "third"].map((text) => ({
+        actions: [
+          { type: "text-delta" as const, text },
+          { type: "finish" as const, reason: "stop" as const },
+        ],
+      })),
+    );
+    const session = new CoderSession({
+      config: { ...config(root, "ask"), autoTest: true },
+      provider,
+      strategy: new AskEditStrategy(),
+    });
+    let lintRuns = 0;
+    let testRuns = 0;
+
+    const result = await session.runTurn("fix checks", {
+      checks: {
+        lint: () => (++lintRuns === 1 ? "lint failed" : undefined),
+        test: () => (++testRuns === 1 ? "tests failed" : undefined),
+      },
+    });
+
+    expect(result.response).toBe("third");
+    expect({ lintRuns, testRuns }).toEqual({ lintRuns: 3, testRuns: 2 });
+    expect(provider.requests[1]?.messages.at(-1)?.content).toContain(
+      "lint failed",
+    );
+    expect(provider.requests[2]?.messages.at(-1)?.content).toContain(
+      "tests failed",
+    );
+    expect(session.snapshot().reflectionCount).toBe(2);
+  });
+
+  it("stops after the configured reflection limit", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: { ...config(root, "ask"), maxReflections: 1 },
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "first" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+        {
+          actions: [
+            { type: "text-delta", text: "second" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+
+    await expect(
+      session.runTurn("question", {
+        checks: { lint: () => "still broken" },
+      }),
+    ).rejects.toMatchObject({
+      constructor: ReflectionLimitError,
+      diagnostic: "still broken",
+    });
+    expect(session.snapshot()).toMatchObject({
+      phase: "interrupted",
+      reflectionCount: 1,
       messages: [],
     });
   });

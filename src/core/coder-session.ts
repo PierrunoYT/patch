@@ -63,6 +63,7 @@ export interface RunTurnOptions {
   readonly prompt?: TurnPrompt;
   readonly signal?: AbortSignal;
   readonly onEvent?: (event: CompletionEvent) => void;
+  readonly checks?: ReflectionChecks;
 }
 
 export interface CompletedTurn {
@@ -70,6 +71,21 @@ export interface CompletedTurn {
   readonly reasoning: string;
   readonly edits: EditBatch;
   readonly events: readonly CompletionEvent[];
+}
+
+export interface ReflectionCandidate {
+  readonly response: string;
+  readonly reasoning: string;
+  readonly edits: EditBatch;
+}
+
+export type ReflectionCheck = (
+  candidate: ReflectionCandidate,
+) => string | undefined | Promise<string | undefined>;
+
+export interface ReflectionChecks {
+  readonly lint?: ReflectionCheck;
+  readonly test?: ReflectionCheck;
 }
 
 export class TokenBudgetExceededError extends Error {
@@ -112,6 +128,28 @@ export class TruncatedResponseError extends Error {
 
 export class TurnCancelledError extends Error {
   override readonly name = "TurnCancelledError";
+}
+
+export class ReflectionLimitError extends Error {
+  override readonly name = "ReflectionLimitError";
+  readonly diagnostic: string;
+
+  constructor(maximum: number, diagnostic: string) {
+    super(`Only ${maximum} reflections are allowed`);
+    this.diagnostic = diagnostic;
+  }
+}
+
+function diagnosticMessage(
+  source: "malformed" | "lint" | "test",
+  text: string,
+) {
+  const label = source === "malformed" ? "edit format" : source;
+  return `The previous response failed ${label} validation. Fix the response using the required edit format.\n\n${text}`;
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function defaultSleep(
@@ -279,6 +317,7 @@ export class CoderSession {
     turn: PreparedTurn,
     response: string,
     reasoning = "",
+    reflectedMessages: readonly ChatMessage[] = [],
   ): EditBatch {
     if (this.#activeTurn?.id !== turn.id) {
       throw new Error("Cannot finalize an inactive session turn");
@@ -292,7 +331,12 @@ export class CoderSession {
     this.#state = SessionStateSchema.parse({
       ...this.#state,
       phase: parsed.edits.length > 0 ? "reviewing" : "waiting",
-      messages: [...this.#state.messages, turn.userMessage, assistantMessage],
+      messages: [
+        ...this.#state.messages,
+        turn.userMessage,
+        ...reflectedMessages,
+        assistantMessage,
+      ],
       pendingEdits: parsed.edits,
       partialResponse: response,
     });
@@ -319,87 +363,154 @@ export class CoderSession {
   ): Promise<CompletedTurn> {
     const turn = this.prepareTurn(userInput, options.prompt);
     const events: CompletionEvent[] = [];
-    let delay = this.#retry.initialDelayMs;
+    const reflectedMessages: ChatMessage[] = [];
+    let request = turn.request;
 
     try {
-      for (let attempt = 1; attempt <= this.#retry.maxAttempts; attempt += 1) {
+      while (true) {
+        let delay = this.#retry.initialDelayMs;
         let response = "";
         let reasoning = "";
-        let retry = false;
-        let finished = false;
+        for (
+          let attempt = 1;
+          attempt <= this.#retry.maxAttempts;
+          attempt += 1
+        ) {
+          let retry = false;
+          let finished = false;
+          response = "";
+          reasoning = "";
 
-        for await (const rawEvent of this.provider.stream(
-          turn.request,
-          options.signal,
-        )) {
-          const event = CompletionEventSchema.parse(rawEvent);
-          events.push(event);
-          options.onEvent?.(structuredClone(event));
-          switch (event.type) {
-            case "text-delta":
-              response += event.text;
-              this.#state = SessionStateSchema.parse({
-                ...this.#state,
-                partialResponse: response,
-              });
-              break;
-            case "reasoning-delta":
-              reasoning += event.text;
-              break;
-            case "usage":
-              this.#state = SessionStateSchema.parse({
-                ...this.#state,
-                inputTokens: event.inputTokens,
-                outputTokens: event.outputTokens,
-                totalCost: this.#state.totalCost + (event.cost ?? 0),
-              });
-              break;
-            case "error":
-              if (event.kind === "context-window") {
-                throw new ContextWindowExceededError(event.message);
-              }
-              if (event.retryable && attempt < this.#retry.maxAttempts) {
-                retry = true;
+          for await (const rawEvent of this.provider.stream(
+            request,
+            options.signal,
+          )) {
+            const event = CompletionEventSchema.parse(rawEvent);
+            events.push(event);
+            options.onEvent?.(structuredClone(event));
+            switch (event.type) {
+              case "text-delta":
+                response += event.text;
+                this.#state = SessionStateSchema.parse({
+                  ...this.#state,
+                  partialResponse: response,
+                });
                 break;
-              }
-              throw new ProviderStreamError(event.kind, event.message);
-            case "finish":
-              finished = true;
-              if (event.reason === "cancelled" || options.signal?.aborted) {
-                throw new TurnCancelledError("The session turn was cancelled");
-              }
-              if (event.reason === "length") {
-                throw new TruncatedResponseError(response);
-              }
+              case "reasoning-delta":
+                reasoning += event.text;
+                break;
+              case "usage":
+                this.#state = SessionStateSchema.parse({
+                  ...this.#state,
+                  inputTokens: event.inputTokens,
+                  outputTokens: event.outputTokens,
+                  totalCost: this.#state.totalCost + (event.cost ?? 0),
+                });
+                break;
+              case "error":
+                if (event.kind === "context-window") {
+                  throw new ContextWindowExceededError(event.message);
+                }
+                if (event.retryable && attempt < this.#retry.maxAttempts) {
+                  retry = true;
+                  break;
+                }
+                throw new ProviderStreamError(event.kind, event.message);
+              case "finish":
+                finished = true;
+                if (event.reason === "cancelled" || options.signal?.aborted) {
+                  throw new TurnCancelledError(
+                    "The session turn was cancelled",
+                  );
+                }
+                if (event.reason === "length") {
+                  throw new TruncatedResponseError(response);
+                }
+                break;
+              case "tool-call-delta":
+                break;
+            }
+            if (retry || finished) {
               break;
-            case "tool-call-delta":
-              break;
+            }
           }
-          if (retry || finished) {
-            break;
+
+          if (retry) {
+            this.#state = SessionStateSchema.parse({
+              ...this.#state,
+              partialResponse: "",
+              outputTokens: 0,
+            });
+            await this.#retry.sleep(delay, options.signal);
+            delay *= 2;
+            continue;
           }
+          if (!finished) {
+            throw new ProviderStreamError(
+              "provider",
+              "The provider stream ended without a finish event",
+            );
+          }
+          break;
         }
 
-        if (retry) {
-          this.#state = SessionStateSchema.parse({
-            ...this.#state,
-            partialResponse: "",
-            outputTokens: 0,
-          });
-          await this.#retry.sleep(delay, options.signal);
-          delay *= 2;
-          continue;
+        let edits: EditBatch | undefined;
+        let source: "malformed" | "lint" | "test" | undefined;
+        let diagnostic: string | undefined;
+        try {
+          edits = this.parseResponse(response);
+        } catch (error) {
+          source = "malformed";
+          diagnostic = errorText(error);
         }
-        if (!finished) {
-          throw new ProviderStreamError(
-            "provider",
-            "The provider stream ended without a finish event",
+        if (edits !== undefined) {
+          const candidate = { response, reasoning, edits };
+          if (this.config.autoLint) {
+            diagnostic = await options.checks?.lint?.(candidate);
+            source = diagnostic === undefined ? undefined : "lint";
+          }
+          if (diagnostic === undefined && this.config.autoTest) {
+            diagnostic = await options.checks?.test?.(candidate);
+            source = diagnostic === undefined ? undefined : "test";
+          }
+        }
+        if (diagnostic === undefined || source === undefined) {
+          const finalized = this.finalizeTurn(
+            turn,
+            response,
+            reasoning,
+            reflectedMessages,
+          );
+          return { response, reasoning, edits: finalized, events };
+        }
+        if (this.#state.reflectionCount >= this.config.maxReflections) {
+          throw new ReflectionLimitError(
+            this.config.maxReflections,
+            diagnostic,
           );
         }
-        const edits = this.finalizeTurn(turn, response, reasoning);
-        return { response, reasoning, edits, events };
+        const assistant = ChatMessageSchema.parse({
+          role: "assistant",
+          content: response,
+          reasoning: reasoning === "" ? undefined : reasoning,
+        });
+        const reflection = ChatMessageSchema.parse({
+          role: "user",
+          content: diagnosticMessage(source, diagnostic),
+        });
+        reflectedMessages.push(assistant, reflection);
+        request = CompletionRequestSchema.parse({
+          ...request,
+          messages: [...request.messages, assistant, reflection],
+        });
+        this.#state = SessionStateSchema.parse({
+          ...this.#state,
+          phase: "streaming",
+          partialResponse: "",
+          outputTokens: 0,
+          reflectionCount: this.#state.reflectionCount + 1,
+        });
       }
-      throw new ProviderStreamError("provider", "Provider retries exhausted");
     } catch (error) {
       this.#activeTurn = undefined;
       this.#state = SessionStateSchema.parse({

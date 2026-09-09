@@ -69,6 +69,8 @@ The project has not published a release yet.
   conservative token budgets, response validation, and atomic history updates.
 - Provider-event streaming with response/reasoning assembly, usage tracking,
   bounded exponential retries, cancellation, context overflow, and truncation.
+- Bounded corrective reflection for malformed edits and injected lint/test
+  diagnostics, with failed response context retained for the next attempt.
 
 ### Changed
 
