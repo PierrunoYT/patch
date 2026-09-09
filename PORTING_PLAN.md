@@ -301,7 +301,7 @@ endings.
 - [x] Add transactional staging of proposed file contents so parser or
   validation failures cannot leave a partial multi-file update. Document this
   intentional safety improvement if it differs from upstream.
-- [ ] Property-test malformed fences, repeated text, empty files, Unicode,
+- [x] Property-test malformed fences, repeated text, empty files, Unicode,
   CRLF, duplicate filenames, traversal attempts, and asymmetric replacements.
 
 **Exit:** every selected upstream edit fixture produces the same file contents

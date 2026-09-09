@@ -80,3 +80,12 @@ leave a partial multi-file update. Filesystem failures during the commit itself
 can still occur between operations because portable filesystems do not provide
 an atomic transaction spanning multiple paths; repository checkpoint/rollback
 belongs to the later Git workflow.
+
+## Property coverage
+
+The edit engines are property-tested with generated asymmetric Unicode text,
+CRLF blocks, repeated matches, empty-file appends, valid and invalid marker
+lengths, duplicate whole-file names, and traversal paths. These properties
+assert content equality and specific rejection classes rather than merely
+checking that parsers do not crash. Fixed pinned-upstream fixtures remain the
+compatibility oracle for exact, indentation-normalized, and elided replacements.

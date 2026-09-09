@@ -61,6 +61,8 @@ The project has not published a release yet.
   deterministic move expansion and original content for stale-write protection.
 - Transactional edit staging that validates every path, snapshot, and encoded
   result before authorization or writes, then revalidates before commit.
+- Property-based edit-engine coverage for malformed fences, repeated matches,
+  empty files, Unicode, CRLF, duplicate filenames, and traversal attempts.
 
 ### Changed
 
