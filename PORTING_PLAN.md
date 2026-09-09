@@ -273,7 +273,7 @@ packed tarball from a clean temporary project.
   root after symlink resolution.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
-- [ ] Port prompt resources and fence selection.
+- [x] Port shared prompt resources and fence selection.
 - [ ] Implement chat roles and the upstream chunk order: system, examples,
   read-only files, repository map, old history, editable files, current turn,
   reminder.

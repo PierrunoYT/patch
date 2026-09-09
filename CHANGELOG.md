@@ -36,6 +36,8 @@ The project has not published a release yet.
 - Encoding-aware text reads and atomic writes with line-ending and byte-order
   mark preservation, dry-run previews, permission retention, and containment
   revalidation before replacement.
+- Pinned common prompt resources and source-aware fence selection with exact
+  compatibility fixtures for candidate order, collisions, and fallback.
 
 ### Changed
 

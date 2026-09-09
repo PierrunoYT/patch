@@ -3,13 +3,28 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import upstream from "../upstream.json" with { type: "json" };
-import { EditFormatSchema } from "../src/index.js";
+import {
+  ALL_FENCES,
+  COMMON_PROMPTS,
+  EditFormatSchema,
+  selectFence,
+} from "../src/index.js";
+
+interface FenceResult {
+  fence: [string, string];
+  fellBack: boolean;
+}
 
 interface UpstreamFixture {
   schemaVersion: number;
   upstream: { repository: string; commit: string };
   configPrecedence: Record<string, string>;
   chatChunks: { order: string[] };
+  fences: {
+    candidates: [string, string][];
+    cases: Record<string, FenceResult>;
+  };
+  promptResources: Record<string, unknown>;
   editFormats: string[];
   searchReplace: { parsed: unknown[]; replacements: Record<string, string> };
   gitDiff: string;
@@ -28,7 +43,7 @@ const fixture = JSON.parse(
 
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
-    expect(fixture.schemaVersion).toBe(1);
+    expect(fixture.schemaVersion).toBe(2);
     expect(fixture.upstream).toEqual({
       repository: upstream.repository,
       commit: upstream.commit,
@@ -57,5 +72,26 @@ describe("upstream compatibility fixtures", () => {
     expect(fixture.gitDiff).toContain("staged change");
     expect(fixture.gitDiff).toContain("working change");
     expect(fixture.repoMap).toContain("greet");
+  });
+
+  it("matches upstream common prompts exactly", () => {
+    expect(COMMON_PROMPTS).toEqual(fixture.promptResources);
+  });
+
+  it("matches upstream fence order and selection", () => {
+    expect(ALL_FENCES).toEqual(fixture.fences.candidates);
+    expect(selectFence([])).toEqual(fixture.fences.cases.empty);
+    expect(selectFence(["before\n```text\nafter"])).toEqual(
+      fixture.fences.cases.tripleBackticks,
+    );
+    expect(selectFence(["````text"])).toEqual(
+      fixture.fences.cases.quadrupleBackticks,
+    );
+    expect(selectFence(["  ```text"])).toEqual(
+      fixture.fences.cases.indentedBackticks,
+    );
+    expect(selectFence(ALL_FENCES.flat())).toEqual(
+      fixture.fences.cases.exhausted,
+    );
   });
 });

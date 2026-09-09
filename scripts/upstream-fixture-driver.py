@@ -73,6 +73,58 @@ def export_chat_chunks(ChatChunks):
     }
 
 
+def export_fences(all_fences):
+    def choose(contents):
+        lines = "".join(content + "\n" for content in contents).splitlines()
+        for fence_open, fence_close in all_fences:
+            if any(
+                line.startswith(fence_open) or line.startswith(fence_close)
+                for line in lines
+            ):
+                continue
+            return {"fence": [fence_open, fence_close], "fellBack": False}
+        return {"fence": list(all_fences[0]), "fellBack": True}
+
+    exhausted = [value for fence in all_fences for value in fence]
+    return {
+        "candidates": all_fences,
+        "cases": {
+            "empty": choose([]),
+            "tripleBackticks": choose(["before\n```text\nafter"]),
+            "quadrupleBackticks": choose(["````text"]),
+            "indentedBackticks": choose(["  ```text"]),
+            "exhausted": choose(exhausted),
+        },
+    }
+
+
+def export_prompt_resources(CoderPrompts):
+    fields = {
+        "systemReminder": "system_reminder",
+        "filesContentGptEdits": "files_content_gpt_edits",
+        "filesContentGptEditsNoRepo": "files_content_gpt_edits_no_repo",
+        "filesContentGptNoEdits": "files_content_gpt_no_edits",
+        "filesContentLocalEdits": "files_content_local_edits",
+        "lazyPrompt": "lazy_prompt",
+        "overeagerPrompt": "overeager_prompt",
+        "exampleMessages": "example_messages",
+        "filesContentPrefix": "files_content_prefix",
+        "filesContentAssistantReply": "files_content_assistant_reply",
+        "filesNoFullFiles": "files_no_full_files",
+        "filesNoFullFilesWithRepoMap": "files_no_full_files_with_repo_map",
+        "filesNoFullFilesWithRepoMapReply": "files_no_full_files_with_repo_map_reply",
+        "repoContentPrefix": "repo_content_prefix",
+        "readOnlyFilesPrefix": "read_only_files_prefix",
+        "shellCmdPrompt": "shell_cmd_prompt",
+        "shellCmdReminder": "shell_cmd_reminder",
+        "noShellCmdPrompt": "no_shell_cmd_prompt",
+        "noShellCmdReminder": "no_shell_cmd_reminder",
+        "renameWithShell": "rename_with_shell",
+        "goAheadTip": "go_ahead_tip",
+    }
+    return {target: getattr(CoderPrompts, source) for target, source in fields.items()}
+
+
 def capture_error(operation):
     try:
         operation()
@@ -201,6 +253,8 @@ def main():
 
     from aider import coders
     from aider.args import get_parser
+    from aider.coders.base_coder import all_fences
+    from aider.coders.base_prompts import CoderPrompts
     from aider.coders import editblock_coder
     from aider.coders.chat_chunks import ChatChunks
     from aider.io import InputOutput
@@ -209,11 +263,13 @@ def main():
     from aider.repomap import RepoMap
 
     fixture = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "upstream": {"repository": remote, "commit": commit},
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",
             "chatChunks": "aider/coders/chat_chunks.py:5-64",
+            "fences": "aider/coders/base_coder.py:73-84,609-629",
+            "promptResources": "aider/coders/base_prompts.py:1-60",
             "editFormats": "aider/coders/__init__.py:1-34",
             "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590",
             "gitDiff": "aider/repo.py:375-417",
@@ -221,6 +277,8 @@ def main():
         },
         "configPrecedence": export_config_precedence(get_parser),
         "chatChunks": export_chat_chunks(ChatChunks),
+        "fences": export_fences(all_fences),
+        "promptResources": export_prompt_resources(CoderPrompts),
         "editFormats": sorted(
             coder.edit_format
             for coder in coders.__all__
