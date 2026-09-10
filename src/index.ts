@@ -40,6 +40,7 @@ export * from "./io/history.js";
 export * from "./io/integrations.js";
 export * from "./io/keybindings.js";
 export * from "./io/render.js";
+export * from "./io/sanitize.js";
 export * from "./io/safe-path.js";
 export * from "./interfaces/url-fetcher.js";
 export * from "./interfaces/watch-mode.js";

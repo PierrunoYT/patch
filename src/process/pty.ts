@@ -8,6 +8,8 @@
 
 import { realpath } from "node:fs/promises";
 
+import { ControlSequenceSanitizer } from "../io/sanitize.js";
+
 export type PtyInput =
   | { readonly type: "data"; readonly data: string }
   | { readonly type: "interrupt" }
@@ -66,44 +68,6 @@ export interface PtyCommandResult {
 
 export class PtyUnavailableError extends Error {
   override readonly name = "PtyUnavailableError";
-}
-
-export class ControlSequenceSanitizer {
-  #state: "text" | "escape" | "csi" | "string" | "string-escape" = "text";
-
-  write(chunk: string): string {
-    let safe = "";
-    for (const character of chunk) {
-      switch (this.#state) {
-        case "text":
-          if (character === "\u001b") this.#state = "escape";
-          else if (
-            character === "\n" ||
-            character === "\r" ||
-            character === "\t"
-          )
-            safe += character;
-          else if (character >= " ") safe += character;
-          break;
-        case "escape":
-          if (character === "[") this.#state = "csi";
-          else if ("]PX^_".includes(character)) this.#state = "string";
-          else this.#state = "text";
-          break;
-        case "csi":
-          if (character >= "@" && character <= "~") this.#state = "text";
-          break;
-        case "string":
-          if (character === "\u0007") this.#state = "text";
-          else if (character === "\u001b") this.#state = "string-escape";
-          break;
-        case "string-escape":
-          this.#state = character === "\\" ? "text" : "string";
-          break;
-      }
-    }
-    return safe;
-  }
 }
 
 async function loadNodePty(): Promise<PtyModule> {

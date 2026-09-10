@@ -8,6 +8,7 @@
 import type { Writable } from "node:stream";
 
 import type { EditPreview } from "../edits/write-boundary.js";
+import { ControlSequenceSanitizer, sanitizeTerminalText } from "./sanitize.js";
 
 const ANSI = {
   reset: "\u001b[0m",
@@ -37,13 +38,14 @@ function paint(text: string, code: string, color: boolean): string {
   return color ? `${code}${text}${ANSI.reset}` : text;
 }
 
+/**
+ * Remove every control sequence from one self-contained piece of untrusted
+ * text. Chunked untrusted streams must use `MarkdownStream` or another holder
+ * of a single `ControlSequenceSanitizer` instead, so a sequence split across
+ * chunks cannot survive.
+ */
 export function stripAnsi(text: string): string {
-  return text.replace(
-    // Intentional terminal-control matcher; hostile control sequences are removed.
-    // eslint-disable-next-line no-control-regex
-    /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001b\\))/gu,
-    "",
-  );
+  return sanitizeTerminalText(text);
 }
 
 export function highlightSyntax(
@@ -83,6 +85,9 @@ function renderMarkdownLine(line: string, color: boolean): string {
 export class MarkdownStream {
   readonly #write: (text: string) => void;
   readonly #color: boolean;
+  // One sanitizer for the whole stream: provider deltas can split a control
+  // sequence across chunks, and a per-chunk strip would let the halves rejoin.
+  readonly #sanitizer = new ControlSequenceSanitizer();
   #buffer = "";
   #language: string | undefined;
 
@@ -96,7 +101,7 @@ export class MarkdownStream {
   }
 
   write(chunk: string): void {
-    this.#buffer += chunk;
+    this.#buffer += this.#sanitizer.write(chunk);
     let newline = this.#buffer.indexOf("\n");
     while (newline >= 0) {
       this.#line(this.#buffer.slice(0, newline));

@@ -47,10 +47,16 @@ one live terminal adapter wires the corresponding behavior.
 `renderDiff` styles diff structure. The executable uses both for provider text
 and edit previews and honors TTY, `--no-color`, and `NO_COLOR`.
 
-The current renderer strips CSI and OSC patterns but not every control family
-claimed by the earlier documentation. DCS/SOS/PM/APC, standalone controls, and
-split sequences require the stateful sanitizer already used for PTY output.
-Until that is shared, untrusted provider/diff output is not fully terminal-safe.
+Untrusted text passes through one shared sanitizer, `ControlSequenceSanitizer`
+in `src/io/sanitize.ts`. It removes C0 controls other than tab, newline, and
+carriage return; DEL; the C1 range; 7-bit and 8-bit CSI; OSC, DCS, SOS, PM, and
+APC strings with either terminator; single shifts; and escapes carrying
+intermediate bytes. `MarkdownStream` holds one sanitizer for the life of a
+stream, so a sequence split across provider deltas cannot rejoin; `stripAnsi`
+sanitizes one self-contained string for the diff and preview renderers; both
+Commander streams and the executable's failure messages are sanitized as well.
+Only styling Patch itself emits survives.
+
 The renderer is intentionally smaller than Aider's Rich renderer and does not
 provide full tables, lists, wrapping, or unstable-tail rerendering.
 

@@ -56,10 +56,10 @@ tests are evidence only for the cases they exercise.
 | Core lifecycle | partial | Ordinary initial turns are composed; switching, failed-mutation history, continuation, and multi-session ownership are incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
-| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering and session-owned undo are now enforced, while metadata preservation and ancestor races remain incomplete. |
+| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, and cross-session mutation ordering are now enforced, while metadata preservation and ancestor races remain incomplete. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; switching and paste are incorrect, while rich input and PTY remain helper-only. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start; URL/voice are helper surfaces, browser GUI/help are absent, and web mutation coordination is unsafe. |
+| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged; non-repository startup, inert flags, automatic packing, installed docs, and provenance checks remain. |
 
 ### Immediate P0 blockers
@@ -83,10 +83,23 @@ tests are evidence only for the cases they exercise.
   atomically before reset. `/undo` reverts only the commit this session
   recorded, and `update-ref` performs a compare-and-swap on HEAD. Root, merge,
   and already-pushed commits are refused.
-- [ ] Serialize repository mutations across application sessions, especially
-  local HTTP/SSE sessions sharing one worktree.
-- [ ] Apply one stateful sanitizer to all untrusted terminal output, not only
-  PTY child output.
+- [x] Serialize repository mutations across application sessions, especially
+  local HTTP/SSE sessions sharing one worktree. A re-entrant
+  `WorktreeMutationLock`, held process-wide per resolved root, wraps every
+  region that observes or changes the worktree: the checkpoint/apply/commit/
+  lint/command/test phase of a turn, each Git commit, each configured check,
+  an approved `/run`, and the check-and-reset pair behind `/undo`. Streaming
+  stays outside the lock. Separate processes on one worktree remain ordered
+  only by Git's own index lock, which is documented as a limit rather than a
+  guarantee.
+- [x] Apply one stateful sanitizer to all untrusted terminal output, not only
+  PTY child output. `ControlSequenceSanitizer` now lives in `src/io/sanitize.ts`
+  and is used by PTY output, `MarkdownStream` (one instance per stream, so a
+  sequence split across provider deltas cannot rejoin), every one-shot render
+  path through `stripAnsi`, both Commander output streams, and the executable's
+  failure messages. It removes C0 controls other than tab/newline/carriage
+  return, DEL, the C1 range, 7-bit and 8-bit CSI, OSC/DCS/SOS/PM/APC strings
+  with either terminator, single shifts, and escapes carrying intermediates.
 - [ ] Complete the metadata and ancestor check-to-use policy for replacement and
   deletion. Hardlinked/non-regular targets are now rejected and target identity
   is rechecked immediately before mutation, but portable ACL/xattr preservation
@@ -412,8 +425,10 @@ the interactive CLI/session workflow.
   default behavior.
 - [ ] Apply Emacs/Vi bindings and external-editor invocation in the actual input
   loop rather than exposing declarative helpers only.
-- [ ] Complete terminal output safety. Markdown and diff rendering are wired,
-  but the renderer does not yet strip every claimed control-sequence family.
+- [x] Complete terminal output safety. One stateful sanitizer covers Markdown
+  streaming, diff and preview rendering, Commander output, and executable
+  failure messages, and it strips every claimed control-sequence family.
+  Evidence: `tests/terminal-sanitizer.test.ts`.
 - [ ] Dispatch interactive commands through `runPtyCommand` only when explicitly
   requested and available; keep noninteractive process execution portable.
 - [ ] Generate shell completions from the real option surface, trigger
@@ -437,8 +452,11 @@ unfinished; the API is for trusted local clients, not public hosting.
   installed and opt-in.
 - [x] Connect `AiWatchMode` to a concrete session and Git ignore checks.
   Terminal watch shares its session queue.
-- [ ] Coordinate repository mutations across independent web/application
-  sessions that share one worktree.
+- [x] Coordinate repository mutations across independent web/application
+  sessions that share one worktree. Every session created for one root shares
+  the same mutation lock; `tests/worktree-serialization.test.ts` asserts that
+  two sessions never interleave a mutation phase and that a conflicting
+  concurrent write fails the losing turn instead of clobbering the winner.
 - [x] Add supported startup/configuration for the authenticated loopback web
   server and construct it with the real `ApplicationService`. Interface choices
   are explicit CLI flags; model/file settings retain staged configuration.

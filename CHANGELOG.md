@@ -171,6 +171,24 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Serialized repository mutations across every application session sharing one
+  worktree. A re-entrant worktree lock orders each session's checkpoint, apply,
+  commit, configured checks, approved commands, and undo, so terminal, watch,
+  and local HTTP/SSE sessions can no longer interleave mutations on one
+  checkout. Provider streaming still runs concurrently, and a turn whose edits
+  resolved against content another session changed fails on the stale snapshot
+  instead of overwriting it. Separate processes remain ordered only by Git's
+  own index lock.
+- Applied one stateful control-sequence sanitizer to every untrusted terminal
+  output path rather than PTY child output alone: streamed model text, rendered
+  diffs and edit previews, both Commander streams, and executable failure
+  messages. Sequences split across provider deltas can no longer rejoin, and
+  C0 controls, DEL, the C1 range, 8-bit CSI/OSC, DCS/SOS/PM/APC strings, single
+  shifts, and escapes with intermediate bytes are all removed.
+- Treated a path whose ancestor is not a directory as missing rather than
+  raising a raw `ENOTDIR`, so resolution, reads, snapshots, and edit staging
+  agree on absence; creating such a path still fails, keeping a move source
+  intact.
 - Bound `/undo` to the commit the current session created and moved HEAD with a
   compare-and-swap `update-ref`. Root commits, merge commits, and commits their
   upstream branch already contains are refused instead of reset.

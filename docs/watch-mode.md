@@ -5,9 +5,9 @@ the Node.js recursive filesystem watcher after constructing the concrete service
 and terminal session. Save a file containing `// AI! change this` or
 `// AI? explain this`; startup does not scan existing comments. The watcher uses
 the exact terminal session and its mutation queue, including conversation history.
-Responses and edit previews use the shared terminal renderer, whose full
-control-sequence sanitization remains a release blocker. No optional native or
-browser dependency is loaded.
+Responses and edit previews use the shared terminal renderer, which sanitizes
+untrusted control sequences through one stateful sanitizer. No optional native
+or browser dependency is loaded.
 
 `AiWatchMode` adapts part of pinned `aider/watch.py`. Changed files are
 debounced, deduplicated, contained, and bounded to regular files no larger than
