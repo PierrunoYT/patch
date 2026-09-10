@@ -115,7 +115,13 @@ try {
     throw new Error("The optional packed voice entry point could not load");
   }
   for (const optionalPackage of [
+    "node-pty",
     "playwright",
+    "playwright-core",
+    "@playwright/test",
+    "puppeteer",
+    "ffmpeg-static",
+    "fluent-ffmpeg",
     "naudiodon",
     "node-record-lpcm16",
   ]) {

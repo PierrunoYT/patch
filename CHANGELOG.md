@@ -171,5 +171,7 @@ The project has not published a release yet.
 
 ### Changed
 
+- Removed `node-pty` from the default dependency graph. Interactive PTY users
+  now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe
   the current foundation-stage implementation.

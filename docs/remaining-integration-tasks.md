@@ -49,17 +49,17 @@ install optional dependencies during a normal install, so the default package
 still downloads and may try to build a native dependency. Dynamic loading alone
 does not satisfy the Phase 8/9 default-footprint exits.
 
-- [ ] Remove `node-pty` from the package's default dependency graph and update
+- [x] Remove `node-pty` from the package's default dependency graph and update
   `package-lock.json`.
-- [ ] Keep `runPtyCommand` behind dynamic loading with a focused unavailable
+- [x] Keep `runPtyCommand` behind dynamic loading with a focused unavailable
   error. If discoverability requires metadata, use an optional peer dependency
   only after a clean-install test proves npm does not fetch or build it;
   otherwise document a separately installed external package.
-- [ ] Ensure importing the package root, invoking `patch --help`, and using
+- [x] Ensure importing the package root, invoking `patch --help`, and using
   non-PTY commands never resolve or probe `node-pty`.
-- [ ] Add package-smoke assertions that a plain clean install contains no
+- [x] Add package-smoke assertions that a plain clean install contains no
   `node-pty`, Playwright, bundled browser, ffmpeg, or native audio package.
-- [ ] Add a separately gated PTY job that explicitly installs `node-pty` and
+- [x] Add a separately gated PTY job that explicitly installs `node-pty` and
   runs PTY contract tests on supported platforms.
 
 **Acceptance:** a plain `npm install` of the packed tarball performs no native

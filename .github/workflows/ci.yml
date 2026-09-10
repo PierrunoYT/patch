@@ -48,3 +48,27 @@ jobs:
 
       - name: Test packed executable
         run: npm run smoke:package
+
+  pty:
+    name: Explicit PTY dependency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install portable dependencies
+        run: npm ci
+
+      - name: Provision native PTY dependency
+        run: npm install --no-save --no-package-lock node-pty@1.1.0
+
+      - name: Run provisioned PTY contract
+        run: PATCH_TEST_PTY=1 npm test -- tests/pty-provisioned.test.ts

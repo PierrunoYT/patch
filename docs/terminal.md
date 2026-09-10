@@ -56,10 +56,11 @@ or an explicit adapter option disables all ANSI output while preserving text.
 ## Optional interactive PTY
 
 `runPtyCommand` loads `node-pty` only when interactive execution is requested.
-The native package is an optional dependency, so failure to build or install it
-does not prevent the default CLI from installing; attempting PTY execution then
-returns a focused `PtyUnavailableError`. Commands use executable-plus-argv input
-and a canonical working directory.
+The native package is deliberately absent from Patch's dependency graph. Users
+who need PTY execution install `node-pty` alongside Patch explicitly; attempting
+PTY execution without it returns a focused `PtyUnavailableError`. Importing the
+package, printing CLI help, and non-PTY commands never probe for it. Commands use
+executable-plus-argv input and a canonical working directory.
 
 The PTY input contract supports data (including multiline text), Ctrl-C, EOF,
 and resize events. Abort kills the child and listeners are disposed at exit.
