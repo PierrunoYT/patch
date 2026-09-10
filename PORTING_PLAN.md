@@ -473,7 +473,8 @@ executable PTY dispatch remain incomplete.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/pty-provisioned.test.ts`, and the `pty`
-matrix job in `.github/workflows/ci.yml`.
+Linux/Windows matrix job in `.github/workflows/ci.yml`. macOS PTY is unsupported
+because the provisioned native package fails its spawn contract there.
 
 ### Phase 9 — Optional interfaces
 

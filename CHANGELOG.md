@@ -189,11 +189,13 @@ porting plan distinguish composed behavior from library-only adapters.
   Anthropic, and the advertised DeepSeek-compatible endpoint; normal tests stay
   credential-free and mocked.
 - Expanded CI package and platform-sensitive contracts to Node.js 22 on Linux,
-  macOS, and Windows, including linked Git worktrees and explicitly provisioned
-  PTY jobs on each platform.
+  macOS, and Windows, including linked Git worktrees and separately provisioned
+  PTY jobs on supported platforms.
 - Made platform assertions compare canonical paths, limited POSIX permission
-  assertions to POSIX hosts, and used each POSIX host's standard shell for the
-  provisioned PTY smoke command.
+  assertions to POSIX hosts, and made npm/package-bin smoke invocation portable
+  on Windows.
+- Narrowed explicitly provisioned PTY support to Linux and Windows after the
+  native package failed its spawn contract on GitHub's macOS runner.
 - Narrowed CLI/config edit formats to the six modes the application actually
   constructs; advanced orchestration helpers are no longer accepted as if they
   were complete user-facing modes.

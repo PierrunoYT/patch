@@ -198,7 +198,8 @@ rather than only mocked Fetch responses.
   package on all supported platforms.
 - [x] Run explicit PTY tests only in jobs that provision the optional native
   dependency; verify Ctrl-C, EOF, resize, cleanup, and hostile split control
-  sequences.
+  sequences on Linux and Windows. macOS PTY is explicitly unsupported after the
+  provisioned native package failed its spawn contract.
 - [x] Add deterministic timeout guards and retain useful diagnostics without
   exposing environment secrets.
 

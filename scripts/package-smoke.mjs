@@ -7,12 +7,15 @@ import { fileURLToPath, URL } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "patch-package-"));
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npmCli = process.env.npm_execpath;
+const npm = npmCli === undefined ? "npm" : process.execPath;
+const npmArguments = (args) =>
+  npmCli === undefined ? args : [npmCli, ...args];
 
 try {
   const packOutput = execFileSync(
     npm,
-    ["pack", "--pack-destination", temporaryDirectory, "--json"],
+    npmArguments(["pack", "--pack-destination", temporaryDirectory, "--json"]),
     { cwd: root, encoding: "utf8" },
   );
   const [{ filename }] = JSON.parse(packOutput);
@@ -21,14 +24,14 @@ try {
 
   execFileSync(
     npm,
-    [
+    npmArguments([
       "install",
       "--prefix",
       consumerDirectory,
       "--no-audit",
       "--no-fund",
       join(temporaryDirectory, filename),
-    ],
+    ]),
     { stdio: "inherit" },
   );
 
@@ -38,7 +41,14 @@ try {
     ".bin",
     process.platform === "win32" ? "patch.cmd" : "patch",
   );
-  const help = execFileSync(executable, ["--help"], { encoding: "utf8" });
+  const help =
+    process.platform === "win32"
+      ? execFileSync(
+          process.env.ComSpec ?? "cmd.exe",
+          ["/d", "/s", "/c", `"${executable}" --help`],
+          { encoding: "utf8" },
+        )
+      : execFileSync(executable, ["--help"], { encoding: "utf8" });
 
   if (!help.includes("Usage: patch [options]")) {
     throw new Error("The packed executable did not print Patch help");

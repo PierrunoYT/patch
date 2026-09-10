@@ -73,6 +73,11 @@ Child output passes through a stateful sanitizer before streaming or capture;
 CSI, OSC, DCS, SOS, PM, APC, C0, and split control sequences cannot alter the
 parent terminal.
 
+The explicitly provisioned native contract is supported in CI on Linux and
+Windows. `node-pty@1.1.0` installs but fails to spawn on GitHub's current macOS
+runner, so Patch does not claim macOS PTY support; non-PTY execution and the
+portable default package remain supported on macOS.
+
 ## Shells, notifications, and clipboard
 
 `patch --shell-completions bash|zsh|fish` prints a deterministic completion
