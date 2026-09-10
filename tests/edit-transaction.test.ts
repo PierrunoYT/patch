@@ -133,6 +133,55 @@ describe("EditTransaction", () => {
     expect(await readFile(join(root, "first.txt"), "latin1")).toBe("first\n");
   });
 
+  it("keeps a move source until the destination write succeeds", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(join(root, "source.ts"), "moved\n");
+    await writeFile(join(root, "blocked"), "not a directory\n");
+    const files = await FileSystemAdapter.create(root, { lineEndings: "lf" });
+
+    // The resolver emits a move as the source delete followed by the
+    // destination create; the destination write here cannot succeed.
+    const transaction = await EditTransaction.stage(files, {
+      operations: [
+        { kind: "delete", path: "source.ts", before: "moved\n" },
+        { kind: "create", path: "blocked/destination.ts", content: "moved\n" },
+      ],
+      shellCommands: [],
+    });
+
+    await expect(transaction.commit()).rejects.toThrow();
+    expect(await readFile(join(root, "source.ts"), "utf8")).toBe("moved\n");
+  });
+
+  it("refuses to delete a move source that the destination write replaced", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(join(root, "notes.md"), "moved\n");
+    const files = await FileSystemAdapter.create(root, { lineEndings: "lf" });
+    const operations = [
+      { kind: "delete" as const, path: "notes.md", before: "moved\n" },
+      {
+        kind: "create" as const,
+        path: "NOTES.md",
+        content: "moved and renamed\n",
+      },
+    ];
+
+    // On a case-insensitive filesystem both paths are one file, so staging or
+    // the pre-delete recheck refuses the batch; on a case-sensitive one both
+    // operations run. Neither outcome may leave the content deleted.
+    try {
+      await (
+        await EditTransaction.stage(files, { operations, shellCommands: [] })
+      ).commit();
+      expect(await readFile(join(root, "NOTES.md"), "utf8")).toBe(
+        "moved and renamed\n",
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(StaleFileSnapshotError);
+      expect(await readFile(join(root, "notes.md"), "utf8")).toBe("moved\n");
+    }
+  });
+
   it("revalidates the whole batch before the first committed write", async () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "first.ts"), "first\n");

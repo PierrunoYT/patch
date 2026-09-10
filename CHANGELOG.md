@@ -171,6 +171,11 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Ordered edit-transaction commits so every creation and update is written and
+  synced before any deletion, and rechecked each deletion's resolved content
+  immediately before removing it. An interrupted move now keeps both paths, and
+  a case-only rename on a case-insensitive filesystem is refused instead of
+  deleting the moved file.
 - Rejected replacement and deletion of hardlinked or non-regular files and
   added an immediate pre-mutation identity recheck. This intentionally hardens
   pinned Aider's direct-write behavior without claiming full ancestor-race or

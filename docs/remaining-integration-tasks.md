@@ -68,8 +68,10 @@ tests are evidence only for the cases they exercise.
   commit, diff, or undo unrelated files.
 - [x] Filter tracked `.aiderignore` paths before snapshots, mention matching,
   repository maps, or provider requests.
-- [ ] Preserve move sources until destinations are durably created; current
-  delete-then-create ordering can lose data.
+- [x] Preserve move sources until destinations are durably created. `commit`
+  writes and syncs every creation/update before any deletion and rechecks each
+  deletion's resolved content immediately before the unlink, so an interrupted
+  move or a case-only rename cannot leave the content deleted.
 - [ ] Reject or correctly implement named Patch `@@` scopes, repeated actions,
   and conflicting actions for one path.
 - [ ] Parse every unified-diff file-header transition or reject multi-file

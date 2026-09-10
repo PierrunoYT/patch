@@ -86,9 +86,10 @@ before destination creation; see the filesystem/Git backlog.
 snapshots. Generic replace edits to one file are resolved sequentially in an
 isolated working map. Patch-strategy rewrites are already complete snapshots,
 so this generic guarantee does not fix the repeated Patch-action defect above.
-Final results are classified as `create`, `update`, or `delete`; moves currently
-become a delete/create pair in unsafe source-first order. The resolver performs
-no filesystem access or writes.
+Final results are classified as `create`, `update`, or `delete`. A move becomes a
+delete/create pair; the commit phase, not the resolver, orders the destination
+write before the source removal. The resolver performs no filesystem access or
+writes.
 
 Every model-selected path must have an explicit snapshot, including a `null`
 snapshot for a confirmed missing path. This keeps safe path lookup and approval
@@ -107,12 +108,19 @@ directories or alter files. Suggested shell commands remain inert metadata.
 
 After the caller obtains explicit user authorization, `commit` revalidates the
 entire batch before its first mutation, then uses atomic per-file replacement
-and contained deletion. This intentionally improves on aider's per-edit apply
-loop: parser, matcher, stale-snapshot, containment, and encoding failures cannot
-leave a partial multi-file update. Filesystem failures during the commit itself
-can still occur between operations because portable filesystems do not provide
-an atomic transaction spanning multiple paths; repository checkpoint/rollback
-belongs to the later Git workflow.
+and contained deletion. Every creation and update is written and synced before
+any deletion runs, so a move keeps its source until the destination exists: an
+interrupted move leaves both paths rather than neither. Each deletion is
+revalidated against its resolved content immediately before the unlink, which
+turns a case-only rename on a case-insensitive filesystem into a
+`StaleFileSnapshotError` instead of a lost file.
+
+This intentionally improves on aider's per-edit apply loop: parser, matcher,
+stale-snapshot, containment, and encoding failures cannot leave a partial
+multi-file update. Filesystem failures during the commit itself can still occur
+between operations because portable filesystems do not provide an atomic
+transaction spanning multiple paths; repository checkpoint/rollback belongs to
+the later Git workflow.
 
 ## Property coverage
 

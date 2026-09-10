@@ -86,13 +86,22 @@ export class EditTransaction {
 
     // Revalidate the complete batch before the first mutation.
     await this.validate();
+
+    // Creations and updates run before deletions so a move keeps its source
+    // until the destination has been written and synced. A crash or failure
+    // between the two phases leaves both paths present rather than neither.
     for (const operation of this.operations) {
+      if (operation.kind === "delete") continue;
       signal?.throwIfAborted();
-      if (operation.kind === "delete") {
-        await this.#files.deleteFile(operation.path);
-      } else {
-        await this.#files.writeText(operation.path, operation.content);
-      }
+      await this.#files.writeText(operation.path, operation.content);
+    }
+    for (const operation of this.operations) {
+      if (operation.kind !== "delete") continue;
+      signal?.throwIfAborted();
+      // A destination written above can be the same file on a case-insensitive
+      // filesystem, so confirm the source still holds its resolved content.
+      await validateSnapshot(this.#files, operation);
+      await this.#files.deleteFile(operation.path);
     }
     this.#committed = true;
   }

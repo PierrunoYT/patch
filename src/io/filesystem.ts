@@ -133,10 +133,7 @@ function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
   );
 }
 
-function validateMutationTarget(
-  path: string,
-  information: Stats,
-): void {
+function validateMutationTarget(path: string, information: Stats): void {
   if (!information.isFile()) {
     throw new UnsafeFileMetadataError(path, "the target is not a regular file");
   }
