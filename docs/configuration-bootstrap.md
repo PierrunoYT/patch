@@ -35,16 +35,18 @@ still identify its repository.
 does not remove the provisional repository from config and dotenv discovery,
 matching aider's startup order.
 
-The production CLI passes these resolved values into
-`ConcreteApplicationService`; it no longer maintains a separate model/session
-configuration path.
+The production CLI passes the staged subset into
+`ConcreteApplicationService`. Interface controls such as history paths,
+multiline, notifications, watch, and web remain Commander-only and cannot be
+set through YAML or `PATCH_*`; configuration parity is therefore partial.
 
 ## Current controls
 
-The bootstrap recognizes `--config`/`-c`, `--env-file`, `--encoding`,
+The bootstrap parser recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 `--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
-repeated `--file`, repeated `--read-only`, and positional editable file paths.
-Their environment equivalents use the Patch namespace: `PATCH_CONFIG`,
+repeated `--file`, repeated `--read-only`, and positional editable paths.
+The executable Commander surface exposes `--no-git`, not a positive `--git`
+flag. Environment equivalents exist only for `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
 `PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
 
@@ -68,11 +70,14 @@ have final precedence. The returned environment is an isolated copy for later
 provider resolution; callers must never log it because it can contain secrets.
 Neither the caller's environment object nor `process.env` is mutated.
 
-Patch intentionally uses `.patch.conf.yml` and `PATCH_*` rather than aider's
-names. It does not search aider's OAuth key file because Patch does not yet have
-an OAuth feature. Patch currently validates only bootstrap keys; later feature
-tasks will extend the strict YAML schema alongside their CLI controls.
+Patch intentionally uses `.patch.conf.yml` and `PATCH_*` rather than Aider's
+names. A model must be selected explicitly even when a provider credential is
+present. OAuth/default-model onboarding, line-ending policy, model resource/
+alias files, secondary roles, custom provider endpoints/timeouts, and most
+Aider startup one-shots are not executable controls.
 
 The executable uses this bootstrap before opening input. Missing models,
-credentials, unsupported providers or edit modes, mixed repositories, and
-unsafe or conflicting file selections therefore fail before a provider turn.
+credentials, unsupported providers/edit modes, mixed repositories, and unsafe
+or conflicting file selections fail before a provider turn. Default Git-enabled
+startup requires an existing worktree; a sole directory target and read-only
+directory expansion are unsupported.

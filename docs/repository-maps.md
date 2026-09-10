@@ -1,8 +1,8 @@
 # Repository maps
 
-Repository-map support follows aider's pinned `aider/repomap.py` behavior while
-using TypeScript, ESM, and `web-tree-sitter`. Patch does not invoke Python or
-aider at runtime.
+Repository-map support is a scoped TypeScript/ESM implementation of pinned
+`aider/repomap.py`, not full behavioral parity. Patch does not invoke Python or
+Aider at runtime.
 
 Runtime tag queries live under `src/resources/repomap/queries`. Grammar WASM
 files come from the exact `@vscode/tree-sitter-wasm` version recorded in
@@ -17,48 +17,46 @@ TypeScript (`.ts`, `.tsx`), Python (`.py`, `.pyi`), Go (`.go`), and Rust
 requires a pinned grammar, an attributed tag query, compatibility fixtures,
 extraction tests, and packed-package smoke coverage.
 
+Production currently obtains raw tracked paths from Git without filtering
+`.aiderignore` before snapshots or map extraction. A tracked ignored file can
+therefore expose identifiers and source context to the model; this is a release
+blocker. Missing, deleted, unreadable, or parser-failed tracked files can also
+abort a complete turn instead of being skipped with a bounded warning.
+
 `TagExtractor` resolves every requested file through `SafePathResolver`, reads
 UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and
 returns zero-based definition/reference tags. Unsupported extensions and empty
 files return no tags. Symlink escapes and traversal outside the selected root
 are rejected before reading.
 
-Ranking builds aider's weighted reference multigraph and runs local PageRank
-with a fixed damping factor, convergence tolerance, and sorted iteration order.
-Repeated references use square-root scaling; descriptive, private, widely
-defined, and explicitly mentioned identifiers receive aider-compatible
-multipliers. Chat-file references are weighted more strongly, while chat-file
-definitions are omitted from the result. File and identifier mentions seed the
-personalization and dangling-node distribution.
+Ranking implements the principal Aider weighted graph/PageRank formula with
+deterministic ordering. Production mention detection, per-file lexical-reference
+fallback, important-root-file priority, and rank-only bare-file ordering remain
+incomplete.
 
-`TreeContextRenderer` adds syntax-parent header lines around selected definition
-lines and marks omitted regions with `⋮`, matching the compact shape of
-`grep_ast.TreeContext` without a Python dependency. Repository-map rendering
-groups selected lines by normalized path, truncates pathological source lines
-to 100 characters, omits chat files, and includes bare entries for files with
-no tags. Binary search chooses the largest ranked prefix whose injected token
-counter does not exceed the configured budget.
+`TreeContextRenderer` provides syntax-parent headers and `⋮` elisions, but it is
+a narrow approximation rather than a generic `grep_ast.TreeContext` equivalent.
+The model budget is currently a fixed 1,024 tokens with a character-count
+estimate; Aider's model-aware sizing, no-file multiplier, and user controls are
+not composed. Strict prefix fitting is an intentional Patch difference.
 
-`RepositoryMap` composes extraction, ranking, and rendering. Its atomic JSON tag
-cache is stored under the selected root by default, validates cached values,
-and keys each file by mtime, size, and SHA-256 content so timestamp collisions
-cannot return stale tags. Missing, corrupt, or unwritable caches fall back to a
-correct in-memory result and are rewritten when possible.
+`RepositoryMap` composes extraction, ranking, and rendering. Its JSON tag cache
+uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.
+Per-file read/parser failures are not isolated. The cache schema also lacks a
+query/grammar/extractor fingerprint, so resource upgrades can reuse old tags.
 
-Refresh modes match aider's contracts: `always` rebuilds each call; `files`
-caches by chat/other file lists; `manual` retains the last map; and `auto`
-caches maps whose previous build exceeded one second, including mentions in its
-key. A forced refresh bypasses every rendered-map mode while retaining valid
-content-keyed tag entries.
+The helper exposes `always`, `files`, `manual`, and `auto` refresh modes, but the
+production CLI exposes no refresh controls, does not couple prompt caching to
+stable `files` refresh, freezes tracked inventory at service startup, and does
+not perform Aider's broader fallback map requests.
 
-The pinned upstream fixture exporter records raw tags, ranked definitions, and
-both exact and normalized rendering for an asymmetric Python example. Patch
-compares tags and rank order exactly. Rendering removes only tree glyphs,
-elisions, and trailing whitespace before comparison because Patch's
-`TreeContextRenderer` is intentionally a TypeScript equivalent rather than a
-byte-for-byte port of `grep_ast` internals.
+The pinned exporter compares raw tags, definition order, and normalized
+rendering for one two-file Python scenario. It removes line-`-1` lexical
+fallback tags and deduplicates before storage. It does not prove numeric ranks,
+personalization, important files, other languages, caches, token fitting,
+generic tree context, or the production provider request.
 
-The npm package smoke test installs the generated tarball into a clean project,
-loads the public `TagExtractor`, and parses JavaScript, TypeScript, Python, Go,
-and Rust. This verifies that compiled ESM, copied queries, `web-tree-sitter`, and
-the pinned grammar package all resolve without access to the Patch source tree.
+The package smoke installs the tarball and exercises JavaScript, TypeScript,
+Python, Go, and Rust extraction. TSX resources are shipped but are not exercised
+after clean install, and the smoke does not render a complete installed
+`RepositoryMap`.

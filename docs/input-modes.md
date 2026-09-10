@@ -12,7 +12,9 @@ modified for asynchronous Node.js streams.
 - With neither option, Patch reads non-empty terminal lines serially until EOF.
 - The two one-shot options are mutually exclusive.
 
-Input acquisition calls an injected message handler. This keeps terminal and
-file I/O independent from session/provider construction and lets default tests
-run without credentials. Until a real provider is configured, attempting to
-submit a message reports that no provider is configured.
+Input acquisition can use an injected message handler for tests and embedding
+hosts. Without one, `createProgram` constructs `ConcreteApplicationService`
+before reading input. A model is mandatory; supported provider credentials are
+resolved from the staged environment, and missing model/credentials fail before
+the input loop. Default Git-enabled startup also requires an existing worktree
+unless `--no-git` is supplied.

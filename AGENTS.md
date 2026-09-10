@@ -11,6 +11,31 @@
 - Preserve Apache-2.0 attribution. Directly ported files must identify their
   upstream path and revision and state that they were modified for Patch.
 
+## Current parity baseline
+
+- Patch is a substantial partial port, not a complete aider-compatible
+  implementation. Do not turn implemented helpers, exported contracts, or
+  isolated tests into broader compatibility claims.
+- Before changing ported behavior, read the pinned parity audit and priority
+  backlog in `docs/remaining-integration-tasks.md`, then read the documentation
+  and upstream source for the affected subsystem.
+- The current source audit compares Patch commit
+  `58597efc390e8e138b29024871a25d192fb27462` with aider commit
+  `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Keep both revisions explicit when
+  updating audit evidence.
+- Treat every unchecked P0 item in the authoritative integration backlog as a
+  release blocker. Do not mark a phase complete because a library helper exists;
+  verify the behavior through the executable production path.
+- Distinguish production-wired behavior from helper-only, fixture-only, and
+  planned behavior in code comments, tests, plans, changelog entries, and user
+  documentation.
+- Preserve intentional Patch hardening instead of weakening containment,
+  authorization, ambiguity rejection, process bounds, or network isolation
+  merely to mimic aider. Document the intentional difference and its tradeoff.
+- When touching an audited subsystem, compare it again with the pinned aider
+  source and update the parity matrix, prioritized backlog, and relevant
+  subsystem documentation in the same change.
+
 ## Implementation
 
 - Use TypeScript, ESM, Node.js, and npm. Do not introduce another runtime or

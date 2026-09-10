@@ -5,6 +5,10 @@ contract. A strategy declares its format and converts one complete model
 response plus the selected files and active fence into an `EditBatch`. Parsing
 does not write to disk; authorization and application remain separate stages.
 
+Current parity is uneven. Whole-file and basic SEARCH/REPLACE are the mature
+paths. Constructed `udiff` and `patch` formats have unresolved target-selection
+and repeated-action defects described below and are not release-ready.
+
 ## Ask
 
 `AskEditStrategy` ports aider's
@@ -47,43 +51,44 @@ adds one intentional safety rule: a SEARCH section matching multiple locations
 is rejected instead of silently changing the first one. Missing and ambiguous
 matches have distinct errors suitable for a later reflection loop.
 
-`FencedSearchReplaceEditStrategy` is the pinned upstream `diff-fenced` prompt
-variant. It intentionally reuses the SEARCH/REPLACE wire parser and matcher but
-has an independent format identity and reminder requiring every block to be
-inside the active fence. This lets format switches discard incompatible
-examples without duplicating edit semantics.
+`FencedSearchReplaceEditStrategy` has a separate `diff-fenced` identity but
+currently reuses the ordinary SEARCH/REPLACE production prompt and examples.
+The exported fenced reminder is not wired, so the model is not consistently
+taught the pinned filename-inside-fence layout.
 
 ## Unified diff
 
-`UnifiedDiffEditStrategy` parses git-style hunks inside `diff` fences, carries
-the most recent file header across hunks, strips conventional `a/` and `b/`
-prefixes, and ignores hunks without a change. Resolution uses exact contiguous
-context and reports `UnifiedDiffNoMatchError` separately from
-`UnifiedDiffNotUniqueError`; ambiguous context is never applied. Empty hunk
-sides represent pure additions or deletions, while whitespace-only source lines
-remain exact match content rather than being mistaken for an empty side.
+`UnifiedDiffEditStrategy` parses git-style hunks inside `diff` fences and applies
+exact unique context. It does not yet implement Aider's indentation, omitted-line,
+partial-context, or duplicate-hunk recovery. More critically, it reads only the
+first file header in a fence: a later file's hunks can remain associated with
+the preceding path. Multi-file fences must be rejected or parsed correctly
+before this format is safe. Prefix stripping also needs both source and
+destination headers rather than an unconditional destination-only rule.
 
 ## Patch actions
 
 `PatchEditStrategy` parses typed `Add File`, `Delete File`, `Update File`, and
-`Move to` actions. Update context is matched exactly first, then by trailing
-whitespace (fuzz 1), then surrounding whitespace (fuzz 100); the batch reports
-the accumulated fuzz. Parsing computes complete rewrite or move content from
-explicit snapshots, while the existing resolver and transaction retain
-all-or-nothing validation and contained writes.
-Patch session turns therefore require `RunTurnOptions.snapshots` when updates or
-moves are possible. `*** End of File` prefers context at the actual end and
-adds the upstream 10,000 fuzz penalty when it must fall back elsewhere.
+`Move to` actions with exact/trailing/surrounding-whitespace fuzz. It does not
+yet implement non-empty `@@` scope anchors and currently discards their names.
+Repeated updates are computed from the same original snapshot, so a later action
+can erase an earlier one; conflicting actions for one path are not rejected
+with Aider's rules. Until those cases are fixed, only one unscoped action per
+path is a safe supported subset.
+
+`*** End of File` retains the upstream end preference/fuzz behavior. Basic move
+parsing exists, but application currently expands a move to source deletion
+before destination creation; see the filesystem/Git backlog.
 
 ## Dry-run resolution
 
-`resolveEditBatch` evaluates a complete parsed batch against caller-supplied
-immutable file snapshots. Edits to the same file are resolved sequentially in
-an isolated working map. Final results are classified as explicit `create`,
-`update`, or `delete` operations; updates and deletes retain the original
-content for later stale-snapshot checks or rollback. Moves become a delete and
-create pair. The resolver performs no filesystem access or writes, so a
-parse or replacement failure cannot leave a partially applied batch.
+`resolveEditBatch` evaluates parsed edits against caller-supplied immutable file
+snapshots. Generic replace edits to one file are resolved sequentially in an
+isolated working map. Patch-strategy rewrites are already complete snapshots,
+so this generic guarantee does not fix the repeated Patch-action defect above.
+Final results are classified as `create`, `update`, or `delete`; moves currently
+become a delete/create pair in unsafe source-first order. The resolver performs
+no filesystem access or writes.
 
 Every model-selected path must have an explicit snapshot, including a `null`
 snapshot for a confirmed missing path. This keeps safe path lookup and approval
@@ -111,9 +116,9 @@ belongs to the later Git workflow.
 
 ## Property coverage
 
-The edit engines are property-tested with generated asymmetric Unicode text,
-CRLF blocks, repeated matches, empty-file appends, valid and invalid marker
-lengths, duplicate whole-file names, and traversal paths. These properties
-assert content equality and specific rejection classes rather than merely
-checking that parsers do not crash. Fixed pinned-upstream fixtures remain the
-compatibility oracle for exact, indentation-normalized, and elided replacements.
+Property tests cover selected local invariants, and pinned fixtures cover a
+small SEARCH/REPLACE sample. They do not establish complete Aider parity for
+whole-file prompts, unified-diff recovery/multi-file routing, Patch scopes or
+repeated actions, constructed provider requests, architect/context, or media.
+Each of those needs an asymmetric exact-revision fixture at its production
+boundary.

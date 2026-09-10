@@ -59,17 +59,25 @@ edit-format, option, and interface support must be documented explicitly.
 - Configured lint and test commands plus explicitly approved shell commands.
 - Streaming, cancellation, retries, token limits, and conversation history.
 
-### Later parity
+### Current staged parity
 
-- Repository maps and additional Tree-sitter languages.
-- Unified diff, patch, architect/editor, context, and help modes.
-- Rich terminal completion, multiline input, Vi bindings, clipboard, PTY, and
-  notifications.
-- More providers, prompt caching, assistant-prefill continuation, images, and
-  PDFs.
-- File watch mode, URL scraping, browser UI, and voice input.
-- Analytics, onboarding, update checks, and release-note prompts only if Patch
-  has a product requirement for them.
+- Repository maps are production-wired for JavaScript, TypeScript/TSX, Python,
+  Go, and Rust; ignore filtering, context mode, broader languages, and stronger
+  fixtures remain.
+- Unified diff and Patch formats are constructed but have unresolved targeting
+  and multi-action correctness defects. Architect/editor, context, help, and
+  other advanced formats remain unconstructed.
+- Terminal Markdown, diff previews, explicit history writes, notifications, and
+  text clipboard adapters exist. Completion, history navigation, Vi/Emacs
+  bindings, editor, multiline interaction, and PTY dispatch remain incomplete.
+- OpenAI and Anthropic have basic executable routes. DeepSeek request
+  normalization and usage delivery are incomplete; prompt caching, media, and
+  secondary-model workflows are not fully composed.
+- Watch and a local authenticated HTTP/SSE API start through the application.
+  URL ingestion, browser GUI, complete voice UX, and cross-session web mutation
+  policy remain.
+- Analytics, onboarding, update checks, and release-note prompts require an
+  explicit Patch product requirement before implementation.
 
 ### Non-goals
 
@@ -287,7 +295,9 @@ packed tarball from a clean temporary project.
   root after symlink resolution.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
-- [x] Port shared prompt resources and fence selection.
+- [ ] Complete production prompt resources and per-attempt fence selection.
+  The shared resource and selector helpers exist, but constructed strategy
+  prompts are abridged and context fencing is inconsistent.
 - [x] Implement chat roles and the upstream chunk order: system, examples,
   read-only files, repository map, old history, editable files, current turn,
   reminder.
@@ -298,9 +308,9 @@ packed tarball from a clean temporary project.
 - [x] Load and validate model aliases, model settings, and JSON5 metadata from
   packaged resources.
 
-**Exit:** compatibility fixtures prove config and message composition behavior;
-filesystem tests cover Unicode, spaces, symlinks, missing files, and both line
-endings.
+**Exit (partial):** local fixtures cover selected configuration and generic
+chunk/resource behavior. Full production prompt composition, broad pinned
+configuration comparison, and the filesystem race/metadata policy remain open.
 
 ### Phase 2 — Edit engines
 
@@ -335,8 +345,9 @@ or a documented, safer rejection.
   reflects automatically rather than asking aider's per-failure confirmation.
 - [x] Implement file-mention detection and explicit approval before adding or
   editing unselected files.
-- [x] Implement strategy/model switching with state transfer. Summarize or
-  clear incompatible assistant protocol examples when the edit format changes.
+- [ ] Complete strategy/model switching with state transfer. `CoderSession`
+  replaces provider/parser state, but the concrete application retains stale
+  prompt, shell, fence, map, and model-default state.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
 **Exit (partial):** installed-service acceptance covers streamed malformed and
@@ -351,8 +362,9 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers
 
-- [x] Implement OpenAI Chat Completions-compatible streaming, custom base URL,
-  API key, timeout, request options, usage, and finish reasons.
+- [ ] Complete OpenAI-compatible streaming integration. Basic OpenAI streaming,
+  custom constructor options, and finish events exist; final usage ordering and
+  DeepSeek endpoint normalization remain incorrect.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
@@ -360,7 +372,9 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   checks.
 - [x] Add model-aware token counting where reliable and conservative estimates
   elsewhere.
-- [x] Track usage and estimated cost while clearly labeling unknown pricing.
+- [ ] Deliver authoritative usage and estimated cost through the executable.
+  Current OpenAI-compatible session handling can drop final usage, and bundled
+  metadata is not merged into executable settings.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
@@ -378,14 +392,15 @@ evidence remains incomplete.
 
 - [x] Discover one common Git worktree for selected paths and reject paths from
   multiple repositories.
-- [x] Implement tracked files, staged/unstaged status, unborn and detached HEAD,
-  `.gitignore`, `.aiderignore`, diffs, and repository-relative paths using
-  NUL-delimited Git output.
+- [ ] Complete tracked/ignored repository inventory and literal path handling.
+  Status parsing exists, but tracked `.aiderignore` paths reach model context
+  and Git pathspec magic is not neutralized.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
   a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.
-- [x] Implement selected-file commits, optional hook verification, attribution,
-  model-generated commit messages, and undo constrained to Patch commits.
+- [ ] Complete production commit policy and owned undo. Selected commit,
+  hook-control, attribution, generated-message, and marker helpers exist, but
+  production bypasses hooks/messages/attribution and undo is not session-owned.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
 - [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,
@@ -421,13 +436,13 @@ real-repository `tests/git-*.test.ts` suites.
   version-pinned npm grammar packages; never place them in `assets/`.
 - [x] Build the weighted reference graph and deterministic personalized
   PageRank.
-- [x] Port token-budget binary search and a TypeScript `TreeContextRenderer`
-  equivalent to `grep_ast.TreeContext`.
+- [ ] Complete generic TreeContext-equivalent rendering and model-aware token
+  fitting. Current normalized evidence covers one small Python scenario.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
-- [x] Compare normalized map output and rank ordering against upstream fixtures.
-- [x] Add languages only with pinned grammar/query compatibility tests and npm
-  package smoke coverage.
+- [ ] Broaden independent map fixtures beyond one two-file Python example,
+  including personalization, fallback references, important files, TSX packed
+  extraction, and every added language.
 
 **Exit (configured evidence):** representative multi-language fixtures and
 packed-resource tests are in the Linux/macOS/Windows CI matrix. Cross-platform
@@ -440,15 +455,18 @@ evidence is not claimed until that matrix completes on the pushed revision.
 ### Phase 7 — Advanced edit and orchestration modes
 
 - [x] Port fenced diff as a prompt variant over SEARCH/REPLACE.
-- [x] Port unified diff with no-match versus non-unique-match diagnostics.
-- [x] Port patch add/delete/update/move actions and fuzz accounting.
+- [ ] Complete unified-diff behavior. The constructed parser has exact/unique
+  diagnostics but can route later file headers to the preceding file and lacks
+  active Aider recovery stages.
+- [ ] Complete Patch actions. The constructed parser handles basic actions/fuzz
+  but ignores named scopes and mishandles repeated/conflicting actions.
 - [ ] Integrate architect/editor handoff with explicit user acceptance. A
   library helper exists but is not constructed by `ApplicationService`.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
-- [ ] Integrate prompt caching, cache keepalive, assistant-prefill continuation,
-  images, and PDF read-only context where provider capabilities allow it. These
-  currently exist only as isolated contracts/helpers.
+- [ ] Integrate prompt-cache boundaries and keepalive scheduling. Assistant
+  prefill is reached through `CoderSession`, but repeated truncations accumulate
+  duplicate prefixes; media remains a helper-only context shape.
 
 **Exit (not met):** advanced helpers are not advertised as CLI modes. The six
 constructed formats still need independent pinned golden/property evidence and
@@ -466,13 +484,15 @@ individual edit-strategy suites.
   privacy notes work, but history is not loaded into an interactive editor.
 - [ ] Add Emacs/Vi bindings and external-editor support to the executable.
   Tagged/EOF multiline input works; bindings and editor invocation are helpers.
-- [x] Add markdown streaming, syntax highlighting, diff previews, and no-color
-  behavior.
+- [ ] Complete terminal rendering safety and fidelity. Markdown and diff
+  previews are wired, but the renderer does not strip every claimed hostile
+  control family.
 - [ ] Dispatch explicitly requested interactive commands through optional
   `node-pty`. The provisioned PTY adapter and sanitizer are tested but not wired
   into the executable command path.
-- [x] Add shell completions, notifications, and clipboard text; keep native or
-  image clipboard features optional.
+- [ ] Complete shell completions, notification timing/failure handling, and
+  clipboard text semantics. `/paste` currently displays clipboard text instead
+  of submitting it as a user turn.
 
 **Exit (not met):** provisioned PTY contract tests cover Ctrl-C, EOF, resize,
 cleanup, and hostile child sequences, but terminal-level input-loop coverage and
@@ -490,13 +510,13 @@ because the provisioned native package fails its spawn contract there.
 - [x] Add supported startup for `AI!`/`AI?` watch mode. `--watch-files` shares
   the concrete terminal session and Git ignore predicate; question-only turns
   suppress edits and commands. Node.js local-filesystem notifications are used.
-- [ ] Add supported startup for the local authenticated HTTP/SSE server. The
-  `--web --web-token-file` startup constructs the concrete service and closes
-  sessions on shutdown, but expiry and bounded event/backpressure policy are
-  not defined. This phase item remains partial, not a hosting/parity claim.
-- [x] Add voice recording/transcription only as an optional package because
-  native audio and ffmpeg complicate npm installation. The optional subpath can
-  submit a bounded transcript through an explicit application session.
+- [x] Add supported startup for the local authenticated HTTP/SSE server through
+  the real `ApplicationService`.
+- [ ] Define session expiry, quotas, bounded event/backpressure policy,
+  disconnect cancellation, and cross-session repository mutation coordination.
+- [x] Add voice recording/transcription as an optional package subpath and
+  embedding adapter without changing the default install footprint. No CLI
+  `/voice` or device/recording UX is claimed.
 
 **Exit (default footprint met; adapter exposure partial):** package smoke tests
 assert that optional native/browser/audio dependencies do not enter a normal

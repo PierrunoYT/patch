@@ -176,9 +176,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
-- Reconciled the remaining-integration backlog with the current application,
-  replacing superseded problem statements and frozen local test totals with
-  implementation paths and repeatable evidence.
+- Re-audited Patch `58597efc3` against pinned Aider `5dc9490b` across lifecycle,
+  editing, providers, configuration, Git/filesystem, repository maps, terminal,
+  interfaces, packaging, and provenance. Corrected current documentation and
+  recorded the release-blocking and core-workflow gaps in the authoritative
+  integration backlog. Contributor guidance now requires agents to preserve
+  this production-path distinction and re-audit touched subsystems; no
+  application behavior changed in this audit.
 - Connected one terminal input owner to new/out-of-chat write authorization,
   model command approval, and `/run`. Standalone TTY sessions show escaped,
   exact literal previews and accept only `y`/`yes`; empty/ambiguous answers,

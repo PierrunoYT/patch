@@ -30,60 +30,50 @@ future writes and does not delete existing files.
 
 ## Multiline input, bindings, and editors
 
-Interactive input accepts `{`/`}` blocks and tagged `{name`/`name}` blocks.
-`--multiline` instead collects terminal lines through EOF as one message. Emacs
-bindings are the default; `--vim` selects Vi semantics. In multiline mode Enter
-inserts a newline and Alt-Enter submits; Vi normal-mode Enter submits. Outside
-multiline mode those Enter behaviors are reversed. Ctrl-Up/Ctrl-Down navigate
-history and Ctrl-X Ctrl-E invokes an external editor.
+The executable's live reader is Node readline. It accepts ordinary lines plus
+`{`/`}` and tagged `{name`/`name}` blocks. Current `--multiline` buffers stdin
+through EOF as one message; it is not Aider's multi-turn Enter/Alt-Enter editor.
 
-The editor is selected by `--editor`, then `VISUAL`, then `EDITOR`, with a
-platform default. Patch splits the configured command into argv without a shell,
-adds a private temporary Markdown file, waits for a successful exit, reads the
-result, and removes the temporary directory even after failure.
+`completeInput`, `terminalKeyBindings`, history-navigation actions, and
+`editInExternalEditor` are exported helper contracts only. The executable does
+not call them. Consequently `--vim` and `--editor` are currently accepted but
+inert, Ctrl-Up/Ctrl-Down do not load the configured JSONL history, and Ctrl-X
+Ctrl-E does not launch an editor. These flags must be removed or refused until
+one live terminal adapter wires the corresponding behavior.
 
 ## Markdown, syntax, and diffs
 
-`MarkdownStream` buffers only incomplete lines, so provider chunks can be
-rendered incrementally without breaking Markdown fences. Headings, emphasis,
-inline code, and fenced JavaScript, TypeScript, JSON, and shell source receive
-lightweight ANSI styling. `renderDiff` distinguishes headers, hunks, additions,
-and deletions. Both renderers strip control sequences from untrusted content.
+`MarkdownStream` buffers incomplete lines and applies lightweight ANSI styling;
+`renderDiff` styles diff structure. The executable uses both for provider text
+and edit previews and honors TTY, `--no-color`, and `NO_COLOR`.
 
-Color is enabled only for a TTY. `--no-color`, a `NO_COLOR` environment value,
-or an explicit adapter option disables all ANSI output while preserving text.
-The executable routes live application text deltas through this stream and
-renders staged edit operations as a diff before write authorization. Completion,
-history navigation, keybindings, and external-editor invocation remain
-terminal-library-neutral helpers and are not yet connected to the executable's
-basic line reader.
+The current renderer strips CSI and OSC patterns but not every control family
+claimed by the earlier documentation. DCS/SOS/PM/APC, standalone controls, and
+split sequences require the stateful sanitizer already used for PTY output.
+Until that is shared, untrusted provider/diff output is not fully terminal-safe.
+The renderer is intentionally smaller than Aider's Rich renderer and does not
+provide full tables, lists, wrapping, or unstable-tail rerendering.
 
 ## Optional interactive PTY
 
-`runPtyCommand` loads `node-pty` only when interactive execution is requested.
-The native package is deliberately absent from Patch's dependency graph. Users
-who need PTY execution install `node-pty` alongside Patch explicitly; attempting
-PTY execution without it returns a focused `PtyUnavailableError`. Importing the
-package, printing CLI help, and non-PTY commands never probe for it. Commands use
-executable-plus-argv input and a canonical working directory.
+`runPtyCommand` is a library helper with dynamically loaded `node-pty`; no
+executable command or flag currently dispatches through it. The native package
+is deliberately absent from Patch's dependency graph. Importing Patch, printing
+CLI help, and non-PTY commands never probe for it.
 
-The PTY input contract supports data (including multiline text), Ctrl-C, EOF,
-and resize events. Abort kills the child and listeners are disposed at exit.
-Child output passes through a stateful sanitizer before streaming or capture;
-CSI, OSC, DCS, SOS, PM, APC, C0, and split control sequences cannot alter the
-parent terminal.
-
-The explicitly provisioned native contract is supported in CI on Linux and
-Windows. `node-pty@1.1.0` installs but fails to spawn on GitHub's current macOS
-runner, so Patch does not claim macOS PTY support; non-PTY execution and the
-portable default package remain supported on macOS.
+At the helper boundary, commands use executable-plus-argv input and a canonical
+working directory. Data, Ctrl-C, EOF, resize, abort, and capture are modeled;
+child output passes through a stateful sanitizer. Provisioned contract tests
+cover Linux and Windows. The pinned native package fails its spawn contract on
+the current macOS runner, so no macOS PTY support is claimed.
 
 ## Shells, notifications, and clipboard
 
-`patch --shell-completions bash|zsh|fish` prints a deterministic completion
-script without starting a session. `--notifications` rings the terminal bell
-after a response; `--notifications-command` replaces the bell with an explicit
-argv command and never invokes a shell.
+`patch --shell-completions bash|zsh|fish` prints a script, but its hard-coded
+option inventory omits several active CLI options. `--notifications` currently
+runs after any successfully handled line, including slash commands, rather than
+only after provider turns. A configured notification-command failure is not
+isolated and can terminate the input loop.
 
 `/copy` and `/paste` represent text-only clipboard effects. The adapter uses
 `pbcopy`/`pbpaste`, `clip.exe`/PowerShell, `wl-copy`/`wl-paste`, or `xclip` when

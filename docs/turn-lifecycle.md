@@ -10,10 +10,12 @@ and rechecks the prompt budget. Linter changes to paths edited in this turn are
 committed before reflection. Final results collect changed paths and command
 results across attempts and report the latest commit, including check changes.
 
-This follows the ordering in pinned
+The broad sequence is adapted from pinned
 [`base_coder.py`'s provider turn](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L1560-L1623)
-and [edit boundary](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L2240-L2336),
-with these explicit Patch choices:
+and [edit boundary](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L2240-L2336).
+It is not lifecycle equivalence: assistant-mentioned file selection, pre-check
+history transition, per-failure choices, and several prompt/state boundaries
+differ. Patch also uses these explicit choices:
 
 - Configuring `--lint-cmd` or `--test-cmd` enables automatic bounded corrective
   reflection. There is no per-failure “attempt to fix?” prompt or CLI reflection
@@ -36,10 +38,10 @@ with these explicit Patch choices:
   nonzero exit does not trigger model reflection. A command timeout stops the
   remaining suggested commands; configured tests still run. Captured output
   is bounded but is not automatically added to chat history.
-- `/undo` removes only the latest Patch-marked commit and unstages its paths;
-  it **keeps the working files**, earlier commits, and unrelated index entries.
-  It does not discard all edits from a multi-commit turn. It clears the session's
-  last-commit marker instead of implying that the undone commit still exists.
+- `/undo` keeps working files and unrelated index entries, but the current
+  marker check is not bound to a commit owned by this session and does not yet
+  guard root, merge, pushed, forged-marker, or interrupted two-command cases.
+  Treat it as pre-release behavior.
 
 ## Failure boundaries, not transactional rollback
 
@@ -58,6 +60,10 @@ The queue remains reusable and the next turn reads actual disk contents.
 
 Interrupted turns clear pending edits and retain usage and the last completed
 commit, but do not append the interrupted conversation to finalized history.
+When files or commits survive a later failure, Patch currently loses the model
+response and reflection diagnostics that caused them. The next turn sees fresh
+disk state but not the interrupted conversation; a structured partial outcome
+and mutation-aware history finalizer remain required.
 There is no durable recovery journal, per-file partial-write result, atomic
 Git/filesystem transaction, cross-session lock, or exhaustive cancellation
 guarantee. Git failures after staging and interruption between undo's two Git

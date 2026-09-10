@@ -1,20 +1,17 @@
-# Plan 2 — Application composition root and functional CLI
+# Historical plan 2 — Application composition root
 
-## Objective
+## Status
 
-Turn Patch's existing configuration, provider, session, edit, repository, and
-process components into one usable terminal application. The first integrated
-slice must support a real model turn, repository context, streamed output, and
-authorized edits without prematurely claiming the complete Git/check lifecycle
-or unsupported coder modes.
+This plan records the sequence used to create the first concrete application
+slice. `ConcreteApplicationService` and the CLI composition root now exist, so
+the former placeholder-provider constraint and the future-tense steps below are
+historical rather than current status.
 
-## Current constraint
-
-The executable currently accepts `--message`, `--message-file`, or interactive
-line input, but its default message handler reports that no model provider is
-configured. Most application capabilities are available only as independently
-tested modules. This plan creates the missing composition layer rather than
-duplicating those modules.
+The current implementation remains partial: the pinned Aider parity re-audit
+found stale strategy state after model/mode switches, incomplete prompt/fence
+composition, provider and Git lifecycle gaps, unsafe advanced edit cases, and
+multi-session repository races. Current priorities and acceptance state live in
+[`remaining-integration-tasks.md`](remaining-integration-tasks.md).
 
 ## Implementation sequence
 

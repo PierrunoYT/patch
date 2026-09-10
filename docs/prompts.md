@@ -13,10 +13,11 @@ The pinned compatibility fixture compares every field and newline, including
 file-context instructions, repository-map boundaries, read-only guidance, and
 post-edit status messages.
 
-Format-specific instructions are intentionally not loaded into this common
-resource. Each edit strategy will own its corresponding prompts when that
-strategy is implemented, preventing instructions for unsupported or inactive
-formats from leaking into a session.
+Format-specific production prompts are currently short Patch-authored
+instructions, not complete pinned Aider prompt resources. `diff-fenced` reuses
+the ordinary SEARCH/REPLACE prompt, and `udiff`/`patch` lack canonical examples
+and reminders. Exact equality of `COMMON_PROMPTS` does not prove that the
+concrete application consumes every field or formats each mode equivalently.
 
 ## Fence selection
 
@@ -35,16 +36,20 @@ triple backticks. The caller owns presentation of the corresponding warning.
 Pinned fixtures cover the candidate order, backtick prefix behavior, indentation,
 and exhausted fallback.
 
+The selector itself matches the pinned candidate order. Production chooses a
+fence once from startup snapshots, still wraps file context/examples with
+literal triple backticks, ignores the fallback warning, and does not recompute
+after file/model changes or reflection. Per-attempt prompt/parser fence parity
+remains open.
+
 ## Message chunk order
 
-`ChatChunks` keeps each independently generated prompt section separate until a
-provider request is assembled. It validates system, user, assistant, and tool
-roles, then emits the upstream order: system, examples, read-only files,
-repository map, completed history, editable files, current turn, and reminder.
-Omitted sections default to empty arrays.
+`ChatChunks` validates and orders independently supplied sections as system,
+examples, read-only files, repository map, completed history, editable files,
+current turn, and reminder. That container-level order matches Aider.
 
-Prompt caching marks the final text message in three stable sections: examples
-(or system when there are no examples), repository map (or read-only files when
-there is no map), and editable files. The operation returns new chunks rather
-than mutating session history. Provider adapters translate Patch's normalized
-`cacheControl` field to provider-specific request syntax.
+Concrete prompt construction does not yet reproduce all wrapper dialogue:
+repository/file sections omit Aider assistant acknowledgements, the no-editable-
+files prompt pair is unused, examples lack the reset pair, and reminder
+placement is unconditional. Prompt-cache marker placement is implemented at the
+container level, but production map refresh is not stabilized for cache reuse.

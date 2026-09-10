@@ -5,6 +5,10 @@ The initial entries are `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`,
 `claude-haiku-4-5`, and `deepseek/deepseek-chat`, with the aliases `4o`,
 `sonnet`, and `deepseek`.
 
+The DeepSeek catalog entry is not yet normalized to the endpoint-facing model
+name by the executable provider path. Treat that route as incomplete until the
+catalog, factory, session, and live contract use one request shape.
+
 The aliases and selection behavior are adapted from
 [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L98-L125),
 settings from
@@ -31,12 +35,11 @@ smoke test loads the catalog from a clean tarball installation. This initial
 catalog is intentionally narrow: provider expansion should add tested settings
 rather than importing aider's LiteLLM-specific catalog wholesale.
 
-`selectModels` resolves the main model first and then resolves weak and editor
-roles independently. A missing, disabled, or same-name secondary role reuses
-the main object. This avoids recursively constructing each secondary model's
-own secondary models. Explicit role names and editor edit formats override the
-main model's defaults; standard editor formats otherwise receive aider's
-`editor-` prefix.
+`selectModels` resolves main, weak, and editor roles as a library helper.
+Explicit role names and editor formats follow Aider-like precedence without
+recursive secondary construction. The concrete application currently constructs
+only the main provider/session; weak/editor roles and their consuming workflows
+are not executable behavior.
 
 ## Token counting
 
@@ -49,8 +52,11 @@ provider exposes a more authoritative tokenizer.
 
 ## Usage and cost
 
-`reportUsage` retains provider token counts and cached-token metadata. A
-provider-reported cost takes precedence; otherwise Patch estimates cost from
-both per-million catalog prices. If either price is absent, cost is `null` with
-`costSource: "unknown"` rather than displaying a misleading zero. Session
-totals add only known costs and retain the labeled latest report.
+`reportUsage` can retain provider token counts and estimate cost from prices
+present in the executable `ModelSettings`. `ModelCatalog.resolve()` currently
+returns metadata separately and the concrete application does not merge its
+limits, prices, or capabilities into settings. Bundled metadata prices therefore
+do not produce executable cost reports. OpenAI-compatible final usage can also
+be dropped at the session finish boundary, and the terminal does not render
+usage reports. Unknown costs remain `null` rather than becoming a misleading
+zero.

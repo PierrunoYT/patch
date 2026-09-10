@@ -7,12 +7,13 @@ but Patch composes behavior instead of requiring a subclass for every complete
 mode.
 
 `ConcreteApplicationService` is the production composition owner around this
-contract. It loads configuration and model metadata, creates the provider and a
-supported strategy, canonicalizes selected files, rebuilds editable/read-only
-snapshots and repository-map context for each turn, and serializes every caller
-through one session queue. The currently composed modes are `ask`, `whole`,
-`diff`, `diff-fenced`, `udiff`, and `patch`; schema-only advanced modes fail
-before provider input.
+contract. It loads catalog records, constructs the main provider and one
+supported strategy, canonicalizes selected files, rebuilds selected snapshots
+and repository-map context for each turn, and serializes callers per session.
+Catalog metadata is not yet merged into executable settings, tracked inventory
+is frozen at service startup, and independent sessions do not share a repository
+mutation queue. The composed modes are `ask`, `whole`, `diff`, `diff-fenced`,
+`udiff`, and `patch`; the latter two have unresolved targeting cases.
 
 The constructor injects a `ModelProvider` and an `EditStrategy` alongside a
 validated session config, initial messages, editable/read-only paths, and fence.
@@ -28,10 +29,11 @@ must occur before a caller invokes the returned transaction's `commit` method.
 The concrete application now owns the post-response lifecycle. It resolves and
 stages the complete batch, emits a preview, authorizes new or out-of-chat paths,
 checkpoints dirty selected files, applies and commits only selected paths, runs
-configured lint against edited disk content, approves suggested commands one at
-a time, then runs configured tests. Unrelated working-tree changes are excluded
-from every commit. A successful application records the final Patch commit and
-returns the session to `waiting`.
+configured lint against edited disk content, approves suggested commands one
+at a time, then runs configured tests. Ordinary literal selected-path
+commits exclude unrelated work; Git pathspec magic and commit-failure index
+restoration remain unresolved. A successful application records the final
+marker-bearing commit and returns the session to `waiting`.
 
 Multi-file writes are not transactionally rolled back after the first rename.
 Patch validates every snapshot and dry-runs every operation before the first
@@ -40,15 +42,14 @@ but a filesystem failure during the commit loop may leave an already-written
 prefix on disk. The error is reported and the valid files are left for explicit
 user recovery; Patch does not claim atomic multi-file rollback.
 
-`prepareTurn` resets transient edit and usage state, composes typed prompt chunks
-in upstream-compatible order, applies a conservative token estimate, and
-returns a validated provider request. Over-budget prompts fail before a turn is
-activated. `finalizeTurn` validates the complete response through the strategy
-before atomically adding the user and assistant messages to durable history;
-`abandonTurn` clears transient state without changing history.
-
-The current token estimate is deliberately conservative and will be replaced
-by model-aware counters where providers expose reliable tokenizers.
+`prepareTurn` resets transient edit and per-turn token counters, composes typed
+prompt chunks in the container-level upstream order, and applies model-aware
+OpenAI text counting with a conservative fallback for other/multimodal prompts.
+It does not clear a prior `lastUsage`, and concrete wrapper messages/reminder
+policy are not full Aider prompt parity. Over-budget prompts fail before a turn
+is activated. `finalizeTurn` validates the complete response through the
+strategy before adding user/assistant messages; `abandonTurn` clears transient
+state without changing history.
 
 `runTurn` now consumes validated provider events, incrementally assembles text
 and reasoning, reports each event to an optional observer, and records usage.
@@ -76,12 +77,11 @@ callback accepts each path. Parsed model edits receive the same check before
 checks, staging, or writes; an unselected/new path is rejected when approval is
 absent or denied, and read-only paths remain non-editable.
 
-`switch` atomically replaces the validated model, provider, and strategy while
-retaining selected paths, usage, and compatible conversation state. The
-strategy format must match the model. When formats differ, callers may inject a
-history summarizer; without one, Patch removes old assistant protocol output
-while retaining user intent so the replacement model does not imitate an
-incompatible edit syntax.
+`switch` atomically replaces `CoderSession`'s model, provider, and parser
+strategy. The concrete application does not replace its immutable prompt
+definition, shell policy, fence, map policy, or startup-model default at the
+same time, so `/model` and `/chat-mode` are incomplete. Production also supplies
+no history summarizer; an incompatible switch drops assistant messages.
 
 ## Architect/editor handoff
 
@@ -92,6 +92,10 @@ independently configured. Denial or an empty plan cannot consume an editor
 turn, and a shared abort signal prevents the editor from starting after
 cancellation.
 
+This orchestrator is an exported helper, not a mode constructed by
+`ConcreteApplicationService`. It does not establish selected-file/context,
+commit, cost, or final-history transfer parity.
+
 ## Context selection
 
 `selectContextFiles` asks a dedicated read-only context session for the complete
@@ -99,3 +103,7 @@ set of files, repeats with the prior selection, and stops when the set is stable
 regardless of response order. It defaults to three iterations and reports when
 the bound, rather than convergence, ended selection. Cancellation is forwarded
 to every provider turn and no filesystem state changes during selection.
+
+This selection loop is also helper-only. It does not replace the concrete
+session's selected paths or force/rebuild repository-map context between
+iterations.

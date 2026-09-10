@@ -5,23 +5,30 @@ the Node.js recursive filesystem watcher after constructing the concrete service
 and terminal session. Save a file containing `// AI! change this` or
 `// AI? explain this`; startup does not scan existing comments. The watcher uses
 the exact terminal session and its mutation queue, including conversation history.
-Responses and edit previews use sanitized terminal output. No optional native
-or browser dependency is loaded.
+Responses and edit previews use the shared terminal renderer, whose full
+control-sequence sanitization remains a release blocker. No optional native or
+browser dependency is loaded.
 
-`AiWatchMode` adapts the pinned upstream `aider/watch.py` behavior for `AI!` edit requests and `AI?` questions. Changed files are debounced, deduplicated, safely resolved beneath the repository root, and read only when they are regular files no larger than 1 MiB by default.
+`AiWatchMode` adapts part of pinned `aider/watch.py`. Changed files are
+debounced, deduplicated, contained, and bounded to regular files no larger than
+1 MiB. The built-in ignore list is narrower than Aider's canonical editor,
+cache, project, and temporary-file rules. Production adds ordinary Git and root
+`.aiderignore` checks, but ignore-command failures can fail open.
 
-Built-in rules skip Git metadata, aider state, dependencies, editor state, environment files, logs, binary documents, and common temporary files. CLI startup composes `ConcreteApplicationService.isIgnored`, using the selected Git repository's `.gitignore` and `.aiderignore` rules. With `--no-git`, only built-in rules apply. Library callers may supply their own `isIgnored` predicate.
+Only changed files carrying an actionable marker enter a submission. Aider
+reloads current AI comments from every tracked chat file after a trigger; Patch
+does not. Production debounce/submission errors are currently discarded and a
+native watcher error stops watching without an actionable diagnostic.
 
-The adapter submits work through a shared `SerialTaskQueue`. Terminal, watch, and web callers must use the same queue for a session so a watcher never mutates session state during an active model turn. Debounced work is abortable; stopping watch mode drops pending paths and prevents queued submissions from starting.
+Patch intentionally emits line-oriented comment context rather than depending
+on upstream's Python Tree-sitter context renderer.
 
-Patch intentionally emits line-oriented comment context rather than depending on upstream's Python Tree-sitter context renderer.
-
-`AI?` uses the configured strategy but marks the submission question-only: the
-application suppresses proposed edits, commits, checks, and shell commands.
-`AI!` uses the normal write boundary; a comment does not approve new or
-out-of-chat writes. Mixed batches give `AI!` precedence. Select editable files
-at startup; the CLI still has no interactive write/command approval prompt.
-Watch notifications are not appended to terminal input/chat history files.
+`AI?` uses the configured edit strategy with write/check/command effects
+suppressed; it does not switch to Aider's ask prompt. `AI!` uses the normal
+write boundary, and a comment does not approve new or out-of-chat writes. Mixed
+batches give `AI!` precedence, intentionally differing from Aider's last-marker
+arbitration. Watch notifications are not appended to terminal input/chat history
+files.
 
 EOF, `/exit`, Ctrl-C, or SIGTERM stops the watcher, cancels pending/active watch
 submissions, and closes the concrete service after its session queue settles.

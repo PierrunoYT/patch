@@ -12,20 +12,28 @@ modified to use async `git` subprocesses and canonical Node.js paths. It is also
 used by staged configuration bootstrap when selected files correct the initial
 working-directory root.
 
-`GitRepository` exposes tracked files, staged/unstaged/untracked status, unborn
-and detached HEAD, combined index/worktree diffs, dirtiness, ignore checks, and
-repository-relative paths. Machine-readable filename lists use NUL delimiters,
-so whitespace and newline characters cannot corrupt parsing. `.aiderignore` is
-passed to Git as an additional excludes file alongside normal Git ignore rules.
-Pathspecs are rejected before Git invocation when they escape the worktree.
+`GitRepository` exposes tracked paths, staged/unstaged/untracked status, unborn
+and detached HEAD, combined diffs, dirtiness, ignore checks, and
+repository-relative paths. Machine-readable filename lists use NUL delimiters.
 
-Selected-file commits stage and commit only explicit pathspecs, preserve
-unrelated staged changes, honor hook verification unless `verify` is false, and
-support separately attributed author/committer names plus co-author trailers.
-Identity overrides are merged into the Git child process environment and never
-mutate the parent Node.js `process.env`.
-`commitGenerated` supplies the selected diff to an injected model callback when
-no message is provided. Every such commit receives a `Patch-Commit: true`
-trailer. Undo uses a mixed reset only when the current HEAD carries that marker,
-preserving the reverted file contents in the worktree and refusing arbitrary
-user commits.
+Current production limitations are release blockers:
+
+- Git receives repository-relative pathspecs after `--`, but pathspec magic is
+  not disabled. A literal selected name can expand to unrelated files.
+- `status().trackedPaths` is not filtered through `.aiderignore` before
+  application snapshots and repository-map/model context.
+- `.aiderignore` is supplied by overriding `core.excludesFile`, not composed
+  independently with every existing global excludes policy; ignore command
+  failures can fail open.
+- The tracked inventory is frozen when the service starts.
+
+Selected-file commit, hook verification, attribution, generated-message, and
+marker helpers exist at the adapter level. The concrete application uses fixed
+messages, disables hook verification, and does not apply attribution.
+Ordinary selected commits preserve unrelated index entries, but commit failure
+can replace the selected paths' prior staged state.
+
+Undo keeps working-file content and unrelated index entries, an intentional
+Patch safety difference. Its current provenance check accepts any marker-bearing
+HEAD and is not bound to a commit owned by the current session; root, merge,
+pushed, forged-marker, and interrupted two-command cases need explicit guards.

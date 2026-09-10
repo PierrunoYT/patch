@@ -9,6 +9,13 @@ Patch's `UrlFetcher` is a bounded interface adapter inspired by pinned aider `ai
 - Only UTF-8 textual, JSON, XML, and XHTML responses are returned.
 - Caller cancellation aborts the request.
 
-JavaScript rendering is opt-in through `loadPlaywrightRenderer()`. Patch dynamically imports `playwright`; it is not a dependency of the default package. Playwright renders the already-vetted HTML while blocking all browser network requests, preventing DNS rebinding and private subresource access. Install Playwright and Chromium separately only when rendering is needed.
+`loadPlaywrightRenderer()` is an opt-in library helper. It renders the
+already-fetched static HTML with every browser network request blocked; it does
+not navigate a page, load external scripts/subresources, or convert HTML to
+readable Markdown as Aider does. Patch dynamically imports `playwright`, which
+is absent from the default package. URL detection, `/web` ingestion, approval,
+source labeling, token limits, and application prompt wiring are not
+implemented.
 
-This is an intentional security difference from the pinned upstream scraper, which follows redirects without destination or response-size validation.
+The strict SSRF, redirect, size, TLS, and no-subresource policy is an intentional
+security difference from the pinned upstream scraper.

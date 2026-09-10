@@ -53,16 +53,20 @@ renames it over the destination. Existing permission bits are retained, and a
 failed operation removes the temporary file. The destination is resolved again
 before rename, and a changed or escaping path aborts the replacement.
 
-These rules preserve the configurable encoding, newline conversion, and dry-run
-behavior in aider's
-[`InputOutput`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L323-L333),
-while intentionally replacing aider's direct truncating
-[`write_text`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L478-L503)
-with an atomic write. Path handling is also stricter than aider's general
-[`safe_abs_path`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/utils.py#L96-L103),
-which canonicalizes a path but does not enforce repository containment. The
-additional boundary implements Patch's documented requirement to prevent model
-edits from escaping the selected repository through `..` or symlinks.
+Atomic replacement is not a metadata-preserving transaction. It creates a new
+inode, retains only ordinary mode bits, can sever hardlinks, and does not promise
+ACL, ownership, xattr, file-flag, alternate-stream, directory-fsync, or crash
+durability preservation. Containment and snapshot checks operate on path strings
+and have check-to-use windows under concurrent directory/file replacement.
+Deletion has the same ancestor-swap concern. These are unresolved policies, not
+claims of race-free containment.
+
+The encoding and newline adapter is stricter than Aider and supports only the
+documented codecs. Explicit LF/CRLF conversion is currently a library option;
+the executable exposes encoding but not line-ending policy. Static containment,
+full-batch staging, and sibling temporary replacement remain intentional safety
+improvements over Aider's direct truncating writes, subject to the metadata and
+concurrency limits above.
 
 `applyAuthorizedEdits` is the final write workflow. It presents the complete
 staged preview before asking for per-path authorization, requires approval for

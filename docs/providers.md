@@ -1,5 +1,11 @@
 # Model providers
 
+Production support is partial. OpenAI and Anthropic have basic executable
+streaming routes. DeepSeek is advertised but its catalog model name, output
+limit, and assistant-prefill request are not normalized through the same path
+used by the direct live adapter test. Provider breadth is intentionally narrower
+than Aider's LiteLLM surface.
+
 ## OpenAI-compatible Chat Completions
 
 `OpenAIProvider` uses the official `openai` npm client and accepts an API key,
@@ -10,9 +16,13 @@ output limit.
 
 The adapter validates streamed chunks and maps text, reasoning, fragmented tool
 calls, token usage, cached input tokens, and finish reasons into Patch's common
-provider events. Authentication, rate-limit, timeout, network, and context
-errors are classified for the session retry policy. PDF message parts are
-rejected because Chat Completions does not define a portable PDF representation.
+provider events. Tool calls are transport events only: `CoderSession` does not
+declare tools or assemble tool-call results. Authentication, rate-limit,
+timeout, network, and context errors have focused classifications; SDK 5xx and
+response-validation failures still fall through as non-retryable provider
+errors. PDF message parts are rejected because Chat Completions does not define
+a portable PDF representation. `CoderSession` can also stop on `finish` before
+a final OpenAI-compatible usage event, so executable usage/cost is incomplete.
 
 Default tests use mocked Fetch responses and never require credentials or
 network access.
@@ -36,6 +46,10 @@ rate limits, and API behavior can make a manual live run fail independently of
 the credential-free suite. Tests and workflow configuration never print key
 values.
 
+The DeepSeek live case constructs the adapter directly with endpoint-facing
+`deepseek-chat`. It does not verify the executable alias/catalog/factory/session
+path, whose bundled name is `deepseek/deepseek-chat`.
+
 ## Anthropic Messages
 
 `AnthropicProvider` uses the official `@anthropic-ai/sdk` npm client. It moves
@@ -43,8 +57,8 @@ system messages into Anthropic's top-level `system` field, preserves ephemeral
 cache-control markers on text blocks, and maps text, images, PDFs, tool results,
 tool calls, thinking, usage, cached tokens, and stop reasons to the shared
 contract. Constructor options support custom endpoints, timeout, headers, and
-Fetch injection. Errors use the same provider-neutral classifications as the
-OpenAI adapter.
+Fetch injection. Basic message/event mapping uses the shared contract, but this
+does not imply identical retry classification for every SDK error.
 
 ## Preflight diagnostics
 
@@ -61,21 +75,22 @@ the structured result into `ProviderConfigurationError` for startup paths.
 | --- | --- | --- | --- | --- | --- |
 | `openai` | OpenAI Chat Completions | yes | yes | no | no |
 | `anthropic` | Anthropic Messages | yes | yes | yes | yes |
-| `deepseek` | OpenAI-compatible Chat Completions | yes | model-dependent | no | model-dependent |
+| `deepseek` | OpenAI-compatible Chat Completions | partial | model-dependent | no | no explicit markers |
 
-`createProvider` is the live-provider construction boundary. It accepts only
-the providers above, resolves their provider-specific credential names without
+`createProvider` is the executable construction boundary. It accepts only the
+providers above, resolves their provider-specific credential names without
 logging values, and throws `UnsupportedProviderError` for every other provider.
-Custom base URLs remain available for compatible gateways; supporting a new
-provider name requires an explicit adapter/table update and tests.
+Custom base URLs and timeouts are constructor/factory options for embedding
+callers; the executable bootstrap does not expose them.
 
 ## Capability-aware context and continuation
 
 `CoderSession` adds ephemeral prompt-cache boundaries only for models declaring
-`promptCaching`. `keepPromptCacheAlive` performs a caller-scheduled, bounded
-number of warming turns and stops on cancellation; it is a no-op for incapable
-models. Models declaring `assistantPrefill` can continue up to three truncated
-responses by sending accumulated output as the next assistant prefix.
+`promptCaching`. `keepPromptCacheAlive` is a caller-scheduled library helper.
+Models declaring `assistantPrefill` enter a bounded continuation path in
+production, but Patch currently sends an ordinary assistant message rather than
+Aider's provider prefix field and accumulates duplicate prefixes after repeated
+truncation. It is not complete provider-wire parity.
 
 `buildReadOnlyMediaMessage` labels image and PDF references and includes only
 parts supported by the selected model. PDFs are always context-only and remain

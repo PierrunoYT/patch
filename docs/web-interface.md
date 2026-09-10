@@ -25,11 +25,13 @@ The server refuses non-loopback binds and requires an `Authorization: Bearer …
 `GET /sessions/:id/events` is an SSE stream. `POST /sessions/:id/messages` accepts one bounded JSON message and serializes submissions through that session's queue. Events have per-session sequence IDs and are sent only to clients attached to that session. Request disconnects cancel queued or active application work through an `AbortSignal`.
 
 The CLI constructs `ConcreteApplicationService`; each web session has independent
-conversation state and its own queue. Sessions share the selected repository,
-not an isolated filesystem or a cross-session write lock. New/out-of-chat writes
-and model-suggested commands remain denied without an embedding approver.
-Malformed JSON and invalid message shapes return 400, oversized messages return
-413, and internal errors return a generic 500 without provider diagnostics.
+conversation state and its own queue while sharing one repository. There is no
+application-wide mutation lock or optimistic repository version check. Two
+authenticated sessions can stage against stale shared state and overwrite or
+commit conflicting changes; this is a release-blocking data-integrity risk.
+New/out-of-chat writes and model-suggested commands remain denied without an
+embedding approver. Malformed JSON and invalid messages return 400, oversized
+messages return 413, and internal errors return a generic 500.
 
 Ctrl-C/SIGTERM stops accepting connections, disconnects HTTP/SSE clients, closes
 sessions (aborting their work), drains the concrete service queues, and closes

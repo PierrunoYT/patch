@@ -20,11 +20,14 @@ TypeScript while preserving upstream attribution under Apache-2.0.
 
 ## Project status
 
-Patch is an unreleased, incomplete port with a working core application path.
-The `patch` executable bootstraps configuration; resolves OpenAI, Anthropic, or
-DeepSeek models; builds editable, read-only, and repository-map context; and
-runs serialized one-shot or line-oriented interactive turns. The six constructed
-formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch`.
+Patch is an unreleased, incomplete port with a working but pre-release core
+application path. The `patch` executable bootstraps configuration, constructs
+OpenAI or Anthropic routes, builds editable/read-only/repository-map context,
+and runs serialized one-shot or line-oriented interactive turns. A DeepSeek
+route is present but its catalog-to-endpoint normalization is not yet verified.
+The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
+and `patch`; `udiff` and `patch` have unresolved targeting cases and are not
+release-ready.
 Selected-file edits are dry-run resolved, previewed, written, optionally
 committed, and followed by explicitly configured lint/test commands. Parse,
 resolution, and post-write check failures share a three-reflection budget with
@@ -47,15 +50,20 @@ approvers. Embedding callers must explicitly inject approval callbacks.
 Selected-file edits and configured lint/test commands retain existing behavior.
 File-mention selection and per-failure reflection prompts remain unsupported.
 
-This is not yet a usable-release or aider-parity claim;
-failure/cancellation coverage is not exhaustive. Multi-file failures retain
+This is not yet a usable-release or Aider-parity claim. Immediate blockers
+include literal Git path handling, filtering tracked `.aiderignore` content
+before model context, move ordering, Patch/unified-diff targeting, session-owned
+undo, cross-session repository writes, and terminal control sanitization.
+Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; `/undo` retains working files and
-unrelated staged changes. Rich completion, history navigation, keybindings, editor and PTY
-dispatch remain library helpers. Architect/context/cache/prefill/media helpers
-are not constructed modes. `--watch-files` shares the terminal session, and
-`--web` starts the local authenticated HTTP/SSE API (not a browser GUI).
-URL context integration and web session expiry/backpressure policy remain
-unfinished. See the unchecked items in
+unrelated staged changes but is not yet bound to the current session's commit.
+Rich completion, history navigation, keybindings, editor and PTY dispatch remain
+library helpers. Architect/context/cache/media helpers are not constructed
+modes; assistant prefill is reached by capable models but is incomplete.
+`--watch-files` shares the terminal session, and `--web` starts the local
+authenticated HTTP/SSE API—not a browser GUI. URL context integration and web
+session expiry/backpressure/mutation coordination remain unfinished. See the
+unchecked items in
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
 the authoritative remaining scope.
 
@@ -92,13 +100,17 @@ npm start -- --help
 ```
 
 The executable accepts `--message`, `--message-file`, or interactive line input.
-Select a model with `--model`, `PATCH_MODEL`, or `.patch.conf.yml`; provider
-credentials use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`.
+A model is mandatory even when a provider credential is present; select it with
+`--model`, `PATCH_MODEL`, or `.patch.conf.yml`. Provider credentials use
+`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`. Default startup
+requires an existing Git worktree; pass `--no-git` explicitly outside one.
 Editable files can be positional or repeated `--file` values; use
-`--read-only` for context that must not be edited. The currently constructed
-formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch`.
-Advanced schema values are rejected rather than silently accepted. See the
-[provider documentation](docs/providers.md) and [input modes](docs/input-modes.md).
+`--read-only` for contained context that must not be edited. A sole directory,
+read-only directory expansion, and external read-only files are not supported.
+The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
+`udiff`, and `patch`. Advanced schema values are rejected rather than silently
+accepted. See the [provider documentation](docs/providers.md) and
+[input modes](docs/input-modes.md).
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 
@@ -117,11 +129,13 @@ cannot be combined with each other or one-shot input, and use the same staged
 model/file configuration as terminal startup. This API is for trusted local
 clients, not public or multi-tenant hosting.
 
-Architect/editor handoff, context convergence, cache keepalive, prefill, and
-media utilities are currently library-level contracts, not constructed CLI
-modes. `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are
-therefore rejected by `--edit-format` and `/chat-mode` until their complete
-application behavior and independent evidence exist.
+Architect/editor handoff, context convergence, cache keepalive, and media
+utilities are currently library-level contracts, not constructed CLI modes.
+Assistant-prefill continuation is reached inside production `CoderSession` for
+capable models but is not wire-compatible for all advertised routes.
+`help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore
+rejected by `--edit-format` and `/chat-mode` until their complete application
+behavior and independent evidence exist.
 
 ## Technology direction and references
 
@@ -130,9 +144,10 @@ to evaluate later, not a current runtime or tooling requirement.
 See the [Aider-to-Patch porting plan](PORTING_PLAN.md) for the pinned upstream
 baseline, target architecture, implementation phases, and verification criteria.
 
-Directly ported files identify their aider source revision and
-modifications. Reference checkouts remain outside this repository; only scoped,
-tested ports will be integrated.
+Directly adapted files and resources are required to identify their Aider source
+revision, modification, and license. The parity re-audit found that this is not
+yet mechanically complete; provenance ledger/header work remains in the
+authoritative backlog. Reference checkouts remain outside this repository.
 
 ## Community
 
