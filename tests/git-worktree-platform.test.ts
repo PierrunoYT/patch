@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -60,6 +60,6 @@ describe("Git worktrees on the host platform", () => {
 
     const repository = await GitRepository.open(linked);
     expect((await repository.status()).trackedPaths).toEqual(["tracked.txt"]);
-    expect(repository.root).toBe(linked);
+    expect(repository.root).toBe(await realpath(linked));
   });
 });

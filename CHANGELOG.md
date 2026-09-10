@@ -191,6 +191,9 @@ porting plan distinguish composed behavior from library-only adapters.
 - Expanded CI package and platform-sensitive contracts to Node.js 22 on Linux,
   macOS, and Windows, including linked Git worktrees and explicitly provisioned
   PTY jobs on each platform.
+- Made platform assertions compare canonical paths, limited POSIX permission
+  assertions to POSIX hosts, and used each POSIX host's standard shell for the
+  provisioned PTY smoke command.
 - Narrowed CLI/config edit formats to the six modes the application actually
   constructs; advanced orchestration helpers are no longer accepted as if they
   were complete user-facing modes.

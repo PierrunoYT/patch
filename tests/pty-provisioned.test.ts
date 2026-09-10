@@ -12,11 +12,13 @@ const provisioned =
 provisioned("explicitly provisioned node-pty", () => {
   it("runs a command through the dynamically loaded native module", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-real-pty-"));
-    const result = await runPtyCommand(
-      process.execPath,
-      ["-e", "process.stdout.write('pty-ready')"],
-      { root },
-    );
+    const executable =
+      process.platform === "win32" ? process.execPath : "/bin/sh";
+    const args =
+      process.platform === "win32"
+        ? ["-e", "process.stdout.write('pty-ready')"]
+        : ["-c", "printf pty-ready"];
+    const result = await runPtyCommand(executable, args, { root });
 
     expect(result).toMatchObject({
       status: "completed",

@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -60,7 +60,7 @@ describe("model-suggested command execution", () => {
     );
 
     expect(result.status).toBe("completed");
-    expect(result.stdout).toBe(directory);
+    expect(result.stdout).toBe(await realpath(directory));
   });
 
   it("caps combined output", async () => {
