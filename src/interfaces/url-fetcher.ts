@@ -1,8 +1,9 @@
 /**
  * URL scraping behavior adapted from aider/scrape.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified for bounded Node.js fetching with DNS-pinned SSRF protection and an
+ * Modified for Patch with bounded Node.js fetching, DNS-pinned SSRF protection, and an
  * explicitly loaded optional Playwright enhancement.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { lookup } from "node:dns/promises";

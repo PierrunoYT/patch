@@ -1,7 +1,8 @@
 /**
  * Ported from aider/coders/architect_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to make acceptance and both provider sessions explicit contracts.
+ * Modified for Patch to make acceptance and both provider sessions explicit contracts.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type {

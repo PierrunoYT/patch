@@ -2,6 +2,7 @@
  * Startup sequencing adapted from aider/main.py and aider/args.py at
  * revision 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch's TypeScript, Node.js, npm, and PATCH_* configuration.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { execFile } from "node:child_process";

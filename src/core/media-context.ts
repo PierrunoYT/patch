@@ -1,4 +1,9 @@
-/** Capability-aware image/PDF context adapted from aider/coders/base_coder.py. */
+/**
+ * Capability-aware image/PDF context adapted from aider/coders/base_coder.py at
+ * revision 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
+ * Modified for Patch as a contained, provider-neutral read-only context helper.
+ * Licensed under the Apache License, Version 2.0.
+ */
 
 import type { ModelSettings } from "../models/settings.js";
 import type { ChatMessage, MessageContentPart } from "./messages.js";

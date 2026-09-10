@@ -1,7 +1,8 @@
 /**
  * Input flow adapted from aider/main.py and aider/io.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified for async Node.js line input and an injected session handler.
+ * Modified for Patch with async Node.js line input and an injected session handler.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { readFile } from "node:fs/promises";

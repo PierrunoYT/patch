@@ -3,6 +3,7 @@
  * aider/run_cmd.py at revision 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch to run only explicit user configuration through its
  * bounded Node.js process adapter.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type {

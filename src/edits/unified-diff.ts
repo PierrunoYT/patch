@@ -1,8 +1,9 @@
 /**
  * Ported from aider/coders/udiff_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to parse into Patch's provider-neutral edits and apply purely
+ * Modified for Patch to parse provider-neutral edits and apply purely
  * against caller-owned snapshots.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { EditStrategy, EditStrategyContext } from "./strategy.js";

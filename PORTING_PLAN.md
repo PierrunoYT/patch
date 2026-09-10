@@ -10,9 +10,11 @@ repository. It must remain outside this repository and must not become a
 submodule.
 
 At this baseline, aider contains approximately 20,285 lines in 80 Python
-modules and 36 test modules. Patch currently contains documentation and brand
-assets but no application implementation, so this is a greenfield TypeScript
-port rather than an incremental conversion.
+modules and 36 test modules. Patch began as a greenfield TypeScript port and now
+contains tested configuration, provider, edit, Git, repository-map, application,
+and adapter components. The installed CLI composes the supported core workflow;
+the unchecked phase items below identify behavior that remains helper-only,
+partially integrated, or unsupported.
 
 The upstream source is Apache-2.0 licensed. Every directly ported file must:
 
@@ -136,9 +138,8 @@ application, not in ownership of the complete session lifecycle.
 
 ```text
 src/
-  cli/                 argument definitions and staged bootstrap
   config/              config discovery, merge, validation
-  core/                messages, session state machine, prompts, history
+  core/                application service, session state, messages, prompts
   edits/               whole-file, search/replace, later patch/udiff
   models/              model registry, capabilities, token/cost metadata
   providers/           OpenAI-compatible, Anthropic, fake provider
@@ -146,9 +147,10 @@ src/
   context/             file context and later repository maps
   commands/            typed slash-command registry
   io/                  filesystem and terminal adapters
-  processes/           lint, test, shell, and later PTY adapters
-  resources/           model settings, prompts, and later query files
-  index.ts              public application factory
+  process/             lint, test, shell, and PTY adapters
+  interfaces/          bounded URL, watch, web, and voice adapters
+  resources/           prompts and repository-map runtime resources
+  index.ts              public library exports
   cli.ts                npm executable
 tests/
   unit/
@@ -172,9 +174,7 @@ interface ModelProvider {
 
 interface EditStrategy {
   readonly format: EditFormat;
-  buildPrompts(model: ModelConfig): PromptSet;
-  parse(response: AssistantResponse, context: EditContext): Edit[];
-  apply(edits: Edit[], context: EditContext): Promise<Set<string>>;
+  parse(response: string, context: EditStrategyContext): EditBatch;
 }
 
 interface Repository {
@@ -186,12 +186,26 @@ interface Repository {
   commit(request: CommitRequest): Promise<CommitResult | undefined>;
 }
 
-type CommandEffect =
-  | { type: "none" }
-  | { type: "submit"; message: string }
-  | { type: "switch"; config: SessionConfigPatch }
-  | { type: "exit"; code: number };
+interface ApplicationService {
+  createSession(context: {
+    principal: string;
+    sessionId: string;
+  }): Promise<ApplicationSession> | ApplicationSession;
+  close?(): Promise<void> | void;
+}
+
+interface ApplicationSession {
+  snapshot(): unknown | Promise<unknown>;
+  submit(message: string, options: ApplicationSubmitOptions): Promise<unknown>;
+  close?(): Promise<void> | void;
+}
 ```
+
+`CommandEffect` is the validated discriminated union in
+`src/commands/effects.ts`; it includes path, model/mode, process, Git,
+clipboard, submit, and exit effects. Parsing is inert. The concrete application
+session owns dispatch and serializes commands and provider turns through one
+queue.
 
 All session state must be initialized per instance. In particular, do not copy
 the class-level mutable fields in
@@ -201,7 +215,7 @@ The turn state machine should be explicit and serial:
 
 ```text
 waiting for input
-  → preprocess command, file mentions, and URLs
+  → parse and dispatch a command, or detect file mentions
   → compose messages and check context budget
   → stream provider response with cancellation/retry
   → parse proposed edits
@@ -209,9 +223,9 @@ waiting for input
   → checkpoint pre-existing dirty files
   → apply edits
   → auto-commit
-  → lint and optionally reflect
+  → run configured lint (reflection not yet integrated)
   → approve/run suggested shell commands
-  → test and optionally reflect
+  → run configured tests (reflection not yet integrated)
   → waiting for input
 ```
 
@@ -315,17 +329,22 @@ or a documented, safer rejection.
   checks, response assembly, and history transitions.
 - [x] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.
-- [x] Implement bounded reflection for malformed edits, lint failures, and test
-  failures. Default to aider's maximum of three reflections.
+- [ ] Implement bounded reflection for lint and test failures. Malformed edit
+  reflection is bounded to three attempts, but post-write check reflection is
+  not integrated.
 - [x] Implement file-mention detection and explicit approval before adding or
   editing unselected files.
 - [x] Implement strategy/model switching with state transfer. Summarize or
   clear incompatible assistant protocol examples when the edit format changes.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit:** a fake-provider end-to-end test completes a streamed multi-turn edit,
-handles one malformed response through reflection, and cancels without writing
-partial output.
+**Exit (partial):** fake-provider tests cover streamed multi-turn turns,
+malformed-response reflection, and cancellation before writes. The complete
+installed lifecycle and cancellation-at-every-boundary evidence remains in R2
+of `docs/remaining-integration-tasks.md`.
+
+**Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
+and `tests/application-lifecycle.test.ts`.
 
 ### Phase 4 — Real model providers
 
@@ -342,8 +361,15 @@ partial output.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
-**Exit:** opt-in provider integration tests pass when credentials are present;
-all ordinary CI tests use deterministic fakes and require no network.
+**Exit (workflow present; live evidence pending):** opt-in provider tests and a
+protected manual workflow exist. Ordinary CI is deterministic and requires no
+network. Authentication, minimal streaming, and usage are covered when each
+credential is supplied; combined live timeout/cancellation and capability
+evidence remains incomplete.
+
+**Evidence:** mocked `tests/openai-provider.test.ts` and
+`tests/anthropic-provider.test.ts`; opt-in `tests/live-provider.test.ts` via
+`.github/workflows/live-providers.yml`.
 
 ### Phase 5 — Git, authorization, and commands (MVP)
 
@@ -352,8 +378,9 @@ all ordinary CI tests use deterministic fakes and require no network.
 - [x] Implement tracked files, staged/unstaged status, unborn and detached HEAD,
   `.gitignore`, `.aiderignore`, diffs, and repository-relative paths using
   NUL-delimited Git output.
-- [x] Implement the write boundary: preview, authorize new/out-of-chat paths,
-  checkpoint dirty files, apply, and report changed files.
+- [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
+  an embedding caller authorizes them, checkpoint dirty files, apply, and
+  report changed files.
 - [x] Implement selected-file commits, optional hook verification, attribution,
   model-generated commit messages, and undo constrained to Patch commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
@@ -362,13 +389,22 @@ all ordinary CI tests use deterministic fakes and require no network.
   `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
   `/undo`, and `/exit`.
 - [x] Require approval for each model-suggested shell command, show the exact
-  command, run at repository root, cap output, and support timeout/cancellation.
+  command, run at repository root, cap output, and support timeout/cancellation
+  in the application contract. The CLI currently supplies no approver and
+  therefore denies execution.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
-**Exit — first usable release:** an npm-installed binary can safely edit a real
-Git repository with OpenAI-compatible or Anthropic models using `ask`, `whole`,
-or `diff`, including preview, approval, commit, undo, lint, test, and reflection.
+**Exit — partial usable workflow:** the npm-installed binary composes supported
+providers and edit formats, previews selected-file edits, commits, runs
+configured lint/tests, and dispatches Git commands. A full release exit still
+requires interactive authorization for new/out-of-chat edits and commands,
+post-write reflection, exhaustive failure/cancellation state tests, and a packed
+end-to-end acceptance test.
+
+**Evidence:** `tests/application-lifecycle.test.ts`,
+`tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the
+real-repository `tests/git-*.test.ts` suites.
 
 ### Phase 6 — Repository maps
 
@@ -386,51 +422,80 @@ or `diff`, including preview, approval, commit, undo, lint, test, and reflection
 - [x] Add languages only with pinned grammar/query compatibility tests and npm
   package smoke coverage.
 
-**Exit:** representative multi-language fixtures produce stable, useful maps
-within token budgets on Linux, macOS, and Windows.
+**Exit (configured evidence):** representative multi-language fixtures and
+packed-resource tests are in the Linux/macOS/Windows CI matrix. Cross-platform
+evidence is not claimed until that matrix completes on the pushed revision.
+
+**Evidence:** `tests/repo-map-compatibility.test.ts`,
+`tests/repository-map-cache.test.ts`, `scripts/package-smoke.mjs`, and the
+`platform` job in `.github/workflows/ci.yml`.
 
 ### Phase 7 — Advanced edit and orchestration modes
 
 - [x] Port fenced diff as a prompt variant over SEARCH/REPLACE.
 - [x] Port unified diff with no-match versus non-unique-match diagnostics.
 - [x] Port patch add/delete/update/move actions and fuzz accounting.
-- [x] Port architect/editor handoff with explicit user acceptance.
-- [x] Port context mode's repeated file selection with a bounded convergence
+- [ ] Integrate architect/editor handoff with explicit user acceptance. A
+  library helper exists but is not constructed by `ApplicationService`.
+- [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
-- [x] Add prompt caching, cache keepalive, assistant-prefill continuation,
-  images, and PDF read-only context where provider capabilities allow it.
+- [ ] Integrate prompt caching, cache keepalive, assistant-prefill continuation,
+  images, and PDF read-only context where provider capabilities allow it. These
+  currently exist only as isolated contracts/helpers.
 
-**Exit:** each format has independent golden and property tests, and switching
-formats cannot leak incompatible protocol examples into subsequent prompts.
+**Exit (not met):** advanced helpers are not advertised as CLI modes. The six
+constructed formats still need independent pinned golden/property evidence and
+the advanced orchestration paths remain unintegrated.
+
+**Component evidence only:** `tests/architect.test.ts`,
+`tests/context-selection.test.ts`, `tests/capability-context.test.ts`, and the
+individual edit-strategy suites.
 
 ### Phase 8 — Rich terminal parity
 
-- [x] Add command, file, and identifier completion.
-- [x] Add persistent input/chat history with explicit paths and privacy notes.
-- [x] Add multiline input, Emacs/Vi bindings, and external-editor support.
+- [ ] Connect command, file, and identifier completion to the executable. The
+  deterministic completion engine is library-only.
+- [ ] Add persistent input/chat history navigation. Explicit append paths and
+  privacy notes work, but history is not loaded into an interactive editor.
+- [ ] Add Emacs/Vi bindings and external-editor support to the executable.
+  Tagged/EOF multiline input works; bindings and editor invocation are helpers.
 - [x] Add markdown streaming, syntax highlighting, diff previews, and no-color
   behavior.
-- [x] Add optional `node-pty` execution for interactive commands and verify
-  control-sequence sanitization.
+- [ ] Dispatch explicitly requested interactive commands through optional
+  `node-pty`. The provisioned PTY adapter and sanitizer are tested but not wired
+  into the executable command path.
 - [x] Add shell completions, notifications, and clipboard text; keep native or
   image clipboard features optional.
 
-**Exit:** PTY tests cover Ctrl-C, EOF, resize, multiline input, process cleanup,
-and hostile child control sequences.
+**Exit (not met):** provisioned PTY contract tests cover Ctrl-C, EOF, resize,
+cleanup, and hostile child sequences, but terminal-level input-loop coverage and
+executable PTY dispatch remain incomplete.
+
+**Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
+`tests/input-editing.test.ts`, `tests/pty-provisioned.test.ts`, and the `pty`
+matrix job in `.github/workflows/ci.yml`.
 
 ### Phase 9 — Optional interfaces
 
-- [x] Add URL fetching with size limits, timeouts, content-type checks, and SSRF
-  protection; make Playwright an optional enhancement.
-- [x] Add `AI!`/`AI?` watch mode with ignore rules, file-size limits, debounce,
-  and serialized interaction with active model turns.
-- [x] Expose the same application service through a local authenticated web
-  server and SSE/WebSocket events. Keep session state isolated per user/session.
+- [ ] Feed bounded URL fetching into application context. The SSRF-safe fetcher
+  and optional renderer contract are library-only.
+- [ ] Add supported startup for `AI!`/`AI?` watch mode. It accepts a concrete
+  session and serializes through that session, but Git-ignore composition and
+  application startup are missing.
+- [ ] Add supported startup for the local authenticated HTTP/SSE server. The
+  adapter isolates principals/sessions, but expiry and bounded event/backpressure
+  policy are not defined.
 - [x] Add voice recording/transcription only as an optional package because
-  native audio and ffmpeg complicate npm installation.
+  native audio and ffmpeg complicate npm installation. The optional subpath can
+  submit a bounded transcript through an explicit application session.
 
-**Exit:** optional features do not increase the install footprint or native
-build requirements of the default CLI package.
+**Exit (default footprint met; adapter exposure partial):** package smoke tests
+assert that optional native/browser/audio dependencies do not enter a normal
+install. URL/watch/web startup and operational policy remain incomplete.
+
+**Component evidence only:** `tests/url-fetcher.test.ts`,
+`tests/watch-mode.test.ts`, `tests/web-server.test.ts`, `tests/voice.test.ts`,
+and default-footprint assertions in `scripts/package-smoke.mjs`.
 
 ## Verification strategy
 
@@ -477,7 +542,7 @@ wrong implementation produces a different result.
 | Python truthiness, generators, exceptions, and class attributes do not map directly | Use discriminated unions, explicit `undefined` handling, async iterables, typed effects, and instance fields. |
 | Model output is malformed or ambiguous | Dedicated parsers, dry-run resolution, bounded reflection, golden fixtures, and property tests. |
 | Writes escape the repository through `..` or symlinks | Canonicalize parent and target paths and enforce containment immediately before every write. |
-| Multi-file apply fails halfway | Compute and validate all resulting contents first, then atomically replace files with rollback. |
+| Multi-file apply fails halfway | Compute and validate all resulting contents first; each file replacement is atomic, but cross-file rollback remains unsupported and documented. |
 | Git differs across worktrees, unborn/detached HEAD, hooks, and partial staging | Use the installed Git CLI and real-repository integration tests. |
 | Shell quoting differs across POSIX, PowerShell, and `cmd.exe` | Prefer argv execution, require approval, and test each supported platform explicitly. |
 | Tree-sitter grammar/query versions drift | Pin versions together and test every shipped language in the packed npm artifact. |
@@ -504,17 +569,12 @@ CLI option, command, provider capability class, Git transition, repository-map
 refresh mode, and supported interface has either a passing compatibility test or
 a documented intentional difference.
 
-## Recommended first implementation slice
+## Initial implementation slice (completed)
 
-Do not begin by porting `main.py` or the full `Coder` class. The first reviewable
-slice should be:
-
-1. [x] package/build/test/legal foundation;
-2. safe text-file and path adapters;
-3. [x] provider-neutral message and edit types;
-4. SEARCH/REPLACE parser and applicator;
-5. golden fixtures from upstream `test_editblock.py`; and
-6. a tiny CLI that applies a saved model response in `--dry-run` mode.
-
-This slice tests the hardest product-specific contract without prematurely
-committing to a provider SDK, terminal framework, or large session hierarchy.
+The original first slice—package/legal infrastructure, safe text/path adapters,
+provider-neutral contracts, SEARCH/REPLACE behavior, and pinned fixtures—is
+complete. Its proposed saved-response `--dry-run` CLI was never implemented and
+is no longer recommended: dry-run resolution belongs inside the composed turn
+lifecycle, where it now runs before authorization and writes. Current work is
+tracked by `docs/remaining-integration-tasks.md` rather than this historical
+bootstrap sequence.

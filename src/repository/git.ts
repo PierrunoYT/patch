@@ -1,7 +1,8 @@
 /**
  * Repository behavior ported from aider/repo.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to use the installed Git CLI with NUL-delimited machine output.
+ * Modified for Patch to use the installed Git CLI with NUL-delimited machine output.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { execFile } from "node:child_process";

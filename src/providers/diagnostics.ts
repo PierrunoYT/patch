@@ -1,8 +1,9 @@
 /**
  * Credential diagnostics adapted from aider/models.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to avoid global environment access and to check Patch's explicit
+ * Modified for Patch to avoid global environment access and check explicit
  * provider/model capability contracts.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { ModelCapabilities, ModelSettings } from "../models/settings.js";

@@ -2,6 +2,7 @@
  * Ported from aider/coders/base_prompts.py at
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch: represented as an immutable TypeScript resource object.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { ChatMessage } from "../core/messages.js";

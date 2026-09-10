@@ -2,6 +2,7 @@
  * Ported from aider/coders/base_coder.py at
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch: extracted from the coder class as a pure TypeScript function.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 export type Fence = readonly [open: string, close: string];

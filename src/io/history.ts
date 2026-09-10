@@ -1,7 +1,8 @@
 /**
  * Persistent history behavior adapted from aider/io.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to require explicit paths and to use JSON Lines for multiline input.
+ * Modified for Patch to require explicit paths and use JSON Lines for multiline input.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { mkdir, open } from "node:fs/promises";

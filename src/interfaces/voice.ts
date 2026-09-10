@@ -1,8 +1,9 @@
 /**
  * Voice behavior adapted from aider/voice.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified as an optional, dependency-injected adapter with bounded temporary
+ * Modified for Patch as an optional, dependency-injected adapter with bounded temporary
  * audio and abortable subprocess/provider operations.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { spawn } from "node:child_process";

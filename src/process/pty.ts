@@ -1,8 +1,9 @@
 /**
  * PTY execution adapted from aider/run_cmd.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified for optional node-pty loading, typed lifecycle input, and sanitized
+ * Modified for Patch with optional node-pty loading, typed lifecycle input, and sanitized
  * output that cannot inject child-controlled terminal sequences.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { realpath } from "node:fs/promises";

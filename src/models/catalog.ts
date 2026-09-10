@@ -1,7 +1,8 @@
 /**
  * Resource loading adapted from aider/models.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified for immutable, validated Patch model records and packaged resources.
+ * Modified for Patch with immutable, validated model records and packaged resources.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { readFile } from "node:fs/promises";

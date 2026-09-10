@@ -1,7 +1,8 @@
 /**
  * Slash-command behavior ported from aider/commands.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to return inert, validated effects instead of mutating a coder.
+ * Modified for Patch to return inert, validated effects instead of mutating a coder.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { ApplicationEditFormatSchema } from "../edits/types.js";

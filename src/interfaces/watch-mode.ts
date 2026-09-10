@@ -1,8 +1,9 @@
 /**
  * Watch behavior adapted from aider/watch.py and aider/watch_prompts.py at
  * revision 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified for bounded reads, safe paths, debounce, cancellation, and a shared
+ * Modified for Patch with bounded reads, safe paths, debounce, cancellation, and a shared
  * serialized session queue.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { watch, type FSWatcher } from "node:fs";

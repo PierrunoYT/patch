@@ -1,8 +1,9 @@
 /**
  * Ported from aider/models.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to resolve main, weak, and editor roles without recursive model
+ * Modified for Patch to resolve main, weak, and editor roles without recursive model
  * construction.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { EditFormat } from "../edits/types.js";

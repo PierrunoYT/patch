@@ -1,7 +1,8 @@
 /**
  * Input bindings adapted from aider/io.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified into declarative bindings consumable by any terminal UI adapter.
+ * Modified for Patch into bindings consumable by any terminal UI adapter.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 export type EditingMode = "emacs" | "vi";

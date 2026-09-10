@@ -20,46 +20,42 @@ TypeScript while preserving upstream attribution under Apache-2.0.
 
 ## Project status
 
-Patch is at the foundation stage. The repository has a strict TypeScript build,
-linting, formatting, tests, automated CI, npm package smoke testing, a
-`patch` executable, validated
-[domain contracts](docs/domain-contracts.md), a deterministic provider test
-harness, [safe path resolution](docs/filesystem-safety.md), and upstream license
-and revision metadata. The filesystem adapter also provides validated text
-encoding, line-ending preservation, dry runs, and atomic replacement. Model
-connections, edit parsing, Git workflows, and interactive sessions have not
-all been integrated yet. The executable now bootstraps configuration, resolves
-OpenAI, Anthropic, or DeepSeek models, composes safe editable/read-only and
-repository-map context, and runs serialized one-shot or interactive provider
-turns. Applying edits and the complete Git/check command lifecycle remain
-integration work. Shared [prompt resources and fence selection](docs/prompts.md)
-and typed chat composition with upstream-compatible ordering, capability-aware
-cache boundaries, continuation, and read-only media context are pinned to
-upstream behavior. Staged
-[configuration bootstrap](docs/configuration-bootstrap.md) now discovers a
-provisional Git root, searches config and dotenv paths, and corrects the root
-from selected files. A validated, packaged [model catalog](docs/model-catalog.md)
-provides the first provider-neutral aliases, settings, and metadata. There is no
-published package or stable interface. The initial
-[coder session](docs/coder-session.md) composes injected providers and edit
-strategies through dry-run resolution and transactional staging. Lint and test
-checks run only when explicitly configured; Patch never guesses commands from
-the target repository's package-manager files. The packaged
-[repository-map engine](docs/repository-maps.md) extracts five initial language
-families with Tree-sitter, ranks references deterministically, and renders
-syntax context within token budgets using persistent content-aware caches.
+Patch is an unreleased, incomplete port with a working core application path.
+The `patch` executable bootstraps configuration; resolves OpenAI, Anthropic, or
+DeepSeek models; builds editable, read-only, and repository-map context; and
+runs serialized one-shot or line-oriented interactive turns. The six constructed
+formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch`.
+Selected-file edits are dry-run resolved, previewed, written, optionally
+committed, and followed by explicitly configured lint/test commands. Slash
+commands dispatch through the same session queue.
+
+This is not yet a usable-release or aider-parity claim. The executable has no
+interactive approval prompt for new/out-of-chat writes or commands, no
+post-write lint/test reflection loop, and incomplete failure/cancellation
+coverage. Rich completion, history navigation, keybindings, editor and PTY
+dispatch remain library helpers. Architect/context/cache/prefill/media helpers
+are not constructed modes. URL, watch, and web adapters have no supported
+application startup path. See the unchecked items in
+[`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
+the authoritative remaining scope.
+
+Implemented foundations include strict TypeScript validation, deterministic
+fake-provider tests, [safe filesystem behavior](docs/filesystem-safety.md),
+staged [configuration bootstrap](docs/configuration-bootstrap.md), a packaged
+[model catalog](docs/model-catalog.md), real Git adapters, and a packaged
+five-language [repository-map engine](docs/repository-maps.md). There is no
+published package or stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is
 recorded using the documented
 [compatibility-fixture workflow](docs/compatibility-fixtures.md).
-Optional interfaces now include security-bounded [URL fetching](docs/url-fetching.md)
-without adding Playwright to the default installation and serialized
-[AI comment watch mode](docs/watch-mode.md).
-An authenticated, session-isolated [local HTTP/SSE interface](docs/web-interface.md)
-uses the same application-service contract without adding a web framework.
-Bounded [voice recording and transcription](docs/voice-input.md) is available
-through an optional package subpath without native default dependencies.
+Library adapters include security-bounded [URL fetching](docs/url-fetching.md),
+[AI comment watch mode](docs/watch-mode.md), and an authenticated,
+session-isolated [local HTTP/SSE interface](docs/web-interface.md). They are not
+CLI startup modes. Bounded [voice recording and transcription](docs/voice-input.md)
+is available through an optional package subpath and can submit to an explicit
+application session without native default dependencies.
 
 Read [AGENTS.md](AGENTS.md) for repository guidance, including the requirement to
 create or update relevant documentation after every task or code change.
@@ -98,7 +94,7 @@ to evaluate later, not a current runtime or tooling requirement.
 See the [Aider-to-Patch porting plan](PORTING_PLAN.md) for the pinned upstream
 baseline, target architecture, implementation phases, and verification criteria.
 
-Directly ported files will identify their aider source revision and
+Directly ported files identify their aider source revision and
 modifications. Reference checkouts remain outside this repository; only scoped,
 tested ports will be integrated.
 

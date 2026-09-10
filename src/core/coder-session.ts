@@ -1,8 +1,9 @@
 /**
  * Session ownership adapted from aider/coders/base_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to use injected provider and EditStrategy contracts instead of a
+ * Modified for Patch to use injected provider and EditStrategy contracts instead of a
  * subclass for each complete coder mode.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { resolveEditBatch, type FileSnapshot } from "../edits/resolve.js";

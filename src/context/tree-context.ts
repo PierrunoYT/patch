@@ -1,7 +1,8 @@
 /**
  * Ported from grep_ast.TreeContext as used by aider/repomap.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to use web-tree-sitter and emit deterministic plain-text context.
+ * Modified for Patch to use web-tree-sitter and emit deterministic plain-text context.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { readFile } from "node:fs/promises";

@@ -1,7 +1,8 @@
 /**
  * Ported from aider/coders/context_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to return a bounded, side-effect-free selection result.
+ * Modified for Patch to return a bounded, side-effect-free selection result.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { CoderSession, RunTurnOptions } from "./coder-session.js";

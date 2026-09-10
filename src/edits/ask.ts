@@ -2,6 +2,7 @@
  * Ported from aider/coders/ask_coder.py and its inherited no-op edit methods at
  * revision 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch's injected EditStrategy contract.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { EditStrategy } from "./strategy.js";

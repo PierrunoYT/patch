@@ -1,7 +1,8 @@
 /**
  * Terminal completion adapted from aider/io.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified into a deterministic, terminal-library-neutral completion engine.
+ * Modified for Patch into a deterministic terminal-library-neutral completion engine.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 export type CompletionKind = "command" | "file" | "identifier";

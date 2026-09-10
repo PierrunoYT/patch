@@ -1,7 +1,8 @@
 /**
  * Ported from aider/coders/editblock_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to separate parsing and pure replacement from authorized writes.
+ * Modified for Patch to separate parsing and pure replacement from authorized writes.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { basename } from "node:path";

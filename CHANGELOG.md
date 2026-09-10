@@ -6,6 +6,10 @@ The project has not published a release yet.
 
 ## [Unreleased]
 
+Items under **Added** inventory tested components and contracts. They are not a
+claim that every component is reachable through the CLI; **Changed** and the
+porting plan distinguish composed behavior from library-only adapters.
+
 ### Added
 
 - Initial project overview and development status.
@@ -69,10 +73,10 @@ The project has not published a release yet.
   conservative token budgets, response validation, and atomic history updates.
 - Provider-event streaming with response/reasoning assembly, usage tracking,
   bounded exponential retries, cancellation, context overflow, and truncation.
-- Bounded corrective reflection for malformed edits and injected lint/test
-  diagnostics, with failed response context retained for the next attempt.
-- File-mention detection and mandatory approval for new or unselected paths
-  before they can enter a session or staged edit transaction.
+- Bounded corrective reflection for malformed edits and library-level injected
+  lint/test diagnostics; post-write lint/test reflection is not composed yet.
+- File-mention detection with an approval hook for new or unselected paths;
+  interactive CLI approval is not composed yet.
 - Atomic model/provider/strategy switching with state transfer and removal or
   summarization of history that uses an incompatible edit format.
 - CLI one-shot `--message`, `--message-file`, and serial interactive line input.
@@ -94,17 +98,18 @@ The project has not published a release yet.
   paths, with mixed-repository selections rejected.
 - A Git CLI repository adapter with NUL-safe status parsing, tracked files,
   combined diffs, ignore rules, and unborn/detached HEAD support.
-- A final write workflow that previews staged operations, authorizes new and
-  out-of-chat files, checkpoints dirty inputs, and reports changed paths.
+- A write-boundary component that previews staged operations, defaults to
+  denying new and out-of-chat files without an injected authorization callback,
+  checkpoints dirty inputs, and reports changed paths.
 - Selected-file Git commits with hook control, identity/co-author attribution,
   injected message generation, and marker-constrained undo.
 - Child-process-only Git identity overrides that leave global environment state
   unchanged.
 - Runtime-validated parsing for the MVP file, model, process, Git, and lifecycle
   slash commands, including quoted paths and strict argument handling.
-- Explicit per-command approval for model-suggested shell execution, with exact
+- An explicit approval port for model-suggested shell execution, with exact
   previews, repository-root working directories, bounded output, timeout, and
-  cancellation.
+  cancellation; the CLI currently supplies no interactive approver.
 - Optional configured lint and test command adapters with config, environment,
   and CLI precedence; absent commands remain disabled instead of guessing a
   target repository's package-manager invocation.
@@ -130,25 +135,24 @@ The project has not published a release yet.
   and non-unique context diagnostics.
 - Typed patch add, delete, update, and move actions with exact, trailing-space,
   and surrounding-space fuzz accounting.
-- Architect/editor orchestration that exposes the completed plan and requires
-  explicit acceptance before invoking an independently configured editor.
-- Context-mode file selection with order-independent convergence, a strict
-  iteration bound, and cancellation through deterministic provider turns.
-- Capability-gated prompt cache boundaries and bounded keepalive, assistant
-  prefill continuation, and read-only image/PDF context composition.
-- Deterministic, terminal-library-neutral command, repository-file, and Unicode
+- Library-only architect/editor orchestration with explicit acceptance and an
+  independently configured editor contract.
+- Library-only context file selection with order-independent convergence, a
+  strict iteration bound, and cancellation through deterministic provider turns.
+- Library-only capability-gated prompt-cache, keepalive, assistant-prefill, and
+  read-only image/PDF context contracts.
+- A deterministic, terminal-library-neutral command, repository-file, and Unicode
   identifier completion with command-aware candidates and quiet short-prefix
   behavior.
 - Opt-in persistent input and chat history with explicit CLI paths, multiline
   JSONL input records, Markdown transcripts, private creation modes, and
   retention and secret-exposure documentation.
-- Tagged and EOF multiline input, declarative Emacs and Vi keybindings, and
-  shell-free external-editor invocation with private temporary files and
-  guaranteed cleanup.
+- Executable tagged and EOF multiline input plus library-only declarative Emacs/
+  Vi keybindings and shell-free external-editor invocation.
 - Incremental Markdown rendering, lightweight fenced-code syntax highlighting,
   colored diff previews, hostile escape stripping, and TTY/`NO_COLOR`/CLI
   no-color behavior without a rendering dependency.
-- Optional native `node-pty` interactive execution with argv commands, resize,
+- A library-only optional native `node-pty` adapter with argv commands, resize,
   Ctrl-C, EOF, cancellation cleanup, and stateful child control-sequence
   sanitization while preserving a portable default installation.
 - Bash, Zsh, and Fish completion generation, opt-in bell or argv-command
@@ -157,12 +161,13 @@ The project has not published a release yet.
 - DNS-pinned, redirect-revalidated URL fetching with SSRF protection, textual
   content checks, byte and time limits, cancellation, and dynamically loaded
   optional Playwright rendering.
-- Safe `AI!`/`AI?` file watching with built-in and repository ignore rules,
+- A safe `AI!`/`AI?` watch adapter with built-in and injectable ignore rules,
   bounded reads, debounce, cancellation, and serialized session submission.
 - A loopback-only authenticated HTTP/SSE adapter over a shared application
   service, with constant-time bearer checks and per-principal/session isolation.
 - An optional voice-input package subpath with bounded temporary recordings,
-  cancellation, injected recorder/transcriber ports, and ffmpeg/OpenAI adapters.
+  cancellation, injected recorder/transcriber ports, ffmpeg/OpenAI adapters, and
+  explicit `ApplicationSession` submission.
 
 ### Fixed
 

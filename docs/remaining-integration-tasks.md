@@ -83,8 +83,9 @@ repository, and check modules have no production composition path.
   staged bootstrap instead of maintaining a separate Commander-only option set.
 - [x] Remove `unavailableProvider` from the production path; fail before input
   starts with a secret-safe, actionable configuration diagnostic.
-- [x] Make terminal, watcher, and web callers use the same concrete service and
-  per-session `SerialTaskQueue` rather than wrapping independent callbacks.
+- [ ] Add supported watcher and web startup around the concrete service. The
+  terminal constructs it, and watcher/web adapters accept its sessions/service,
+  but neither optional adapter has an application startup path yet.
 - [x] Define explicit cleanup for provider streams, watchers, subprocesses,
   histories, and web sessions.
 
@@ -156,8 +157,9 @@ session state.
   as model edits; never mutate session lists from raw parser strings.
 - [x] Rebuild provider/strategy state safely for `/model` and `/chat-mode`,
   preserving or summarizing compatible history as documented.
-- [x] Run `/run`, `/lint`, and `/test` only through the approved/configured
-  process adapters at the repository root.
+- [ ] Add an interactive CLI approver for `/run`; `/lint` and `/test` use only
+  configured process adapters at the repository root, while `/run` currently
+  defaults to denial unless an embedding caller injects approval.
 - [x] Constrain `/commit` and `/undo` to selected paths and Patch-created commit
   markers without disturbing unrelated user changes.
 - [x] Connect `/copy` and `/paste` to text-only clipboard adapters with clear
@@ -255,8 +257,9 @@ importing helper modules, and the default installation remains native-free.
 
 ## R8 — Expose Phase 9 adapters through ApplicationService
 
-**Problem:** URL, watcher, web, and voice adapters exist, but there is no
-concrete service for them to invoke and no supported application startup path.
+**Problem:** URL, watcher, web, and voice adapters exist and accept concrete
+application contracts, but URL/watch/web still have no supported application
+startup path or complete operational policy.
 
 - [ ] Feed fetched URL content through bounded application context with explicit
   user intent, source labeling, and token limits; keep Playwright separately
@@ -278,26 +281,26 @@ they do not merely compile against an interface that has no implementation.
 
 ## R9 — Correct stale plans and product documentation
 
-- [ ] Replace the stale source-baseline statement that Patch contains no
+- [x] Replace the stale source-baseline statement that Patch contains no
   implementation with an accurate component-versus-integration status.
-- [ ] Align the target `EditStrategy`, state-machine, queue, and application
+- [x] Align the target `EditStrategy`, state-machine, queue, and application
   contracts in `PORTING_PLAN.md` with the chosen implementation boundaries.
-- [ ] Correct the recommended first slice: mark genuinely completed library work
+- [x] Correct the recommended first slice: mark genuinely completed library work
   accurately and remove or implement the nonexistent saved-response dry-run CLI.
-- [ ] Rewrite README status claims that simultaneously call implemented modules
+- [x] Rewrite README status claims that simultaneously call implemented modules
   absent and checked phases complete.
-- [ ] Audit every Phase 0–9 checkbox. Uncheck or label partial all items that are
+- [x] Audit every Phase 0–9 checkbox. Uncheck or label partial all items that are
   parser/adapter/schema-only, lack application wiring, lack required platform or
   live-provider evidence, or fail their phase exit.
-- [ ] Correct Phase 3/5 lifecycle and usable-release exits until an installed
+- [x] Correct Phase 3/5 lifecycle and usable-release exits until an installed
   binary passes the full workflow test.
-- [ ] Correct Phase 6 cross-platform and Phase 7 independent-golden claims until
+- [x] Correct Phase 6 cross-platform and Phase 7 independent-golden claims until
   the required evidence exists.
-- [ ] Correct Phase 8/9 checkboxes and default-install-footprint exit until the
+- [x] Correct Phase 8/9 checkboxes and default-install-footprint exit until the
   helpers are integrated and native dependency assertions pass.
-- [ ] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
+- [x] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
   “support” and “parity” for behavior reachable through a documented interface.
-- [ ] Ensure every directly ported file identifies its upstream path, pinned
+- [x] Ensure every directly ported file identifies its upstream path, pinned
   revision, modification, and Apache-2.0 provenance as required.
 
 **Acceptance:** a reader can derive the exact shipped behavior, unsupported

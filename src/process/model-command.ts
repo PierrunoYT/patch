@@ -1,8 +1,9 @@
 /**
  * Command execution behavior ported from aider/run_cmd.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to require explicit approval and provide bounded, cancellable
+ * Modified for Patch to require explicit approval and provide bounded, cancellable
  * child-process output without PTY support.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { spawn } from "node:child_process";

@@ -1,7 +1,8 @@
 /**
  * Ported from aider/coders/wholefile_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to return provider-neutral rewrite edits without touching disk.
+ * Modified for Patch to return provider-neutral rewrite edits without touching disk.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { basename } from "node:path";

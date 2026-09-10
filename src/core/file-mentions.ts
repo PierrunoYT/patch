@@ -1,7 +1,8 @@
 /**
  * Ported from aider/coders/base_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to operate on explicit repository-relative candidate lists.
+ * Modified for Patch to operate on explicit repository-relative candidate lists.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { basename } from "node:path";

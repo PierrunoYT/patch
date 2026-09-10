@@ -1,7 +1,8 @@
 /**
  * Ported from aider/coders/patch_coder.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to produce immutable generic edits and expose accumulated fuzz.
+ * Modified for Patch to produce immutable generic edits and expose accumulated fuzz.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { FileSnapshot } from "./resolve.js";

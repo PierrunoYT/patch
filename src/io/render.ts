@@ -1,7 +1,8 @@
 /**
  * Terminal rendering adapted from aider/io.py and aider/mdstream.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified into a dependency-free renderer with explicit no-color behavior.
+ * Modified for Patch into a dependency-free renderer with explicit no-color behavior.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import type { Writable } from "node:stream";

@@ -3,6 +3,7 @@
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch: validates typed messages and returns a new value when
  * adding provider-neutral cache markers instead of mutating session state.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { z } from "zod";

@@ -1,7 +1,8 @@
 /**
  * Shell integration behavior adapted from aider/args.py, aider/io.py, and
  * aider/commands.py at revision 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
- * Modified to keep desktop commands and clipboard utilities optional.
+ * Modified for Patch to keep desktop commands and clipboard utilities optional.
+ * Licensed under the Apache License, Version 2.0.
  */
 
 import { spawn } from "node:child_process";
