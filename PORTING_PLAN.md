@@ -5,8 +5,12 @@
 Patch will port behavior from the canonical
 [`Aider-AI/aider`](https://github.com/Aider-AI/aider) repository at commit
 [`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`](https://github.com/Aider-AI/aider/tree/5dc9490bb35f9729ef2c95d00a19ccd30c26339c).
-The reference checkout is `/home/user/workspace/aider-upstream`, outside this
-repository. It must remain outside this repository and must not become a
+The reference checkout is the sibling directory `../aider-upstream` — on this
+workstation `D:\Github\aider-upstream`, next to `D:\Github\patch`. Set
+`AIDER_CHECKOUT` to use another location; `scripts/export-upstream-fixtures.mjs`
+resolves that variable first and otherwise falls back to the sibling directory,
+and it rejects any checkout whose remote or commit differs from `upstream.json`.
+The checkout must remain outside this repository and must not become a
 submodule.
 
 At this baseline, aider contains approximately 20,285 lines in 80 Python
