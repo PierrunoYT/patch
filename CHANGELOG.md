@@ -171,6 +171,8 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Raised only the real-Git reflection-limit test timeout to accommodate Windows
+  process startup across four full attempts without changing runtime limits.
 - Made repository-map and new-file tests assert the documented native path and
   line-ending behavior instead of assuming POSIX output on every platform.
 - Scoped Vitest to source tests and made builds remove stale `dist/` content;

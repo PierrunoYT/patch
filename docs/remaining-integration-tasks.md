@@ -150,6 +150,8 @@ or audio dependencies.
   build, and reject packed tarballs containing compiled tests.
 - [x] Keep cross-platform assertions aligned with the pinned Aider relative-path
   behavior and Patch's platform-default newline policy for new files.
+- [x] Use an explicit cross-platform timeout for the real-Git reflection-limit
+  test while retaining the production reflection and subprocess limits.
 
 **Acceptance:** a plain `npm install` of the packed tarball performs no native
 build and contains none of the optional native/browser dependencies, while an

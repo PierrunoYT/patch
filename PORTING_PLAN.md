@@ -290,6 +290,8 @@ packed tarball from a clean temporary project.
   generated files cannot execute during validation or leak into packed output.
 - [x] Make compatibility tests honor native relative-path separators and the
   documented platform-default newline policy for newly created files.
+- [x] Give the real-Git bounded-reflection integration test enough time for four
+  complete Windows process/Git cycles without weakening production bounds.
 
 **Exit:** `npm ci`, typecheck, tests, build, pack, clean-install, and `patch
 --help` work without Python. The repository-level line-ending policy keeps the
