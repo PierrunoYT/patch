@@ -8,8 +8,20 @@ import {
   sep,
 } from "node:path";
 
-function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
+/**
+ * A path that cannot exist right now. `ENOTDIR` means an ancestor is not a
+ * directory, so the target is as absent as an `ENOENT` target and callers that
+ * tolerate a missing file must tolerate it identically; a caller that creates
+ * the path still fails when it tries to make the parent directory.
+ */
+export function isMissingPathError(
+  error: unknown,
+): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR")
+  );
 }
 
 function isContained(root: string, target: string): boolean {

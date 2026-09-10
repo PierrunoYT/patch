@@ -31,7 +31,7 @@ import {
 import { selectFence } from "./fences.js";
 import { FileSystemAdapter } from "../io/filesystem.js";
 import { readClipboardText, writeClipboardText } from "../io/integrations.js";
-import { SafePathResolver } from "../io/safe-path.js";
+import { isMissingPathError, SafePathResolver } from "../io/safe-path.js";
 import { ModelCatalog } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
@@ -149,9 +149,7 @@ async function snapshot(
   try {
     return { path, content: (await files.readText(path)).content };
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return { path, content: null };
-    }
+    if (isMissingPathError(error)) return { path, content: null };
     throw error;
   }
 }

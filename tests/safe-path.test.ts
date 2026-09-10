@@ -118,6 +118,21 @@ describe("SafePathResolver", () => {
     });
   });
 
+  it("resolves a contained path whose ancestor is not a directory", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(join(root, "blocked"), "not a directory\n");
+    const resolver = await SafePathResolver.create(root);
+
+    // ENOTDIR means the target cannot exist, not that resolution failed: the
+    // path stays contained, and only an attempt to create it fails.
+    await expect(resolver.resolve("blocked/child.txt")).resolves.toBe(
+      join(root, "blocked", "child.txt"),
+    );
+    await expect(
+      resolver.resolve("blocked/../../escape.txt"),
+    ).rejects.toBeInstanceOf(PathOutsideRootError);
+  });
+
   it("requires an existing directory as the selected root", async () => {
     const parent = await temporaryDirectory();
     const file = join(parent, "file.txt");

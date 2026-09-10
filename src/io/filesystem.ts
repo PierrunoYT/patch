@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import { SafePathResolver } from "./safe-path.js";
+import { isMissingPathError, SafePathResolver } from "./safe-path.js";
 
 export const TextEncodingSchema = z.enum(["utf-8", "utf-16le", "latin1"]);
 export const LineEndingSchema = z.enum(["lf", "crlf"]);
@@ -215,10 +215,6 @@ function applyLineEnding(content: string, lineEnding: LineEnding): string {
   return lineEnding === "crlf"
     ? normalized.replaceAll("\n", "\r\n")
     : normalized;
-}
-
-function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 export class FileSystemAdapter {

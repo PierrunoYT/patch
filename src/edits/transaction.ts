@@ -1,4 +1,5 @@
 import type { FileSystemAdapter } from "../io/filesystem.js";
+import { isMissingPathError } from "../io/safe-path.js";
 import type { ResolvedEditBatch, ResolvedFileOperation } from "./resolve.js";
 
 export class StaleFileSnapshotError extends Error {
@@ -20,9 +21,7 @@ async function readCurrent(
   try {
     return (await files.readText(path)).content;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return null;
-    }
+    if (isMissingPathError(error)) return null;
     throw error;
   }
 }
