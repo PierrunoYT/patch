@@ -1,4 +1,6 @@
 import { Command } from "commander";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import {
   ConcreteApplicationService,
@@ -13,6 +15,9 @@ import {
 } from "./io/integrations.js";
 import { MarkdownStream, renderDiff, renderEditPreview } from "./io/render.js";
 import type { EditPreview } from "./edits/write-boundary.js";
+import type { ApplicationSession } from "./core/application-service.js";
+import type { AiWatchMode } from "./interfaces/watch-mode.js";
+import type { LocalWebServer } from "./interfaces/web-server.js";
 
 export type ProgramDependencies = Partial<InputDependencies> & {
   readonly writeOutput?: (text: string) => void;
@@ -22,6 +27,7 @@ export type ProgramDependencies = Partial<InputDependencies> & {
   readonly cwd?: string;
   readonly environment?: Readonly<Record<string, string | undefined>>;
   readonly outputIsTTY?: boolean;
+  readonly signal?: AbortSignal;
 };
 
 interface ProgramOptions {
@@ -46,6 +52,10 @@ interface ProgramOptions {
   readonly testCmd?: string;
   readonly file?: string[];
   readonly readOnly?: string[];
+  readonly watchFiles?: boolean;
+  readonly web?: boolean;
+  readonly webPort?: string;
+  readonly webTokenFile?: string;
 }
 
 function append(values: string[], option: string, value: string | undefined) {
@@ -97,6 +107,16 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .option("--edit-format <format>", "edit strategy")
     .option("--lint-cmd <command>", "configured lint command")
     .option("--test-cmd <command>", "configured test command")
+    .option("--watch-files", "watch AI comments while terminal input is open")
+    .option(
+      "--web",
+      "serve the authenticated loopback HTTP/SSE API instead of terminal input",
+    )
+    .option("--web-port <port>", "HTTP port (default: an available port)")
+    .option(
+      "--web-token-file <path>",
+      "file containing a secret bearer token (required with --web)",
+    )
     .option(
       "--file <path>",
       "editable file (repeatable)",
@@ -126,6 +146,52 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         );
         return;
       }
+      if (
+        options.web !== true &&
+        (options.webPort !== undefined || options.webTokenFile !== undefined)
+      ) {
+        throw new Error("--web-port and --web-token-file require --web");
+      }
+      if (
+        (options.web === true || options.watchFiles === true) &&
+        (options.message !== undefined || options.messageFile !== undefined)
+      ) {
+        throw new Error(
+          "Watcher/web startup cannot be combined with one-shot input",
+        );
+      }
+      if (options.web === true && options.watchFiles === true) {
+        throw new Error("--web and --watch-files cannot be combined");
+      }
+      const port = Number(options.webPort ?? "0");
+      if (
+        options.webPort !== undefined &&
+        (!/^\d+$/u.test(options.webPort) ||
+          !Number.isInteger(port) ||
+          port < 0 ||
+          port > 65535)
+      ) {
+        throw new Error("--web-port must be an integer from 0 to 65535");
+      }
+      let token: string | undefined;
+      if (options.web === true) {
+        if (options.webTokenFile === undefined)
+          throw new Error("--web requires --web-token-file");
+        try {
+          token = (
+            await readFile(
+              resolve(dependencies.cwd ?? process.cwd(), options.webTokenFile),
+              "utf8",
+            )
+          ).trim();
+        } catch {
+          throw new Error("Unable to read --web-token-file");
+        }
+        if (!/^[A-Za-z0-9_-]{32,256}$/u.test(token))
+          throw new Error(
+            "Web token must contain 32–256 letters, digits, underscores or hyphens; generate a random token",
+          );
+      }
       const history = new TerminalHistory({
         ...(options.inputHistoryFile === undefined
           ? {}
@@ -152,14 +218,75 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                 : { environment: dependencies.environment }),
             })
           : undefined;
-      const session = await application?.createSession({
-        principal: "terminal",
-        sessionId: "terminal",
-      });
+      const controller = new AbortController();
+      const signal =
+        dependencies.signal === undefined
+          ? controller.signal
+          : AbortSignal.any([controller.signal, dependencies.signal]);
+      const stop = () => controller.abort(new Error("Application stopped"));
+      process.on("SIGINT", stop);
+      process.on("SIGTERM", stop);
+      let session: ApplicationSession | undefined;
+      let watcher: AiWatchMode | undefined;
+      let web: LocalWebServer | undefined;
       try {
+        signal.throwIfAborted();
+        if (options.web === true) {
+          if (application === undefined || token === undefined)
+            throw new Error("Web startup requires an application service");
+          const { LocalWebServer } = await import("./interfaces/web-server.js");
+          web = new LocalWebServer({
+            service: application,
+            tokens: { [token]: "local" },
+            port,
+          });
+          const address = await web.start();
+          write(
+            `Patch HTTP API listening on http://${address.host}:${address.port}\n`,
+          );
+          if (!signal.aborted)
+            await new Promise<void>((done) =>
+              signal.addEventListener("abort", () => done(), { once: true }),
+            );
+          return;
+        }
+        session = await application?.createSession({
+          principal: "terminal",
+          sessionId: "terminal",
+        });
+        if (options.watchFiles === true) {
+          if (application === undefined || session === undefined)
+            throw new Error("Watch startup requires an application session");
+          const { AiWatchMode } = await import("./interfaces/watch-mode.js");
+          const markdown = new MarkdownStream(write, { color: false });
+          watcher = new AiWatchMode({
+            root: application.root,
+            session,
+            signal,
+            isIgnored: (path) => application.isIgnored(path),
+            emit: (event) => {
+              if (
+                event.type === "text-delta" &&
+                typeof event.data === "object" &&
+                event.data !== null &&
+                "text" in event.data
+              )
+                markdown.write(String(event.data.text));
+              if (event.type === "finish") {
+                markdown.end();
+                write("\n");
+              }
+              if (event.type === "edit-preview")
+                write(
+                  `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
+                );
+            },
+          });
+          await watcher.start();
+        }
         await runInput(options, {
+          signal,
           handleMessage: async (message) => {
-            const controller = new AbortController();
             const renderOptions = {
               ...(options.color === false ? { color: false } : {}),
               environment: dependencies.environment ?? process.env,
@@ -169,7 +296,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             const response =
               dependencies.handleMessage === undefined
                 ? await session?.submit(message, {
-                    signal: controller.signal,
+                    signal,
                     emit: (event) => {
                       if (
                         event.type === "text-delta" &&
@@ -229,9 +356,18 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
           recordInput: (message) => history.appendInput(message),
           recordChat: (role, message) => history.appendChat(role, message),
         });
+      } catch (error) {
+        if (!signal.aborted) throw error;
       } finally {
-        await session?.close?.();
-        await application?.close();
+        process.off("SIGINT", stop);
+        process.off("SIGTERM", stop);
+        watcher?.close();
+        try {
+          await web?.close();
+          await session?.close?.();
+        } finally {
+          await application?.close();
+        }
       }
     });
 }

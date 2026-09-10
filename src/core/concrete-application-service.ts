@@ -190,9 +190,15 @@ class ConcreteApplicationSession implements ApplicationSession {
     message: string,
     options: ApplicationSubmitOptions,
   ): Promise<ApplicationTurnResult> {
+    options = {
+      ...options,
+      signal: AbortSignal.any([options.signal, this.#lifecycle.signal]),
+    };
     return this.queue.run(async () => {
       if (this.#closed) throw new Error("Application session is closed");
       const effect = parseCommand(message);
+      if (options.readOnly === true && effect.type !== "submit")
+        throw new Error("Question-only input cannot run slash commands");
       if (effect.type !== "submit") return this.#dispatch(effect, options);
       message = effect.message;
       const editable = await Promise.all(
@@ -257,6 +263,15 @@ class ConcreteApplicationSession implements ApplicationSession {
         signal: AbortSignal.any([options.signal, this.#lifecycle.signal]),
         onEvent: (event) => options.emit({ type: event.type, data: event }),
       });
+      if (options.readOnly === true) {
+        this.#session.recordApplied();
+        return {
+          response: completed.response,
+          changedPaths: [],
+          commit: null,
+          commands: [],
+        };
+      }
       const editPaths = completed.edits.edits.flatMap((edit) =>
         edit.kind === "move" ? [edit.fromPath, edit.path] : [edit.path],
       );
@@ -603,6 +618,15 @@ class ConcreteApplicationSession implements ApplicationSession {
 export class ConcreteApplicationService implements ApplicationService {
   readonly #context: ApplicationContext;
   readonly #sessions = new Set<ConcreteApplicationSession>();
+  #closed = false;
+
+  get root(): string {
+    return this.#context.root;
+  }
+
+  async isIgnored(path: string): Promise<boolean> {
+    return this.#context.repository?.isIgnored(path) ?? false;
+  }
 
   private constructor(context: ApplicationContext) {
     this.#context = context;
@@ -711,13 +735,19 @@ export class ConcreteApplicationService implements ApplicationService {
     readonly sessionId: string;
   }): ApplicationSession {
     void _context;
+    if (this.#closed) throw new Error("Application service is closed");
     const session = new ConcreteApplicationSession(this.#context);
     this.#sessions.add(session);
     return session;
   }
 
   async close(): Promise<void> {
+    if (this.#closed) return;
+    this.#closed = true;
     for (const session of this.#sessions) session.close();
+    await Promise.all(
+      [...this.#sessions].map((session) => session.queue.idle()),
+    );
     this.#sessions.clear();
     await this.#context.provider.close?.();
   }

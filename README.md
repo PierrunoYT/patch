@@ -34,8 +34,10 @@ interactive approval prompt for new/out-of-chat writes or commands, no
 post-write lint/test reflection loop, and incomplete failure/cancellation
 coverage. Rich completion, history navigation, keybindings, editor and PTY
 dispatch remain library helpers. Architect/context/cache/prefill/media helpers
-are not constructed modes. URL, watch, and web adapters have no supported
-application startup path. See the unchecked items in
+are not constructed modes. `--watch-files` shares the terminal session, and
+`--web` starts the local authenticated HTTP/SSE API (not a browser GUI).
+URL context integration and web session expiry/backpressure policy remain
+unfinished. See the unchecked items in
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
 the authoritative remaining scope.
 
@@ -52,8 +54,9 @@ recorded using the documented
 [compatibility-fixture workflow](docs/compatibility-fixtures.md).
 Library adapters include security-bounded [URL fetching](docs/url-fetching.md),
 [AI comment watch mode](docs/watch-mode.md), and an authenticated,
-session-isolated [local HTTP/SSE interface](docs/web-interface.md). They are not
-CLI startup modes. Bounded [voice recording and transcription](docs/voice-input.md)
+session-isolated [local HTTP/SSE interface](docs/web-interface.md). Watch and web
+startup use only built-in Node.js adapters; no browser/native package is installed.
+Bounded [voice recording and transcription](docs/voice-input.md)
 is available through an optional package subpath and can submit to an explicit
 application session without native default dependencies.
 
@@ -80,6 +83,21 @@ Advanced schema values are rejected rather than silently accepted. See the
 [provider documentation](docs/providers.md) and [input modes](docs/input-modes.md).
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
+
+Use `patch --watch-files --model 4o file.ts` to process changed `AI!`/`AI?`
+comments while terminal input stays open. Git and `.aiderignore` rules apply
+unless `--no-git` is selected. `AI?` turns cannot apply edits or run commands;
+`AI!` preserves the normal selected-file authorization boundary. EOF, `/exit`,
+Ctrl-C, or SIGTERM stops watching and closes the application.
+
+Use `patch --web --web-token-file /path/outside/repo/patch-token --model 4o`
+for the experimental local API. Generate a random token and protect its file as
+described in [web setup](docs/web-interface.md). The server prints its loopback
+address, never the token; `--web-port` optionally selects a port. Stop it with
+Ctrl-C or SIGTERM. Web and watch flags are explicit CLI-only startup choices,
+cannot be combined with each other or one-shot input, and use the same staged
+model/file configuration as terminal startup. This API is for trusted local
+clients, not public or multi-tenant hosting.
 
 Architect/editor handoff, context convergence, cache keepalive, prefill, and
 media utilities are currently library-level contracts, not constructed CLI

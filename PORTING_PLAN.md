@@ -480,21 +480,25 @@ because the provisioned native package fails its spawn contract there.
 
 - [ ] Feed bounded URL fetching into application context. The SSRF-safe fetcher
   and optional renderer contract are library-only.
-- [ ] Add supported startup for `AI!`/`AI?` watch mode. It accepts a concrete
-  session and serializes through that session, but Git-ignore composition and
-  application startup are missing.
+- [x] Add supported startup for `AI!`/`AI?` watch mode. `--watch-files` shares
+  the concrete terminal session and Git ignore predicate; question-only turns
+  suppress edits and commands. Node.js local-filesystem notifications are used.
 - [ ] Add supported startup for the local authenticated HTTP/SSE server. The
-  adapter isolates principals/sessions, but expiry and bounded event/backpressure
-  policy are not defined.
+  `--web --web-token-file` startup constructs the concrete service and closes
+  sessions on shutdown, but expiry and bounded event/backpressure policy are
+  not defined. This phase item remains partial, not a hosting/parity claim.
 - [x] Add voice recording/transcription only as an optional package because
   native audio and ffmpeg complicate npm installation. The optional subpath can
   submit a bounded transcript through an explicit application session.
 
 **Exit (default footprint met; adapter exposure partial):** package smoke tests
 assert that optional native/browser/audio dependencies do not enter a normal
-install. URL/watch/web startup and operational policy remain incomplete.
+install. Watch and local API startup work; URL context integration and web
+operational policy remain incomplete. Interface flags are CLI-only and web
+cannot run alongside terminal/watch input in the same executable instance.
 
-**Component evidence only:** `tests/url-fetcher.test.ts`,
+**Startup and component evidence:** `tests/interface-startup.test.ts`,
+packed concrete-service startup in `scripts/package-smoke.mjs`, `tests/url-fetcher.test.ts`,
 `tests/watch-mode.test.ts`, `tests/web-server.test.ts`, `tests/voice.test.ts`,
 and default-footprint assertions in `scripts/package-smoke.mjs`.
 

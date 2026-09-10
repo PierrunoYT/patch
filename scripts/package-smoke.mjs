@@ -56,6 +56,25 @@ try {
     "@pierrunoyt",
     "patch",
   );
+  // Exercise the installed bin entry point, not just its help/parser. /exit
+  // must construct and close a watcher without making a provider request.
+  execFileSync(
+    executable,
+    ["--watch-files", "--no-git", "--model", "4o", "--edit-format", "ask"],
+    {
+      cwd: consumerDirectory,
+      env: {
+        ...process.env,
+        HOME: consumerDirectory,
+        USERPROFILE: consumerDirectory,
+        OPENAI_API_KEY: "package-smoke-not-a-real-key",
+      },
+      input: "/exit\n",
+      encoding: "utf8",
+      shell: process.platform === "win32",
+      timeout: 15000,
+    },
+  );
   const model = execFileSync(
     process.execPath,
     [
@@ -69,6 +88,65 @@ try {
   );
   if (model !== "gpt-4o") {
     throw new Error("The packed model catalog could not load its resources");
+  }
+
+  const startup = execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `
+      import assert from 'node:assert/strict';
+      import { mkdir, writeFile } from 'node:fs/promises';
+      import { join } from 'node:path';
+      import { createProgram } from './dist/program.js';
+      import { ConcreteApplicationService, FakeProvider } from './dist/index.js';
+      const root = join(process.cwd(), '.startup-smoke');
+      await mkdir(root);
+      await writeFile(join(root, '.patch.conf.yml'), 'model: 4o\\ngit: false\\nedit-format: ask\\n');
+      const token = 'package-smoke-not-a-real-secret-123456';
+      await writeFile(join(root, 'token'), token);
+      const provider = new FakeProvider(['one-shot', 'interactive', 'web'].map(text => ({
+        actions: [{ type: 'text-delta', text }, { type: 'finish', reason: 'stop' }]
+      })));
+      let output = '';
+      const dependencies = {
+        cwd: root, environment: {}, writeOutput: text => { output += text; },
+        createApplication: options => ConcreteApplicationService.create({ ...options, home: root, dependencies: { provider } })
+      };
+      await createProgram(dependencies).parseAsync(['--message', 'first'], { from: 'user' });
+      await createProgram({ ...dependencies, lines: (async function* () { yield 'second'; })() })
+        .parseAsync(['--watch-files'], { from: 'user' });
+      assert.match(output, /one-shot/);
+      assert.match(output, /interactive/);
+      output = '';
+      const controller = new AbortController();
+      let ready;
+      const listening = new Promise(resolve => { ready = resolve; });
+      const running = createProgram({ ...dependencies, signal: controller.signal,
+        writeOutput: text => { output += text; if (output.includes('listening')) ready(); }
+      }).parseAsync(['--web', '--web-token-file', 'token'], { from: 'user' });
+      try {
+        await Promise.race([listening, running]);
+        const base = output.match(/http:\\/\\/127\\.0\\.0\\.1:\\d+/)[0];
+        const headers = { authorization: 'Bearer ' + token, 'content-type': 'application/json' };
+        const created = await fetch(base + '/sessions', { method: 'POST', headers });
+        assert.equal(created.status, 201);
+        const { sessionId } = await created.json();
+        const result = await fetch(base + '/sessions/' + sessionId + '/messages', {
+          method: 'POST', headers, body: JSON.stringify({ message: 'third' })
+        });
+        assert.equal((await result.json()).result.response, 'web');
+        assert.equal(provider.requests.length, 3);
+        assert(!output.includes(token));
+      } finally { controller.abort(); await running; }
+      process.stdout.write('application-startup-ok');
+    `,
+    ],
+    { cwd: packageRoot, encoding: "utf8", timeout: 30000 },
+  );
+  if (startup !== "application-startup-ok") {
+    throw new Error("Packed application interface startup failed");
   }
 
   const repoMap = execFileSync(

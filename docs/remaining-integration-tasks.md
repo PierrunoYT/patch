@@ -83,9 +83,13 @@ repository, and check modules have no production composition path.
   staged bootstrap instead of maintaining a separate Commander-only option set.
 - [x] Remove `unavailableProvider` from the production path; fail before input
   starts with a secret-safe, actionable configuration diagnostic.
-- [ ] Add supported watcher and web startup around the concrete service. The
-  terminal constructs it, and watcher/web adapters accept its sessions/service,
-  but neither optional adapter has an application startup path yet.
+- [x] Add supported watcher and web startup around the concrete service.
+  `--watch-files` starts Node watch around the terminal session with Git ignore
+  handling; `--web --web-token-file` starts a separate authenticated loopback
+  HTTP/SSE mode with the concrete service. CLI startup flags are opt-in, need
+  no optional dependencies, and close resources on exit or startup failure.
+  Evidence: `tests/interface-startup.test.ts` and packed concrete CLI-program
+  startup in `scripts/package-smoke.mjs`. Full web operational policy remains R8.
 - [x] Define explicit cleanup for provider streams, watchers, subprocesses,
   histories, and web sessions.
 
@@ -106,6 +110,17 @@ repository, and check modules have no production composition path.
 **Acceptance:** the packed executable can start from config, environment, and
 CLI inputs; select a supported provider/model/strategy; compose real repository
 context; and complete both one-shot and serial interactive fake-provider turns.
+
+**Startup verification (2026-09-10):** the focused application/interface suites
+passed 35 tests; build, installed-bin watch startup/exit, packed fake-provider
+startup, default optional-dependency absence, and executable help passed locally
+on Linux. An initial `npm run check` passed 276 tests (4 optional tests skipped).
+A subsequent full run exposed an unchanged unified-diff property failure:
+`tests/unified-diff.test.ts`, seed `2005842464`, counterexample `["x", ""]`.
+`x\n` occurs in the fixture's `prefix`/`suffix` as well as the target line, and
+the existing substring matcher raises `UnifiedDiffNotUniqueError`. Neither that
+test nor matcher is changed by R1; this is not a claim of an invariably green
+full suite or new cross-platform CI evidence.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
@@ -258,17 +273,19 @@ importing helper modules, and the default installation remains native-free.
 
 ## R8 — Expose Phase 9 adapters through ApplicationService
 
-**Problem:** URL, watcher, web, and voice adapters exist and accept concrete
-application contracts, but URL/watch/web still have no supported application
-startup path or complete operational policy.
+**Problem:** Watch and local HTTP/SSE startup now construct concrete application
+contracts. URL context integration and complete web operational policy remain
+unfinished; the API is for trusted local clients, not public hosting.
 
 - [ ] Feed fetched URL content through bounded application context with explicit
   user intent, source labeling, and token limits; keep Playwright separately
   installed and opt-in.
-- [ ] Connect `AiWatchMode` to concrete sessions and Git ignore handling, sharing
-  the exact session queue used by terminal and web submissions.
-- [ ] Add supported startup/configuration for the authenticated loopback web
-  server and construct it with the real `ApplicationService`.
+- [x] Connect `AiWatchMode` to concrete sessions and Git ignore handling, sharing
+  the exact session mutation queue. CLI watch shares the terminal session;
+  web sessions use that same concrete session implementation independently.
+- [x] Add supported startup/configuration for the authenticated loopback web
+  server and construct it with the real `ApplicationService`. Interface choices
+  are explicit CLI flags; model/file settings retain staged configuration.
 - [ ] Define session expiry, shutdown, backpressure, bounded event buffering,
   and cancellation behavior for HTTP/SSE sessions.
 - [x] Expose voice transcription as explicit input to an application session

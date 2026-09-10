@@ -15,6 +15,7 @@ export interface InputOptions {
 }
 
 export interface InputDependencies {
+  readonly signal?: AbortSignal;
   readonly handleMessage: (
     message: string,
   ) => void | string | InputResponse | Promise<void | string | InputResponse>;
@@ -50,8 +51,12 @@ async function submit(
   return typeof response === "object" && response?.exit === true;
 }
 
-function terminalLines(): AsyncIterable<string> {
-  return createInterface({ input: process.stdin, output: process.stdout });
+function terminalLines(signal?: AbortSignal): AsyncIterable<string> {
+  return createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 export async function* collectInputMessages(
@@ -107,9 +112,10 @@ export async function runInput(
   }
 
   for await (const message of collectInputMessages(
-    dependencies.lines ?? terminalLines(),
+    dependencies.lines ?? terminalLines(dependencies.signal),
     options.multiline,
   )) {
+    dependencies.signal?.throwIfAborted();
     if (await submit(message, dependencies)) break;
   }
 }

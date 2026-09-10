@@ -176,6 +176,14 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
+- Added opt-in `--watch-files` terminal startup and standalone
+  `--web --web-token-file` loopback HTTP/SSE startup using the concrete service.
+  Watch shares terminal state and Git ignore handling; question-only `AI?`
+  submissions suppress writes and commands. Web tokens stay out of output,
+  malformed JSON returns 400, and startup failure/shutdown closes adapters and
+  cancels/drains concrete sessions. Packed startup tests retain the native- and
+  browser-free default install. Web expiry, quotas, bounded SSE backpressure,
+  and concurrent cross-session repository coordination remain unsupported.
 - Added the concrete application composition root used by the CLI, including
   staged configuration, model/provider selection, safe current-file context,
   repository maps, implemented strategy dispatch, and per-session serialization.

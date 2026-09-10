@@ -11,7 +11,10 @@ import { readFile, stat } from "node:fs/promises";
 import { relative, sep } from "node:path";
 
 import { SerialTaskQueue } from "../core/serial-queue.js";
-import type { ApplicationSession } from "../core/application-service.js";
+import type {
+  ApplicationEvent,
+  ApplicationSession,
+} from "../core/application-service.js";
 import { SafePathResolver } from "../io/safe-path.js";
 
 const markerPattern = /(?:#|\/\/|--|;+)\s*(?:ai\b.*|.*\bai[?!]?)\s*$/iu;
@@ -49,6 +52,7 @@ export interface WatchModeOptions {
   readonly maxFileBytes?: number;
   readonly debounceMs?: number;
   readonly signal?: AbortSignal;
+  readonly emit?: (event: ApplicationEvent) => void;
 }
 
 export function parseWatchComments(content: string): {
@@ -86,6 +90,7 @@ export class AiWatchMode {
   readonly #options: WatchModeOptions;
   readonly #queue: SerialTaskQueue | undefined;
   readonly #controller = new AbortController();
+  readonly #onAbort = () => this.close();
   #paths = new Set<string>();
   #timer: NodeJS.Timeout | undefined;
   #watcher: FSWatcher | undefined;
@@ -102,15 +107,18 @@ export class AiWatchMode {
       options.session === undefined
         ? (options.queue ?? new SerialTaskQueue())
         : undefined;
-    options.signal?.addEventListener("abort", () => this.close(), {
+    options.signal?.addEventListener("abort", this.#onAbort, {
       once: true,
     });
+    if (options.signal?.aborted) this.close();
   }
 
   async start(): Promise<void> {
+    this.#controller.signal.throwIfAborted();
     if (this.#watcher !== undefined)
       throw new Error("Watch mode is already started");
     this.#resolver = await SafePathResolver.create(this.#options.root);
+    this.#controller.signal.throwIfAborted();
     this.#watcher = watch(
       this.#resolver.root,
       { recursive: true },
@@ -154,6 +162,7 @@ export class AiWatchMode {
   }
 
   close(): void {
+    this.#options.signal?.removeEventListener("abort", this.#onAbort);
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = undefined;
     this.#paths.clear();
@@ -220,7 +229,8 @@ export class AiWatchMode {
     if (this.#options.session !== undefined) {
       await this.#options.session.submit(prompt, {
         signal: this.#controller.signal,
-        emit: () => undefined,
+        emit: this.#options.emit ?? (() => undefined),
+        readOnly: action === "ask",
       });
     } else {
       await this.#options.submit?.({

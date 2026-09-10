@@ -33,14 +33,22 @@ export class LocalWebServer {
   readonly #options: LocalWebServerOptions;
   readonly #sessions = new Map<string, OwnedSession>();
   #server: Server | undefined;
+  #closing = false;
 
   constructor(options: LocalWebServerOptions) {
     if (Object.keys(options.tokens).length === 0)
       throw new Error("At least one authentication token is required");
+    if (
+      Object.entries(options.tokens).some(
+        ([token, principal]) => token.trim() === "" || principal.trim() === "",
+      )
+    )
+      throw new Error("Authentication tokens and principals must not be empty");
     this.#options = options;
   }
 
   async start(): Promise<{ host: string; port: number }> {
+    if (this.#closing) throw new Error("Web server is closed");
     if (this.#server !== undefined)
       throw new Error("Web server is already started");
     const host = this.#options.host ?? "127.0.0.1";
@@ -58,6 +66,9 @@ export class LocalWebServer {
         server.off("error", reject);
         resolve();
       });
+    }).catch((error: unknown) => {
+      this.#server = undefined;
+      throw error;
     });
     const address = server.address();
     if (address === null || typeof address === "string")
@@ -66,21 +77,25 @@ export class LocalWebServer {
   }
 
   async close(): Promise<void> {
+    this.#closing = true;
+    const server = this.#server;
+    this.#server = undefined;
+    const closed =
+      server === undefined
+        ? Promise.resolve()
+        : new Promise<void>((resolve, reject) => {
+            server.close((error) =>
+              error === undefined ? resolve() : reject(error),
+            );
+            server.closeAllConnections();
+          });
     const sessions = [...this.#sessions.values()];
     this.#sessions.clear();
     for (const session of sessions) {
       for (const client of session.clients) client.end();
       await session.application.close?.();
     }
-    const server = this.#server;
-    this.#server = undefined;
-    if (server !== undefined) {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) =>
-          error === undefined ? resolve() : reject(error),
-        ),
-      );
-    }
+    await closed;
   }
 
   async #handle(
@@ -92,14 +107,25 @@ export class LocalWebServer {
     const principal = authenticate(request, this.#options.tokens);
     if (principal === undefined)
       return json(response, 401, { error: "Unauthorized" });
-    const url = new URL(request.url ?? "/", "http://localhost");
     try {
+      if (this.#closing)
+        return json(response, 503, { error: "Server closing" });
+      let url: URL;
+      try {
+        url = new URL(request.url ?? "/", "http://localhost");
+      } catch {
+        return json(response, 400, { error: "Invalid URL" });
+      }
       if (request.method === "POST" && url.pathname === "/sessions") {
         const sessionId = randomUUID();
         const application = await this.#options.service.createSession({
           principal,
           sessionId,
         });
+        if (this.#closing) {
+          await application.close?.();
+          return;
+        }
         this.#sessions.set(sessionId, {
           principal,
           application,
@@ -163,16 +189,30 @@ export class LocalWebServer {
       return json(response, 405, { error: "Method not allowed" });
     } catch (error) {
       if (!response.headersSent)
-        json(response, error instanceof BodyLimitError ? 413 : 500, {
-          error:
-            error instanceof BodyLimitError ? error.message : "Request failed",
-        });
+        json(
+          response,
+          error instanceof BodyLimitError
+            ? 413
+            : error instanceof InvalidBodyError || error instanceof SyntaxError
+              ? 400
+              : 500,
+          {
+            error:
+              error instanceof BodyLimitError
+                ? error.message
+                : error instanceof InvalidBodyError ||
+                    error instanceof SyntaxError
+                  ? "Invalid JSON request"
+                  : "Request failed",
+          },
+        );
       else response.end();
     }
   }
 }
 
 class BodyLimitError extends Error {}
+class InvalidBodyError extends Error {}
 
 function isLoopback(host: string): boolean {
   return (
@@ -225,7 +265,7 @@ async function readJson(
       .toLowerCase()
       .startsWith("application/json")
   )
-    throw new Error("JSON content type required");
+    throw new InvalidBodyError("JSON content type required");
   const chunks: Buffer[] = [];
   let bytes = 0;
   for await (const chunk of request) {

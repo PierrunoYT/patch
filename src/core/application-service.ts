@@ -6,6 +6,8 @@ export interface ApplicationEvent {
 export interface ApplicationSubmitOptions {
   readonly signal: AbortSignal;
   readonly emit: (event: ApplicationEvent) => void;
+  /** Suppress all proposed edits and shell commands for question-only input. */
+  readonly readOnly?: boolean;
 }
 
 export interface ApplicationSession {
