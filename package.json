@@ -26,11 +26,12 @@
     "upstream.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/copy-runtime-resources.mjs",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/copy-runtime-resources.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run smoke:package",
+    "clean": "node scripts/clean-dist.mjs",
     "fixtures:upstream": "node scripts/export-upstream-fixtures.mjs",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js}\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js}\"",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js,ts}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js,ts}\"",
     "lint": "eslint src tests scripts",
     "smoke:package": "node scripts/package-smoke.mjs",
     "start": "node dist/cli.js",

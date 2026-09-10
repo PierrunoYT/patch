@@ -146,6 +146,8 @@ or audio dependencies.
   runs PTY contract tests on supported platforms.
 - [x] Enforce LF line endings at checkout so the formatting gate remains
   deterministic on Windows hosts configured with `core.autocrlf=true`.
+- [x] Restrict test discovery to `tests/**/*.test.ts`, clean `dist/` before each
+  build, and reject packed tarballs containing compiled tests.
 
 **Acceptance:** a plain `npm install` of the packed tarball performs no native
 build and contains none of the optional native/browser dependencies, while an

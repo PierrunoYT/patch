@@ -18,7 +18,10 @@ try {
     npmArguments(["pack", "--pack-destination", temporaryDirectory, "--json"]),
     { cwd: root, encoding: "utf8" },
   );
-  const [{ filename }] = JSON.parse(packOutput);
+  const [{ filename, files }] = JSON.parse(packOutput);
+  if (files.some(({ path }) => path.startsWith("dist/tests/"))) {
+    throw new Error("The packed tarball unexpectedly included compiled tests");
+  }
   const consumerDirectory = join(temporaryDirectory, "consumer");
   mkdirSync(consumerDirectory);
 

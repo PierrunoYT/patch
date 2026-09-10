@@ -171,6 +171,8 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Scoped Vitest to source tests and made builds remove stale `dist/` content;
+  package smoke validation now rejects tarballs that contain compiled tests.
 - Added a repository line-ending policy so Windows checkouts with
   `core.autocrlf=true` no longer fail the Phase 0 Prettier validation gate solely
   because Git materialized tracked text files as CRLF.

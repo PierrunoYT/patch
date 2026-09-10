@@ -286,6 +286,8 @@ packed tarball from a clean temporary project.
   fragmented tool calls, usage, retryable errors, truncation, and cancellation.
 - [x] Enforce LF line endings in Git checkouts so the Prettier gate behaves the
   same on Windows, macOS, and Linux, including when `core.autocrlf=true`.
+- [x] Scope Vitest to source tests and clean `dist/` before builds so stale
+  generated files cannot execute during validation or leak into packed output.
 
 **Exit:** `npm ci`, typecheck, tests, build, pack, clean-install, and `patch
 --help` work without Python. The repository-level line-ending policy keeps the
