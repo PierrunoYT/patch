@@ -110,6 +110,115 @@ describe("PatchEditStrategy", () => {
     );
   });
 
+  it("targets a named scope instead of the first matching context", () => {
+    const source =
+      "function alpha() {\n  return 1;\n}\nfunction beta() {\n  return 1;\n}\n";
+    const scoped = strategy.parse(
+      "*** Begin Patch\n*** Update File: a.txt\n@@ function beta() {\n-  return 1;\n+  return 2;\n*** End Patch",
+      context(source),
+    );
+    const unscoped = strategy.parse(
+      "*** Begin Patch\n*** Update File: a.txt\n@@\n-  return 1;\n+  return 2;\n*** End Patch",
+      context(source),
+    );
+
+    expect(scoped.edits).toEqual([
+      {
+        kind: "rewrite",
+        path: "a.txt",
+        content:
+          "function alpha() {\n  return 1;\n}\nfunction beta() {\n  return 2;\n}\n",
+      },
+    ]);
+    expect(unscoped.edits).toEqual([
+      {
+        kind: "rewrite",
+        path: "a.txt",
+        content:
+          "function alpha() {\n  return 2;\n}\nfunction beta() {\n  return 1;\n}\n",
+      },
+    ]);
+  });
+
+  it("rejects a scope that the file does not contain", () => {
+    expect(() =>
+      strategy.parse(
+        "*** Begin Patch\n*** Update File: a.txt\n@@ function missing() {\n-one\n+ONE\n*** End Patch",
+        context(),
+      ),
+    ).toThrow(/Could not find scope context/);
+  });
+
+  it("merges repeated update blocks for one path into a single edit", () => {
+    const result = strategy.parse(
+      "*** Begin Patch\n*** Update File: a.txt\n@@\n-three\n+THREE\n*** Update File: a.txt\n@@\n-one\n+ONE\n*** End Patch",
+      context(),
+    );
+
+    expect(result.edits).toEqual([
+      { kind: "rewrite", path: "a.txt", content: "ONE\ntwo\nTHREE\n" },
+    ]);
+  });
+
+  it("keeps a move target across merged update blocks and rejects a second target", () => {
+    const merged = strategy.parse(
+      "*** Begin Patch\n*** Update File: a.txt\n*** Move to: moved.txt\n@@\n-one\n+ONE\n*** Update File: a.txt\n@@\n-three\n+THREE\n*** End Patch",
+      context(),
+    );
+    expect(merged.edits).toEqual([
+      {
+        kind: "move",
+        fromPath: "a.txt",
+        path: "moved.txt",
+        content: "ONE\ntwo\nTHREE\n",
+      },
+    ]);
+
+    expect(() =>
+      strategy.parse(
+        "*** Begin Patch\n*** Update File: a.txt\n*** Move to: first.txt\n@@\n-one\n+ONE\n*** Update File: a.txt\n*** Move to: second.txt\n@@\n-three\n+THREE\n*** End Patch",
+        context(),
+      ),
+    ).toThrow(/Conflicting move targets/);
+  });
+
+  it("rejects repeated update blocks that change the same lines", () => {
+    expect(() =>
+      strategy.parse(
+        "*** Begin Patch\n*** Update File: a.txt\n@@\n-one\n+ONE\n*** Update File: a.txt\n@@\n-one\n+FIRST\n*** End Patch",
+        context(),
+      ),
+    ).toThrow(/Overlapping or out-of-order chunk/);
+  });
+
+  it("rejects conflicting actions and ignores a duplicate delete", () => {
+    expect(() =>
+      strategy.parse(
+        "*** Begin Patch\n*** Add File: new.txt\n+hello\n*** Delete File: new.txt\n*** End Patch",
+        context(),
+      ),
+    ).toThrow(/Conflicting actions for file: new.txt/);
+    expect(() =>
+      strategy.parse(
+        "*** Begin Patch\n*** Delete File: a.txt\n*** Update File: a.txt\n@@\n-one\n+ONE\n*** End Patch",
+        context(),
+      ),
+    ).toThrow(/Conflicting actions for file: a.txt/);
+    expect(() =>
+      strategy.parse(
+        "*** Begin Patch\n*** Add File: new.txt\n+hello\n*** Add File: new.txt\n+again\n*** End Patch",
+        context(),
+      ),
+    ).toThrow(/Duplicate action for file: new.txt/);
+
+    expect(
+      strategy.parse(
+        "*** Begin Patch\n*** Delete File: a.txt\n*** Delete File: a.txt\n*** End Patch",
+        context(),
+      ).edits,
+    ).toEqual([{ kind: "delete", path: "a.txt" }]);
+  });
+
   it("rejects malformed add lines and missing update context", () => {
     expect(() =>
       strategy.parse("*** Add File: x\nmissing-prefix", context()),

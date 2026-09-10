@@ -69,23 +69,31 @@ destination headers rather than an unconditional destination-only rule.
 ## Patch actions
 
 `PatchEditStrategy` parses typed `Add File`, `Delete File`, `Update File`, and
-`Move to` actions with exact/trailing/surrounding-whitespace fuzz. It does not
-yet implement non-empty `@@` scope anchors and currently discards their names.
-Repeated updates are computed from the same original snapshot, so a later action
-can erase an earlier one; conflicting actions for one path are not rejected
-with Aider's rules. Until those cases are fixed, only one unscoped action per
-path is a safe supported subset.
+`Move to` actions with exact/trailing/surrounding-whitespace fuzz. A non-empty
+`@@` scope anchor is located from the current position and moves the search
+cursor past it, so a later occurrence of a repeated context can be targeted;
+an unmatched scope is rejected. Upstream retries scope matching a second time
+with identical stripped comparisons and one fuzz point; that pass can never
+match where the first failed, so Patch compares once and adds no scope fuzz.
 
-`*** End of File` retains the upstream end preference/fuzz behavior. Basic move
-parsing exists, but application currently expands a move to source deletion
-before destination creation; see the filesystem/Git backlog.
+Actions are keyed by path with Aider's rules: repeated `Update File` blocks for
+one path merge into a single edit, each block searching from the file's first
+line; a second `Move to` target, an added path that already has an action, and a
+delete combined with any other action are rejected. A repeated `Delete File` is
+redundant rather than conflicting and is ignored. Merged update chunks are
+applied to the original snapshot in line order, and overlapping or out-of-order
+chunks are rejected instead of silently overwriting an earlier change.
+
+`*** End of File` retains the upstream end preference/fuzz behavior. A move is
+still expressed as a delete/create pair; the transaction writes the destination
+before removing the source.
 
 ## Dry-run resolution
 
 `resolveEditBatch` evaluates parsed edits against caller-supplied immutable file
 snapshots. Generic replace edits to one file are resolved sequentially in an
 isolated working map. Patch-strategy rewrites are already complete snapshots,
-so this generic guarantee does not fix the repeated Patch-action defect above.
+because that strategy merges every action for one path before emitting an edit.
 Final results are classified as `create`, `update`, or `delete`. A move becomes a
 delete/create pair; the commit phase, not the resolver, orders the destination
 write before the source removal. The resolver performs no filesystem access or

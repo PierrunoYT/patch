@@ -54,7 +54,7 @@ tests are evidence only for the cases they exercise.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial | Ordinary initial turns are composed; switching, failed-mutation history, continuation, and multi-session ownership are incomplete. |
-| Editing | partial | Whole-file and basic SEARCH/REPLACE are strongest; Patch and unified-diff have unsafe multi-action/multi-file cases. |
+| Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move, metadata, race, and undo guarantees are incomplete. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
@@ -72,8 +72,10 @@ tests are evidence only for the cases they exercise.
   writes and syncs every creation/update before any deletion and rechecks each
   deletion's resolved content immediately before the unlink, so an interrupted
   move or a case-only rename cannot leave the content deleted.
-- [ ] Reject or correctly implement named Patch `@@` scopes, repeated actions,
-  and conflicting actions for one path.
+- [x] Reject or correctly implement named Patch `@@` scopes, repeated actions,
+  and conflicting actions for one path. Scopes advance the search cursor or are
+  rejected, repeated update blocks merge with an overlap check, and duplicate or
+  conflicting add/delete/move actions are rejected as upstream does.
 - [ ] Parse every unified-diff file-header transition or reject multi-file
   fences; later hunks can currently target the preceding file.
 - [ ] Bind undo to a commit owned by the current session and recheck HEAD

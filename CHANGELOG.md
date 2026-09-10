@@ -171,6 +171,10 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Implemented named Patch `@@` scope anchors and Aider's per-path action rules:
+  repeated `Update File` blocks merge with an overlapping-chunk check, and
+  duplicate adds, conflicting add/delete/update combinations, and a second move
+  target are rejected. A repeated delete is still ignored as redundant.
 - Ordered edit-transaction commits so every creation and update is written and
   synced before any deletion, and rechecked each deletion's resolved content
   immediately before removing it. An interrupted move now keeps both paths, and

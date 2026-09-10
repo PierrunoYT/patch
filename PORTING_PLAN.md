@@ -482,8 +482,9 @@ evidence is not claimed until that matrix completes on the pushed revision.
 - [ ] Complete unified-diff behavior. The constructed parser has exact/unique
   diagnostics but can route later file headers to the preceding file and lacks
   active Aider recovery stages.
-- [ ] Complete Patch actions. The constructed parser handles basic actions/fuzz
-  but ignores named scopes and mishandles repeated/conflicting actions.
+- [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
+  update blocks merge with an overlap check, and duplicate/conflicting actions
+  are rejected. Independent pinned goldens for the format remain in R6.
 - [ ] Integrate architect/editor handoff with explicit user acceptance. A
   library helper exists but is not constructed by `ApplicationService`.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
