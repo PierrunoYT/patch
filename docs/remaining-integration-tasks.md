@@ -76,8 +76,9 @@ tests are evidence only for the cases they exercise.
   and conflicting actions for one path. Scopes advance the search cursor or are
   rejected, repeated update blocks merge with an overlap check, and duplicate or
   conflicting add/delete/move actions are rejected as upstream does.
-- [ ] Parse every unified-diff file-header transition or reject multi-file
-  fences; later hunks can currently target the preceding file.
+- [x] Parse every unified-diff file-header transition. A `--- `/`+++ ` pair
+  inside a fence closes the pending hunk and retargets the following hunks, and
+  git prefixes are stripped only when both headers carry them.
 - [ ] Bind undo to a commit owned by the current session and recheck HEAD
   atomically before reset.
 - [ ] Serialize repository mutations across application sessions, especially

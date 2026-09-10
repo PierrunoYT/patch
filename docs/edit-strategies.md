@@ -59,12 +59,16 @@ taught the pinned filename-inside-fence layout.
 ## Unified diff
 
 `UnifiedDiffEditStrategy` parses git-style hunks inside `diff` fences and applies
-exact unique context. It does not yet implement Aider's indentation, omitted-line,
-partial-context, or duplicate-hunk recovery. More critically, it reads only the
-first file header in a fence: a later file's hunks can remain associated with
-the preceding path. Multi-file fences must be rejected or parsed correctly
-before this format is safe. Prefix stripping also needs both source and
-destination headers rather than an unconditional destination-only rule.
+exact unique context. Every `--- `/`+++ ` header transition closes the pending
+hunk and switches the target path, so one fence can carry several files, and a
+fence without a leading header continues the previously named file as upstream
+does. A path keeps its `b/` prefix stripped only when the source header is `a/…`
+or `/dev/null`; upstream applies that rule to a fence's first header pair alone,
+and Patch intentionally applies it to every transition so later files resolve to
+real repository paths.
+
+It does not yet implement Aider's indentation, omitted-line, partial-context, or
+duplicate-hunk recovery, and identical repeated hunks are not deduplicated.
 
 ## Patch actions
 

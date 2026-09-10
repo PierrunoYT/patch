@@ -26,6 +26,56 @@ describe("UnifiedDiffEditStrategy", () => {
     });
   });
 
+  it("follows every file-header transition inside one fence", () => {
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -1,2 +1,2 @@",
+        " alpha",
+        "-old",
+        "+new",
+        "--- a/src/b.ts",
+        "+++ b/src/b.ts",
+        "@@ -1,1 +1,1 @@",
+        "-second",
+        "+changed",
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(batch.edits).toMatchObject([
+      { path: "src/a.ts", search: "alpha\nold\n", replacement: "alpha\nnew\n" },
+      { path: "src/b.ts", search: "second\n", replacement: "changed\n" },
+    ]);
+    expect(
+      resolveEditBatch(batch, [
+        { path: "src/a.ts", content: "alpha\nold\n" },
+        { path: "src/b.ts", content: "second\n" },
+      ]).operations,
+    ).toMatchObject([
+      { path: "src/a.ts", content: "alpha\nnew\n" },
+      { path: "src/b.ts", content: "changed\n" },
+    ]);
+  });
+
+  it("strips git prefixes only when both headers carry them", () => {
+    const strategy = new UnifiedDiffEditStrategy();
+    const created = strategy.parse(
+      "```diff\n--- /dev/null\n+++ b/src/new.ts\n@@ -0,0 +1 @@\n+added\n```",
+      context,
+    );
+    const plain = strategy.parse(
+      "```diff\n--- src/plain.ts\n+++ src/plain.ts\n@@ -1 +1 @@\n-old\n+new\n```",
+      context,
+    );
+
+    expect(created.edits).toMatchObject([{ path: "src/new.ts" }]);
+    expect(plain.edits).toMatchObject([{ path: "src/plain.ts" }]);
+  });
+
   it("distinguishes absent context from non-unique context", () => {
     expect(() =>
       applyUnifiedDiff("actual\n", "missing\n", "new\n", "a.ts"),

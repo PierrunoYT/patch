@@ -171,6 +171,10 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Followed every `--- `/`+++ ` header transition inside a unified-diff fence, so
+  a second file's hunks target that file instead of being folded into the
+  previous file's hunk, and stripped git path prefixes only when both headers
+  carry them.
 - Implemented named Patch `@@` scope anchors and Aider's per-path action rules:
   repeated `Update File` blocks merge with an overlapping-chunk check, and
   duplicate adds, conflicting add/delete/update combinations, and a second move

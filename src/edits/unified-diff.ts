@@ -65,6 +65,20 @@ export function applyUnifiedDiff(
   return content.slice(0, index) + after + content.slice(index + before.length);
 }
 
+/**
+ * Resolves the path of a `--- `/`+++ ` header pair. Upstream strips the `a/`
+ * and `b/` prefixes only for a fence's leading header pair; Patch applies the
+ * same rule to every header transition so a second file in one fence resolves
+ * to a real repository path.
+ */
+function headerPath(source: string, destination: string): string {
+  const from = source.slice(4).trim();
+  const to = destination.slice(4).trim();
+  return (from.startsWith("a/") || from === "/dev/null") && to.startsWith("b/")
+    ? to.slice(2)
+    : to;
+}
+
 export class UnifiedDiffEditStrategy implements EditStrategy {
   readonly format = "udiff" as const;
 
@@ -76,47 +90,59 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
     for (const match of blocks) {
       const lines = (match[1] ?? "").split(/\r?\n/u);
       let path = lastPath;
-      let index = 0;
+      let start = 0;
       if (lines[0]?.startsWith("--- ") && lines[1]?.startsWith("+++ ")) {
-        const destination = lines[1].slice(4).trim();
-        path = destination.startsWith("b/")
-          ? destination.slice(2)
-          : destination;
+        path = headerPath(lines[0], lines[1]);
         lastPath = path;
-        index = 2;
+        start = 2;
       }
-      while (index < lines.length) {
-        if (!lines[index]?.startsWith("@@")) {
-          index += 1;
-          continue;
-        }
-        index += 1;
-        const hunk: string[] = [];
-        while (index < lines.length && !lines[index]?.startsWith("@@")) {
-          const line = lines[index] ?? "";
-          if (line !== "" && ![" ", "+", "-"].includes(line[0] ?? "")) {
-            throw new UnifiedDiffParseError(
-              `Invalid unified diff line: ${line}`,
-            );
-          }
-          if (line !== "") hunk.push(line);
-          index += 1;
-        }
+
+      let hunk: string[] = [];
+      const flush = () => {
+        const changed = hunk.some(
+          (line) => line.startsWith("+") || line.startsWith("-"),
+        );
+        const pending = hunk;
+        hunk = [];
+        if (!changed) return;
         if (path === undefined) {
           throw new UnifiedDiffParseError(
             "Unified diff is missing a file path",
           );
         }
-        if (hunk.some((line) => line.startsWith("+") || line.startsWith("-"))) {
-          const [search, replacement] = beforeAfter(hunk);
-          edits.push({
-            kind: "replace",
-            path,
-            search,
-            replacement,
-            protocol: "udiff",
-          });
+        const [search, replacement] = beforeAfter(pending);
+        edits.push({
+          kind: "replace",
+          path,
+          search,
+          replacement,
+          protocol: "udiff",
+        });
+      };
+
+      // The trailing sentinel flushes the fence's final hunk.
+      for (let index = start; index <= lines.length; index += 1) {
+        const line = index < lines.length ? (lines[index] ?? "") : "@@";
+        if (
+          line.startsWith("+++ ") &&
+          (lines[index - 1] ?? "").startsWith("--- ")
+        ) {
+          // The header's `--- ` line was collected as a deletion; drop it and
+          // close the preceding file before switching paths.
+          hunk.pop();
+          flush();
+          path = headerPath(lines[index - 1] ?? "", line);
+          lastPath = path;
+          continue;
         }
+        if (line.startsWith("@@")) {
+          flush();
+          continue;
+        }
+        if (line !== "" && ![" ", "+", "-"].includes(line[0] ?? "")) {
+          throw new UnifiedDiffParseError(`Invalid unified diff line: ${line}`);
+        }
+        if (line !== "") hunk.push(line);
       }
     }
     return { edits, shellCommands: [] };

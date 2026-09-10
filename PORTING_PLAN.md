@@ -480,8 +480,9 @@ evidence is not claimed until that matrix completes on the pushed revision.
 
 - [x] Port fenced diff as a prompt variant over SEARCH/REPLACE.
 - [ ] Complete unified-diff behavior. The constructed parser has exact/unique
-  diagnostics but can route later file headers to the preceding file and lacks
-  active Aider recovery stages.
+  diagnostics and now follows every file-header transition, but it still lacks
+  Aider's indentation, omitted-line, partial-context, and duplicate-hunk
+  recovery stages.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. Independent pinned goldens for the format remain in R6.
