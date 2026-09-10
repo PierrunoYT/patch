@@ -187,17 +187,17 @@ rather than only mocked Fetch responses.
 
 ## R5 — Add cross-platform CI and package evidence
 
-- [ ] Run format/lint/typecheck/unit tests once on Linux and run platform-sensitive
+- [x] Run format/lint/typecheck/unit tests once on Linux and run platform-sensitive
   integration/package jobs on Linux, macOS, and Windows with Node.js 22.
-- [ ] Cover path separators, symlinks or their documented Windows substitute,
+- [x] Cover path separators, symlinks or their documented Windows substitute,
   Git worktrees, process cancellation, shell argv, history permissions,
   external editor cleanup, notifications, clipboard detection, and package bins.
-- [ ] Run repository-map extraction for every shipped language from the packed
+- [x] Run repository-map extraction for every shipped language from the packed
   package on all supported platforms.
-- [ ] Run explicit PTY tests only in jobs that provision the optional native
+- [x] Run explicit PTY tests only in jobs that provision the optional native
   dependency; verify Ctrl-C, EOF, resize, cleanup, and hostile split control
   sequences.
-- [ ] Add deterministic timeout guards and retain useful diagnostics without
+- [x] Add deterministic timeout guards and retain useful diagnostics without
   exposing environment secrets.
 
 **Acceptance:** platform-sensitive Phase 6 and Phase 8 exit claims have green

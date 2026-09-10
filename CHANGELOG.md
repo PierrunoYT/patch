@@ -183,6 +183,9 @@ The project has not published a release yet.
 - Added protected, manually dispatched low-cost live contracts for OpenAI,
   Anthropic, and the advertised DeepSeek-compatible endpoint; normal tests stay
   credential-free and mocked.
+- Expanded CI package and platform-sensitive contracts to Node.js 22 on Linux,
+  macOS, and Windows, including linked Git worktrees and explicitly provisioned
+  PTY jobs on each platform.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe
