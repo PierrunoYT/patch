@@ -8,6 +8,7 @@ import {
   type VoiceRecorder,
   type VoiceTranscriber,
 } from "../src/interfaces/voice.js";
+import type { ApplicationSession } from "../src/core/application-service.js";
 
 describe("optional voice input", () => {
   it("records, bounds, transcribes, and removes temporary audio", async () => {
@@ -84,5 +85,36 @@ describe("optional voice input", () => {
     controller.abort(new Error("stop"));
     await expect(capturing).rejects.toBeInstanceOf(VoiceInputError);
     await expect(access(path)).rejects.toThrow();
+  });
+
+  it("submits the bounded transcript through an application session", async () => {
+    const submitted: string[] = [];
+    const events: string[] = [];
+    const session: ApplicationSession = {
+      snapshot: () => ({}),
+      submit: async (message, { signal, emit }) => {
+        expect(signal.aborted).toBe(false);
+        submitted.push(message);
+        emit({ type: "accepted", data: message.length });
+        return { response: "done" };
+      },
+    };
+    const voice = new VoiceInput({
+      recorder: {
+        record: async (path) => writeFile(path, "audio"),
+      },
+      transcriber: {
+        transcribe: async () => "  submit this transcript  ",
+      },
+    });
+
+    await expect(
+      voice.captureAndSubmit(session, {
+        durationMs: 100,
+        emit: (event) => events.push(event.type),
+      }),
+    ).resolves.toEqual({ response: "done" });
+    expect(submitted).toEqual(["submit this transcript"]);
+    expect(events).toEqual(["accepted"]);
   });
 });

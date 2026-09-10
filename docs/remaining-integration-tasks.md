@@ -267,7 +267,7 @@ concrete service for them to invoke and no supported application startup path.
   server and construct it with the real `ApplicationService`.
 - [ ] Define session expiry, shutdown, backpressure, bounded event buffering,
   and cancellation behavior for HTTP/SSE sessions.
-- [ ] Expose voice transcription as explicit input to an application session
+- [x] Expose voice transcription as explicit input to an application session
   without importing voice code from the root/CLI path or requiring ffmpeg at
   install time.
 - [ ] Test principal/session isolation, simultaneous terminal/watch/web work,

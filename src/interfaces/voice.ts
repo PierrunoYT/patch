@@ -13,6 +13,11 @@ import { join } from "node:path";
 
 import type OpenAI from "openai";
 
+import type {
+  ApplicationEvent,
+  ApplicationSession,
+} from "../core/application-service.js";
+
 export interface VoiceRecordOptions {
   readonly durationMs: number;
   readonly signal: AbortSignal;
@@ -112,6 +117,38 @@ export class VoiceInput {
     } finally {
       options.signal?.removeEventListener("abort", abort);
       await rm(directory, { recursive: true, force: true });
+    }
+  }
+
+  async captureAndSubmit(
+    session: ApplicationSession,
+    options: {
+      readonly durationMs?: number;
+      readonly language?: string;
+      readonly signal?: AbortSignal;
+      readonly emit?: (event: ApplicationEvent) => void;
+    } = {},
+  ): Promise<unknown> {
+    const controller = new AbortController();
+    const abort = () => controller.abort(options.signal?.reason);
+    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) abort();
+    try {
+      const transcript = await this.capture({
+        ...(options.durationMs === undefined
+          ? {}
+          : { durationMs: options.durationMs }),
+        ...(options.language === undefined
+          ? {}
+          : { language: options.language }),
+        signal: controller.signal,
+      });
+      return await session.submit(transcript, {
+        signal: controller.signal,
+        emit: options.emit ?? (() => undefined),
+      });
+    } finally {
+      options.signal?.removeEventListener("abort", abort);
     }
   }
 }

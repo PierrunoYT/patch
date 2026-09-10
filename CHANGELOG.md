@@ -191,6 +191,8 @@ The project has not published a release yet.
   were complete user-facing modes.
 - Connected executable application output to safe incremental Markdown and
   staged diff rendering, including TTY, `NO_COLOR`, and `--no-color` handling.
+- Added an opt-in voice-subpath bridge that submits bounded transcripts through
+  an explicit application session without changing the default install path.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe
