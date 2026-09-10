@@ -80,8 +80,10 @@ tests are evidence only for the cases they exercise.
   local HTTP/SSE sessions sharing one worktree.
 - [ ] Apply one stateful sanitizer to all untrusted terminal output, not only
   PTY child output.
-- [ ] Define and enforce hardlink, metadata, and check-to-use race policy for
-  replacement and deletion.
+- [ ] Complete the metadata and ancestor check-to-use policy for replacement and
+  deletion. Hardlinked/non-regular targets are now rejected and target identity
+  is rechecked immediately before mutation, but portable ACL/xattr preservation
+  and descriptor-relative ancestor guarantees remain unresolved.
 
 ### Next P1 correctness work
 

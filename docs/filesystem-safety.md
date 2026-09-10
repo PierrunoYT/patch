@@ -53,13 +53,21 @@ renames it over the destination. Existing permission bits are retained, and a
 failed operation removes the temporary file. The destination is resolved again
 before rename, and a changed or escaping path aborts the replacement.
 
-Atomic replacement is not a metadata-preserving transaction. It creates a new
-inode, retains only ordinary mode bits, can sever hardlinks, and does not promise
-ACL, ownership, xattr, file-flag, alternate-stream, directory-fsync, or crash
-durability preservation. Containment and snapshot checks operate on path strings
-and have check-to-use windows under concurrent directory/file replacement.
-Deletion has the same ancestor-swap concern. These are unresolved policies, not
-claims of race-free containment.
+Atomic replacement creates a new inode and retains ordinary mode bits. Patch
+rejects replacement and deletion when the target is not a regular file or has
+more than one hard link, including when another link is outside the selected
+root. It captures device, inode, mode, link count, size, and modification/change
+times around reads and rechecks that identity immediately before rename or
+unlink. A detectable replacement, content/metadata change, or new hard link
+aborts without mutating the selected target.
+
+This is not a complete metadata-preserving or race-free transaction. Patch does
+not promise ACL, ownership, xattr, file-flag, alternate-stream, directory-fsync,
+or crash-durability preservation. Node's portable path API also leaves a final
+check-to-use window and cannot prevent an untrusted local process from swapping
+an ancestor after validation. Repositories requiring those guarantees remain
+unsupported until Patch has an explicit platform adapter or refuses the
+operation earlier.
 
 The encoding and newline adapter is stricter than Aider and supports only the
 documented codecs. Explicit LF/CRLF conversion is currently a library option;

@@ -1,5 +1,6 @@
 import {
   chmod,
+  link,
   lstat,
   mkdtemp,
   mkdir,
@@ -20,6 +21,7 @@ import {
   PathOutsideRootError,
   TextDecodingError,
   TextEncodingError,
+  UnsafeFileMetadataError,
 } from "../src/index.js";
 
 const temporaryDirectories: string[] = [];
@@ -184,5 +186,26 @@ describe("FileSystemAdapter", () => {
     expect(await readFile(join(outside, "target.txt"), "utf8")).toBe(
       "unchanged\n",
     );
+  });
+
+  it("rejects replacement and deletion when a file has another hard link", async () => {
+    const parent = await temporaryDirectory();
+    const root = join(parent, "project");
+    const target = join(root, "target.txt");
+    const outsideAlias = join(parent, "outside.txt");
+    await mkdir(root);
+    await writeFile(target, "shared\n");
+    await link(target, outsideAlias);
+    const files = await FileSystemAdapter.create(root);
+
+    await expect(files.writeText("target.txt", "changed\n")).rejects.toThrow(
+      UnsafeFileMetadataError,
+    );
+    await expect(files.deleteFile("target.txt")).rejects.toThrow(
+      UnsafeFileMetadataError,
+    );
+    expect(await readFile(target, "utf8")).toBe("shared\n");
+    expect(await readFile(outsideAlias, "utf8")).toBe("shared\n");
+    expect(await readdir(root)).toEqual(["target.txt"]);
   });
 });

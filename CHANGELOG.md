@@ -171,6 +171,10 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Rejected replacement and deletion of hardlinked or non-regular files and
+  added an immediate pre-mutation identity recheck. This intentionally hardens
+  pinned Aider's direct-write behavior without claiming full ancestor-race or
+  metadata preservation.
 - Raised only the real-Git reflection-limit test timeout to accommodate Windows
   process startup across four full attempts without changing runtime limits.
 - Made repository-map and new-file tests assert the documented native path and

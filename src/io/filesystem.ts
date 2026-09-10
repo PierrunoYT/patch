@@ -1,4 +1,5 @@
 import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import type { Stats } from "node:fs";
 import { EOL } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -55,6 +56,17 @@ interface PreparedWrite {
   bytes: Buffer;
   lineEnding: LineEnding;
   existing: boolean;
+  identity?: FileIdentity;
+}
+
+interface FileIdentity {
+  readonly device: number;
+  readonly inode: number;
+  readonly mode: number;
+  readonly links: number;
+  readonly size: number;
+  readonly modified: number;
+  readonly changed: number;
 }
 
 export class TextDecodingError extends Error {
@@ -84,6 +96,55 @@ export class PathChangedDuringWriteError extends Error {
 
   constructor(target: string) {
     super(`Path changed while preparing an atomic write: ${target}`);
+  }
+}
+
+export class UnsafeFileMetadataError extends Error {
+  override readonly name = "UnsafeFileMetadataError";
+  readonly path: string;
+
+  constructor(path: string, reason: string) {
+    super(`Refusing to mutate ${path}: ${reason}`);
+    this.path = path;
+  }
+}
+
+function fileIdentity(information: Stats): FileIdentity {
+  return {
+    device: information.dev,
+    inode: information.ino,
+    mode: information.mode,
+    links: information.nlink,
+    size: information.size,
+    modified: information.mtimeMs,
+    changed: information.ctimeMs,
+  };
+}
+
+function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
+  return (
+    left.device === right.device &&
+    left.inode === right.inode &&
+    left.mode === right.mode &&
+    left.links === right.links &&
+    left.size === right.size &&
+    left.modified === right.modified &&
+    left.changed === right.changed
+  );
+}
+
+function validateMutationTarget(
+  path: string,
+  information: Stats,
+): void {
+  if (!information.isFile()) {
+    throw new UnsafeFileMetadataError(path, "the target is not a regular file");
+  }
+  if (information.nlink !== 1) {
+    throw new UnsafeFileMetadataError(
+      path,
+      `the target has ${String(information.nlink)} hard links`,
+    );
   }
 }
 
@@ -230,7 +291,8 @@ export class FileSystemAdapter {
     }
 
     const prepared = await this.#prepareWrite(path, content);
-    const mode = prepared.existing ? (await stat(path)).mode & 0o777 : 0o666;
+    const mode =
+      prepared.identity === undefined ? 0o666 : prepared.identity.mode & 0o777;
     const temporaryPath = await this.#paths.resolve(
       join(parent, `.${basename(path)}.patch-${randomUUID()}.tmp`),
     );
@@ -244,9 +306,7 @@ export class FileSystemAdapter {
         await handle.close();
       }
 
-      if ((await this.#paths.resolve(target)) !== path) {
-        throw new PathChangedDuringWriteError(target);
-      }
+      await this.#assertStableTarget(target, path, prepared.identity);
       await rename(temporaryPath, path);
     } catch (error) {
       await unlink(temporaryPath).catch(() => undefined);
@@ -269,14 +329,14 @@ export class FileSystemAdapter {
     const { dryRun } = WriteTextOptionsSchema.parse(options);
     const initialPath = await this.#paths.resolve(target);
     const information = await stat(initialPath);
-    if (!information.isFile()) {
-      throw new Error(`Cannot delete a non-file path: ${target}`);
-    }
+    validateMutationTarget(target, information);
+    const identity = fileIdentity(information);
     if (!dryRun) {
       const path = await this.#paths.resolve(target);
       if (path !== initialPath) {
         throw new PathChangedDuringWriteError(target);
       }
+      await this.#assertStableTarget(target, path, identity);
       await unlink(path);
     }
     return { path: initialPath, dryRun };
@@ -296,12 +356,22 @@ export class FileSystemAdapter {
       ),
       lineEnding,
       existing: existing !== undefined,
+      ...(existing === undefined ? {} : { identity: existing.identity }),
     };
   }
 
-  async #readExisting(path: string): Promise<TextFile | undefined> {
+  async #readExisting(
+    path: string,
+  ): Promise<(TextFile & { readonly identity: FileIdentity }) | undefined> {
     try {
+      const before = await stat(path);
+      validateMutationTarget(path, before);
       const bytes = await readFile(path);
+      const after = await stat(path);
+      const identity = fileIdentity(before);
+      if (!sameIdentity(identity, fileIdentity(after))) {
+        throw new PathChangedDuringWriteError(path);
+      }
       const decoded = decode(bytes, path, this.encoding);
       return {
         path,
@@ -309,11 +379,35 @@ export class FileSystemAdapter {
         encoding: this.encoding,
         lineEnding: detectLineEnding(decoded) ?? defaultLineEnding(),
         byteOrderMark: hasByteOrderMark(bytes, this.encoding),
+        identity,
       };
     } catch (error) {
       if (isMissingPathError(error)) {
         return undefined;
       }
+      throw error;
+    }
+  }
+
+  async #assertStableTarget(
+    target: string,
+    path: string,
+    expected: FileIdentity | undefined,
+  ): Promise<void> {
+    if ((await this.#paths.resolve(target)) !== path) {
+      throw new PathChangedDuringWriteError(target);
+    }
+    try {
+      const information = await stat(path);
+      validateMutationTarget(target, information);
+      if (
+        expected === undefined ||
+        !sameIdentity(expected, fileIdentity(information))
+      ) {
+        throw new PathChangedDuringWriteError(target);
+      }
+    } catch (error) {
+      if (isMissingPathError(error) && expected === undefined) return;
       throw error;
     }
   }

@@ -309,6 +309,9 @@ invoked the installed `patch --help` entry point without Python.
   root after symlink resolution.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
+- [x] Reject hardlinked/non-regular mutation targets and recheck target identity
+  immediately before replacement or deletion. Portable ancestor-race and full
+  metadata preservation remain open.
 - [ ] Complete production prompt resources and per-attempt fence selection.
   The shared resource and selector helpers exist, but constructed strategy
   prompts are abridged and context fencing is inconsistent.
@@ -324,7 +327,8 @@ invoked the installed `patch --help` entry point without Python.
 
 **Exit (partial):** local fixtures cover selected configuration and generic
 chunk/resource behavior. Full production prompt composition, broad pinned
-configuration comparison, and the filesystem race/metadata policy remain open.
+configuration comparison, portable ancestor-race handling, and full metadata
+preservation remain open.
 
 ### Phase 2 — Edit engines
 
