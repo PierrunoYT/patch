@@ -9,6 +9,8 @@ export interface ApplicationSubmitOptions {
 }
 
 export interface ApplicationSession {
+  /** The sole mutation queue shared by every adapter using this session. */
+  readonly queue?: import("./serial-queue.js").SerialTaskQueue;
   snapshot(): unknown | Promise<unknown>;
   submit(message: string, options: ApplicationSubmitOptions): Promise<unknown>;
   close?(): void | Promise<void>;
@@ -19,4 +21,5 @@ export interface ApplicationService {
     readonly principal: string;
     readonly sessionId: string;
   }): ApplicationSession | Promise<ApplicationSession>;
+  close?(): void | Promise<void>;
 }

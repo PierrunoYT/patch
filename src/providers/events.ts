@@ -94,6 +94,7 @@ export interface ModelProvider {
     request: CompletionRequest,
     signal?: AbortSignal,
   ): AsyncIterable<CompletionEvent>;
+  close?(): void | Promise<void>;
 }
 
 export type CompletionRequest = z.infer<typeof CompletionRequestSchema>;

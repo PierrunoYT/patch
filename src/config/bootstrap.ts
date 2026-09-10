@@ -15,6 +15,7 @@ import { parse as parseDotenv } from "dotenv";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
+import { EditFormatSchema, type EditFormat } from "../edits/types.js";
 import { TextEncodingSchema, type TextEncoding } from "../io/filesystem.js";
 
 const executeFile = promisify(execFile);
@@ -29,7 +30,9 @@ const ConfigurationFileSchema = z
     "env-file": z.string().min(1).optional(),
     "lint-cmd": z.string().trim().min(1).optional(),
     "test-cmd": z.string().trim().min(1).optional(),
+    "edit-format": EditFormatSchema.optional(),
     files: z.array(z.string().min(1)).optional(),
+    "read-only": z.array(z.string().min(1)).optional(),
   })
   .strict();
 
@@ -45,7 +48,9 @@ export interface BootstrapArguments {
   readonly model: string | undefined;
   readonly lintCommand: string | undefined;
   readonly testCommand: string | undefined;
+  readonly editFormat: EditFormat | undefined;
   readonly files: readonly string[];
+  readonly readOnlyFiles: readonly string[];
 }
 
 export interface ConfigurationBootstrap {
@@ -76,7 +81,9 @@ interface ParsedCommandLine {
   model: string | undefined;
   lintCommand: string | undefined;
   testCommand: string | undefined;
+  editFormat: string | undefined;
   files: string[];
+  readOnlyFiles: string[];
 }
 
 interface BootstrapPass {
@@ -141,7 +148,9 @@ function parseCommandLine(
     model: undefined,
     lintCommand: undefined,
     testCommand: undefined,
+    editFormat: undefined,
     files: [],
+    readOnlyFiles: [],
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -173,14 +182,20 @@ function parseCommandLine(
                 ? "lintCommand"
                 : option === "--test-cmd"
                   ? "testCommand"
-                  : option === "--file"
-                    ? "file"
-                    : undefined;
+                  : option === "--edit-format"
+                    ? "editFormat"
+                    : option === "--file"
+                      ? "file"
+                      : option === "--read-only"
+                        ? "readOnlyFile"
+                        : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
       if (target === "file") {
         parsed.files.push(result.value);
+      } else if (target === "readOnlyFile") {
+        parsed.readOnlyFiles.push(result.value);
       } else {
         parsed[target] = result.value;
       }
@@ -240,6 +255,19 @@ function resolveArguments(
       `Unsupported text encoding: ${encodingValue}`,
     );
   }
+  const editFormatValue =
+    commandLine.editFormat ??
+    environment.PATCH_EDIT_FORMAT ??
+    configuration["edit-format"];
+  const editFormat =
+    editFormatValue === undefined
+      ? undefined
+      : EditFormatSchema.safeParse(editFormatValue);
+  if (editFormat !== undefined && !editFormat.success) {
+    throw new BootstrapArgumentError(
+      `Unsupported edit format: ${editFormatValue}`,
+    );
+  }
 
   return {
     configFile: commandLine.configFile ?? environment.PATCH_CONFIG,
@@ -262,10 +290,15 @@ function resolveArguments(
       commandLine.testCommand ??
       environment.PATCH_TEST_CMD ??
       configuration["test-cmd"],
+    editFormat: editFormat?.data,
     files:
       commandLine.files.length > 0
         ? [...commandLine.files]
         : [...(configuration.files ?? [])],
+    readOnlyFiles:
+      commandLine.readOnlyFiles.length > 0
+        ? [...commandLine.readOnlyFiles]
+        : [...(configuration["read-only"] ?? [])],
   };
 }
 
@@ -522,8 +555,12 @@ export async function bootstrapConfiguration(
   );
 
   let selectedRoot = first.rootForSearch;
-  if (first.arguments.git && first.arguments.files.length > 0) {
-    selectedRoot = await discoverCommonGitRoot(first.arguments.files, cwd);
+  const selectedFiles = [
+    ...first.arguments.files,
+    ...first.arguments.readOnlyFiles,
+  ];
+  if (first.arguments.git && selectedFiles.length > 0) {
+    selectedRoot = await discoverCommonGitRoot(selectedFiles, cwd);
   }
 
   const rootCorrected =

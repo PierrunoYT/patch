@@ -171,6 +171,9 @@ The project has not published a release yet.
 
 ### Changed
 
+- Added the concrete application composition root used by the CLI, including
+  staged configuration, model/provider selection, safe current-file context,
+  repository maps, implemented strategy dispatch, and per-session serialization.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe

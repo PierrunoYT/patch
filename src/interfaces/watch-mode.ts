@@ -10,6 +10,7 @@ import { readFile, stat } from "node:fs/promises";
 import { relative, sep } from "node:path";
 
 import { SerialTaskQueue } from "../core/serial-queue.js";
+import type { ApplicationSession } from "../core/application-service.js";
 import { SafePathResolver } from "../io/safe-path.js";
 
 const markerPattern = /(?:#|\/\/|--|;+)\s*(?:ai\b.*|.*\bai[?!]?)\s*$/iu;
@@ -40,7 +41,8 @@ export interface WatchRequest {
 
 export interface WatchModeOptions {
   readonly root: string;
-  readonly submit: (request: WatchRequest) => Promise<void>;
+  readonly submit?: (request: WatchRequest) => Promise<void>;
+  readonly session?: ApplicationSession;
   readonly queue?: SerialTaskQueue;
   readonly isIgnored?: (path: string) => boolean | Promise<boolean>;
   readonly maxFileBytes?: number;
@@ -81,7 +83,7 @@ function defaultIgnored(path: string): boolean {
 
 export class AiWatchMode {
   readonly #options: WatchModeOptions;
-  readonly #queue: SerialTaskQueue;
+  readonly #queue: SerialTaskQueue | undefined;
   readonly #controller = new AbortController();
   #paths = new Set<string>();
   #timer: NodeJS.Timeout | undefined;
@@ -89,8 +91,16 @@ export class AiWatchMode {
   #resolver: SafePathResolver | undefined;
 
   constructor(options: WatchModeOptions) {
+    if (options.submit === undefined && options.session === undefined) {
+      throw new Error(
+        "Watch mode requires an application session or submit callback",
+      );
+    }
     this.#options = options;
-    this.#queue = options.queue ?? new SerialTaskQueue();
+    this.#queue =
+      options.session === undefined
+        ? (options.queue ?? new SerialTaskQueue())
+        : undefined;
     options.signal?.addEventListener("abort", () => this.close(), {
       once: true,
     });
@@ -118,9 +128,11 @@ export class AiWatchMode {
       this.#timer = undefined;
       const paths = [...this.#paths];
       this.#paths.clear();
-      void this.#queue
-        .run(() => this.#process(paths), this.#controller.signal)
-        .catch(() => undefined);
+      void (
+        this.#queue === undefined
+          ? this.#process(paths)
+          : this.#queue.run(() => this.#process(paths), this.#controller.signal)
+      ).catch(() => undefined);
     }, this.#options.debounceMs ?? 100);
   }
 
@@ -130,12 +142,14 @@ export class AiWatchMode {
       this.#timer = undefined;
       const paths = [...this.#paths];
       this.#paths.clear();
-      await this.#queue.run(
-        () => this.#process(paths),
-        this.#controller.signal,
-      );
+      if (this.#queue === undefined) await this.#process(paths);
+      else
+        await this.#queue.run(
+          () => this.#process(paths),
+          this.#controller.signal,
+        );
     }
-    await this.#queue.idle();
+    await this.#queue?.idle();
   }
 
   close(): void {
@@ -202,11 +216,18 @@ export class AiWatchMode {
           `${path}:\n${comments.map(({ line, text }) => `  Line ${line}: ${text}`).join("\n")}`,
       ),
     ].join("\n\n");
-    await this.#options.submit({
-      action,
-      paths: selected.map(({ path }) => path),
-      prompt,
-      signal: this.#controller.signal,
-    });
+    if (this.#options.session !== undefined) {
+      await this.#options.session.submit(prompt, {
+        signal: this.#controller.signal,
+        emit: () => undefined,
+      });
+    } else {
+      await this.#options.submit?.({
+        action,
+        paths: selected.map(({ path }) => path),
+        prompt,
+        signal: this.#controller.signal,
+      });
+    }
   }
 }

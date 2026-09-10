@@ -35,13 +35,18 @@ still identify its repository.
 does not remove the provisional repository from config and dotenv discovery,
 matching aider's startup order.
 
+The production CLI passes these resolved values into
+`ConcreteApplicationService`; it no longer maintains a separate model/session
+configuration path.
+
 ## Current controls
 
 The bootstrap recognizes `--config`/`-c`, `--env-file`, `--encoding`,
-`--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, repeated `--file`,
-and positional file paths. Their environment equivalents use the Patch
-namespace: `PATCH_CONFIG`, `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`,
-`PATCH_MODEL`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
+`--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
+repeated `--file`, repeated `--read-only`, and positional editable file paths.
+Their environment equivalents use the Patch namespace: `PATCH_CONFIG`,
+`PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
+`PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
 
 Lint and test commands may also be set as `lint-cmd` and `test-cmd` in YAML.
 Both are optional and have no built-in default: if a user does not configure a
@@ -68,6 +73,6 @@ names. It does not search aider's OAuth key file because Patch does not yet have
 an OAuth feature. Patch currently validates only bootstrap keys; later feature
 tasks will extend the strict YAML schema alongside their CLI controls.
 
-The executable remains help-only while the session runtime is under
-construction, so this module is currently exercised through its public API and
-integration tests rather than a live provider flow.
+The executable uses this bootstrap before opening input. Missing models,
+credentials, unsupported providers or edit modes, mixed repositories, and
+unsafe or conflicting file selections therefore fail before a provider turn.

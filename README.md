@@ -21,14 +21,18 @@ TypeScript while preserving upstream attribution under Apache-2.0.
 ## Project status
 
 Patch is at the foundation stage. The repository has a strict TypeScript build,
-linting, formatting, tests, automated CI, npm package smoke testing, a minimal
-`patch --help` executable, validated
+linting, formatting, tests, automated CI, npm package smoke testing, a
+`patch` executable, validated
 [domain contracts](docs/domain-contracts.md), a deterministic provider test
 harness, [safe path resolution](docs/filesystem-safety.md), and upstream license
 and revision metadata. The filesystem adapter also provides validated text
 encoding, line-ending preservation, dry runs, and atomic replacement. Model
 connections, edit parsing, Git workflows, and interactive sessions have not
-been implemented yet. Shared [prompt resources and fence selection](docs/prompts.md)
+all been integrated yet. The executable now bootstraps configuration, resolves
+OpenAI, Anthropic, or DeepSeek models, composes safe editable/read-only and
+repository-map context, and runs serialized one-shot or interactive provider
+turns. Applying edits and the complete Git/check command lifecycle remain
+integration work. Shared [prompt resources and fence selection](docs/prompts.md)
 and typed chat composition with upstream-compatible ordering, capability-aware
 cache boundaries, continuation, and read-only media context are pinned to
 upstream behavior. Staged
@@ -71,9 +75,13 @@ npm start -- --help
 ```
 
 The executable accepts `--message`, `--message-file`, or interactive line input.
-Provider configuration is still in progress, so submitting a message does not
-yet call a live model. The provider layer now includes an
-[OpenAI-compatible adapter](docs/providers.md). See [input modes](docs/input-modes.md).
+Select a model with `--model`, `PATCH_MODEL`, or `.patch.conf.yml`; provider
+credentials use `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`.
+Editable files can be positional or repeated `--file` values; use
+`--read-only` for context that must not be edited. The currently constructed
+formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch`.
+Advanced schema values are rejected rather than silently accepted. See the
+[provider documentation](docs/providers.md) and [input modes](docs/input-modes.md).
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 

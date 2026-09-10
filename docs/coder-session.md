@@ -6,6 +6,14 @@ boundary is adapted from aider's
 but Patch composes behavior instead of requiring a subclass for every complete
 mode.
 
+`ConcreteApplicationService` is the production composition owner around this
+contract. It loads configuration and model metadata, creates the provider and a
+supported strategy, canonicalizes selected files, rebuilds editable/read-only
+snapshots and repository-map context for each turn, and serializes every caller
+through one session queue. The currently composed modes are `ask`, `whole`,
+`diff`, `diff-fenced`, `udiff`, and `patch`; schema-only advanced modes fail
+before provider input.
+
 The constructor injects a `ModelProvider` and an `EditStrategy` alongside a
 validated session config, initial messages, editable/read-only paths, and fence.
 The same session class can therefore use `ask`, whole-file, or SEARCH/REPLACE

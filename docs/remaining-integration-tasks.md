@@ -74,31 +74,31 @@ repository, and check modules have no production composition path.
 
 ### Construction and startup
 
-- [ ] Implement a concrete `ApplicationService` and `ApplicationSession` as the
+- [x] Implement a concrete `ApplicationService` and `ApplicationSession` as the
   sole owners of session construction and mutable application state.
-- [ ] Add one composition root that runs `bootstrapConfiguration`, loads the
+- [x] Add one composition root that runs `bootstrapConfiguration`, loads the
   `ModelCatalog`, resolves main/weak/editor models, diagnoses credentials,
   constructs providers and strategies, and opens filesystem/Git adapters.
-- [ ] Route CLI configuration and selected editable/read-only files through the
+- [x] Route CLI configuration and selected editable/read-only files through the
   staged bootstrap instead of maintaining a separate Commander-only option set.
-- [ ] Remove `unavailableProvider` from the production path; fail before input
+- [x] Remove `unavailableProvider` from the production path; fail before input
   starts with a secret-safe, actionable configuration diagnostic.
-- [ ] Make terminal, watcher, and web callers use the same concrete service and
+- [x] Make terminal, watcher, and web callers use the same concrete service and
   per-session `SerialTaskQueue` rather than wrapping independent callbacks.
-- [ ] Define explicit cleanup for provider streams, watchers, subprocesses,
+- [x] Define explicit cleanup for provider streams, watchers, subprocesses,
   histories, and web sessions.
 
 ### Context and strategies
 
-- [ ] Resolve all selected paths through `SafePathResolver`; reject mixed
+- [x] Resolve all selected paths through `SafePathResolver`; reject mixed
   repositories and conflicting editable/read-only selections.
-- [ ] Build immutable per-turn snapshots and editable/read-only prompt chunks
+- [x] Build immutable per-turn snapshots and editable/read-only prompt chunks
   from current disk state.
-- [ ] Generate and inject repository maps when enabled, including current-turn
+- [x] Generate and inject repository maps when enabled, including current-turn
   filename and identifier hints.
-- [ ] Add a strategy registry for genuinely implemented modes and reject
+- [x] Add a strategy registry for genuinely implemented modes and reject
   schema-only modes before a provider call.
-- [ ] Give each strategy its required system prompt, examples, reminders,
+- [x] Give each strategy its required system prompt, examples, reminders,
   shell-command policy, and fence selection instead of treating parsing alone
   as a complete mode.
 

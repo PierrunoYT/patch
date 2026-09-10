@@ -13,7 +13,6 @@ import type {
   ApplicationService,
   ApplicationSession,
 } from "../core/application-service.js";
-import { SerialTaskQueue } from "../core/serial-queue.js";
 
 export interface LocalWebServerOptions {
   readonly service: ApplicationService;
@@ -26,7 +25,6 @@ export interface LocalWebServerOptions {
 interface OwnedSession {
   readonly principal: string;
   readonly application: ApplicationSession;
-  readonly queue: SerialTaskQueue;
   readonly clients: Set<ServerResponse>;
   sequence: number;
 }
@@ -105,7 +103,6 @@ export class LocalWebServer {
         this.#sessions.set(sessionId, {
           principal,
           application,
-          queue: new SerialTaskQueue(),
           clients: new Set(),
           sequence: 0,
         });
@@ -156,14 +153,10 @@ export class LocalWebServer {
           if (!response.writableEnded)
             controller.abort(new Error("Client disconnected"));
         });
-        const result = await session.queue.run(
-          () =>
-            session.application.submit(body.message, {
-              signal: controller.signal,
-              emit: (event) => emit(session, event),
-            }),
-          controller.signal,
-        );
+        const result = await session.application.submit(body.message, {
+          signal: controller.signal,
+          emit: (event) => emit(session, event),
+        });
         emit(session, { type: "complete", data: result });
         return json(response, 200, { result });
       }
