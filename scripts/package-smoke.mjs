@@ -56,6 +56,18 @@ try {
     "@pierrunoyt",
     "patch",
   );
+  execFileSync(
+    process.execPath,
+    [
+      join(root, "scripts/lifecycle-smoke.mjs"),
+      join(packageRoot, "dist/index.js"),
+    ],
+    {
+      cwd: consumerDirectory,
+      stdio: "inherit",
+      timeout: 30000,
+    },
+  );
   // Exercise the installed bin entry point, not just its help/parser. /exit
   // must construct and close a watcher without making a provider request.
   execFileSync(

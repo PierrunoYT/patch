@@ -42,7 +42,9 @@ export async function applyAuthorizedEdits(
   transaction: EditTransaction,
   editablePaths: readonly string[],
   dependencies: WriteBoundaryDependencies,
+  signal?: AbortSignal,
 ): Promise<WriteResult> {
+  signal?.throwIfAborted();
   const changedPaths = transaction.operations.map(
     (operation) => operation.path,
   );
@@ -54,6 +56,7 @@ export async function applyAuthorizedEdits(
 
   const selected = new Set(editablePaths);
   for (const operation of transaction.operations) {
+    signal?.throwIfAborted();
     const reason =
       operation.kind === "create"
         ? "new-file"
@@ -74,6 +77,7 @@ export async function applyAuthorizedEdits(
 
   const dirtyPaths: string[] = [];
   for (const operation of transaction.operations) {
+    signal?.throwIfAborted();
     if (
       operation.kind !== "create" &&
       (await dependencies.isDirty(operation.path))
@@ -81,10 +85,14 @@ export async function applyAuthorizedEdits(
       dirtyPaths.push(operation.path);
     }
   }
+  signal?.throwIfAborted();
+  await transaction.validate();
+  signal?.throwIfAborted();
   const checkpoint =
     dirtyPaths.length === 0
       ? undefined
       : await dependencies.checkpointDirty(dirtyPaths);
-  await transaction.commit();
+  signal?.throwIfAborted();
+  await transaction.commit(signal);
   return { changedPaths, checkpoint: checkpoint ?? null };
 }

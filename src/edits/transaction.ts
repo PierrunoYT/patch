@@ -72,17 +72,22 @@ export class EditTransaction {
     return transaction;
   }
 
+  async validate(): Promise<void> {
+    for (const operation of this.operations) {
+      await validateSnapshot(this.#files, operation);
+    }
+  }
+
   /** Call only after the staged operations have received user authorization. */
-  async commit(): Promise<void> {
+  async commit(signal?: AbortSignal): Promise<void> {
     if (this.#committed) {
       throw new EditTransactionStateError("An edit transaction commits once");
     }
 
     // Revalidate the complete batch before the first mutation.
+    await this.validate();
     for (const operation of this.operations) {
-      await validateSnapshot(this.#files, operation);
-    }
-    for (const operation of this.operations) {
+      signal?.throwIfAborted();
       if (operation.kind === "delete") {
         await this.#files.deleteFile(operation.path);
       } else {

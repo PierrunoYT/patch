@@ -295,7 +295,9 @@ export class GitRepository {
 
   async undoLastPatchCommit(): Promise<UndoResult> {
     const current = await this.lastPatchCommit();
-    await this.#git(["reset", "--mixed", "HEAD^"]);
+    // Keep the unrelated index intact; leave only the undone paths unstaged.
+    await this.#git(["reset", "--soft", "HEAD^"]);
+    await this.#git(["reset", "HEAD", "--", ...current.paths]);
     return current;
   }
 

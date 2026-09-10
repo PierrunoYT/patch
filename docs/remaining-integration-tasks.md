@@ -122,9 +122,12 @@ of new cross-platform CI evidence.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
-**Problem:** `CoderSession.runTurn` currently parses and invokes checks before
-edits are resolved, written, or committed. Transaction, write-boundary, Git,
-commands, and checks are tested independently rather than as one workflow.
+**Status (2026-09-10):** the concrete application now supplies per-attempt
+resolution/application to `CoderSession`'s bounded loop. Installed-service
+acceptance demonstrates normal ordering and exact Git state. The complete
+guarantees below remain unchecked where recovery or interactive policy is not
+implemented. See [turn lifecycle](turn-lifecycle.md) for pinned sources and
+intentional differences.
 
 - [ ] Refactor orchestration so every editing attempt executes in this order:
   1. compose current context and stream the provider response;
@@ -147,15 +150,52 @@ commands, and checks are tested independently rather than as one workflow.
   failed check, cancellation, and undo paths.
 - [ ] Make cancellation at every boundary leave valid files, Git state, queue
   state, and reusable session state.
-- [ ] Add one asymmetric end-to-end test that streams a malformed response,
+- [x] Add one asymmetric end-to-end test that streams a malformed response,
   reflects, edits multiple files, commits, fails lint once, executes an approved
   command, passes tests, and undoes only the Patch commit.
-- [ ] Add denial, stale snapshot, partial-write failure, rejected command,
+- [x] Add denial, stale snapshot, partial-write failure, rejected command,
   timeout, truncation, and cancellation variants that assert exact disk and Git
   state—not merely emitted events.
 
 **Acceptance:** Phase 3 and Phase 5 exits are demonstrated through the installed
 application path, and tests prove the pinned lifecycle ordering.
+
+**Delivered evidence:** `scripts/lifecycle-smoke.mjs`, run against the clean
+installed tarball by `scripts/package-smoke.mjs`, additionally includes a dry-run
+resolution failure and a linter-created commit. It asserts two asymmetric file
+contents, checkpoint/commit ancestry, unrelated staged and unstaged diffs,
+refreshed prompt content, usage/history, and index-preserving undo. Approvals and
+provider are injected into the installed service, not interactive bin prompts.
+`tests/application-lifecycle.test.ts` adds real-Git failure variants, successful
+and exhausted test reflection, live selection changes, and reusable queue
+checks. Command timeout/output limits are shortened through the adapter for
+deterministic tests; actual child execution is retained.
+
+**Local validation (Linux, 2026-09-10):** focused application/session/write/Git
+suites passed 57 tests. `npm run check` passed formatting, lint, typecheck,
+297 tests (4 optional skips), build, clean install, and package smoke including
+`installed-lifecycle-ok`. `npm start -- --help` passed. No new cross-platform
+or live-provider evidence is claimed, and this work is not pushed.
+
+**Precisely remaining unchecked R2 boundaries:**
+
+- The complete orchestration item: per-failure lint/test reflection choice
+  (currently automatic for explicitly configured checks), reconciliation of
+  interrupted history with already-applied edits, and complete standalone-bin
+  approval-driven acceptance. The successful installed-service path finalizes
+  history, usage, changed paths, and latest commit correctly.
+- Unrelated-work preservation across *all* failures: normal checkpoint,
+  commit, failed checks, sampled cancellation, and undo preserve the unrelated
+  index/worktree in tests. Git failures after staging, failure between undo's
+  two Git commands, concurrent writers/sessions, and arbitrary side effects of
+  approved/configured commands are not covered by a preservation guarantee.
+- Cancellation at *every* boundary: signals are checked before mutation phases
+  and between file writes; running Git/replacement operations finish. Tests
+  cover stream, preview, authorization, post-checkpoint, between-write,
+  pre-lint/test, and command-approval cancellation. There is no cross-file
+  rollback, durable journal, per-file partial-write result, or exhaustive
+  fault-injection matrix. A partial write leaves completed files changed,
+  preserves the checkpoint, and releases the queue for a fresh-context retry.
 
 ## R3 — Dispatch every advertised slash command
 

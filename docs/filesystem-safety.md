@@ -70,3 +70,10 @@ every new or out-of-chat file, checkpoints dirty existing files through an
 injected repository callback, commits the already validated transaction, and
 returns the exact changed paths and checkpoint. Authorization failure occurs
 before checkpoints or writes.
+
+Snapshots are revalidated after authorization and before the dirty checkpoint,
+then again before the first write. Cancellation is checked at these boundaries
+and between replacements. A failed or cancelled multi-file commit does not
+roll back completed replacements; later files remain untouched. See
+[turn recovery](turn-lifecycle.md) for exact Git, history, and queue limits and
+the real-repository failure tests.

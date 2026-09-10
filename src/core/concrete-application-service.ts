@@ -1,3 +1,11 @@
+/**
+ * Turn ordering adapted from aider/coders/base_coder.py at revision
+ * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
+ * Modified for Patch's composed adapters, serial queue, strict authorization,
+ * fresh-snapshot reflection, and explicit partial-write recovery limits.
+ * Licensed under the Apache License, Version 2.0.
+ */
+
 import { realpath } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 
@@ -10,7 +18,11 @@ import type { CommandEffect } from "../commands/effects.js";
 import { parseCommand } from "../commands/parse.js";
 import { RepositoryMap } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
-import { resolveEditBatch, type FileSnapshot } from "../edits/resolve.js";
+import {
+  resolveEditBatch,
+  EditResolutionError,
+  type FileSnapshot,
+} from "../edits/resolve.js";
 import { EditTransaction } from "../edits/transaction.js";
 import {
   applyAuthorizedEdits,
@@ -177,7 +189,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       approvePath: async ({ path }) => {
         const resolver = await SafePathResolver.create(context.root);
         await resolver.resolve(path);
-        return context.approvePath?.(path) ?? true;
+        return context.approvePath?.(path) ?? false;
       },
     });
   }
@@ -201,158 +213,203 @@ class ConcreteApplicationSession implements ApplicationSession {
         throw new Error("Question-only input cannot run slash commands");
       if (effect.type !== "submit") return this.#dispatch(effect, options);
       message = effect.message;
-      const editable = await Promise.all(
-        this.#session
-          .snapshot()
-          .editablePaths.map((path) => snapshot(this.#context.files, path)),
-      );
-      const readOnly = await Promise.all(
-        this.#session
-          .snapshot()
-          .readOnlyPaths.map((path) => snapshot(this.#context.files, path)),
-      );
-      const selectedPaths = new Set(
-        [...editable, ...readOnly].map(({ path }) => path),
-      );
-      const unselected = await Promise.all(
-        this.#context.availablePaths
-          .filter((path) => !selectedPaths.has(path))
-          .map((path) => snapshot(this.#context.files, path)),
-      );
-      const snapshots = [...editable, ...readOnly, ...unselected];
-      const repositoryContent = await this.#repositoryContext(message);
-      const prompt = {
-        system: [
-          {
-            role: "system" as const,
-            content: this.#context.definition.systemPrompt,
-          },
-        ],
-        examples: [
-          ...COMMON_PROMPTS.exampleMessages,
-          ...this.#context.definition.examples,
-        ],
-        readOnlyFiles: fileMessage(
-          COMMON_PROMPTS.readOnlyFilesPrefix,
-          readOnly,
-        ),
-        repository:
-          repositoryContent === ""
-            ? []
-            : [
-                {
-                  role: "user" as const,
-                  content: `${COMMON_PROMPTS.repoContentPrefix}\n\n${repositoryContent}`,
-                },
-              ],
-        editableFiles: fileMessage(COMMON_PROMPTS.filesContentPrefix, editable),
-        reminder: [
-          {
-            role: "system" as const,
-            content: `${this.#context.definition.reminder}\n${
-              this.#context.definition.allowShellCommands
-                ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
-                : "Do not suggest shell commands."
-            }`,
-          },
-        ],
+      const changedPaths = new Set<string>();
+      const commands: ModelCommandResult[] = [];
+      let snapshots: readonly FileSnapshot[] = [];
+      const context = async () => {
+        const editable = await Promise.all(
+          [
+            ...new Set([
+              ...this.#session.snapshot().editablePaths,
+              ...changedPaths,
+            ]),
+          ].map((path) => snapshot(this.#context.files, path)),
+        );
+        const readOnly = await Promise.all(
+          this.#session
+            .snapshot()
+            .readOnlyPaths.map((path) => snapshot(this.#context.files, path)),
+        );
+        const selectedPaths = new Set(
+          [...editable, ...readOnly].map(({ path }) => path),
+        );
+        const unselected = await Promise.all(
+          this.#context.availablePaths
+            .filter((path) => !selectedPaths.has(path))
+            .map((path) => snapshot(this.#context.files, path)),
+        );
+        snapshots = [...editable, ...readOnly, ...unselected];
+        const repositoryContent = await this.#repositoryContext(message);
+        const prompt = {
+          system: [
+            {
+              role: "system" as const,
+              content: this.#context.definition.systemPrompt,
+            },
+          ],
+          examples: [
+            ...COMMON_PROMPTS.exampleMessages,
+            ...this.#context.definition.examples,
+          ],
+          readOnlyFiles: fileMessage(
+            COMMON_PROMPTS.readOnlyFilesPrefix,
+            readOnly,
+          ),
+          repository:
+            repositoryContent === ""
+              ? []
+              : [
+                  {
+                    role: "user" as const,
+                    content: `${COMMON_PROMPTS.repoContentPrefix}\n\n${repositoryContent}`,
+                  },
+                ],
+          editableFiles: fileMessage(
+            COMMON_PROMPTS.filesContentPrefix,
+            editable,
+          ),
+          reminder: [
+            {
+              role: "system" as const,
+              content: `${this.#context.definition.reminder}\n${
+                this.#context.definition.allowShellCommands
+                  ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
+                  : "Do not suggest shell commands."
+              }`,
+            },
+          ],
+        };
+        return { prompt, snapshots };
       };
-      const completed = await this.#session.runTurn(message, {
-        prompt,
-        snapshots,
-        signal: AbortSignal.any([options.signal, this.#lifecycle.signal]),
-        onEvent: (event) => options.emit({ type: event.type, data: event }),
-      });
-      if (options.readOnly === true) {
-        this.#session.recordApplied();
-        return {
-          response: completed.response,
-          changedPaths: [],
-          commit: null,
-          commands: [],
-        };
-      }
-      const editPaths = completed.edits.edits.flatMap((edit) =>
-        edit.kind === "move" ? [edit.fromPath, edit.path] : [edit.path],
-      );
-      const expandedSnapshots = [...snapshots];
-      for (const path of editPaths) {
-        if (!expandedSnapshots.some((file) => file.path === path)) {
-          expandedSnapshots.push(await snapshot(this.#context.files, path));
-        }
-      }
-      const resolved = resolveEditBatch(completed.edits, expandedSnapshots);
-      if (
-        resolved.operations.length === 0 &&
-        resolved.shellCommands.length === 0
-      ) {
-        this.#session.recordApplied();
-        return {
-          response: completed.response,
-          changedPaths: [],
-          commit: null,
-          commands: [],
-        };
-      }
+      const completed = await this.#session
+        .runTurn(message, {
+          signal: options.signal,
+          onEvent: (event) => options.emit({ type: event.type, data: event }),
+          lifecycle: {
+            context,
+            apply: async (candidate) => {
+              if (options.readOnly === true) {
+                return undefined;
+              }
+              const editPaths = candidate.edits.edits.flatMap((edit) =>
+                edit.kind === "move" ? [edit.fromPath, edit.path] : [edit.path],
+              );
+              const resolver = await SafePathResolver.create(
+                this.#context.root,
+              );
+              for (const path of editPaths) {
+                const canonical = portablePath(
+                  this.#context.root,
+                  await resolver.resolve(path),
+                );
+                if (
+                  this.#session.snapshot().readOnlyPaths.includes(canonical)
+                ) {
+                  throw new Error("Cannot edit a read-only path");
+                }
+              }
+              const expandedSnapshots = [...snapshots];
+              for (const path of editPaths) {
+                if (!expandedSnapshots.some((file) => file.path === path)) {
+                  expandedSnapshots.push(
+                    await snapshot(this.#context.files, path),
+                  );
+                }
+              }
+              let resolved;
+              try {
+                resolved = resolveEditBatch(candidate.edits, expandedSnapshots);
+              } catch (error) {
+                if (!(error instanceof EditResolutionError)) throw error;
+                return {
+                  source: "malformed" as const,
+                  diagnostic: `${error.message}: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}`,
+                };
+              }
+              if (
+                resolved.operations.length === 0 &&
+                resolved.shellCommands.length === 0
+              ) {
+                if (changedPaths.size === 0) return undefined;
+              }
 
-      const transaction = await EditTransaction.stage(
-        this.#context.files,
-        resolved,
-      );
-      const repository = this.#context.repository;
-      const write = await applyAuthorizedEdits(
-        transaction,
-        this.#context.editablePaths,
-        {
-          presentPreview: (preview) =>
-            options.emit({ type: "edit-preview", data: preview }),
-          authorize: (request) =>
-            this.#context.authorizeWrite?.(request) ?? false,
-          isDirty: (path) => repository?.isDirty(path) ?? false,
-          checkpointDirty: async (paths) =>
-            (
-              await repository?.commit({
-                paths: [...paths],
-                message: "Checkpoint before Patch edits",
-                verify: false,
-              })
-            )?.commit,
-        },
-      );
-      const commit = await this.#commit(
-        write.changedPaths,
-        "Apply Patch edits",
-      );
-      const signal = AbortSignal.any([options.signal, this.#lifecycle.signal]);
-      await this.#runCheck(
-        "lint",
-        this.#context.bootstrap.arguments.lintCommand,
-        signal,
-        write.changedPaths,
-        options,
-      );
-      const commands = await executeModelCommands(
-        resolved.shellCommands,
-        { root: this.#context.root, signal },
-        {
-          show: (command) =>
-            options.emit({ type: "command-preview", data: { command } }),
-          approve: (command) =>
-            this.#context.approveCommand?.(command) ?? false,
-        },
-      );
-      await this.#runCheck(
-        "test",
-        this.#context.bootstrap.arguments.testCommand,
-        signal,
-        write.changedPaths,
-        options,
-      );
-      this.#session.recordApplied(commit);
+              const transaction = await EditTransaction.stage(
+                this.#context.files,
+                resolved,
+              );
+              const repository = this.#context.repository;
+              const write = await applyAuthorizedEdits(
+                transaction,
+                this.#session.snapshot().editablePaths,
+                {
+                  presentPreview: (preview) =>
+                    options.emit({ type: "edit-preview", data: preview }),
+                  authorize: (request) =>
+                    this.#context.authorizeWrite?.(request) ?? false,
+                  isDirty: (path) => repository?.isDirty(path) ?? false,
+                  checkpointDirty: async (paths) =>
+                    (await this.#commit(
+                      paths,
+                      "Checkpoint before Patch edits",
+                    )) ?? undefined,
+                },
+                options.signal,
+              );
+              for (const path of write.changedPaths) changedPaths.add(path);
+              options.signal.throwIfAborted();
+              await this.#commit(write.changedPaths, "Apply Patch edits");
+              const signal = options.signal;
+              signal.throwIfAborted();
+              const lint = await this.#runCheck(
+                "lint",
+                this.#context.bootstrap.arguments.lintCommand,
+                signal,
+                [...changedPaths],
+                options,
+              );
+              if (lint !== undefined)
+                return { source: "lint" as const, diagnostic: lint };
+              commands.push(
+                ...(await executeModelCommands(
+                  resolved.shellCommands,
+                  { root: this.#context.root, signal },
+                  {
+                    show: (command) =>
+                      options.emit({
+                        type: "command-preview",
+                        data: { command },
+                      }),
+                    approve: (command) =>
+                      this.#context.approveCommand?.(command) ?? false,
+                  },
+                )),
+              );
+              signal.throwIfAborted();
+              const test = await this.#runCheck(
+                "test",
+                this.#context.bootstrap.arguments.testCommand,
+                signal,
+                [...changedPaths],
+                options,
+              );
+              if (test !== undefined)
+                return { source: "test" as const, diagnostic: test };
+              return undefined;
+            },
+          },
+        })
+        .finally(() => {
+          const state = this.#session.snapshot();
+          this.#session.setSelectedPaths(
+            [...new Set([...state.editablePaths, ...changedPaths])],
+            state.readOnlyPaths,
+          );
+        });
+      const state = this.#session.snapshot();
       return {
         response: completed.response,
-        changedPaths: write.changedPaths,
-        commit,
+        changedPaths: [...changedPaths],
+        commit: changedPaths.size === 0 ? null : state.lastPatchCommit,
         commands,
       };
     }, options.signal);
@@ -494,13 +551,14 @@ class ConcreteApplicationSession implements ApplicationSession {
             : this.#context.bootstrap.arguments.testCommand;
         if (command === undefined)
           throw new Error(`No ${effect.type} command is configured`);
-        await this.#runCheck(
+        const diagnostic = await this.#runCheck(
           effect.type,
           command,
           options.signal,
           state.editablePaths,
           options,
         );
+        if (diagnostic !== undefined) throw new Error(diagnostic);
         return result(`${effect.type} passed`);
       }
       case "commit": {
@@ -527,6 +585,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           );
         }
         const undone = await repository.undoLastPatchCommit();
+        this.#session.recordApplied();
         return result(`Undid ${undone.commit}`, { changedPaths: undone.paths });
       }
       case "clipboard-copy": {
@@ -574,16 +633,18 @@ class ConcreteApplicationSession implements ApplicationSession {
     paths: readonly string[],
     message: string,
   ): Promise<string | null> {
-    if (!this.#context.bootstrap.arguments.git) return null;
-    return (
+    if (!this.#context.bootstrap.arguments.git || paths.length === 0)
+      return null;
+    const commit =
       (
         await this.#context.repository?.commit({
           paths: [...paths],
           message,
           verify: false,
         })
-      )?.commit ?? null
-    );
+      )?.commit ?? null;
+    if (commit !== null) this.#session.recordCommit(commit);
+    return commit;
   }
 
   async #runCheck(
@@ -592,8 +653,9 @@ class ConcreteApplicationSession implements ApplicationSession {
     signal: AbortSignal,
     changedPaths: readonly string[],
     options: ApplicationSubmitOptions,
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     if (command === undefined) return;
+    signal.throwIfAborted();
     options.emit({ type: `${label}-start`, data: { command } });
     const result = await executeModelCommand(
       command,
@@ -601,6 +663,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       { show: () => undefined, approve: () => true },
     );
     options.emit({ type: `${label}-complete`, data: result });
+    signal.throwIfAborted();
     await this.#commit(changedPaths, `Apply ${label} changes`);
     if (result.status !== "completed" || result.exitCode !== 0) {
       const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
@@ -608,9 +671,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         result.status === "completed"
           ? `exited with code ${String(result.exitCode)}`
           : `was ${result.status}`;
-      throw new Error(
-        `Configured ${label} command ${outcome}${output === "" ? "" : `\n\n${output}`}`,
-      );
+      return `Configured ${label} command ${outcome}${output === "" ? "" : `\n\n${output}`}`;
     }
   }
 }

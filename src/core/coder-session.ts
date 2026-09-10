@@ -95,6 +95,20 @@ export interface RunTurnOptions {
   readonly signal?: AbortSignal;
   readonly onEvent?: (event: CompletionEvent) => void;
   readonly checks?: ReflectionChecks;
+  /** Application-owned resolution, authorization, writes and post-write checks. */
+  readonly lifecycle?: {
+    readonly context: () => Promise<{
+      prompt: TurnPrompt;
+      snapshots: readonly FileSnapshot[];
+    }>;
+    readonly apply: (candidate: ReflectionCandidate) => Promise<
+      | {
+          source: "malformed" | "lint" | "test";
+          diagnostic: string;
+        }
+      | undefined
+    >;
+  };
 }
 
 export interface CompletedTurn {
@@ -323,6 +337,13 @@ export class CoderSession {
     return structuredClone(this.#state);
   }
 
+  recordCommit(commit: string): void {
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      lastPatchCommit: commit,
+    });
+  }
+
   recordApplied(commit: string | null = null): void {
     if (this.#activeTurn !== undefined) {
       throw new Error("Cannot record applied edits during an active turn");
@@ -532,8 +553,10 @@ export class CoderSession {
     userInput: string,
     options: RunTurnOptions = {},
   ): Promise<CompletedTurn> {
+    options.signal?.throwIfAborted();
     await this.#approveMentionedPaths(userInput);
-    const turn = this.prepareTurn(userInput, options.prompt);
+    let context = await options.lifecycle?.context();
+    const turn = this.prepareTurn(userInput, context?.prompt ?? options.prompt);
     const events: CompletionEvent[] = [];
     const reflectedMessages: ChatMessage[] = [];
     let request = turn.request;
@@ -543,6 +566,7 @@ export class CoderSession {
 
     try {
       while (true) {
+        options.signal?.throwIfAborted();
         let delay = this.#retry.initialDelayMs;
         let response = responsePrefix;
         let reasoning = "";
@@ -662,31 +686,44 @@ export class CoderSession {
         let source: "malformed" | "lint" | "test" | undefined;
         let diagnostic: string | undefined;
         try {
-          edits = this.parseResponse(response, options.snapshots);
+          edits = this.parseResponse(
+            response,
+            context?.snapshots ?? options.snapshots,
+          );
         } catch (error) {
           source = "malformed";
           diagnostic = errorText(error);
         }
         if (edits !== undefined) {
-          await this.#approveEditPaths(edits);
+          options.signal?.throwIfAborted();
           const candidate = { response, reasoning, edits };
-          if (this.config.autoLint) {
-            diagnostic = await options.checks?.lint?.(candidate);
-            source = diagnostic === undefined ? undefined : "lint";
-          }
-          if (diagnostic === undefined && this.config.autoTest) {
-            diagnostic = await options.checks?.test?.(candidate);
-            source = diagnostic === undefined ? undefined : "test";
+          if (options.lifecycle !== undefined) {
+            const failure = await options.lifecycle.apply(candidate);
+            diagnostic = failure?.diagnostic;
+            source = failure?.source;
+          } else {
+            await this.#approveEditPaths(edits);
+            if (this.config.autoLint) {
+              diagnostic = await options.checks?.lint?.(candidate);
+              source = diagnostic === undefined ? undefined : "lint";
+            }
+            if (diagnostic === undefined && this.config.autoTest) {
+              diagnostic = await options.checks?.test?.(candidate);
+              source = diagnostic === undefined ? undefined : "test";
+            }
           }
         }
         if (diagnostic === undefined || source === undefined) {
+          options.signal?.throwIfAborted();
           const finalized = this.finalizeTurn(
             turn,
             response,
             reasoning,
             reflectedMessages,
-            options.snapshots,
+            context?.snapshots ?? options.snapshots,
           );
+          if (options.lifecycle !== undefined)
+            this.recordApplied(this.#state.lastPatchCommit);
           return {
             response,
             reasoning,
@@ -713,14 +750,40 @@ export class CoderSession {
         reflectedMessages.push(assistant, reflection);
         responsePrefix = "";
         continuationCount = 0;
+        context = await options.lifecycle?.context();
+        const prompt = context?.prompt;
+        let chunks =
+          prompt === undefined
+            ? undefined
+            : new ChatChunks({
+                system: prompt.system,
+                examples: prompt.examples,
+                readonlyFiles: prompt.readOnlyFiles,
+                repo: prompt.repository,
+                done: this.#state.messages,
+                chatFiles: prompt.editableFiles,
+                current: [turn.userMessage, ...reflectedMessages],
+                reminder: prompt.reminder,
+              });
+        if (this.#config.model.capabilities.promptCaching)
+          chunks = chunks?.withCacheControl();
         request = CompletionRequestSchema.parse({
           ...request,
-          messages: [...request.messages, assistant, reflection],
+          messages: chunks?.allMessages() ?? [
+            ...request.messages,
+            assistant,
+            reflection,
+          ],
         });
+        const tokens = this.#tokenCounter(request.messages, this.#config.model);
+        const maximum = this.#config.model.maxInputTokens;
+        if (maximum !== undefined && tokens > maximum)
+          throw new TokenBudgetExceededError(tokens, maximum);
         this.#state = SessionStateSchema.parse({
           ...this.#state,
           phase: "streaming",
           partialResponse: "",
+          inputTokens: tokens,
           outputTokens: 0,
           reflectionCount: this.#state.reflectionCount + 1,
         });

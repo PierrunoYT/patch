@@ -74,7 +74,7 @@ porting plan distinguish composed behavior from library-only adapters.
 - Provider-event streaming with response/reasoning assembly, usage tracking,
   bounded exponential retries, cancellation, context overflow, and truncation.
 - Bounded corrective reflection for malformed edits and library-level injected
-  lint/test diagnostics; post-write lint/test reflection is not composed yet.
+  lint/test diagnostics, now also composed with post-write application checks.
 - File-mention detection with an approval hook for new or unselected paths;
   interactive CLI approval is not composed yet.
 - Atomic model/provider/strategy switching with state transfer and removal or
@@ -176,6 +176,19 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
+- Integrated dry-run resolution and post-write lint/test reflection into the
+  concrete turn's shared three-reflection budget, refreshing disk context and
+  token budgets between attempts. Check commits are recorded before reflection
+  and retained on later failure. Configured check failures currently reflect
+  automatically; aider's per-failure confirmation remains unimplemented.
+- Revalidate staged snapshots after approval and before checkpointing, observe
+  cancellation at mutation boundaries and between writes, authorize against
+  the live file selection, and reject read-only aliases. Multi-file failures
+  retain completed writes; no rollback or exhaustive cancellation is claimed.
+- Preserve unrelated index entries during `/undo`, while retaining working
+  files and earlier commits. Added asymmetric installed-service acceptance
+  and real-Git failure/cancellation tests. Standalone CLI write/command approval
+  prompts and interrupted-history reconciliation remain incomplete.
 - Added opt-in `--watch-files` terminal startup and standalone
   `--web --web-token-file` loopback HTTP/SSE startup using the concrete service.
   Watch shares terminal state and Git ignore handling; question-only `AI?`

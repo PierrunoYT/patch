@@ -26,13 +26,17 @@ DeepSeek models; builds editable, read-only, and repository-map context; and
 runs serialized one-shot or line-oriented interactive turns. The six constructed
 formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch`.
 Selected-file edits are dry-run resolved, previewed, written, optionally
-committed, and followed by explicitly configured lint/test commands. Slash
-commands dispatch through the same session queue.
+committed, and followed by explicitly configured lint/test commands. Parse,
+resolution, and post-write check failures share a three-reflection budget with
+fresh disk context between attempts. Slash commands dispatch through the same
+session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
+the installed acceptance evidence and intentional differences from aider.
 
 This is not yet a usable-release or aider-parity claim. The executable has no
-interactive approval prompt for new/out-of-chat writes or commands, no
-post-write lint/test reflection loop, and incomplete failure/cancellation
-coverage. Rich completion, history navigation, keybindings, editor and PTY
+interactive approval prompt for new/out-of-chat writes or commands, and
+failure/cancellation coverage is not exhaustive. Multi-file failures retain
+completed writes rather than rolling back; `/undo` retains working files and
+unrelated staged changes. Rich completion, history navigation, keybindings, editor and PTY
 dispatch remain library helpers. Architect/context/cache/prefill/media helpers
 are not constructed modes. `--watch-files` shares the terminal session, and
 `--web` starts the local authenticated HTTP/SSE API (not a browser GUI).

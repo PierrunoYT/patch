@@ -223,9 +223,9 @@ waiting for input
   → checkpoint pre-existing dirty files
   → apply edits
   → auto-commit
-  → run configured lint (reflection not yet integrated)
+  → run configured lint, commit check changes, reflect on failure
   → approve/run suggested shell commands
-  → run configured tests (reflection not yet integrated)
+  → run configured tests, reflect on failure
   → waiting for input
 ```
 
@@ -329,22 +329,25 @@ or a documented, safer rejection.
   checks, response assembly, and history transitions.
 - [x] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.
-- [ ] Implement bounded reflection for lint and test failures. Malformed edit
-  reflection is bounded to three attempts, but post-write check reflection is
-  not integrated.
+- [x] Implement bounded reflection for lint and test failures. Configured
+  post-write checks, malformed edits, and resolution failures share three
+  reflections, with refreshed disk context and token budgets. Patch currently
+  reflects automatically rather than asking aider's per-failure confirmation.
 - [x] Implement file-mention detection and explicit approval before adding or
   editing unselected files.
 - [x] Implement strategy/model switching with state transfer. Summarize or
   clear incompatible assistant protocol examples when the edit format changes.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit (partial):** fake-provider tests cover streamed multi-turn turns,
-malformed-response reflection, and cancellation before writes. The complete
-installed lifecycle and cancellation-at-every-boundary evidence remains in R2
-of `docs/remaining-integration-tasks.md`.
+**Exit (partial):** installed-service acceptance covers streamed malformed and
+unresolvable responses, two-file writes, lint reflection, approved commands,
+tests, and undo with exact Git assertions. Exhaustive failure/cancellation,
+interrupted-history reconciliation, and standalone interactive approvals remain
+in R2/R3 of `docs/remaining-integration-tasks.md`.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
-and `tests/application-lifecycle.test.ts`.
+`tests/application-lifecycle.test.ts`, and packed `scripts/lifecycle-smoke.mjs`.
+See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers
 
@@ -399,8 +402,9 @@ evidence remains incomplete.
 providers and edit formats, previews selected-file edits, commits, runs
 configured lint/tests, and dispatches Git commands. A full release exit still
 requires interactive authorization for new/out-of-chat edits and commands,
-post-write reflection, exhaustive failure/cancellation state tests, and a packed
-end-to-end acceptance test.
+per-failure reflection choice, and exhaustive failure/cancellation state tests.
+The packed service acceptance scenario now passes with injected provider and
+approval adapters; this does not establish standalone-bin approval support.
 
 **Evidence:** `tests/application-lifecycle.test.ts`,
 `tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the
