@@ -38,10 +38,14 @@ differ. Patch also uses these explicit choices:
   nonzero exit does not trigger model reflection. A command timeout stops the
   remaining suggested commands; configured tests still run. Captured output
   is bounded but is not automatically added to chat history.
-- `/undo` keeps working files and unrelated index entries, but the current
-  marker check is not bound to a commit owned by this session and does not yet
-  guard root, merge, pushed, forged-marker, or interrupted two-command cases.
-  Treat it as pre-release behavior.
+- `/undo` keeps working files and unrelated index entries. It reverts only the
+  commit this session recorded, refusing when HEAD has moved, when the commit is
+  a root or merge commit, or when its upstream branch already contains it. HEAD
+  is moved with a compare-and-swap `update-ref`, so a commit created between the
+  checks and the reset is never discarded. A forged `Patch-Commit` marker on a
+  commit this session did not create is no longer sufficient, but the following
+  `reset HEAD -- <paths>` is a second command: an interruption between the two
+  leaves the commit undone with its paths still staged.
 
 ## Failure boundaries, not transactional rollback
 

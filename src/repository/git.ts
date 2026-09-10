@@ -43,6 +43,8 @@ export interface UndoResult {
 export interface LastPatchCommit {
   readonly commit: string;
   readonly paths: readonly string[];
+  /** Absent only for a repository's first commit, which cannot be undone. */
+  readonly parent?: string;
 }
 
 export class UndoNotAllowedError extends Error {
@@ -348,19 +350,76 @@ export class GitRepository {
     });
   }
 
-  async undoLastPatchCommit(): Promise<UndoResult> {
+  /**
+   * Undoes `expected`, which must still be HEAD. The caller owns the commit:
+   * pass the commit this session created so an unrelated Patch commit from
+   * another session or an earlier run is never reset.
+   */
+  async undoLastPatchCommit(expected?: string): Promise<UndoResult> {
     const current = await this.lastPatchCommit();
-    // Keep the unrelated index intact; leave only the undone paths unstaged.
-    await this.#git(["reset", "--soft", "HEAD^"]);
+    if (expected !== undefined && expected !== current.commit) {
+      throw new UndoNotAllowedError(
+        `HEAD is ${current.commit}, not the expected commit ${expected}`,
+      );
+    }
+    if (current.parent === undefined) {
+      throw new UndoNotAllowedError(
+        `${current.commit} is the first commit in the repository`,
+      );
+    }
+    if (await this.#isPublished(current.commit)) {
+      throw new UndoNotAllowedError(
+        `${current.commit} has already been pushed to its upstream branch`,
+      );
+    }
+
+    // Compare-and-swap HEAD so a commit created between the checks above and
+    // this reset is never discarded. Keep the unrelated index intact and leave
+    // only the undone paths unstaged.
+    await this.#git([
+      "update-ref",
+      "-m",
+      `patch: undo ${current.commit}`,
+      "HEAD",
+      current.parent,
+      current.commit,
+    ]);
     await this.#git(["reset", "HEAD", "--", ...current.paths]);
-    return current;
+    return { commit: current.commit, paths: current.paths };
+  }
+
+  async #isPublished(commit: string): Promise<boolean> {
+    const upstream = await this.#tryGit([
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      "@{upstream}",
+    ]);
+    if (upstream === undefined) return false;
+    return (
+      (await this.#tryGit([
+        "merge-base",
+        "--is-ancestor",
+        commit,
+        upstream.trim(),
+      ])) !== undefined
+    );
   }
 
   async lastPatchCommit(): Promise<LastPatchCommit> {
-    const commit = (await this.#git(["rev-parse", "HEAD"])).trim();
+    const lineage = (
+      await this.#git(["rev-list", "--parents", "-n", "1", "HEAD"])
+    )
+      .trim()
+      .split(/\s+/u);
+    const commit = lineage[0] ?? "";
+    const parents = lineage.slice(1);
     const message = await this.#git(["show", "-s", "--format=%B", "HEAD"]);
     if (!/^Patch-Commit: true$/mu.test(message)) {
       throw new UndoNotAllowedError("HEAD was not created by Patch");
+    }
+    if (parents.length > 1) {
+      throw new UndoNotAllowedError(`${commit} is a merge commit`);
     }
     const paths = nulFields(
       await this.#git([
@@ -372,6 +431,10 @@ export class GitRepository {
         "HEAD",
       ]),
     );
-    return { commit, paths };
+    return {
+      commit,
+      paths,
+      ...(parents[0] === undefined ? {} : { parent: parents[0] }),
+    };
   }
 }

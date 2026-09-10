@@ -171,6 +171,9 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Bound `/undo` to the commit the current session created and moved HEAD with a
+  compare-and-swap `update-ref`. Root commits, merge commits, and commits their
+  upstream branch already contains are refused instead of reset.
 - Followed every `--- `/`+++ ` header transition inside a unified-diff fence, so
   a second file's hunks target that file instead of being folded into the
   previous file's hunk, and stripped git path prefixes only when both headers

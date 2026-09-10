@@ -102,6 +102,68 @@ describe("GitRepository commits", () => {
     );
   });
 
+  it("refuses to undo when HEAD is no longer the expected commit", async () => {
+    const { root, git } = await fixture();
+    await writeFile(join(root, "selected.txt"), "selected\n");
+    const owned = await git.commit({
+      paths: ["selected.txt"],
+      message: "Patch change",
+      verify: false,
+    });
+    await writeFile(join(root, "unrelated.txt"), "later\n");
+    await executeFile("git", ["-C", root, "add", "unrelated.txt"]);
+    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "later"]);
+    const head = (
+      await executeFile("git", ["-C", root, "rev-parse", "HEAD"])
+    ).stdout.trim();
+
+    await expect(git.undoLastPatchCommit(owned?.commit)).rejects.toBeInstanceOf(
+      UndoNotAllowedError,
+    );
+    expect(
+      (
+        await executeFile("git", ["-C", root, "rev-parse", "HEAD"])
+      ).stdout.trim(),
+    ).toBe(head);
+  });
+
+  it("refuses to undo a commit that its upstream branch already contains", async () => {
+    const { root, git } = await fixture();
+    const remote = await mkdtemp(join(tmpdir(), "patch-remote-"));
+    directories.push(remote);
+    await executeFile("git", ["init", "--quiet", "--bare", remote]);
+    await executeFile("git", ["-C", root, "remote", "add", "origin", remote]);
+    const branch = (
+      await executeFile("git", ["-C", root, "branch", "--show-current"])
+    ).stdout.trim();
+    await executeFile("git", [
+      "-C",
+      root,
+      "push",
+      "--quiet",
+      "-u",
+      "origin",
+      branch,
+    ]);
+
+    await writeFile(join(root, "selected.txt"), "selected\n");
+    const owned = await git.commit({
+      paths: ["selected.txt"],
+      message: "Patch change",
+      verify: false,
+    });
+    await executeFile("git", ["-C", root, "push", "--quiet"]);
+
+    await expect(git.undoLastPatchCommit(owned?.commit)).rejects.toThrow(
+      /already been pushed/,
+    );
+    expect(
+      (
+        await executeFile("git", ["-C", root, "rev-parse", "HEAD"])
+      ).stdout.trim(),
+    ).toBe(owned?.commit);
+  });
+
   it("treats selected paths containing pathspec syntax literally", async () => {
     const { root, git } = await fixture();
     await writeFile(join(root, "[ab].txt"), "literal base\n");

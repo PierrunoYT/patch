@@ -608,14 +608,21 @@ class ConcreteApplicationSession implements ApplicationSession {
         const repository = this.#context.repository;
         if (repository === undefined)
           throw new Error("Undo requires Git integration");
+        const owned = state.lastPatchCommit;
+        if (owned === null)
+          throw new Error("This session has no Patch commit to undo");
         const pending = await repository.lastPatchCommit();
+        if (pending.commit !== owned)
+          throw new Error(
+            `The last Patch commit ${pending.commit} was not created by this session`,
+          );
         const selected = new Set(state.editablePaths);
         if (pending.paths.some((path) => !selected.has(path))) {
           throw new Error(
             "The last Patch commit includes paths outside the editable selection",
           );
         }
-        const undone = await repository.undoLastPatchCommit();
+        const undone = await repository.undoLastPatchCommit(owned);
         this.#session.recordApplied();
         return result(`Undid ${undone.commit}`, { changedPaths: undone.paths });
       }

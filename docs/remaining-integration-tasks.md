@@ -56,7 +56,7 @@ tests are evidence only for the cases they exercise.
 | Core lifecycle | partial | Ordinary initial turns are composed; switching, failed-mutation history, continuation, and multi-session ownership are incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
-| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move, metadata, race, and undo guarantees are incomplete. |
+| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering and session-owned undo are now enforced, while metadata preservation and ancestor races remain incomplete. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; switching and paste are incorrect, while rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start; URL/voice are helper surfaces, browser GUI/help are absent, and web mutation coordination is unsafe. |
@@ -79,8 +79,10 @@ tests are evidence only for the cases they exercise.
 - [x] Parse every unified-diff file-header transition. A `--- `/`+++ ` pair
   inside a fence closes the pending hunk and retargets the following hunks, and
   git prefixes are stripped only when both headers carry them.
-- [ ] Bind undo to a commit owned by the current session and recheck HEAD
-  atomically before reset.
+- [x] Bind undo to a commit owned by the current session and recheck HEAD
+  atomically before reset. `/undo` reverts only the commit this session
+  recorded, and `update-ref` performs a compare-and-swap on HEAD. Root, merge,
+  and already-pushed commits are refused.
 - [ ] Serialize repository mutations across application sessions, especially
   local HTTP/SSE sessions sharing one worktree.
 - [ ] Apply one stateful sanitizer to all untrusted terminal output, not only
@@ -321,9 +323,10 @@ ownership, and some command output/history semantics remain incorrect.
   configured process adapters at the repository root. `/run` shares the terminal
   approver used for model commands and writes; outside standalone interactive
   TTY mode it defaults to denial unless an embedding caller injects approval.
-- [ ] Constrain `/undo` to the current session's owned HEAD commit, selected
+- [x] Constrain `/undo` to the current session's owned HEAD commit, selected
   paths, and supported ancestry/publication state without disturbing unrelated
-  changes.
+  changes. Only the session's recorded commit is undone, root/merge/pushed
+  commits are refused, and HEAD moves through a compare-and-swap.
 - [ ] Make `/copy` use text-only platform utilities and make `/paste` submit
   clipboard text as a user turn rather than an assistant-labelled response.
 - [x] Serialize commands and provider turns through the same session queue and

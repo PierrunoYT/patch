@@ -27,8 +27,10 @@ The advertised command set is not yet a completed parity surface:
   defaults for the next turn.
 - `/paste` reads and displays clipboard text as an application response instead
   of submitting it as a user turn.
-- `/undo` accepts a marker-bearing HEAD but is not yet bound to the current
-  session's owned commit.
+- `/undo` reverts only the commit this session created, and only while it is
+  still HEAD, still carries the Patch marker, has one parent, touches selected
+  paths, and has not reached its upstream branch. A session undoes its latest
+  commit once; earlier commits from the same session are not tracked.
 - `/ls` and file-command matching are narrower than Aider, and semantic command
   help is absent.
 

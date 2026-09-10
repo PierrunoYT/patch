@@ -422,9 +422,10 @@ evidence remains incomplete.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
   a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.
-- [ ] Complete production commit policy and owned undo. Selected commit,
-  hook-control, attribution, generated-message, and marker helpers exist, but
-  production bypasses hooks/messages/attribution and undo is not session-owned.
+- [ ] Complete production commit policy. Selected commit, hook-control,
+  attribution, generated-message, and marker helpers exist, but production
+  bypasses hooks, generated messages, and attribution. Undo is now session-owned
+  and refuses root, merge, moved-HEAD, and already-pushed commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
 - [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,

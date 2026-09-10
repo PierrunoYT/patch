@@ -592,6 +592,19 @@ node -e "require('fs').writeFileSync('command-ran.txt','yes')"
     expect(log).toContain("Apply Patch edits");
     expect(log).toContain("Checkpoint before Patch edits");
 
+    // Another session owns no commit here, so it must not reset this one's.
+    const observer = await service.createSession({
+      principal: "test",
+      sessionId: "observer",
+    });
+    await expect(
+      observer.submit("/undo", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      }),
+    ).rejects.toThrow(/no Patch commit to undo/);
+    expect((await git.status()).head).toBe(status.head);
+
     await session.submit("/undo", {
       signal: new AbortController().signal,
       emit: () => undefined,
