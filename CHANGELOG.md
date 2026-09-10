@@ -180,6 +180,9 @@ The project has not published a release yet.
 - Dispatched every parsed slash command through concrete session state,
   including contained file selection, model/mode switches, approved processes,
   constrained Git operations, text clipboard actions, and clean exit.
+- Added protected, manually dispatched low-cost live contracts for OpenAI,
+  Anthropic, and the advertised DeepSeek-compatible endpoint; normal tests stay
+  credential-free and mocked.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe

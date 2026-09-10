@@ -171,15 +171,15 @@ marked complete in the porting plan.
 
 ## R4 — Add opt-in live provider contract tests
 
-- [ ] Add separately gated OpenAI and Anthropic tests using documented
+- [x] Add separately gated OpenAI and Anthropic tests using documented
   environment variables; add DeepSeek if it remains an advertised provider.
 - [ ] Exercise authentication diagnostics, a minimal streamed response, usage,
   finish reasons, timeout/cancellation, and one provider-specific capability.
-- [ ] Ensure missing credentials skip the live suite rather than failing normal
+- [x] Ensure missing credentials skip the live suite rather than failing normal
   CI and ensure failures never print keys, headers, or response secrets.
-- [ ] Run live tests on a manual or protected scheduled workflow with strict
+- [x] Run live tests on a manual or protected scheduled workflow with strict
   time and cost bounds; do not run them for untrusted pull requests.
-- [ ] Document API/network variability and distinguish mocked adapter tests from
+- [x] Document API/network variability and distinguish mocked adapter tests from
   live contract evidence.
 
 **Acceptance:** Phase 4's exit statement is backed by executable, opt-in tests

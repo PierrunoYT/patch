@@ -1,0 +1,39 @@
+name: Live provider contracts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-provider-contracts
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Protected low-cost contracts
+    runs-on: ubuntu-latest
+    environment: live-providers
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run opt-in live contracts
+        env:
+          PATCH_LIVE_PROVIDERS: "1"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: npm test -- tests/live-provider.test.ts

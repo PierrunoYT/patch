@@ -17,6 +17,25 @@ rejected because Chat Completions does not define a portable PDF representation.
 Default tests use mocked Fetch responses and never require credentials or
 network access.
 
+## Opt-in live contracts
+
+`tests/live-provider.test.ts` is skipped unless `PATCH_LIVE_PROVIDERS=1`. Each
+OpenAI, Anthropic, or DeepSeek case also skips when its provider-specific key is
+absent. The protected, manually dispatched `live-providers.yml` workflow has a
+five-minute job bound and sends one tiny response request per configured
+provider; it never runs for pull requests. Model overrides use
+`PATCH_LIVE_OPENAI_MODEL`, `PATCH_LIVE_ANTHROPIC_MODEL`, and
+`PATCH_LIVE_DEEPSEEK_MODEL`.
+
+Live contracts assert text streaming, usage, and finish events; Anthropic also
+exercises a cache-control system block. Authentication classification,
+cancellation, timeout, fragmented events, and secret-safe diagnostics remain
+deterministic mocked-adapter tests because intentionally failing live calls are
+variable and wasteful. Provider availability, account permissions, model names,
+rate limits, and API behavior can make a manual live run fail independently of
+the credential-free suite. Tests and workflow configuration never print key
+values.
+
 ## Anthropic Messages
 
 `AnthropicProvider` uses the official `@anthropic-ai/sdk` npm client. It moves
