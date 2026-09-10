@@ -322,6 +322,18 @@ export class CoderSession {
     return structuredClone(this.#state);
   }
 
+  recordApplied(commit: string | null = null): void {
+    if (this.#activeTurn !== undefined) {
+      throw new Error("Cannot record applied edits during an active turn");
+    }
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      phase: "waiting",
+      pendingEdits: [],
+      lastPatchCommit: commit,
+    });
+  }
+
   parseResponse(response: string, files?: readonly FileSnapshot[]): EditBatch {
     return EditBatchSchema.parse(
       this.strategy.parse(response, {

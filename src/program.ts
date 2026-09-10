@@ -184,7 +184,16 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   : { write: dependencies.writeOutput },
               );
             }
-            return typeof response === "string" ? response : undefined;
+            if (typeof response === "string") return response;
+            if (
+              typeof response === "object" &&
+              response !== null &&
+              "response" in response &&
+              typeof response.response === "string"
+            ) {
+              return response.response;
+            }
+            return undefined;
           },
           ...(dependencies.lines === undefined
             ? {}

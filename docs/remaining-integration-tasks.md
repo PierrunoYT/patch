@@ -124,9 +124,9 @@ commands, and checks are tested independently rather than as one workflow.
   9. preview and approve each model-suggested shell command;
   10. run configured tests and optionally reflect; and
   11. finalize history, usage, changed paths, and commit state.
-- [ ] Ensure lint and test commands observe the edited working tree, not an
+- [x] Ensure lint and test commands observe the edited working tree, not an
   unapplied candidate.
-- [ ] Decide and document rollback behavior for a filesystem failure between
+- [x] Decide and document rollback behavior for a filesystem failure between
   multi-file writes; either implement checkpoint-backed restoration or correct
   the plan's unsupported atomic-rollback claim.
 - [ ] Preserve unrelated staged/unstaged changes through checkpoint, commit,

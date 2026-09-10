@@ -8,7 +8,12 @@ import {
 } from "../config/bootstrap.js";
 import { RepositoryMap } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
-import type { FileSnapshot } from "../edits/resolve.js";
+import { resolveEditBatch, type FileSnapshot } from "../edits/resolve.js";
+import { EditTransaction } from "../edits/transaction.js";
+import {
+  applyAuthorizedEdits,
+  type WriteAuthorizationRequest,
+} from "../edits/write-boundary.js";
 import { selectFence } from "./fences.js";
 import { FileSystemAdapter } from "../io/filesystem.js";
 import { SafePathResolver } from "../io/safe-path.js";
@@ -16,6 +21,11 @@ import { ModelCatalog } from "../models/catalog.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
 import type { ModelProvider } from "../providers/events.js";
 import { createProvider } from "../providers/factory.js";
+import {
+  executeModelCommand,
+  executeModelCommands,
+  type ModelCommandResult,
+} from "../process/model-command.js";
 import { GitRepository } from "../repository/git.js";
 import { COMMON_PROMPTS } from "../resources/prompts.js";
 import type {
@@ -32,6 +42,10 @@ export interface ConcreteApplicationDependencies {
   readonly provider?: ModelProvider;
   readonly createProvider?: typeof createProvider;
   readonly approvePath?: (path: string) => boolean | Promise<boolean>;
+  readonly authorizeWrite?: (
+    request: WriteAuthorizationRequest,
+  ) => boolean | Promise<boolean>;
+  readonly approveCommand?: (command: string) => boolean | Promise<boolean>;
 }
 
 export interface ConcreteApplicationOptions extends BootstrapOptions {
@@ -52,6 +66,17 @@ interface ApplicationContext {
   readonly repositoryMap?: RepositoryMap;
   readonly fence: readonly [string, string];
   readonly approvePath?: (path: string) => boolean | Promise<boolean>;
+  readonly authorizeWrite?: (
+    request: WriteAuthorizationRequest,
+  ) => boolean | Promise<boolean>;
+  readonly approveCommand?: (command: string) => boolean | Promise<boolean>;
+}
+
+export interface ApplicationTurnResult {
+  readonly response: string;
+  readonly changedPaths: readonly string[];
+  readonly commit: string | null;
+  readonly commands: readonly ModelCommandResult[];
 }
 
 function portablePath(root: string, absolute: string): string {
@@ -138,9 +163,11 @@ class ConcreteApplicationSession implements ApplicationSession {
       readOnlyPaths: context.readOnlyPaths,
       availablePaths: context.availablePaths,
       fence: context.fence,
-      ...(context.approvePath === undefined
-        ? {}
-        : { approvePath: ({ path }) => context.approvePath?.(path) ?? false }),
+      approvePath: async ({ path }) => {
+        const resolver = await SafePathResolver.create(context.root);
+        await resolver.resolve(path);
+        return context.approvePath?.(path) ?? true;
+      },
     });
   }
 
@@ -148,7 +175,10 @@ class ConcreteApplicationSession implements ApplicationSession {
     return this.#session.snapshot();
   }
 
-  submit(message: string, options: ApplicationSubmitOptions): Promise<string> {
+  submit(
+    message: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<ApplicationTurnResult> {
     return this.queue.run(async () => {
       if (this.#closed) throw new Error("Application session is closed");
       const editable = await Promise.all(
@@ -161,7 +191,15 @@ class ConcreteApplicationSession implements ApplicationSession {
           .snapshot()
           .readOnlyPaths.map((path) => snapshot(this.#context.files, path)),
       );
-      const snapshots = [...editable, ...readOnly];
+      const selectedPaths = new Set(
+        [...editable, ...readOnly].map(({ path }) => path),
+      );
+      const unselected = await Promise.all(
+        this.#context.availablePaths
+          .filter((path) => !selectedPaths.has(path))
+          .map((path) => snapshot(this.#context.files, path)),
+      );
+      const snapshots = [...editable, ...readOnly, ...unselected];
       const repositoryContent = await this.#repositoryContext(message);
       const prompt = {
         system: [
@@ -205,7 +243,89 @@ class ConcreteApplicationSession implements ApplicationSession {
         signal: AbortSignal.any([options.signal, this.#lifecycle.signal]),
         onEvent: (event) => options.emit({ type: event.type, data: event }),
       });
-      return completed.response;
+      const editPaths = completed.edits.edits.flatMap((edit) =>
+        edit.kind === "move" ? [edit.fromPath, edit.path] : [edit.path],
+      );
+      const expandedSnapshots = [...snapshots];
+      for (const path of editPaths) {
+        if (!expandedSnapshots.some((file) => file.path === path)) {
+          expandedSnapshots.push(await snapshot(this.#context.files, path));
+        }
+      }
+      const resolved = resolveEditBatch(completed.edits, expandedSnapshots);
+      if (
+        resolved.operations.length === 0 &&
+        resolved.shellCommands.length === 0
+      ) {
+        this.#session.recordApplied();
+        return {
+          response: completed.response,
+          changedPaths: [],
+          commit: null,
+          commands: [],
+        };
+      }
+
+      const transaction = await EditTransaction.stage(
+        this.#context.files,
+        resolved,
+      );
+      const repository = this.#context.repository;
+      const write = await applyAuthorizedEdits(
+        transaction,
+        this.#context.editablePaths,
+        {
+          presentPreview: (preview) =>
+            options.emit({ type: "edit-preview", data: preview }),
+          authorize: (request) =>
+            this.#context.authorizeWrite?.(request) ?? false,
+          isDirty: (path) => repository?.isDirty(path) ?? false,
+          checkpointDirty: async (paths) =>
+            (
+              await repository?.commit({
+                paths: [...paths],
+                message: "Checkpoint before Patch edits",
+                verify: false,
+              })
+            )?.commit,
+        },
+      );
+      const commit = await this.#commit(
+        write.changedPaths,
+        "Apply Patch edits",
+      );
+      const signal = AbortSignal.any([options.signal, this.#lifecycle.signal]);
+      await this.#runCheck(
+        "lint",
+        this.#context.bootstrap.arguments.lintCommand,
+        signal,
+        write.changedPaths,
+        options,
+      );
+      const commands = await executeModelCommands(
+        resolved.shellCommands,
+        { root: this.#context.root, signal },
+        {
+          show: (command) =>
+            options.emit({ type: "command-preview", data: { command } }),
+          approve: (command) =>
+            this.#context.approveCommand?.(command) ?? false,
+        },
+      );
+      await this.#runCheck(
+        "test",
+        this.#context.bootstrap.arguments.testCommand,
+        signal,
+        write.changedPaths,
+        options,
+      );
+      this.#session.recordApplied(commit);
+      return {
+        response: completed.response,
+        changedPaths: write.changedPaths,
+        commit,
+        commands,
+      };
     }, options.signal);
   }
 
@@ -232,6 +352,50 @@ class ConcreteApplicationSession implements ApplicationSession {
       mentionedPaths,
       mentionedIdentifiers: identifierHints(message),
     });
+  }
+
+  async #commit(
+    paths: readonly string[],
+    message: string,
+  ): Promise<string | null> {
+    if (!this.#context.bootstrap.arguments.git) return null;
+    return (
+      (
+        await this.#context.repository?.commit({
+          paths: [...paths],
+          message,
+          verify: false,
+        })
+      )?.commit ?? null
+    );
+  }
+
+  async #runCheck(
+    label: "lint" | "test",
+    command: string | undefined,
+    signal: AbortSignal,
+    changedPaths: readonly string[],
+    options: ApplicationSubmitOptions,
+  ): Promise<void> {
+    if (command === undefined) return;
+    options.emit({ type: `${label}-start`, data: { command } });
+    const result = await executeModelCommand(
+      command,
+      { root: this.#context.root, signal },
+      { show: () => undefined, approve: () => true },
+    );
+    options.emit({ type: `${label}-complete`, data: result });
+    await this.#commit(changedPaths, `Apply ${label} changes`);
+    if (result.status !== "completed" || result.exitCode !== 0) {
+      const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+      const outcome =
+        result.status === "completed"
+          ? `exited with code ${String(result.exitCode)}`
+          : `was ${result.status}`;
+      throw new Error(
+        `Configured ${label} command ${outcome}${output === "" ? "" : `\n\n${output}`}`,
+      );
+    }
   }
 }
 
@@ -324,6 +488,12 @@ export class ConcreteApplicationService implements ApplicationService {
       ...(options.dependencies?.approvePath === undefined
         ? {}
         : { approvePath: options.dependencies.approvePath }),
+      ...(options.dependencies?.authorizeWrite === undefined
+        ? {}
+        : { authorizeWrite: options.dependencies.authorizeWrite }),
+      ...(options.dependencies?.approveCommand === undefined
+        ? {}
+        : { approveCommand: options.dependencies.approveCommand }),
     });
   }
 

@@ -174,6 +174,9 @@ The project has not published a release yet.
 - Added the concrete application composition root used by the CLI, including
   staged configuration, model/provider selection, safe current-file context,
   repository maps, implemented strategy dispatch, and per-session serialization.
+- Connected staged edit previews, write authorization, dirty-file checkpoints,
+  selected-path commits, approved model commands, and post-write lint/tests in
+  the application lifecycle. Multi-file filesystem rollback remains unsupported.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe

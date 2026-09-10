@@ -25,6 +25,21 @@ parse through the injected strategy, resolve against immutable snapshots, and
 stage a filesystem transaction. Staging never commits; explicit authorization
 must occur before a caller invokes the returned transaction's `commit` method.
 
+The concrete application now owns the post-response lifecycle. It resolves and
+stages the complete batch, emits a preview, authorizes new or out-of-chat paths,
+checkpoints dirty selected files, applies and commits only selected paths, runs
+configured lint against edited disk content, approves suggested commands one at
+a time, then runs configured tests. Unrelated working-tree changes are excluded
+from every commit. A successful application records the final Patch commit and
+returns the session to `waiting`.
+
+Multi-file writes are not transactionally rolled back after the first rename.
+Patch validates every snapshot and dry-runs every operation before the first
+mutation, and Git-enabled sessions create a checkpoint for dirty selected files,
+but a filesystem failure during the commit loop may leave an already-written
+prefix on disk. The error is reported and the valid files are left for explicit
+user recovery; Patch does not claim atomic multi-file rollback.
+
 `prepareTurn` resets transient edit and usage state, composes typed prompt chunks
 in upstream-compatible order, applies a conservative token estimate, and
 returns a validated provider request. Over-budget prompts fail before a turn is

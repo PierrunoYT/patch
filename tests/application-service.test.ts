@@ -69,7 +69,10 @@ describe("ConcreteApplicationService", () => {
         session.submit("inspect the constants", options),
         session.submit("and summarize", options),
       ]),
-    ).resolves.toEqual(["first", "second"]);
+    ).resolves.toEqual([
+      expect.objectContaining({ response: "first" }),
+      expect.objectContaining({ response: "second" }),
+    ]);
 
     expect(provider.requests).toHaveLength(2);
     expect(provider.requests[0]?.messages).toEqual(
