@@ -41,14 +41,10 @@ try {
     ".bin",
     process.platform === "win32" ? "patch.cmd" : "patch",
   );
-  const help =
-    process.platform === "win32"
-      ? execFileSync(
-          process.env.ComSpec ?? "cmd.exe",
-          ["/d", "/s", "/c", `"${executable}" --help`],
-          { encoding: "utf8" },
-        )
-      : execFileSync(executable, ["--help"], { encoding: "utf8" });
+  const help = execFileSync(executable, ["--help"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
 
   if (!help.includes("Usage: patch [options]")) {
     throw new Error("The packed executable did not print Patch help");
