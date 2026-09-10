@@ -76,9 +76,10 @@ edit-format, option, and interface support must be documented explicitly.
 - OpenAI and Anthropic have basic executable routes. DeepSeek request
   normalization and usage delivery are incomplete; prompt caching, media, and
   secondary-model workflows are not fully composed.
-- Watch and a local authenticated HTTP/SSE API start through the application.
-  URL ingestion, browser GUI, complete voice UX, and cross-session web mutation
-  policy remain.
+- Watch and a local authenticated HTTP/SSE API start through the application and
+  share one worktree mutation lock. URL ingestion, browser GUI, complete voice
+  UX, and the remaining web session policy (expiry, quotas, backpressure,
+  disconnect cancellation) remain.
 - Analytics, onboarding, update checks, and release-note prompts require an
   explicit Patch product requirement before implementation.
 
@@ -511,9 +512,9 @@ individual edit-strategy suites.
   privacy notes work, but history is not loaded into an interactive editor.
 - [ ] Add Emacs/Vi bindings and external-editor support to the executable.
   Tagged/EOF multiline input works; bindings and editor invocation are helpers.
-- [ ] Complete terminal rendering safety and fidelity. Markdown and diff
-  previews are wired, but the renderer does not strip every claimed hostile
-  control family.
+- [ ] Complete terminal rendering fidelity. One stateful sanitizer now covers
+  every untrusted output path and strips every claimed hostile control family;
+  tables, lists, wrapping, and unstable-tail rerendering remain out of scope.
 - [ ] Dispatch explicitly requested interactive commands through optional
   `node-pty`. The provisioned PTY adapter and sanitizer are tested but not wired
   into the executable command path.
@@ -539,8 +540,9 @@ because the provisioned native package fails its spawn contract there.
   suppress edits and commands. Node.js local-filesystem notifications are used.
 - [x] Add supported startup for the local authenticated HTTP/SSE server through
   the real `ApplicationService`.
-- [ ] Define session expiry, quotas, bounded event/backpressure policy,
-  disconnect cancellation, and cross-session repository mutation coordination.
+- [ ] Define session expiry, quotas, bounded event/backpressure policy, and
+  disconnect cancellation. Cross-session repository mutation coordination is
+  done: every session on one worktree shares a re-entrant mutation lock.
 - [x] Add voice recording/transcription as an optional package subpath and
   embedding adapter without changing the default install footprint. No CLI
   `/voice` or device/recording UX is claimed.

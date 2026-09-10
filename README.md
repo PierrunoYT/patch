@@ -50,9 +50,12 @@ approvers. Embedding callers must explicitly inject approval callbacks.
 Selected-file edits and configured lint/test commands retain existing behavior.
 File-mention selection and per-failure reflection prompts remain unsupported.
 
-This is not yet a usable-release or Aider-parity claim. Immediate blockers
-include cross-session repository writes, terminal control sanitization, and
-complete replacement metadata/ancestor-race policy. Hardlinked and non-regular
+This is not yet a usable-release or Aider-parity claim. Repository mutations are
+serialized across every session sharing a worktree, all untrusted terminal
+output passes through one stateful control-sequence sanitizer, and replacement
+preserves the metadata Node can carry portably while refusing a swapped ancestor;
+remaining blockers are model/mode switching, `/paste` submission, provider usage
+normalization, and the documentation truth pass. Hardlinked and non-regular
 mutation targets are rejected rather than replaced or deleted.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; a move writes and syncs its
