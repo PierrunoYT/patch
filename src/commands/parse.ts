@@ -4,7 +4,7 @@
  * Modified to return inert, validated effects instead of mutating a coder.
  */
 
-import { EditFormatSchema } from "../edits/types.js";
+import { ApplicationEditFormatSchema } from "../edits/types.js";
 import { CommandEffectSchema, type CommandEffect } from "./effects.js";
 
 export class CommandParseError extends Error {
@@ -108,7 +108,10 @@ export function parseCommand(input: string): CommandEffect {
       break;
     case "chat-mode": {
       const mode = requireArgument(command, argument);
-      if (mode !== "code" && !EditFormatSchema.safeParse(mode).success) {
+      if (
+        mode !== "code" &&
+        !ApplicationEditFormatSchema.safeParse(mode).success
+      ) {
         throw new CommandParseError(`Unknown chat mode: ${mode}`);
       }
       effect = { type: "chat-mode", mode };

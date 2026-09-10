@@ -15,7 +15,10 @@ import { parse as parseDotenv } from "dotenv";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
-import { EditFormatSchema, type EditFormat } from "../edits/types.js";
+import {
+  ApplicationEditFormatSchema,
+  type ApplicationEditFormat,
+} from "../edits/types.js";
 import { TextEncodingSchema, type TextEncoding } from "../io/filesystem.js";
 
 const executeFile = promisify(execFile);
@@ -30,7 +33,7 @@ const ConfigurationFileSchema = z
     "env-file": z.string().min(1).optional(),
     "lint-cmd": z.string().trim().min(1).optional(),
     "test-cmd": z.string().trim().min(1).optional(),
-    "edit-format": EditFormatSchema.optional(),
+    "edit-format": ApplicationEditFormatSchema.optional(),
     files: z.array(z.string().min(1)).optional(),
     "read-only": z.array(z.string().min(1)).optional(),
   })
@@ -48,7 +51,7 @@ export interface BootstrapArguments {
   readonly model: string | undefined;
   readonly lintCommand: string | undefined;
   readonly testCommand: string | undefined;
-  readonly editFormat: EditFormat | undefined;
+  readonly editFormat: ApplicationEditFormat | undefined;
   readonly files: readonly string[];
   readonly readOnlyFiles: readonly string[];
 }
@@ -262,7 +265,7 @@ function resolveArguments(
   const editFormat =
     editFormatValue === undefined
       ? undefined
-      : EditFormatSchema.safeParse(editFormatValue);
+      : ApplicationEditFormatSchema.safeParse(editFormatValue);
   if (editFormat !== undefined && !editFormat.success) {
     throw new BootstrapArgumentError(
       `Unsupported edit format: ${editFormatValue}`,

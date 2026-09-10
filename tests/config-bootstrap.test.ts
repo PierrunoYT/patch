@@ -123,6 +123,19 @@ describe("bootstrapConfiguration", () => {
     });
   });
 
+  it("rejects advanced formats that have no application construction path", async () => {
+    const root = await temporaryDirectory();
+    await initializeRepository(root);
+    await expect(
+      bootstrapConfiguration({
+        argv: ["--edit-format", "architect"],
+        cwd: root,
+        home: root,
+        environment: {},
+      }),
+    ).rejects.toThrow("Unsupported edit format: architect");
+  });
+
   it("corrects a provisional root from selected files and reruns without leaked dotenv values", async () => {
     const parent = await temporaryDirectory();
     const home = join(parent, "home");

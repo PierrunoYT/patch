@@ -205,7 +205,7 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
 
 ## R6 — Wire and verify advanced strategies
 
-- [ ] Implement a complete mode registry for `help`, `diff-fenced`, `udiff`,
+- [x] Implement a complete mode registry for `help`, `diff-fenced`, `udiff`,
   `udiff-simple`, `patch`, `architect`, `editor-diff`, `editor-diff-fenced`,
   `editor-whole`, and `context`, or remove unsupported values from user-facing
   schemas and model settings.

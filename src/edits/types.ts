@@ -16,6 +16,16 @@ export const EditFormatSchema = z.enum([
   "context",
 ]);
 
+/** Formats with complete construction and prompt behavior in ApplicationService. */
+export const ApplicationEditFormatSchema = z.enum([
+  "ask",
+  "whole",
+  "diff",
+  "diff-fenced",
+  "udiff",
+  "patch",
+]);
+
 const RelativePathSchema = z.string().min(1);
 
 const CreateFileEditSchema = z
@@ -81,5 +91,6 @@ export const EditBatchSchema = z
   .strict();
 
 export type EditFormat = z.infer<typeof EditFormatSchema>;
+export type ApplicationEditFormat = z.infer<typeof ApplicationEditFormatSchema>;
 export type Edit = z.infer<typeof EditSchema>;
 export type EditBatch = z.infer<typeof EditBatchSchema>;

@@ -85,6 +85,12 @@ Advanced schema values are rejected rather than silently accepted. See the
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 
+Architect/editor handoff, context convergence, cache keepalive, prefill, and
+media utilities are currently library-level contracts, not constructed CLI
+modes. `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are
+therefore rejected by `--edit-format` and `/chat-mode` until their complete
+application behavior and independent evidence exist.
+
 ## Technology direction and references
 
 The implementation uses TypeScript with Node.js and npm. Bun is an option
