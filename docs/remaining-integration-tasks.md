@@ -1,0 +1,338 @@
+# Remaining integration tasks
+
+This checklist converts the re-audit of `origin/main` at `671171f` into an
+ordered implementation backlog. It distinguishes tested components from
+features that work through the installed `patch` executable. Completing an
+isolated adapter or parser is not enough to check a task or phase exit in
+`PORTING_PLAN.md`.
+
+## Completion rules
+
+Apply these rules to every section below:
+
+- [ ] Preserve the pinned Aider baseline and document intentional differences.
+- [ ] Add failure, cancellation, malformed-input, and path-containment tests at
+  every boundary that accepts untrusted input.
+- [ ] Use temporary real Git repositories for repository behavior and
+  deterministic providers for ordinary session tests.
+- [ ] Keep live credentials out of the default test suite and diagnostics.
+- [ ] Run the narrowest relevant test while developing, then run all verification
+  commands listed at the end before completing a milestone.
+- [ ] Update `README.md`, `CHANGELOG.md`, affected feature documentation, and
+  `PORTING_PLAN.md` in the same change as completed behavior.
+- [ ] Mark a `PORTING_PLAN.md` checkbox complete only when its documented user
+  path works. Uncheck or qualify every checkbox and exit claim currently
+  supported only by an isolated module, mock, or schema entry.
+
+## Required implementation order
+
+```text
+R0 native footprint
+  └─▶ R1 application composition root
+        ├─▶ R2 end-to-end turn lifecycle
+        │     └─▶ R3 slash-command dispatch
+        ├─▶ R4 live provider contracts
+        ├─▶ R5 cross-platform CI
+        ├─▶ R6 advanced modes
+        ├─▶ R7 rich terminal integration
+        └─▶ R8 optional interface exposure
+                └─▶ R9 documentation truth pass
+```
+
+R9 should also be applied incrementally after each milestone; its final pass
+depends on all earlier scope decisions being settled.
+
+## R0 — Restore a portable default installation
+
+**Problem:** `node-pty` is listed in `optionalDependencies`. npm attempts to
+install optional dependencies during a normal install, so the default package
+still downloads and may try to build a native dependency. Dynamic loading alone
+does not satisfy the Phase 8/9 default-footprint exits.
+
+- [ ] Remove `node-pty` from the package's default dependency graph and update
+  `package-lock.json`.
+- [ ] Keep `runPtyCommand` behind dynamic loading with a focused unavailable
+  error. If discoverability requires metadata, use an optional peer dependency
+  only after a clean-install test proves npm does not fetch or build it;
+  otherwise document a separately installed external package.
+- [ ] Ensure importing the package root, invoking `patch --help`, and using
+  non-PTY commands never resolve or probe `node-pty`.
+- [ ] Add package-smoke assertions that a plain clean install contains no
+  `node-pty`, Playwright, bundled browser, ffmpeg, or native audio package.
+- [ ] Add a separately gated PTY job that explicitly installs `node-pty` and
+  runs PTY contract tests on supported platforms.
+
+**Acceptance:** a plain `npm install` of the packed tarball performs no native
+build and contains none of the optional native/browser dependencies, while an
+explicitly provisioned PTY test still passes.
+
+## R1 — Build the real ApplicationService and composition root
+
+**Problem:** `src/core/application-service.ts` defines only interfaces. The CLI
+still injects `unavailableProvider`; configuration, provider, session, edit,
+repository, and check modules have no production composition path.
+
+### Construction and startup
+
+- [ ] Implement a concrete `ApplicationService` and `ApplicationSession` as the
+  sole owners of session construction and mutable application state.
+- [ ] Add one composition root that runs `bootstrapConfiguration`, loads the
+  `ModelCatalog`, resolves main/weak/editor models, diagnoses credentials,
+  constructs providers and strategies, and opens filesystem/Git adapters.
+- [ ] Route CLI configuration and selected editable/read-only files through the
+  staged bootstrap instead of maintaining a separate Commander-only option set.
+- [ ] Remove `unavailableProvider` from the production path; fail before input
+  starts with a secret-safe, actionable configuration diagnostic.
+- [ ] Make terminal, watcher, and web callers use the same concrete service and
+  per-session `SerialTaskQueue` rather than wrapping independent callbacks.
+- [ ] Define explicit cleanup for provider streams, watchers, subprocesses,
+  histories, and web sessions.
+
+### Context and strategies
+
+- [ ] Resolve all selected paths through `SafePathResolver`; reject mixed
+  repositories and conflicting editable/read-only selections.
+- [ ] Build immutable per-turn snapshots and editable/read-only prompt chunks
+  from current disk state.
+- [ ] Generate and inject repository maps when enabled, including current-turn
+  filename and identifier hints.
+- [ ] Add a strategy registry for genuinely implemented modes and reject
+  schema-only modes before a provider call.
+- [ ] Give each strategy its required system prompt, examples, reminders,
+  shell-command policy, and fence selection instead of treating parsing alone
+  as a complete mode.
+
+**Acceptance:** the packed executable can start from config, environment, and
+CLI inputs; select a supported provider/model/strategy; compose real repository
+context; and complete both one-shot and serial interactive fake-provider turns.
+
+## R2 — Implement the correct end-to-end turn lifecycle
+
+**Problem:** `CoderSession.runTurn` currently parses and invokes checks before
+edits are resolved, written, or committed. Transaction, write-boundary, Git,
+commands, and checks are tested independently rather than as one workflow.
+
+- [ ] Refactor orchestration so every editing attempt executes in this order:
+  1. compose current context and stream the provider response;
+  2. parse and dry-run resolve the full edit batch;
+  3. reflect on parse or application diagnostics within the configured bound;
+  4. stage, preview, and authorize new/out-of-chat paths;
+  5. checkpoint dirty selected files;
+  6. apply the staged transaction;
+  7. auto-commit changed files when enabled;
+  8. lint changed files and optionally reflect, committing linter changes;
+  9. preview and approve each model-suggested shell command;
+  10. run configured tests and optionally reflect; and
+  11. finalize history, usage, changed paths, and commit state.
+- [ ] Ensure lint and test commands observe the edited working tree, not an
+  unapplied candidate.
+- [ ] Decide and document rollback behavior for a filesystem failure between
+  multi-file writes; either implement checkpoint-backed restoration or correct
+  the plan's unsupported atomic-rollback claim.
+- [ ] Preserve unrelated staged/unstaged changes through checkpoint, commit,
+  failed check, cancellation, and undo paths.
+- [ ] Make cancellation at every boundary leave valid files, Git state, queue
+  state, and reusable session state.
+- [ ] Add one asymmetric end-to-end test that streams a malformed response,
+  reflects, edits multiple files, commits, fails lint once, executes an approved
+  command, passes tests, and undoes only the Patch commit.
+- [ ] Add denial, stale snapshot, partial-write failure, rejected command,
+  timeout, truncation, and cancellation variants that assert exact disk and Git
+  state—not merely emitted events.
+
+**Acceptance:** Phase 3 and Phase 5 exits are demonstrated through the installed
+application path, and tests prove the pinned lifecycle ordering.
+
+## R3 — Dispatch every advertised slash command
+
+**Problem:** slash commands currently produce inert typed effects. Clipboard
+commands were added to the parser but are likewise not connected to terminal or
+session state.
+
+- [ ] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
+  `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
+  `/undo`, `/copy`, `/paste`, and `/exit`.
+- [ ] Resolve and authorize command paths through the same containment boundary
+  as model edits; never mutate session lists from raw parser strings.
+- [ ] Rebuild provider/strategy state safely for `/model` and `/chat-mode`,
+  preserving or summarizing compatible history as documented.
+- [ ] Run `/run`, `/lint`, and `/test` only through the approved/configured
+  process adapters at the repository root.
+- [ ] Constrain `/commit` and `/undo` to selected paths and Patch-created commit
+  markers without disturbing unrelated user changes.
+- [ ] Connect `/copy` and `/paste` to text-only clipboard adapters with clear
+  unavailable-platform errors.
+- [ ] Serialize commands and provider turns through the same session queue and
+  test commands submitted while a turn is active.
+
+**Acceptance:** every command shown in help/documentation has an executable
+effect or is removed from the advertised surface; parser-only behavior is not
+marked complete in the porting plan.
+
+## R4 — Add opt-in live provider contract tests
+
+- [ ] Add separately gated OpenAI and Anthropic tests using documented
+  environment variables; add DeepSeek if it remains an advertised provider.
+- [ ] Exercise authentication diagnostics, a minimal streamed response, usage,
+  finish reasons, timeout/cancellation, and one provider-specific capability.
+- [ ] Ensure missing credentials skip the live suite rather than failing normal
+  CI and ensure failures never print keys, headers, or response secrets.
+- [ ] Run live tests on a manual or protected scheduled workflow with strict
+  time and cost bounds; do not run them for untrusted pull requests.
+- [ ] Document API/network variability and distinguish mocked adapter tests from
+  live contract evidence.
+
+**Acceptance:** Phase 4's exit statement is backed by executable, opt-in tests
+rather than only mocked Fetch responses.
+
+## R5 — Add cross-platform CI and package evidence
+
+- [ ] Run format/lint/typecheck/unit tests once on Linux and run platform-sensitive
+  integration/package jobs on Linux, macOS, and Windows with Node.js 22.
+- [ ] Cover path separators, symlinks or their documented Windows substitute,
+  Git worktrees, process cancellation, shell argv, history permissions,
+  external editor cleanup, notifications, clipboard detection, and package bins.
+- [ ] Run repository-map extraction for every shipped language from the packed
+  package on all supported platforms.
+- [ ] Run explicit PTY tests only in jobs that provision the optional native
+  dependency; verify Ctrl-C, EOF, resize, cleanup, and hostile split control
+  sequences.
+- [ ] Add deterministic timeout guards and retain useful diagnostics without
+  exposing environment secrets.
+
+**Acceptance:** platform-sensitive Phase 6 and Phase 8 exit claims have green
+Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
+
+## R6 — Wire and verify advanced strategies
+
+- [ ] Implement a complete mode registry for `help`, `diff-fenced`, `udiff`,
+  `udiff-simple`, `patch`, `architect`, `editor-diff`, `editor-diff-fenced`,
+  `editor-whole`, and `context`, or remove unsupported values from user-facing
+  schemas and model settings.
+- [ ] Port distinct help/editor prompts and enforce editor-specific no-shell,
+  no-repo-map, and fresh-history behavior where required by pinned Aider.
+- [ ] Integrate architect acceptance, fresh editor construction, state/cost/
+  commit transfer, and final architect history through `ApplicationService`.
+- [ ] Integrate context convergence with forced repository-map refresh, expanded
+  initial map budget, complete replacement of selected files, and relevant
+  identifier hints.
+- [ ] Integrate prompt-cache boundaries and keepalive scheduling using only the
+  cacheable prefix; document retry/cancellation behavior.
+- [ ] Integrate assistant-prefill continuation and contained, size-limited image/
+  PDF loading through provider capability checks.
+- [ ] Add independent pinned golden fixtures plus asymmetric property tests for
+  every advertised edit format, including switching away from incompatible
+  protocol history.
+
+**Acceptance:** each Phase 7 checkbox is reachable from a constructed session,
+and its exit is backed by independent golden/property and switching tests.
+
+## R7 — Integrate Phase 8 terminal behavior
+
+**Problem:** Phase 8 modules and unit tests exist, but most are not connected to
+the interactive CLI/session workflow.
+
+- [ ] Connect command/file/identifier completion to live selected files,
+  commands, and approved source content.
+- [ ] Load persistent input history for navigation and append input/chat records
+  only after the correct lifecycle events; test explicit paths and disabled-by-
+  default behavior.
+- [ ] Apply Emacs/Vi bindings and external-editor invocation in the actual input
+  loop rather than exposing declarative helpers only.
+- [ ] Stream provider output through `MarkdownStream`, render authorized edit
+  previews through `renderDiff`, and honor TTY, `NO_COLOR`, and `--no-color` in
+  the executable.
+- [ ] Dispatch interactive commands through `runPtyCommand` only when explicitly
+  requested and available; keep noninteractive process execution portable.
+- [ ] Wire shell completions, notifications, and clipboard effects to the same
+  command/application state used by the session.
+- [ ] Add terminal-level tests covering Ctrl-C recovery, EOF, resize, multiline
+  submission, history navigation, editor cleanup, no-color output, hostile
+  provider/child control sequences, and process cleanup.
+
+**Acceptance:** Phase 8 behavior can be exercised through `patch`, not only by
+importing helper modules, and the default installation remains native-free.
+
+## R8 — Expose Phase 9 adapters through ApplicationService
+
+**Problem:** URL, watcher, web, and voice adapters exist, but there is no
+concrete service for them to invoke and no supported application startup path.
+
+- [ ] Feed fetched URL content through bounded application context with explicit
+  user intent, source labeling, and token limits; keep Playwright separately
+  installed and opt-in.
+- [ ] Connect `AiWatchMode` to concrete sessions and Git ignore handling, sharing
+  the exact session queue used by terminal and web submissions.
+- [ ] Add supported startup/configuration for the authenticated loopback web
+  server and construct it with the real `ApplicationService`.
+- [ ] Define session expiry, shutdown, backpressure, bounded event buffering,
+  and cancellation behavior for HTTP/SSE sessions.
+- [ ] Expose voice transcription as explicit input to an application session
+  without importing voice code from the root/CLI path or requiring ffmpeg at
+  install time.
+- [ ] Test principal/session isolation, simultaneous terminal/watch/web work,
+  disconnect cancellation, adapter cleanup, and optional dependency absence.
+
+**Acceptance:** Phase 9 adapters drive the same session behavior as the CLI;
+they do not merely compile against an interface that has no implementation.
+
+## R9 — Correct stale plans and product documentation
+
+- [ ] Replace the stale source-baseline statement that Patch contains no
+  implementation with an accurate component-versus-integration status.
+- [ ] Align the target `EditStrategy`, state-machine, queue, and application
+  contracts in `PORTING_PLAN.md` with the chosen implementation boundaries.
+- [ ] Correct the recommended first slice: mark genuinely completed library work
+  accurately and remove or implement the nonexistent saved-response dry-run CLI.
+- [ ] Rewrite README status claims that simultaneously call implemented modules
+  absent and checked phases complete.
+- [ ] Audit every Phase 0–9 checkbox. Uncheck or label partial all items that are
+  parser/adapter/schema-only, lack application wiring, lack required platform or
+  live-provider evidence, or fail their phase exit.
+- [ ] Correct Phase 3/5 lifecycle and usable-release exits until an installed
+  binary passes the full workflow test.
+- [ ] Correct Phase 6 cross-platform and Phase 7 independent-golden claims until
+  the required evidence exists.
+- [ ] Correct Phase 8/9 checkboxes and default-install-footprint exit until the
+  helpers are integrated and native dependency assertions pass.
+- [ ] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
+  “support” and “parity” for behavior reachable through a documented interface.
+- [ ] Ensure every directly ported file identifies its upstream path, pinned
+  revision, modification, and Apache-2.0 provenance as required.
+
+**Acceptance:** a reader can derive the exact shipped behavior, unsupported
+behavior, test evidence, and remaining work without inspecting source code.
+
+## Verification commands and required evidence
+
+Run these from a clean checkout with Node.js 22:
+
+```sh
+npm ci
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run smoke:package
+npm start -- --help
+```
+
+Before claiming the MVP/session exits, also run targeted integration tests that
+cover:
+
+- [ ] packed CLI startup with config, dotenv, environment, and CLI precedence;
+- [ ] one-shot and multi-turn fake-provider sessions;
+- [ ] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
+  commit, lint, approved shell command, test reflection, and undo;
+- [ ] exact file and Git state after cancellation or every injected failure;
+- [ ] every advertised slash command through the application dispatcher;
+- [ ] repository-map context through the packed executable;
+- [ ] live provider contracts in the protected opt-in workflow;
+- [ ] Linux, macOS, and Windows package/platform jobs;
+- [ ] default packed installation with no native/browser/audio dependency; and
+- [ ] explicitly provisioned PTY and optional-interface suites.
+
+Record the exact test files/workflows next to each corrected phase exit. A green
+unit test for an exported helper is evidence for that helper, not for an
+installed-application parity claim.
