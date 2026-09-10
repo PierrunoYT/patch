@@ -284,9 +284,12 @@ packed tarball from a clean temporary project.
   command effects, model settings, and session state.
 - [x] Add a deterministic fake provider that can stream text, reasoning,
   fragmented tool calls, usage, retryable errors, truncation, and cancellation.
+- [x] Enforce LF line endings in Git checkouts so the Prettier gate behaves the
+  same on Windows, macOS, and Linux, including when `core.autocrlf=true`.
 
 **Exit:** `npm ci`, typecheck, tests, build, pack, clean-install, and `patch
---help` work without Python.
+--help` work without Python. The repository-level line-ending policy keeps the
+formatting gate portable across Git hosts.
 
 ### Phase 1 — Files, configuration, and messages
 

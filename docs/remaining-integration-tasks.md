@@ -144,10 +144,14 @@ or audio dependencies.
   `node-pty`, Playwright, bundled browser, ffmpeg, or native audio package.
 - [x] Add a separately gated PTY job that explicitly installs `node-pty` and
   runs PTY contract tests on supported platforms.
+- [x] Enforce LF line endings at checkout so the formatting gate remains
+  deterministic on Windows hosts configured with `core.autocrlf=true`.
 
 **Acceptance:** a plain `npm install` of the packed tarball performs no native
 build and contains none of the optional native/browser dependencies, while an
-explicitly provisioned PTY test still passes.
+explicitly provisioned PTY test still passes. The Phase 0 validation commands
+must also pass from a Windows checkout with automatic line-ending conversion
+enabled; the formatting gate is verified under that configuration.
 
 ## R1 — Build the real ApplicationService and composition root
 

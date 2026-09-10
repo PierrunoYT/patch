@@ -171,6 +171,9 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Added a repository line-ending policy so Windows checkouts with
+  `core.autocrlf=true` no longer fail the Phase 0 Prettier validation gate solely
+  because Git materialized tracked text files as CRLF.
 - Unified-diff application now distinguishes whitespace-only source lines from
   empty hunk sides used by pure additions and deletions.
 - Made repository adapter subprocesses that accept selected pathspecs set
