@@ -159,6 +159,12 @@ explicitly provisioned PTY test still passes. The Phase 0 validation commands
 must also pass from a Windows checkout with automatic line-ending conversion
 enabled; the formatting gate is verified under that configuration.
 
+**Local evidence (2026-09-10):** Windows/Node.js `v24.18.0` with
+`core.autocrlf=true` passed `npm ci` and the complete `npm run check` production
+path: 333 source tests passed, four gated tests skipped, the clean build and
+tarball install succeeded, and the installed lifecycle and CLI help ran without
+Python. The separately provisioned PTY contract remains CI-gated as documented.
+
 ## R1 — Build the real ApplicationService and composition root
 
 **Status:** Partial. `ConcreteApplicationService` is the production composition

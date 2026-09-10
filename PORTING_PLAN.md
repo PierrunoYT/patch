@@ -297,6 +297,12 @@ packed tarball from a clean temporary project.
 --help` work without Python. The repository-level line-ending policy keeps the
 formatting gate portable across Git hosts.
 
+**Local evidence (2026-09-10):** on Windows with Node.js `v24.18.0` and
+`core.autocrlf=true`, `npm ci` and `npm run check` pass. The check ran 337 source
+tests (333 passed, four explicitly skipped), rebuilt from an empty `dist/`,
+packed and clean-installed the tarball, exercised the installed lifecycle, and
+invoked the installed `patch --help` entry point without Python.
+
 ### Phase 1 — Files, configuration, and messages
 
 - [x] Implement safe path resolution that rejects writes outside the selected

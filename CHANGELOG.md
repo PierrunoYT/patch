@@ -197,6 +197,9 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
+- Revalidated the Phase 0 exit on Windows after a clean lockfile install: all
+  default checks, 333 source tests, clean build, package install, installed
+  lifecycle smoke, and installed CLI help passed without Python.
 - Re-audited Patch `58597efc3` against pinned Aider `5dc9490b` across lifecycle,
   editing, providers, configuration, Git/filesystem, repository maps, terminal,
   interfaces, packaging, and provenance. Corrected current documentation and
