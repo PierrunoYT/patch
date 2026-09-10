@@ -7,6 +7,99 @@
 
 import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
+import { Writable, type Readable } from "node:stream";
+
+/** One reader owns both input queues and fresh, explicit terminal answers. */
+export class TerminalInput implements AsyncIterable<string> {
+  readonly #reader;
+  readonly #queue: string[] = [];
+  readonly #write: (text: string) => void;
+  #wake: (() => void) | undefined;
+  #answer: ((answer: boolean) => void) | undefined;
+  #closed = false;
+
+  constructor(
+    input: Readable,
+    write: (text: string) => void,
+    signal: AbortSignal,
+    interrupt: () => void = () => this.close(),
+  ) {
+    this.#write = write;
+    // No second readline/question consumer; queued messages stay messages.
+    const output = new Writable({
+      write(chunk, _encoding, done) {
+        write(String(chunk));
+        done();
+      },
+    });
+    this.#reader = createInterface({ input, output, terminal: true, signal });
+    this.#reader.on("SIGINT", interrupt);
+    this.#reader.on("line", (line) => {
+      if (this.#answer !== undefined) {
+        const answer = this.#answer;
+        this.#answer = undefined;
+        setImmediate(() => answer(!this.#closed && /^(y|yes)$/iu.test(line)));
+      } else {
+        this.#queue.push(line);
+        this.#wake?.();
+      }
+    });
+    this.#reader.on("close", () => {
+      this.#closed = true;
+      this.#answer?.(false);
+      this.#answer = undefined;
+      this.#wake?.();
+    });
+  }
+
+  async confirm(label: string, value: string): Promise<boolean> {
+    // Drain the current input event (including pasted lines) before arming.
+    await new Promise<void>((done) => setImmediate(done));
+    if (
+      this.#closed ||
+      this.#answer !== undefined ||
+      this.#queue.length > 0 ||
+      this.#reader.line !== ""
+    ) {
+      this.#write(
+        "\nApproval denied: input is closed or already queued/partially typed.\n",
+      );
+      return false;
+    }
+    const literal = JSON.stringify(value).replace(
+      /[\u007f-\u009f\u2028\u2029]|\p{Cf}/gu,
+      (character) =>
+        character
+          .split("")
+          .map(
+            (unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`,
+          )
+          .join(""),
+    );
+    return new Promise<boolean>((done) => {
+      this.#answer = done;
+      this.#write(
+        `\n${label} (JSON-quoted literal): ${literal}\nApprove? [y/yes; anything else denies] `,
+      );
+    });
+  }
+
+  close(): void {
+    this.#reader.close();
+  }
+
+  async *[Symbol.asyncIterator](): AsyncIterator<string> {
+    while (true) {
+      const line = this.#queue.shift();
+      if (line !== undefined) yield line;
+      else if (this.#closed) return;
+      else
+        await new Promise<void>((done) => {
+          this.#wake = done;
+        });
+    }
+  }
+}
 
 export interface InputOptions {
   readonly message?: string;

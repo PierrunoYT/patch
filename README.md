@@ -32,8 +32,22 @@ fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
 the installed acceptance evidence and intentional differences from aider.
 
-This is not yet a usable-release or aider-parity claim. The executable has no
-interactive approval prompt for new/out-of-chat writes or commands, and
+Standalone interactive sessions with TTY input and output ask before each
+new/out-of-chat write, model-suggested shell command, and `/run` command.
+Prompts show exact JSON-quoted paths/commands; only `y` or `yes` (case-insensitive)
+approves. Enter, other answers, EOF, and Ctrl-C deny; Ctrl-C stops the CLI.
+Queued or partially typed input is preserved as normal input and causes denial,
+never approval. Answers are not submitted to the model or persistent history.
+Commands are not sandboxed; literal secrets in commands are visible in their
+preview, but approval does not expand environment variables or print credentials.
+
+One-shot, piped/non-TTY, redirected-output, `--multiline` (EOF input), watch
+(including its terminal session), web, and injected-line sessions do not install
+approvers. Embedding callers must explicitly inject approval callbacks.
+Selected-file edits and configured lint/test commands retain existing behavior.
+File-mention selection and per-failure reflection prompts remain unsupported.
+
+This is not yet a usable-release or aider-parity claim;
 failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; `/undo` retains working files and
 unrelated staged changes. Rich completion, history navigation, keybindings, editor and PTY

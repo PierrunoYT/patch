@@ -1,12 +1,13 @@
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { Readable } from "node:stream";
 
 import {
   ConcreteApplicationService,
   type ConcreteApplicationOptions,
 } from "./core/concrete-application-service.js";
-import { runInput, type InputDependencies } from "./input.js";
+import { runInput, TerminalInput, type InputDependencies } from "./input.js";
 import { TerminalHistory } from "./io/history.js";
 import {
   generateShellCompletion,
@@ -27,6 +28,7 @@ export type ProgramDependencies = Partial<InputDependencies> & {
   readonly cwd?: string;
   readonly environment?: Readonly<Record<string, string | undefined>>;
   readonly outputIsTTY?: boolean;
+  readonly inputStream?: Readable & { readonly isTTY?: boolean };
   readonly signal?: AbortSignal;
 };
 
@@ -203,33 +205,64 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       const write =
         dependencies.writeOutput ??
         ((text: string) => process.stdout.write(text));
-      const application =
-        dependencies.handleMessage === undefined
-          ? await (
-              dependencies.createApplication ??
-              ConcreteApplicationService.create
-            )({
-              argv: bootstrapArguments(options, files),
-              ...(dependencies.cwd === undefined
-                ? {}
-                : { cwd: dependencies.cwd }),
-              ...(dependencies.environment === undefined
-                ? {}
-                : { environment: dependencies.environment }),
-            })
-          : undefined;
       const controller = new AbortController();
       const signal =
         dependencies.signal === undefined
           ? controller.signal
           : AbortSignal.any([controller.signal, dependencies.signal]);
+      const input = dependencies.inputStream ?? process.stdin;
+      const terminal =
+        input.isTTY === true &&
+        (dependencies.outputIsTTY ?? process.stdout.isTTY) === true &&
+        dependencies.lines === undefined &&
+        options.message === undefined &&
+        options.messageFile === undefined &&
+        options.multiline !== true &&
+        options.web !== true &&
+        options.watchFiles !== true
+          ? new TerminalInput(input, write, signal, () =>
+              controller.abort(new Error("Application stopped")),
+            )
+          : undefined;
       const stop = () => controller.abort(new Error("Application stopped"));
       process.on("SIGINT", stop);
       process.on("SIGTERM", stop);
+      let application: ConcreteApplicationService | undefined;
       let session: ApplicationSession | undefined;
       let watcher: AiWatchMode | undefined;
       let web: LocalWebServer | undefined;
       try {
+        application =
+          dependencies.handleMessage === undefined
+            ? await (
+                dependencies.createApplication ??
+                ConcreteApplicationService.create
+              )({
+                argv: bootstrapArguments(options, files),
+                ...(dependencies.cwd === undefined
+                  ? {}
+                  : { cwd: dependencies.cwd }),
+                ...(dependencies.environment === undefined
+                  ? {}
+                  : { environment: dependencies.environment }),
+                ...(terminal === undefined
+                  ? {}
+                  : {
+                      dependencies: {
+                        authorizeWrite: (request) =>
+                          terminal.confirm(
+                            `Allow ${request.operation.kind} (${request.reason}) at repository-relative path`,
+                            request.path,
+                          ),
+                        approveCommand: (command) =>
+                          terminal.confirm(
+                            "Run shell command at repository root (not sandboxed)",
+                            command,
+                          ),
+                      },
+                    }),
+              })
+            : undefined;
         signal.throwIfAborted();
         if (options.web === true) {
           if (application === undefined || token === undefined)
@@ -257,13 +290,14 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         if (options.watchFiles === true) {
           if (application === undefined || session === undefined)
             throw new Error("Watch startup requires an application session");
+          const watchApplication = application;
           const { AiWatchMode } = await import("./interfaces/watch-mode.js");
           const markdown = new MarkdownStream(write, { color: false });
           watcher = new AiWatchMode({
             root: application.root,
             session,
             signal,
-            isIgnored: (path) => application.isIgnored(path),
+            isIgnored: (path) => watchApplication.isIgnored(path),
             emit: (event) => {
               if (
                 event.type === "text-delta" &&
@@ -347,9 +381,11 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             }
             return undefined;
           },
-          ...(dependencies.lines === undefined
-            ? {}
-            : { lines: dependencies.lines }),
+          ...(terminal !== undefined
+            ? { lines: terminal }
+            : dependencies.lines === undefined
+              ? {}
+              : { lines: dependencies.lines }),
           ...(dependencies.readMessageFile === undefined
             ? {}
             : { readMessageFile: dependencies.readMessageFile }),
@@ -359,6 +395,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       } catch (error) {
         if (!signal.aborted) throw error;
       } finally {
+        terminal?.close();
         process.off("SIGINT", stop);
         process.off("SIGTERM", stop);
         watcher?.close();

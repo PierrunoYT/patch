@@ -342,7 +342,7 @@ or a documented, safer rejection.
 **Exit (partial):** installed-service acceptance covers streamed malformed and
 unresolvable responses, two-file writes, lint reflection, approved commands,
 tests, and undo with exact Git assertions. Exhaustive failure/cancellation,
-interrupted-history reconciliation, and standalone interactive approvals remain
+interrupted-history reconciliation, and remaining approval policies remain
 in R2/R3 of `docs/remaining-integration-tasks.md`.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
@@ -382,7 +382,7 @@ evidence remains incomplete.
   `.gitignore`, `.aiderignore`, diffs, and repository-relative paths using
   NUL-delimited Git output.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
-  an embedding caller authorizes them, checkpoint dirty files, apply, and
+  a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.
 - [x] Implement selected-file commits, optional hook verification, attribution,
   model-generated commit messages, and undo constrained to Patch commits.
@@ -393,18 +393,21 @@ evidence remains incomplete.
   `/undo`, and `/exit`.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation
-  in the application contract. The CLI currently supplies no approver and
-  therefore denies execution.
+  in the application contract. Standalone interactive TTY input supplies one
+  shared approver for writes, model commands, and `/run`; other interfaces deny
+  without injected approval. See README for exact input-mode restrictions.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
 **Exit — partial usable workflow:** the npm-installed binary composes supported
 providers and edit formats, previews selected-file edits, commits, runs
 configured lint/tests, and dispatches Git commands. A full release exit still
-requires interactive authorization for new/out-of-chat edits and commands,
-per-failure reflection choice, and exhaustive failure/cancellation state tests.
+requires per-failure reflection choice and exhaustive failure/cancellation state tests.
 The packed service acceptance scenario now passes with injected provider and
-approval adapters; this does not establish standalone-bin approval support.
+approval adapters. `tests/terminal-approval.test.ts` exercises the executable's
+program path with real readline input, fake TTY streams, the concrete service,
+fake provider, and real filesystem/process effects; native terminal platform
+coverage for this approval path is not yet established.
 
 **Evidence:** `tests/application-lifecycle.test.ts`,
 `tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the

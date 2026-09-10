@@ -156,6 +156,12 @@ intentional differences.
 - [x] Add denial, stale snapshot, partial-write failure, rejected command,
   timeout, truncation, and cancellation variants that assert exact disk and Git
   state—not merely emitted events.
+- [x] Connect standalone interactive TTY authorization for new/out-of-chat
+  writes and model commands without consuming queued/partial normal input.
+  `tests/terminal-approval.test.ts` covers the concrete executable program path,
+  strict answers, cancellation, exact file/process effects, and noninteractive
+  gating. Watch/web/one-shot and other noninteractive contexts keep denial;
+  native PTY approval coverage and broader approval policies remain incomplete.
 
 **Acceptance:** Phase 3 and Phase 5 exits are demonstrated through the installed
 application path, and tests prove the pinned lifecycle ordering.
@@ -210,9 +216,10 @@ session state.
   as model edits; never mutate session lists from raw parser strings.
 - [x] Rebuild provider/strategy state safely for `/model` and `/chat-mode`,
   preserving or summarizing compatible history as documented.
-- [ ] Add an interactive CLI approver for `/run`; `/lint` and `/test` use only
-  configured process adapters at the repository root, while `/run` currently
-  defaults to denial unless an embedding caller injects approval.
+- [x] Add an interactive CLI approver for `/run`; `/lint` and `/test` use only
+  configured process adapters at the repository root. `/run` shares the terminal
+  approver used for model commands and writes; outside standalone interactive
+  TTY mode it defaults to denial unless an embedding caller injects approval.
 - [x] Constrain `/commit` and `/undo` to selected paths and Patch-created commit
   markers without disturbing unrelated user changes.
 - [x] Connect `/copy` and `/paste` to text-only clipboard adapters with clear

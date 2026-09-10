@@ -109,7 +109,7 @@ porting plan distinguish composed behavior from library-only adapters.
   slash commands, including quoted paths and strict argument handling.
 - An explicit approval port for model-suggested shell execution, with exact
   previews, repository-root working directories, bounded output, timeout, and
-  cancellation; the CLI currently supplies no interactive approver.
+  cancellation; standalone TTY approval is now composed as described below.
 - Optional configured lint and test command adapters with config, environment,
   and CLI precedence; absent commands remain disabled instead of guessing a
   target repository's package-manager invocation.
@@ -176,6 +176,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
+- Connected one terminal input owner to new/out-of-chat write authorization,
+  model command approval, and `/run`. Standalone TTY sessions show escaped,
+  exact literal previews and accept only `y`/`yes`; empty/ambiguous answers,
+  EOF, Ctrl-C, and pre-existing queued/partial input deny. Answers never enter
+  model input or persistent history. Other input modes retain deny-by-default
+  behavior. Concrete executable-program tests cover file/process effects and
+  gating; native PTY approval coverage and broader approval policies remain open.
 - Integrated dry-run resolution and post-write lint/test reflection into the
   concrete turn's shared three-reflection budget, refreshing disk context and
   token budgets between attempts. Check commits are recorded before reflection
@@ -187,8 +194,8 @@ porting plan distinguish composed behavior from library-only adapters.
   retain completed writes; no rollback or exhaustive cancellation is claimed.
 - Preserve unrelated index entries during `/undo`, while retaining working
   files and earlier commits. Added asymmetric installed-service acceptance
-  and real-Git failure/cancellation tests. Standalone CLI write/command approval
-  prompts and interrupted-history reconciliation remain incomplete.
+  and real-Git failure/cancellation tests. Interrupted-history reconciliation
+  remains incomplete.
 - Added opt-in `--watch-files` terminal startup and standalone
   `--web --web-token-file` loopback HTTP/SSE startup using the concrete service.
   Watch shares terminal state and Git ignore handling; question-only `AI?`

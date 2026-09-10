@@ -20,12 +20,17 @@ with these explicit Patch choices:
   limit option yet. `/lint` and `/test` alone report failures without starting a
   provider turn. Completed configured checks can commit their changes to paths
   edited in this turn; this includes test changes, unlike pinned aider's flow.
-- New and out-of-chat edits require `authorizeWrite` from an embedding caller.
+- New and out-of-chat edits require `authorizeWrite` from the terminal adapter
+  or an embedding caller.
   Read-only paths, including contained aliases, cannot be edited. `/drop` and
   `/add` affect the live authorization selection. User mentions require an
   explicit `approvePath` callback; mere mention does not authorize editing.
-  The standalone CLI supplies neither write nor command approvers and denies
-  these actions. Selected-file edits remain available without a prompt.
+  Standalone TTY sessions supply a single terminal approver for writes and
+  commands. Exact JSON-quoted literals are displayed; only `y`/`yes` approves.
+  Queued/partial input is never consumed for approval, and EOF/Ctrl-C deny.
+  Answers bypass model input and persistent history. One-shot, non-TTY,
+  redirected output, EOF-multiline, watch, web, and injected-line contexts
+  remain deny-by-default. Selected-file edits remain available without a prompt.
 - Commands following a failed lint attempt are not run; a correction must
   suggest them again. Each suggested command requires approval. Denial or a
   nonzero exit does not trigger model reflection. A command timeout stops the
@@ -70,6 +75,19 @@ approved command, passes tests, and undoes only the last commit. It checks
 exact file contents, index contents, commit ancestry, usage, and history.
 This is installed **service** evidence with injected provider/approval adapters,
 not a claim of interactive standalone-bin approval support.
+
+`tests/terminal-approval.test.ts` separately exercises the executable program
+composition with real readline on fake TTY streams and the concrete application:
+new/out-of-chat writes, `/run`, model commands, strict answer handling,
+queued/partial input, EOF/Ctrl-C, and noninteractive approval gating. Real file
+contents and child-command effects are asserted. Native PTY approval-platform
+coverage, file-mention prompts, architect acceptance, and per-check reflection
+choice remain unsupported; this does not widen the recovery guarantees above.
+
+Local Linux validation on 2026-09-10 also exercised built `dist/cli.js` through
+a real OS pseudo-terminal: `/run` displayed the exact command, `yes` created
+the expected file, and `/exit` terminated cleanly (`real-linux-pty-ok`). This
+manual check is not a provisioned cross-platform approval suite.
 
 `tests/application-lifecycle.test.ts` checks denial, containment, read-only
 aliases, stale snapshots, partial writes, rejected/nonzero/timed-out commands,
