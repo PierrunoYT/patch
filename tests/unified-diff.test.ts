@@ -47,7 +47,12 @@ describe("UnifiedDiffEditStrategy", () => {
   it("replaces every generated unique asymmetric hunk exactly", () => {
     fc.assert(
       fc.property(
-        fc.string({ minLength: 1 }).filter((value) => !value.includes("\n")),
+        fc.string({ minLength: 1 }).filter((value) => {
+          if (value.includes("\n")) return false;
+          const content = `prefix\n${value}\nsuffix\n`;
+          const hunk = `${value}\n`;
+          return content.indexOf(hunk) === content.lastIndexOf(hunk);
+        }),
         fc.string(),
         (oldValue, newValue) => {
           expect(

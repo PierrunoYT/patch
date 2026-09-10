@@ -202,6 +202,8 @@ porting plan distinguish composed behavior from library-only adapters.
 - Made platform assertions compare canonical paths, limited POSIX permission
   assertions to POSIX hosts, and made npm/package-bin smoke invocation portable
   on Windows, including command-shim execution through the platform shell.
+- Restricted unified-diff property fixtures to genuinely unique hunks so random
+  values that also match a context-line suffix no longer make the suite flaky.
 - Narrowed explicitly provisioned PTY support to Linux and Windows after the
   native package failed its spawn contract on GitHub's macOS runner.
 - Narrowed CLI/config edit formats to the six modes the application actually

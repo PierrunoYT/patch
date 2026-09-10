@@ -114,13 +114,11 @@ context; and complete both one-shot and serial interactive fake-provider turns.
 **Startup verification (2026-09-10):** the focused application/interface suites
 passed 35 tests; build, installed-bin watch startup/exit, packed fake-provider
 startup, default optional-dependency absence, and executable help passed locally
-on Linux. An initial `npm run check` passed 276 tests (4 optional tests skipped).
-A subsequent full run exposed an unchanged unified-diff property failure:
-`tests/unified-diff.test.ts`, seed `2005842464`, counterexample `["x", ""]`.
-`x\n` occurs in the fixture's `prefix`/`suffix` as well as the target line, and
-the existing substring matcher raises `UnifiedDiffNotUniqueError`. Neither that
-test nor matcher is changed by R1; this is not a claim of an invariably green
-full suite or new cross-platform CI evidence.
+on Linux. The final `npm run check` passed 276 tests (4 optional tests skipped).
+The unified-diff property now restricts generated fixtures to its stated unique
+hunk precondition; values such as `x` previously also matched the end of the
+fixture's `prefix` line and made the randomized suite flaky. This is not a claim
+of new cross-platform CI evidence.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
