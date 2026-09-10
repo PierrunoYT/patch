@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import type { ApplicationSubmitOptions } from "../src/core/application-service.js";
 import { createProgram } from "../src/program.js";
 
 describe("CLI", () => {
@@ -76,6 +77,54 @@ describe("CLI", () => {
       writeOutput: (text) => (output += text),
     }).parseAsync(["--message", "hello", "--notifications"], { from: "user" });
     expect(output).toBe("\u0007");
+  });
+
+  it("renders streamed application output and edit previews without unsafe control sequences", async () => {
+    let output = "";
+    await createProgram({
+      outputIsTTY: true,
+      environment: { NO_COLOR: "1" },
+      writeOutput: (text) => (output += text),
+      createApplication: async () =>
+        ({
+          createSession: () => ({
+            snapshot: () => ({}),
+            submit: async (
+              _message: string,
+              options: ApplicationSubmitOptions,
+            ) => {
+              options.emit({
+                type: "text-delta",
+                data: {
+                  text: "# Result\nSafe\u001b]2;hostile\u0007 text\n",
+                },
+              });
+              options.emit({
+                type: "edit-preview",
+                data: {
+                  changedPaths: ["src/a.ts"],
+                  operations: [
+                    {
+                      kind: "update",
+                      path: "src/a.ts",
+                      before: "old",
+                      content: "new",
+                    },
+                  ],
+                },
+              });
+              return { response: "Result" };
+            },
+          }),
+          close: () => undefined,
+        }) as never,
+    }).parseAsync(["--message", "change it"], { from: "user" });
+
+    expect(output).toContain("Result\nSafe text");
+    expect(output).toContain("--- a/src/a.ts\n+++ b/src/a.ts");
+    expect(output).toContain("-old\n+new");
+    expect(output).not.toContain("\u001b");
+    expect(output).not.toContain("hostile");
   });
 
   it("processes non-empty interactive lines serially until EOF", async () => {

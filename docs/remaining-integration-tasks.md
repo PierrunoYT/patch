@@ -239,7 +239,7 @@ the interactive CLI/session workflow.
   default behavior.
 - [ ] Apply Emacs/Vi bindings and external-editor invocation in the actual input
   loop rather than exposing declarative helpers only.
-- [ ] Stream provider output through `MarkdownStream`, render authorized edit
+- [x] Stream provider output through `MarkdownStream`, render authorized edit
   previews through `renderDiff`, and honor TTY, `NO_COLOR`, and `--no-color` in
   the executable.
 - [ ] Dispatch interactive commands through `runPtyCommand` only when explicitly

@@ -52,6 +52,11 @@ and deletions. Both renderers strip control sequences from untrusted content.
 
 Color is enabled only for a TTY. `--no-color`, a `NO_COLOR` environment value,
 or an explicit adapter option disables all ANSI output while preserving text.
+The executable routes live application text deltas through this stream and
+renders staged edit operations as a diff before write authorization. Completion,
+history navigation, keybindings, and external-editor invocation remain
+terminal-library-neutral helpers and are not yet connected to the executable's
+basic line reader.
 
 ## Optional interactive PTY
 

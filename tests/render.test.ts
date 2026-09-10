@@ -4,6 +4,7 @@ import {
   highlightSyntax,
   MarkdownStream,
   renderDiff,
+  renderEditPreview,
   stripAnsi,
 } from "../src/io/render.js";
 
@@ -46,5 +47,23 @@ describe("terminal rendering", () => {
     expect(
       renderDiff(diff, { environment: { NO_COLOR: "1" }, isTTY: true }),
     ).toBe(diff);
+  });
+
+  it("turns resolved operations into a reviewable diff preview", () => {
+    expect(
+      renderEditPreview({
+        changedPaths: ["src/example.ts"],
+        operations: [
+          {
+            kind: "update",
+            path: "src/example.ts",
+            before: "const oldValue = 1;",
+            content: "const newValue = 2;",
+          },
+        ],
+      }),
+    ).toBe(
+      "--- a/src/example.ts\n+++ b/src/example.ts\n@@ proposed edit @@\n-const oldValue = 1;\n+const newValue = 2;",
+    );
   });
 });

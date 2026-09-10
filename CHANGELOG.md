@@ -189,6 +189,8 @@ The project has not published a release yet.
 - Narrowed CLI/config edit formats to the six modes the application actually
   constructs; advanced orchestration helpers are no longer accepted as if they
   were complete user-facing modes.
+- Connected executable application output to safe incremental Markdown and
+  staged diff rendering, including TTY, `NO_COLOR`, and `--no-color` handling.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe

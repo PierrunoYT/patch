@@ -6,6 +6,8 @@
 
 import type { Writable } from "node:stream";
 
+import type { EditPreview } from "../edits/write-boundary.js";
+
 const ANSI = {
   reset: "\u001b[0m",
   bold: "\u001b[1m",
@@ -133,6 +135,22 @@ export function renderDiff(diff: string, options: RenderOptions = {}): string {
       if (line.startsWith("-")) return paint(line, ANSI.red, color);
       if (line.startsWith("@@")) return paint(line, ANSI.cyan, color);
       return line;
+    })
+    .join("\n");
+}
+
+export function renderEditPreview(preview: EditPreview): string {
+  return preview.operations
+    .map((operation) => {
+      const before = operation.kind === "create" ? "" : operation.before;
+      const after = operation.kind === "delete" ? "" : operation.content;
+      return [
+        `--- ${operation.kind === "create" ? "/dev/null" : `a/${operation.path}`}`,
+        `+++ ${operation.kind === "delete" ? "/dev/null" : `b/${operation.path}`}`,
+        "@@ proposed edit @@",
+        ...before.split("\n").map((line) => `-${line}`),
+        ...after.split("\n").map((line) => `+${line}`),
+      ].join("\n");
     })
     .join("\n");
 }

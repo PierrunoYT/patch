@@ -11,6 +11,8 @@ import {
   notifyUser,
   type CompletionShell,
 } from "./io/integrations.js";
+import { MarkdownStream, renderDiff, renderEditPreview } from "./io/render.js";
+import type { EditPreview } from "./edits/write-boundary.js";
 
 export type ProgramDependencies = Partial<InputDependencies> & {
   readonly writeOutput?: (text: string) => void;
@@ -19,6 +21,7 @@ export type ProgramDependencies = Partial<InputDependencies> & {
   ) => Promise<ConcreteApplicationService>;
   readonly cwd?: string;
   readonly environment?: Readonly<Record<string, string | undefined>>;
+  readonly outputIsTTY?: boolean;
 };
 
 interface ProgramOptions {
@@ -157,6 +160,12 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         await runInput(options, {
           handleMessage: async (message) => {
             const controller = new AbortController();
+            const renderOptions = {
+              ...(options.color === false ? { color: false } : {}),
+              environment: dependencies.environment ?? process.env,
+              isTTY: dependencies.outputIsTTY ?? process.stdout.isTTY,
+            };
+            const markdown = new MarkdownStream(write, renderOptions);
             const response =
               dependencies.handleMessage === undefined
                 ? await session?.submit(message, {
@@ -168,12 +177,23 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                         event.data !== null &&
                         "text" in event.data
                       ) {
-                        write(String(event.data.text));
+                        markdown.write(String(event.data.text));
+                      } else if (event.type === "edit-preview") {
+                        markdown.end();
+                        write(
+                          `${renderDiff(
+                            renderEditPreview(event.data as EditPreview),
+                            renderOptions,
+                          )}\n`,
+                        );
                       }
                     },
                   })
                 : await dependencies.handleMessage(message);
-            if (dependencies.handleMessage === undefined) write("\n");
+            if (dependencies.handleMessage === undefined) {
+              markdown.end();
+              write("\n");
+            }
             if (options.notifications === true) {
               await notifyUser(
                 options.notificationsCommand === undefined
