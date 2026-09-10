@@ -188,6 +188,23 @@ describe("FileSystemAdapter", () => {
     );
   });
 
+  it("keeps ownership and permissions across a replacement", async () => {
+    const root = await temporaryDirectory();
+    const path = join(root, "owned.txt");
+    await writeFile(path, "before\n");
+    await chmod(path, 0o600);
+    const before = await stat(path);
+    const files = await FileSystemAdapter.create(root);
+
+    await files.writeText("owned.txt", "after\n");
+
+    const after = await stat(path);
+    expect(after.mode & 0o777).toBe(0o600);
+    expect(after.uid).toBe(before.uid);
+    expect(after.gid).toBe(before.gid);
+    expect(await readFile(path, "utf8")).toBe("after\n");
+  });
+
   it("rejects replacement and deletion when a file has another hard link", async () => {
     const parent = await temporaryDirectory();
     const root = join(parent, "project");

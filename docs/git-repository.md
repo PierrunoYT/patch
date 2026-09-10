@@ -46,6 +46,10 @@ Ordinary selected commits preserve unrelated index entries, but commit failure
 can replace the selected paths' prior staged state.
 
 Undo keeps working-file content and unrelated index entries, an intentional
-Patch safety difference. Its current provenance check accepts any marker-bearing
-HEAD and is not bound to a commit owned by the current session; root, merge,
-pushed, forged-marker, and interrupted two-command cases need explicit guards.
+Patch safety difference. It reverts only the commit the current session recorded
+and moves HEAD through a compare-and-swap `update-ref`, so a commit created by
+another session or by the user is refused; root commits, merge commits, and
+commits an upstream branch already contains are refused as well. The ownership
+check and the reset run under the worktree mutation lock, so no session can
+commit between them. A failure between undo's two Git commands is still not
+covered by a preservation guarantee.

@@ -1,5 +1,6 @@
 import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import type { Stats } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import { EOL } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -63,10 +64,18 @@ interface FileIdentity {
   readonly device: number;
   readonly inode: number;
   readonly mode: number;
+  readonly owner: number;
+  readonly group: number;
   readonly links: number;
   readonly size: number;
   readonly modified: number;
   readonly changed: number;
+}
+
+/** Identifies the containing directory a mutation was authorized against. */
+interface DirectoryIdentity {
+  readonly device: number;
+  readonly inode: number;
 }
 
 export class TextDecodingError extends Error {
@@ -99,6 +108,18 @@ export class PathChangedDuringWriteError extends Error {
   }
 }
 
+export class AncestorChangedDuringWriteError extends Error {
+  override readonly name = "AncestorChangedDuringWriteError";
+  readonly path: string;
+
+  constructor(path: string) {
+    super(
+      `The directory containing ${path} was replaced while preparing a mutation`,
+    );
+    this.path = path;
+  }
+}
+
 export class UnsafeFileMetadataError extends Error {
   override readonly name = "UnsafeFileMetadataError";
   readonly path: string;
@@ -114,6 +135,8 @@ function fileIdentity(information: Stats): FileIdentity {
     device: information.dev,
     inode: information.ino,
     mode: information.mode,
+    owner: information.uid,
+    group: information.gid,
     links: information.nlink,
     size: information.size,
     modified: information.mtimeMs,
@@ -126,11 +149,43 @@ function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
     left.device === right.device &&
     left.inode === right.inode &&
     left.mode === right.mode &&
+    left.owner === right.owner &&
+    left.group === right.group &&
     left.links === right.links &&
     left.size === right.size &&
     left.modified === right.modified &&
     left.changed === right.changed
   );
+}
+
+/**
+ * Copy the replaced file's ownership onto the temporary file that will take its
+ * place. Node cannot carry ACLs or extended attributes through a rename, and an
+ * unprivileged process cannot always change ownership, so a refusal is ignored
+ * rather than failing the write; `docs/filesystem-safety.md` records exactly
+ * what a replacement preserves.
+ */
+async function preserveOwnership(
+  handle: FileHandle,
+  identity: FileIdentity,
+): Promise<void> {
+  const created = await handle.stat();
+  if (created.uid === identity.owner && created.gid === identity.group) return;
+  try {
+    await handle.chown(identity.owner, identity.group);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "EPERM" ||
+        error.code === "EINVAL" ||
+        error.code === "ENOSYS" ||
+        error.code === "ENOTSUP")
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
 function validateMutationTarget(path: string, information: Stats): void {
@@ -277,6 +332,7 @@ export class FileSystemAdapter {
     const parent = dirname(initialPath);
     await this.#paths.resolve(parent);
     await mkdir(parent, { recursive: true });
+    const parentIdentity = await this.#directoryIdentity(parent);
 
     const path = await this.#paths.resolve(target);
     if (path !== initialPath) {
@@ -294,12 +350,22 @@ export class FileSystemAdapter {
       const handle = await open(temporaryPath, "wx", mode);
       try {
         await handle.writeFile(prepared.bytes);
+        // Carry the replaced file's ownership where the process is allowed to,
+        // so a replacement does not silently reassign a shared file's owner.
+        if (prepared.identity !== undefined) {
+          await preserveOwnership(handle, prepared.identity);
+        }
         await handle.sync();
       } finally {
         await handle.close();
       }
 
-      await this.#assertStableTarget(target, path, prepared.identity);
+      await this.#assertStableTarget(
+        target,
+        path,
+        prepared.identity,
+        parentIdentity,
+      );
       await rename(temporaryPath, path);
     } catch (error) {
       await unlink(temporaryPath).catch(() => undefined);
@@ -329,7 +395,12 @@ export class FileSystemAdapter {
       if (path !== initialPath) {
         throw new PathChangedDuringWriteError(target);
       }
-      await this.#assertStableTarget(target, path, identity);
+      await this.#assertStableTarget(
+        target,
+        path,
+        identity,
+        await this.#directoryIdentity(dirname(path)),
+      );
       await unlink(path);
     }
     return { path: initialPath, dryRun };
@@ -382,13 +453,30 @@ export class FileSystemAdapter {
     }
   }
 
+  async #directoryIdentity(path: string): Promise<DirectoryIdentity> {
+    const information = await stat(path);
+    if (!information.isDirectory()) {
+      throw new UnsafeFileMetadataError(path, "the parent is not a directory");
+    }
+    return { device: information.dev, inode: information.ino };
+  }
+
   async #assertStableTarget(
     target: string,
     path: string,
     expected: FileIdentity | undefined,
+    parent: DirectoryIdentity,
   ): Promise<void> {
     if ((await this.#paths.resolve(target)) !== path) {
       throw new PathChangedDuringWriteError(target);
+    }
+    // Node exposes no openat/renameat, so the containing directory is checked
+    // by identity immediately before the mutation: a directory swapped for a
+    // different one at the same path is detected and refused, though the
+    // remaining window between this check and the syscall cannot be closed.
+    const current = await this.#directoryIdentity(dirname(path));
+    if (current.device !== parent.device || current.inode !== parent.inode) {
+      throw new AncestorChangedDuringWriteError(path);
     }
     try {
       const information = await stat(path);

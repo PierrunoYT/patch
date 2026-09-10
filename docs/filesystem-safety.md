@@ -49,25 +49,51 @@ style is selected.
 A dry run performs path, decoding, encoding, and line-ending resolution and
 returns the prospective byte count without creating a file or directory. A
 real write creates a unique sibling temporary file, flushes and closes it, then
-renames it over the destination. Existing permission bits are retained, and a
-failed operation removes the temporary file. The destination is resolved again
-before rename, and a changed or escaping path aborts the replacement.
+renames it over the destination. Existing permission bits and ownership are
+retained, and a failed operation removes the temporary file. The destination is
+resolved again before rename, and a changed or escaping path — or a containing
+directory that is no longer the one authorized — aborts the replacement.
 
-Atomic replacement creates a new inode and retains ordinary mode bits. Patch
-rejects replacement and deletion when the target is not a regular file or has
-more than one hard link, including when another link is outside the selected
-root. It captures device, inode, mode, link count, size, and modification/change
-times around reads and rechecks that identity immediately before rename or
-unlink. A detectable replacement, content/metadata change, or new hard link
-aborts without mutating the selected target.
+Atomic replacement creates a new inode. Patch rejects replacement and deletion
+when the target is not a regular file or has more than one hard link, including
+when another link is outside the selected root. It captures device, inode, mode,
+owner, group, link count, size, and modification/change times around reads and
+rechecks that identity immediately before rename or unlink. A detectable
+replacement, content/metadata change, ownership change, or new hard link aborts
+without mutating the selected target.
 
-This is not a complete metadata-preserving or race-free transaction. Patch does
-not promise ACL, ownership, xattr, file-flag, alternate-stream, directory-fsync,
-or crash-durability preservation. Node's portable path API also leaves a final
-check-to-use window and cannot prevent an untrusted local process from swapping
-an ancestor after validation. Repositories requiring those guarantees remain
-unsupported until Patch has an explicit platform adapter or refuses the
-operation earlier.
+### What a replacement preserves
+
+| Attribute                                                     | Policy                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mode bits                                                     | Preserved: the temporary file is created with the target's permission bits.                                                                                                                                                                                   |
+| Owner and group                                               | Preserved when the process is permitted to set them. A refusal (`EPERM`, `EINVAL`, `ENOSYS`, `ENOTSUP`) leaves the writing process as the owner rather than failing the write; an unprivileged process replacing a file it does not own is the ordinary case. |
+| Byte-order mark and line endings                              | Preserved as described above.                                                                                                                                                                                                                                 |
+| Inode                                                         | Not preserved: replacement is a rename, by design, so no partial content is ever visible.                                                                                                                                                                     |
+| Timestamps                                                    | Not preserved: the content changed, so the new modification time is correct.                                                                                                                                                                                  |
+| ACLs, extended attributes, file flags, alternate data streams | Not preserved. Node exposes no portable API to read or copy them, so Patch cannot carry them through a rename and does not claim to.                                                                                                                          |
+
+Preserving the remaining attributes would require writing in place, which is
+what pinned Aider does and which admits partially written files. Patch keeps
+atomic replacement instead; a repository that depends on per-file ACLs or
+extended attributes needs a platform adapter Patch does not yet have.
+
+### Ancestor check-to-use policy
+
+Mutations are authorized against a resolved path and its containing directory.
+Node exposes no `openat`/`renameat`, so the directory cannot be pinned by
+descriptor for the syscall itself. Instead the containing directory's device and
+inode are captured when the mutation is prepared and rechecked immediately
+before the rename or unlink: a directory swapped for a different directory at
+the same path is detected and refused with `AncestorChangedDuringWriteError`,
+even though the path still resolves. The residual window between that recheck
+and the syscall cannot be closed portably, so this is detection, not prevention;
+an untrusted local process with write access to an ancestor is still outside
+Patch's threat model. A swap detected this way can leave the hidden, uniquely
+named temporary file in the directory that was moved away, because cleanup
+unlinks by path; it is never renamed over repository content.
+
+Patch also does not promise directory-fsync or crash-durability guarantees.
 
 The encoding and newline adapter is stricter than Aider and supports only the
 documented codecs. Explicit LF/CRLF conversion is currently a library option;

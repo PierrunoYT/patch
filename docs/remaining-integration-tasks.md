@@ -56,13 +56,16 @@ tests are evidence only for the cases they exercise.
 | Core lifecycle | partial | Ordinary initial turns are composed; switching, failed-mutation history, continuation, and multi-session ownership are incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
-| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, and cross-session mutation ordering are now enforced, while metadata preservation and ancestor races remain incomplete. |
+| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; switching and paste are incorrect, while rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged; non-repository startup, inert flags, automatic packing, installed docs, and provenance checks remain. |
 
 ### Immediate P0 blockers
+
+All immediate P0 blockers are now closed; the P1 and P2 work below is what
+remains before the release claims can be re-audited.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
@@ -100,10 +103,19 @@ tests are evidence only for the cases they exercise.
   failure messages. It removes C0 controls other than tab/newline/carriage
   return, DEL, the C1 range, 7-bit and 8-bit CSI, OSC/DCS/SOS/PM/APC strings
   with either terminator, single shifts, and escapes carrying intermediates.
-- [ ] Complete the metadata and ancestor check-to-use policy for replacement and
-  deletion. Hardlinked/non-regular targets are now rejected and target identity
-  is rechecked immediately before mutation, but portable ACL/xattr preservation
-  and descriptor-relative ancestor guarantees remain unresolved.
+- [x] Complete the metadata and ancestor check-to-use policy for replacement and
+  deletion. Replacement now carries mode bits and, where the process is
+  permitted, owner and group; identity comparison includes ownership. The
+  containing directory's device and inode are captured when a mutation is
+  prepared and rechecked immediately before the rename or unlink, so a
+  directory swapped for a different one at the same path is refused with
+  `AncestorChangedDuringWriteError`. ACLs, extended attributes, file flags, and
+  alternate data streams are documented as not preserved — Node exposes no
+  portable API for them, and preserving them would mean in-place writes and
+  partial content — and the residual check-to-use window is documented as
+  detection rather than prevention. Evidence: `tests/filesystem-ancestor.test.ts`
+  and the ownership case in `tests/filesystem.test.ts`; policy in
+  `docs/filesystem-safety.md`.
 
 ### Next P1 correctness work
 

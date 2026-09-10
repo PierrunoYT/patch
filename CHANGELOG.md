@@ -185,6 +185,14 @@ porting plan distinguish composed behavior from library-only adapters.
   messages. Sequences split across provider deltas can no longer rejoin, and
   C0 controls, DEL, the C1 range, 8-bit CSI/OSC, DCS/SOS/PM/APC strings, single
   shifts, and escapes with intermediate bytes are all removed.
+- Completed the replacement metadata and ancestor policy: a replaced file keeps
+  its permission bits and, where the process is permitted, its owner and group;
+  identity comparison now includes ownership; and the containing directory's
+  device and inode are rechecked immediately before every rename or unlink, so a
+  directory swapped for a different one at the same path is refused instead of
+  silently mutated. Attributes Node cannot carry portably through a rename —
+  ACLs, extended attributes, file flags, and alternate data streams — are
+  documented as not preserved rather than implied.
 - Treated a path whose ancestor is not a directory as missing rather than
   raising a raw `ENOTDIR`, so resolution, reads, snapshots, and edit staging
   agree on absence; creating such a path still fails, keeping a move source
