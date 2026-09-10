@@ -43,7 +43,10 @@ describe("application interface startup", () => {
     await writeFile(join(root, ".gitignore"), "ignored.ts\n");
     await writeFile(join(root, ".aiderignore"), "private.ts\n");
     await writeFile(join(root, "selected.ts"), "const keep = 7;\n");
-    execFileSync("git", ["add", "selected.ts"], { cwd: root });
+    await writeFile(join(root, "private.ts"), "private startup secret\n");
+    execFileSync("git", ["add", "--force", "selected.ts", "private.ts"], {
+      cwd: root,
+    });
     const provider = new FakeProvider([
       turn("terminal first"),
       turn("selected.ts\n```ts\nconst keep = 999;\n```\n"),
@@ -100,6 +103,9 @@ describe("application interface startup", () => {
     expect(JSON.stringify(provider.requests[1]?.messages)).not.toContain(
       "private secret",
     );
+    expect(JSON.stringify(provider.requests)).not.toContain(
+      "private startup secret",
+    );
     expect(provider.requests[2]?.messages).toContainEqual(
       expect.objectContaining({
         role: "assistant",
@@ -116,6 +122,65 @@ describe("application interface startup", () => {
     await writeFile(join(root, "selected.ts"), "// AI! after shutdown\n");
     await new Promise((done) => setTimeout(done, 150));
     expect(provider.requests).toHaveLength(3);
+  });
+
+  it("rejects an explicitly selected ignored file before provider use", async () => {
+    const root = await fixture();
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    await writeFile(join(root, ".aiderignore"), "private.ts\n");
+    await writeFile(join(root, "private.ts"), "private secret\n");
+    execFileSync("git", ["add", "--force", "private.ts"], { cwd: root });
+    const provider = new FakeProvider([]);
+
+    await expect(
+      ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--model", "4o", "--edit-format", "ask", "private.ts"],
+        dependencies: { provider },
+      }),
+    ).rejects.toThrow(/ignored and cannot enter model context/);
+    expect(provider.requests).toHaveLength(0);
+  });
+
+  it("rejects a model edit to an ignored tracked file before reading it", async () => {
+    const root = await fixture();
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    await writeFile(join(root, ".aiderignore"), "private.ts\n");
+    await writeFile(join(root, "private.ts"), "private model secret\n");
+    await writeFile(join(root, "selected.ts"), "selected\n");
+    execFileSync("git", ["add", "--force", "private.ts", "selected.ts"], {
+      cwd: root,
+    });
+    const provider = new FakeProvider([
+      turn("private.ts\n```ts\nchanged\n```\n"),
+    ]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--model", "4o", "--edit-format", "whole", "selected.ts"],
+      dependencies: { provider, authorizeWrite: () => true },
+    });
+    const session = service.createSession({
+      principal: "ignored-model-edit",
+      sessionId: "ignored-model-edit",
+    });
+
+    await expect(
+      session.submit("change private.ts", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      }),
+    ).rejects.toThrow(/ignored and cannot enter model context/);
+    expect(JSON.stringify(provider.requests)).not.toContain(
+      "private model secret",
+    );
+    await expect(readFile(join(root, "private.ts"), "utf8")).resolves.toBe(
+      "private model secret\n",
+    );
+    service.close();
   });
 
   it("applies AI! edits only to authorized selections and rejects question-only commands", async () => {

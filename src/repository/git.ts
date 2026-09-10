@@ -105,6 +105,36 @@ export class GitRepository {
     }
   }
 
+  async #gitWithInput(
+    arguments_: readonly string[],
+    input: string,
+  ): Promise<string> {
+    return new Promise<string>((resolveOutput, rejectOutput) => {
+      const child = execFile(
+        "git",
+        ["-C", this.root, ...arguments_],
+        {
+          encoding: "utf8",
+          maxBuffer: 16 * 1024 * 1024,
+          env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+        },
+        (error, stdout) => {
+          if (error === null) {
+            resolveOutput(stdout);
+            return;
+          }
+          rejectOutput(
+            new GitRepositoryError(
+              `Git command failed: git ${arguments_.join(" ")}`,
+              { cause: error },
+            ),
+          );
+        },
+      );
+      child.stdin?.end(input, "utf8");
+    });
+  }
+
   async #tryGit(
     arguments_: readonly string[],
     literalPathspecs = true,
@@ -200,23 +230,39 @@ export class GitRepository {
     });
   }
 
-  async isIgnored(path: string): Promise<boolean> {
-    const selected = this.relativePath(path);
+  async filterIgnored(paths: readonly string[]): Promise<string[]> {
+    const selected = paths.map((path) => this.relativePath(path));
+    if (selected.length === 0) return [];
     const aiderIgnore = resolve(this.root, ".aiderignore");
-    const arguments_ = [
-      "check-ignore",
-      "--no-index",
-      "--quiet",
-      "--",
-      selected,
-    ];
+    const arguments_ = ["check-ignore", "--no-index", "-z", "--stdin"];
     try {
       await access(aiderIgnore);
       arguments_.unshift("-c", `core.excludesFile=${aiderIgnore}`);
     } catch {
       // The project has no aider-specific ignore file.
     }
-    return (await this.#tryGit(arguments_, false)) !== undefined;
+    let output: string;
+    try {
+      output = await this.#gitWithInput(arguments_, `${selected.join("\0")}\0`);
+    } catch (error) {
+      const cause =
+        error instanceof GitRepositoryError ? error.cause : undefined;
+      if (
+        typeof cause === "object" &&
+        cause !== null &&
+        "code" in cause &&
+        cause.code === 1
+      ) {
+        return selected;
+      }
+      throw error;
+    }
+    const ignored = new Set(nulFields(output));
+    return selected.filter((path) => !ignored.has(path));
+  }
+
+  async isIgnored(path: string): Promise<boolean> {
+    return (await this.filterIgnored([path])).length === 0;
   }
 
   async isDirty(path?: string): Promise<boolean> {

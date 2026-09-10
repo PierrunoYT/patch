@@ -56,8 +56,8 @@ tests are evidence only for the cases they exercise.
 | Core lifecycle | partial | Ordinary initial turns are composed; switching, failed-mutation history, continuation, and multi-session ownership are incomplete. |
 | Editing | partial | Whole-file and basic SEARCH/REPLACE are strongest; Patch and unified-diff have unsafe multi-action/multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
-| Git/filesystem | partial with intentional hardening | Literal pathspecs, static containment, staging, and selected commits are strong; ignore, move, metadata, race, and undo guarantees are incomplete. |
-| Repository maps | partial | A five-language production map exists; ignore filtering, failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
+| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move, metadata, race, and undo guarantees are incomplete. |
+| Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; switching and paste are incorrect, while rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start; URL/voice are helper surfaces, browser GUI/help are absent, and web mutation coordination is unsafe. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged; non-repository startup, inert flags, automatic packing, installed docs, and provenance checks remain. |
@@ -66,7 +66,7 @@ tests are evidence only for the cases they exercise.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
-- [ ] Filter tracked `.aiderignore` paths before snapshots, mention matching,
+- [x] Filter tracked `.aiderignore` paths before snapshots, mention matching,
   repository maps, or provider requests.
 - [ ] Preserve move sources until destinations are durably created; current
   delete-then-create ordering can lose data.

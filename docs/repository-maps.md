@@ -17,11 +17,12 @@ TypeScript (`.ts`, `.tsx`), Python (`.py`, `.pyi`), Go (`.go`), and Rust
 requires a pinned grammar, an attributed tag query, compatibility fixtures,
 extraction tests, and packed-package smoke coverage.
 
-Production currently obtains raw tracked paths from Git without filtering
-`.aiderignore` before snapshots or map extraction. A tracked ignored file can
-therefore expose identifiers and source context to the model; this is a release
-blocker. Missing, deleted, unreadable, or parser-failed tracked files can also
-abort a complete turn instead of being skipped with a bounded warning.
+Production filters selected and raw tracked paths through ordinary Git and root
+`.aiderignore` rules before snapshots, mention matching, map extraction, or
+provider requests. The check is repeated for each turn and ignored model edit
+targets fail before their content is read. Missing, deleted, unreadable, or
+parser-failed visible tracked files can still abort a complete turn instead of
+being skipped with a bounded warning.
 
 `TagExtractor` resolves every requested file through `SafePathResolver`, reads
 UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and

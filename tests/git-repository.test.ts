@@ -77,6 +77,39 @@ describe("GitRepository", () => {
     expect(() => git.relativePath("../outside")).toThrow(GitRepositoryError);
   });
 
+  it("filters tracked Git and aider ignore matches in one batch", async () => {
+    const root = await repository();
+    await writeFile(join(root, ".aiderignore"), "private.ts\n");
+    await writeFile(join(root, "private.ts"), "private\n");
+    await writeFile(join(root, "visible.ts"), "visible\n");
+    await executeFile("git", [
+      "-C",
+      root,
+      "add",
+      "--force",
+      "private.ts",
+      "visible.ts",
+    ]);
+    await executeFile("git", [
+      "-C",
+      root,
+      "commit",
+      "--quiet",
+      "-m",
+      "tracked ignore fixture",
+    ]);
+    const git = await GitRepository.open(root);
+    const tracked = (await git.status()).trackedPaths;
+
+    expect(tracked).toEqual(
+      expect.arrayContaining(["private.ts", "visible.ts"]),
+    );
+    await expect(git.filterIgnored(tracked)).resolves.toContain("visible.ts");
+    await expect(git.filterIgnored(tracked)).resolves.not.toContain(
+      "private.ts",
+    );
+  });
+
   it("represents unborn and detached HEAD without guessing a branch", async () => {
     const unbornRoot = await repository(false);
     const unborn = await GitRepository.open(unbornRoot);

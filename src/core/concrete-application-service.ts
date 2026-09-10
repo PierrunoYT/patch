@@ -122,6 +122,20 @@ async function selectedPaths(
   return selected;
 }
 
+async function assertPathsNotIgnored(
+  repository: GitRepository | undefined,
+  paths: readonly string[],
+): Promise<void> {
+  if (repository === undefined || paths.length === 0) return;
+  const visible = new Set(await repository.filterIgnored(paths));
+  const ignored = paths.find((path) => !visible.has(path));
+  if (ignored !== undefined) {
+    throw new Error(
+      `Path is ignored and cannot enter model context: ${ignored}`,
+    );
+  }
+}
+
 async function snapshot(
   files: FileSystemAdapter,
   path: string,
@@ -217,24 +231,33 @@ class ConcreteApplicationSession implements ApplicationSession {
       const commands: ModelCommandResult[] = [];
       let snapshots: readonly FileSnapshot[] = [];
       const context = async () => {
+        const state = this.#session.snapshot();
+        const editablePaths = [
+          ...new Set([...state.editablePaths, ...changedPaths]),
+        ];
+        await assertPathsNotIgnored(this.#context.repository, [
+          ...editablePaths,
+          ...state.readOnlyPaths,
+        ]);
         const editable = await Promise.all(
-          [
-            ...new Set([
-              ...this.#session.snapshot().editablePaths,
-              ...changedPaths,
-            ]),
-          ].map((path) => snapshot(this.#context.files, path)),
+          editablePaths.map((path) => snapshot(this.#context.files, path)),
         );
         const readOnly = await Promise.all(
-          this.#session
-            .snapshot()
-            .readOnlyPaths.map((path) => snapshot(this.#context.files, path)),
+          state.readOnlyPaths.map((path) =>
+            snapshot(this.#context.files, path),
+          ),
         );
         const selectedPaths = new Set(
           [...editable, ...readOnly].map(({ path }) => path),
         );
+        const availablePaths =
+          this.#context.repository === undefined
+            ? this.#context.availablePaths
+            : await this.#context.repository.filterIgnored(
+                this.#context.availablePaths,
+              );
         const unselected = await Promise.all(
-          this.#context.availablePaths
+          availablePaths
             .filter((path) => !selectedPaths.has(path))
             .map((path) => snapshot(this.#context.files, path)),
         );
@@ -297,17 +320,23 @@ class ConcreteApplicationSession implements ApplicationSession {
               const resolver = await SafePathResolver.create(
                 this.#context.root,
               );
+              const canonicalEditPaths: string[] = [];
               for (const path of editPaths) {
                 const canonical = portablePath(
                   this.#context.root,
                   await resolver.resolve(path),
                 );
+                canonicalEditPaths.push(canonical);
                 if (
                   this.#session.snapshot().readOnlyPaths.includes(canonical)
                 ) {
                   throw new Error("Cannot edit a read-only path");
                 }
               }
+              await assertPathsNotIgnored(
+                this.#context.repository,
+                canonicalEditPaths,
+              );
               const expandedSnapshots = [...snapshots];
               for (const path of editPaths) {
                 if (!expandedSnapshots.some((file) => file.path === path)) {
@@ -456,6 +485,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result("");
       case "add": {
         const paths = await normalize(effect.paths);
+        await assertPathsNotIgnored(this.#context.repository, paths);
         for (const path of paths) {
           if (
             !(await this.#context.approvePath?.(path)) &&
@@ -472,6 +502,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       }
       case "read-only": {
         const paths = await normalize(effect.paths);
+        await assertPathsNotIgnored(this.#context.repository, paths);
         this.#session.setSelectedPaths(
           state.editablePaths.filter((path) => !paths.includes(path)),
           [...new Set([...state.readOnlyPaths, ...paths])],
@@ -612,18 +643,22 @@ class ConcreteApplicationSession implements ApplicationSession {
   async #repositoryContext(message: string): Promise<string> {
     const map = this.#context.repositoryMap;
     if (map === undefined) return "";
+    const availablePaths =
+      this.#context.repository === undefined
+        ? this.#context.availablePaths
+        : await this.#context.repository.filterIgnored(
+            this.#context.availablePaths,
+          );
     const selected = new Set([
       ...this.#session.snapshot().editablePaths,
       ...this.#session.snapshot().readOnlyPaths,
     ]);
-    const mentionedPaths = this.#context.availablePaths.filter((path) =>
+    const mentionedPaths = availablePaths.filter((path) =>
       message.includes(path),
     );
     return map.getMap({
       chatPaths: [...selected],
-      otherPaths: this.#context.availablePaths.filter(
-        (path) => !selected.has(path),
-      ),
+      otherPaths: availablePaths.filter((path) => !selected.has(path)),
       mentionedPaths,
       mentionedIdentifiers: identifierHints(message),
     });
@@ -706,6 +741,9 @@ export class ConcreteApplicationService implements ApplicationService {
       bootstrap.gitRoot ?? resolve(options.cwd ?? process.cwd()),
     );
     const resolver = await SafePathResolver.create(root);
+    const repository = bootstrap.arguments.git
+      ? await GitRepository.open(root)
+      : undefined;
     const editablePaths = await selectedPaths(
       resolver,
       bootstrap.arguments.files,
@@ -720,6 +758,10 @@ export class ConcreteApplicationService implements ApplicationService {
         `A path cannot be both editable and read-only: ${overlap}`,
       );
     }
+    await assertPathsNotIgnored(repository, [
+      ...editablePaths,
+      ...readOnlyPaths,
+    ]);
     const catalog =
       options.dependencies?.catalog ?? (await ModelCatalog.load());
     const models = selectModels(catalog, { main: bootstrap.arguments.model });
@@ -746,13 +788,12 @@ export class ConcreteApplicationService implements ApplicationService {
         content === null ? [] : [content],
       ),
     ).fence;
-    const repository = bootstrap.arguments.git
-      ? await GitRepository.open(root)
-      : undefined;
     const availablePaths =
       repository === undefined
         ? [...new Set([...editablePaths, ...readOnlyPaths])]
-        : (await repository.status()).trackedPaths;
+        : await repository.filterIgnored(
+            (await repository.status()).trackedPaths,
+          );
     const repositoryMap =
       models.main.settings.useRepoMap && repository !== undefined
         ? await RepositoryMap.create({

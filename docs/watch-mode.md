@@ -12,8 +12,9 @@ browser dependency is loaded.
 `AiWatchMode` adapts part of pinned `aider/watch.py`. Changed files are
 debounced, deduplicated, contained, and bounded to regular files no larger than
 1 MiB. The built-in ignore list is narrower than Aider's canonical editor,
-cache, project, and temporary-file rules. Production adds ordinary Git and root
-`.aiderignore` checks, but ignore-command failures can fail open.
+cache, project, and temporary-file rules. Production applies ordinary Git and
+root `.aiderignore` checks. Ignore-command failures now suppress the affected
+batch rather than exposing a file, but the failure is not surfaced to the user.
 
 Only changed files carrying an actionable marker enter a submission. Aider
 reloads current AI comments from every tracked chat file after a trigger; Patch

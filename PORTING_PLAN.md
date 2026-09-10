@@ -62,8 +62,7 @@ edit-format, option, and interface support must be documented explicitly.
 ### Current staged parity
 
 - Repository maps are production-wired for JavaScript, TypeScript/TSX, Python,
-  Go, and Rust; ignore filtering, context mode, broader languages, and stronger
-  fixtures remain.
+  Go, and Rust; context mode, broader languages, and stronger fixtures remain.
 - Unified diff and Patch formats are constructed but have unresolved targeting
   and multi-action correctness defects. Architect/editor, context, help, and
   other advanced formats remain unconstructed.
@@ -255,7 +254,7 @@ before adding it; the table records candidates, not pre-approved dependencies.
 | Providers | official `openai` and `@anthropic-ai/sdk` clients | Start narrow instead of emulating LiteLLM breadth. |
 | Retries | small local policy or `p-retry` | Retry only classified transient failures and honor cancellation. |
 | Git | installed `git` through `execa`/`child_process` | Git CLI is authoritative for worktrees, index, hooks, ignores, and diffs. |
-| Ignore rules | Git CLI plus `ignore` for `.aiderignore` | Parse NUL-delimited Git output. |
+| Ignore rules | Git CLI `check-ignore` with NUL-delimited standard input | Git evaluates repository and `.aiderignore` patterns without shell expansion. |
 | Terminal | `readline/promises`, `picocolors` | Add a rich TUI only after core behavior stabilizes. |
 | Processes | `execa`; later `node-pty` | Never put untrusted filenames into shell strings when argv is possible. |
 | Diff display | `diff` | Edit protocols need dedicated parsers; do not delegate model output to system `patch`. |
@@ -394,8 +393,9 @@ evidence remains incomplete.
   multiple repositories.
 - [x] Make repository-relative Git path arguments literal across diff, stage,
   commit, ignore, and undo operations.
-- [ ] Complete tracked/ignored repository inventory. Status parsing exists, but
-  tracked `.aiderignore` paths reach model context.
+- [x] Filter selected and tracked paths through Git and `.aiderignore` rules
+  before snapshots, mention matching, repository maps, or provider requests.
+- [ ] Refresh the tracked repository inventory after service startup.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
   a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.

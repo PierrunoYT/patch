@@ -24,13 +24,19 @@ Git's literal-pathspec magic, so that command is deliberately invoked without
 the variable. `tests/git-commit.test.ts` exercises the mutation boundary with a
 literal `[ab].txt` beside a matching `a.txt`.
 
+The concrete service batches selected and tracked paths through
+`git check-ignore --no-index -z --stdin` before snapshots, mention matching,
+repository-map requests, or provider messages. Explicitly selected, command-added,
+read-only, and model-targeted ignored paths fail closed before file content is
+read. The filter is repeated while composing each turn so changes to ignore
+rules cannot expose a previously visible tracked file.
+
 Current production limitations are release blockers:
 
-- `status().trackedPaths` is not filtered through `.aiderignore` before
-  application snapshots and repository-map/model context.
 - `.aiderignore` is supplied by overriding `core.excludesFile`, not composed
-  independently with every existing global excludes policy; ignore command
-  failures can fail open.
+  independently with every existing global excludes policy.
+- Ignore-command failures abort the affected startup or turn, but watch-mode
+  submission failures still lack an actionable diagnostic.
 - The tracked inventory is frozen when the service starts.
 
 Selected-file commit, hook verification, attribution, generated-message, and

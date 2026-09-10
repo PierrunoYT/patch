@@ -179,6 +179,12 @@ porting plan distinguish composed behavior from library-only adapters.
   `check-ignore` retains its exact-pathname mode because that Git command rejects
   literal-pathspec magic. A real-repository regression test and compiled-adapter
   smoke scenario cover a literal `[ab].txt` beside `a.txt`.
+- Filtered selected and tracked paths through batched, NUL-delimited
+  `git check-ignore` calls before file snapshots, mention matching, repository
+  maps, or provider messages. Explicit selections, slash-command additions, and
+  model edits targeting ignored files now fail before content is read; focused
+  Git, startup, and compiled-service scenarios cover tracked `.aiderignore`
+  content.
 
 ### Changed
 
