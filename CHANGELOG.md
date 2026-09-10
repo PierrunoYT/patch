@@ -171,6 +171,8 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Made repository-map and new-file tests assert the documented native path and
+  line-ending behavior instead of assuming POSIX output on every platform.
 - Scoped Vitest to source tests and made builds remove stale `dist/` content;
   package smoke validation now rejects tarballs that contain compiled tests.
 - Added a repository line-ending policy so Windows checkouts with

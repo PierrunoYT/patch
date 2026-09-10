@@ -34,15 +34,30 @@ describe("TagExtractor", () => {
 
     expect(tags).toEqual(
       expect.arrayContaining([
-        { path: "src/greeter.js", line: 0, name: "greet", kind: "definition" },
         {
-          path: "src/greeter.js",
+          path: join("src", "greeter.js"),
+          line: 0,
+          name: "greet",
+          kind: "definition",
+        },
+        {
+          path: join("src", "greeter.js"),
           line: 1,
           name: "Greeter",
           kind: "definition",
         },
-        { path: "src/greeter.js", line: 0, name: "format", kind: "reference" },
-        { path: "src/greeter.js", line: 2, name: "greet", kind: "reference" },
+        {
+          path: join("src", "greeter.js"),
+          line: 0,
+          name: "format",
+          kind: "reference",
+        },
+        {
+          path: join("src", "greeter.js"),
+          line: 2,
+          name: "greet",
+          kind: "reference",
+        },
       ]),
     );
   });

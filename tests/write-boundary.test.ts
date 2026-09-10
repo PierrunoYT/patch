@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { EOL, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -71,7 +71,9 @@ describe("applyAuthorizedEdits", () => {
     await expect(readFile(join(root, "existing.ts"), "utf8")).resolves.toBe(
       "after\n",
     );
-    await expect(readFile(join(root, "new.ts"), "utf8")).resolves.toBe("new\n");
+    await expect(readFile(join(root, "new.ts"), "utf8")).resolves.toBe(
+      `new${EOL}`,
+    );
   });
 
   it("does not checkpoint or write when path authorization is denied", async () => {

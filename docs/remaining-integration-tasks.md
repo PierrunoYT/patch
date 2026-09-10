@@ -148,6 +148,8 @@ or audio dependencies.
   deterministic on Windows hosts configured with `core.autocrlf=true`.
 - [x] Restrict test discovery to `tests/**/*.test.ts`, clean `dist/` before each
   build, and reject packed tarballs containing compiled tests.
+- [x] Keep cross-platform assertions aligned with the pinned Aider relative-path
+  behavior and Patch's platform-default newline policy for new files.
 
 **Acceptance:** a plain `npm install` of the packed tarball performs no native
 build and contains none of the optional native/browser dependencies, while an

@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { EOL, tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
@@ -302,7 +302,9 @@ describe("executable program approvals with the concrete application", () => {
         response: `${path}\n\`\`\`text\n<<<<<<< SEARCH\n${path === "existing.txt" ? "old\n" : ""}=======\nchanged\n>>>>>>> REPLACE\n\`\`\`\n\n\`\`\`bash\necho model > model.txt\n\`\`\`\n`,
       });
       expect(result.error).toBeUndefined();
-      expect(await readFile(join(result.root, path), "utf8")).toBe("changed\n");
+      expect(await readFile(join(result.root, path), "utf8")).toBe(
+        path === "new.txt" ? `changed${EOL}` : "changed\n",
+      );
       expect(
         (await readFile(join(result.root, "model.txt"), "utf8")).trim(),
       ).toBe("model");
