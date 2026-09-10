@@ -16,7 +16,7 @@ export interface InputOptions {
 export interface InputDependencies {
   readonly handleMessage: (
     message: string,
-  ) => void | string | Promise<void | string>;
+  ) => void | string | InputResponse | Promise<void | string | InputResponse>;
   readonly recordInput?: (message: string) => void | Promise<void>;
   readonly recordChat?: (
     role: "user" | "assistant",
@@ -26,6 +26,11 @@ export interface InputDependencies {
   readonly readMessageFile?: (path: string) => Promise<string>;
 }
 
+export interface InputResponse {
+  readonly response?: string;
+  readonly exit?: boolean;
+}
+
 export class InputModeError extends Error {
   override readonly name = "InputModeError";
 }
@@ -33,13 +38,15 @@ export class InputModeError extends Error {
 async function submit(
   message: string,
   dependencies: InputDependencies,
-): Promise<void> {
+): Promise<boolean> {
   await dependencies.recordInput?.(message);
   await dependencies.recordChat?.("user", message);
   const response = await dependencies.handleMessage(message);
-  if (typeof response === "string") {
-    await dependencies.recordChat?.("assistant", response);
-  }
+  const assistant =
+    typeof response === "string" ? response : response?.response;
+  if (assistant !== undefined)
+    await dependencies.recordChat?.("assistant", assistant);
+  return typeof response === "object" && response?.exit === true;
 }
 
 function terminalLines(): AsyncIterable<string> {
@@ -102,6 +109,6 @@ export async function runInput(
     dependencies.lines ?? terminalLines(),
     options.multiline,
   )) {
-    await submit(message, dependencies);
+    if (await submit(message, dependencies)) break;
   }
 }

@@ -177,6 +177,9 @@ The project has not published a release yet.
 - Connected staged edit previews, write authorization, dirty-file checkpoints,
   selected-path commits, approved model commands, and post-write lint/tests in
   the application lifecycle. Multi-file filesystem rollback remains unsupported.
+- Dispatched every parsed slash command through concrete session state,
+  including contained file selection, model/mode switches, approved processes,
+  constrained Git operations, text clipboard actions, and clean exit.
 - Removed `node-pty` from the default dependency graph. Interactive PTY users
   now install it explicitly, while normal installs remain native-free.
 - Updated the project overview to link the porting plan and accurately describe

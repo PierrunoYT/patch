@@ -39,6 +39,11 @@ export interface UndoResult {
   readonly paths: readonly string[];
 }
 
+export interface LastPatchCommit {
+  readonly commit: string;
+  readonly paths: readonly string[];
+}
+
 export class UndoNotAllowedError extends Error {
   override readonly name = "UndoNotAllowedError";
 }
@@ -288,6 +293,12 @@ export class GitRepository {
   }
 
   async undoLastPatchCommit(): Promise<UndoResult> {
+    const current = await this.lastPatchCommit();
+    await this.#git(["reset", "--mixed", "HEAD^"]);
+    return current;
+  }
+
+  async lastPatchCommit(): Promise<LastPatchCommit> {
     const commit = (await this.#git(["rev-parse", "HEAD"])).trim();
     const message = await this.#git(["show", "-s", "--format=%B", "HEAD"]);
     if (!/^Patch-Commit: true$/mu.test(message)) {
@@ -303,7 +314,6 @@ export class GitRepository {
         "HEAD",
       ]),
     );
-    await this.#git(["reset", "--mixed", "HEAD^"]);
     return { commit, paths };
   }
 }

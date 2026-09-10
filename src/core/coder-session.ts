@@ -334,6 +334,33 @@ export class CoderSession {
     });
   }
 
+  setSelectedPaths(
+    editablePaths: readonly string[],
+    readOnlyPaths: readonly string[],
+  ): void {
+    if (this.#activeTurn !== undefined) {
+      throw new Error("Cannot change selected paths during an active turn");
+    }
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      editablePaths: [...editablePaths],
+      readOnlyPaths: [...readOnlyPaths],
+      pendingEdits: [],
+    });
+  }
+
+  clearHistory(): void {
+    if (this.#activeTurn !== undefined) {
+      throw new Error("Cannot clear history during an active turn");
+    }
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      messages: [],
+      pendingEdits: [],
+      partialResponse: "",
+    });
+  }
+
   parseResponse(response: string, files?: readonly FileSnapshot[]): EditBatch {
     return EditBatchSchema.parse(
       this.strategy.parse(response, {

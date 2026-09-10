@@ -6,6 +6,8 @@ import {
   type BootstrapOptions,
   type ConfigurationBootstrap,
 } from "../config/bootstrap.js";
+import type { CommandEffect } from "../commands/effects.js";
+import { parseCommand } from "../commands/parse.js";
 import { RepositoryMap } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
 import { resolveEditBatch, type FileSnapshot } from "../edits/resolve.js";
@@ -16,8 +18,10 @@ import {
 } from "../edits/write-boundary.js";
 import { selectFence } from "./fences.js";
 import { FileSystemAdapter } from "../io/filesystem.js";
+import { readClipboardText, writeClipboardText } from "../io/integrations.js";
 import { SafePathResolver } from "../io/safe-path.js";
 import { ModelCatalog } from "../models/catalog.js";
+import type { ModelSettings } from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
 import type { ModelProvider } from "../providers/events.js";
 import { createProvider } from "../providers/factory.js";
@@ -46,6 +50,8 @@ export interface ConcreteApplicationDependencies {
     request: WriteAuthorizationRequest,
   ) => boolean | Promise<boolean>;
   readonly approveCommand?: (command: string) => boolean | Promise<boolean>;
+  readonly readClipboard?: () => Promise<string>;
+  readonly writeClipboard?: (text: string) => Promise<void>;
 }
 
 export interface ConcreteApplicationOptions extends BootstrapOptions {
@@ -54,6 +60,7 @@ export interface ConcreteApplicationOptions extends BootstrapOptions {
 
 interface ApplicationContext {
   readonly bootstrap: ConfigurationBootstrap;
+  readonly catalog: ModelCatalog;
   readonly root: string;
   readonly files: FileSystemAdapter;
   readonly repository?: GitRepository;
@@ -70,6 +77,9 @@ interface ApplicationContext {
     request: WriteAuthorizationRequest,
   ) => boolean | Promise<boolean>;
   readonly approveCommand?: (command: string) => boolean | Promise<boolean>;
+  readonly makeProvider: (model: ModelSettings) => ModelProvider;
+  readonly readClipboard: () => Promise<string>;
+  readonly writeClipboard: (text: string) => Promise<void>;
 }
 
 export interface ApplicationTurnResult {
@@ -77,6 +87,7 @@ export interface ApplicationTurnResult {
   readonly changedPaths: readonly string[];
   readonly commit: string | null;
   readonly commands: readonly ModelCommandResult[];
+  readonly exit?: boolean;
 }
 
 function portablePath(root: string, absolute: string): string {
@@ -181,6 +192,9 @@ class ConcreteApplicationSession implements ApplicationSession {
   ): Promise<ApplicationTurnResult> {
     return this.queue.run(async () => {
       if (this.#closed) throw new Error("Application session is closed");
+      const effect = parseCommand(message);
+      if (effect.type !== "submit") return this.#dispatch(effect, options);
+      message = effect.message;
       const editable = await Promise.all(
         this.#session
           .snapshot()
@@ -334,6 +348,193 @@ class ConcreteApplicationSession implements ApplicationSession {
     this.#lifecycle.abort(new Error("Application session closed"));
   }
 
+  async #dispatch(
+    effect: Exclude<CommandEffect, { type: "submit" }>,
+    options: ApplicationSubmitOptions,
+  ): Promise<ApplicationTurnResult> {
+    const state = this.#session.snapshot();
+    const resolver = await SafePathResolver.create(this.#context.root);
+    const normalize = async (paths: readonly string[]) =>
+      Promise.all(
+        paths.map(async (path) =>
+          portablePath(this.#context.root, await resolver.resolve(path)),
+        ),
+      );
+    const result = (
+      response: string,
+      extra: Partial<ApplicationTurnResult> = {},
+    ): ApplicationTurnResult => {
+      if (response !== "") {
+        options.emit({
+          type: "text-delta",
+          data: { type: "text-delta", text: `${response}\n` },
+        });
+      }
+      return {
+        response,
+        changedPaths: [],
+        commit: null,
+        commands: [],
+        ...extra,
+      };
+    };
+
+    switch (effect.type) {
+      case "none":
+        return result("");
+      case "add": {
+        const paths = await normalize(effect.paths);
+        for (const path of paths) {
+          if (
+            !(await this.#context.approvePath?.(path)) &&
+            this.#context.approvePath !== undefined
+          ) {
+            throw new Error(`Adding path was not approved: ${path}`);
+          }
+        }
+        this.#session.setSelectedPaths(
+          [...new Set([...state.editablePaths, ...paths])],
+          state.readOnlyPaths.filter((path) => !paths.includes(path)),
+        );
+        return result(`Added: ${paths.join(", ")}`);
+      }
+      case "read-only": {
+        const paths = await normalize(effect.paths);
+        this.#session.setSelectedPaths(
+          state.editablePaths.filter((path) => !paths.includes(path)),
+          [...new Set([...state.readOnlyPaths, ...paths])],
+        );
+        return result(`Read-only: ${paths.join(", ")}`);
+      }
+      case "drop": {
+        const paths = await normalize(effect.paths);
+        this.#session.setSelectedPaths(
+          effect.paths.length === 0
+            ? []
+            : state.editablePaths.filter((path) => !paths.includes(path)),
+          effect.paths.length === 0
+            ? []
+            : state.readOnlyPaths.filter((path) => !paths.includes(path)),
+        );
+        return result(
+          effect.paths.length === 0
+            ? "Dropped all files"
+            : `Dropped: ${paths.join(", ")}`,
+        );
+      }
+      case "ls":
+        return result(
+          [
+            `Editable: ${state.editablePaths.join(", ") || "(none)"}`,
+            `Read-only: ${state.readOnlyPaths.join(", ") || "(none)"}`,
+          ].join("\n"),
+        );
+      case "clear":
+        this.#session.clearHistory();
+        return result("Chat history cleared");
+      case "model": {
+        const resolved = this.#context.catalog.resolve(effect.model);
+        const definition = createStrategy(resolved.settings.editFormat);
+        await this.#session.switch({
+          model: resolved.settings,
+          provider: this.#context.makeProvider(resolved.settings),
+          strategy: definition.strategy,
+        });
+        return result(`Model: ${resolved.canonicalName}`);
+      }
+      case "chat-mode": {
+        const format =
+          effect.mode === "code"
+            ? this.#context.models.main.settings.editFormat
+            : effect.mode;
+        const definition = createStrategy(format);
+        const model = { ...state.config.model, editFormat: format };
+        await this.#session.switch({
+          model,
+          provider: this.#context.makeProvider(model),
+          strategy: definition.strategy,
+        });
+        return result(`Chat mode: ${format}`);
+      }
+      case "run": {
+        const command = await executeModelCommand(
+          effect.command,
+          { root: this.#context.root, signal: options.signal },
+          {
+            show: (command) =>
+              options.emit({ type: "command-preview", data: { command } }),
+            approve: (command) =>
+              this.#context.approveCommand?.(command) ?? false,
+          },
+        );
+        return result(command.stdout || command.stderr, {
+          commands: [command],
+        });
+      }
+      case "lint":
+      case "test": {
+        const command =
+          effect.type === "lint"
+            ? this.#context.bootstrap.arguments.lintCommand
+            : this.#context.bootstrap.arguments.testCommand;
+        if (command === undefined)
+          throw new Error(`No ${effect.type} command is configured`);
+        await this.#runCheck(
+          effect.type,
+          command,
+          options.signal,
+          state.editablePaths,
+          options,
+        );
+        return result(`${effect.type} passed`);
+      }
+      case "commit": {
+        const commit = await this.#commit(
+          state.editablePaths,
+          effect.message ?? "Commit selected Patch files",
+        );
+        return result(
+          commit === null
+            ? "No selected changes to commit"
+            : `Committed ${commit}`,
+          { commit },
+        );
+      }
+      case "undo": {
+        const repository = this.#context.repository;
+        if (repository === undefined)
+          throw new Error("Undo requires Git integration");
+        const pending = await repository.lastPatchCommit();
+        const selected = new Set(state.editablePaths);
+        if (pending.paths.some((path) => !selected.has(path))) {
+          throw new Error(
+            "The last Patch commit includes paths outside the editable selection",
+          );
+        }
+        const undone = await repository.undoLastPatchCommit();
+        return result(`Undid ${undone.commit}`, { changedPaths: undone.paths });
+      }
+      case "clipboard-copy": {
+        const content = [...state.messages]
+          .reverse()
+          .find((message) => message.role === "assistant")?.content;
+        if (typeof content !== "string")
+          throw new Error("There is no assistant text to copy");
+        await this.#context.writeClipboard(content);
+        return result("Copied the last assistant response");
+      }
+      case "clipboard-paste":
+        return result(await this.#context.readClipboard());
+      case "exit":
+        this.close();
+        return result("", { exit: true });
+      case "switch":
+        throw new Error(
+          "Internal switch effects are not accepted as slash commands",
+        );
+    }
+  }
+
   async #repositoryContext(message: string): Promise<string> {
     const map = this.#context.repositoryMap;
     if (map === undefined) return "";
@@ -440,12 +641,15 @@ export class ConcreteApplicationService implements ApplicationService {
     const requestedFormat =
       bootstrap.arguments.editFormat ?? models.main.settings.editFormat;
     const definition = createStrategy(requestedFormat);
-    const provider =
+    const makeProvider = (model: ModelSettings) =>
       options.dependencies?.provider ??
-      (options.dependencies?.createProvider ?? createProvider)(
-        { ...models.main.settings, editFormat: requestedFormat },
-        { environment: bootstrap.environment },
-      );
+      (options.dependencies?.createProvider ?? createProvider)(model, {
+        environment: bootstrap.environment,
+      });
+    const provider = makeProvider({
+      ...models.main.settings,
+      editFormat: requestedFormat,
+    });
     const files = await FileSystemAdapter.create(root, {
       encoding: bootstrap.arguments.encoding,
     });
@@ -474,6 +678,7 @@ export class ConcreteApplicationService implements ApplicationService {
         : undefined;
     return new ConcreteApplicationService({
       bootstrap,
+      catalog,
       root,
       files,
       ...(repository === undefined ? {} : { repository }),
@@ -484,6 +689,10 @@ export class ConcreteApplicationService implements ApplicationService {
       readOnlyPaths,
       availablePaths,
       fence,
+      makeProvider,
+      readClipboard: options.dependencies?.readClipboard ?? readClipboardText,
+      writeClipboard:
+        options.dependencies?.writeClipboard ?? writeClipboardText,
       ...(repositoryMap === undefined ? {} : { repositoryMap }),
       ...(options.dependencies?.approvePath === undefined
         ? {}

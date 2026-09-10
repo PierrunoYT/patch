@@ -149,20 +149,20 @@ application path, and tests prove the pinned lifecycle ordering.
 commands were added to the parser but are likewise not connected to terminal or
 session state.
 
-- [ ] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
+- [x] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
   `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
   `/undo`, `/copy`, `/paste`, and `/exit`.
-- [ ] Resolve and authorize command paths through the same containment boundary
+- [x] Resolve and authorize command paths through the same containment boundary
   as model edits; never mutate session lists from raw parser strings.
-- [ ] Rebuild provider/strategy state safely for `/model` and `/chat-mode`,
+- [x] Rebuild provider/strategy state safely for `/model` and `/chat-mode`,
   preserving or summarizing compatible history as documented.
-- [ ] Run `/run`, `/lint`, and `/test` only through the approved/configured
+- [x] Run `/run`, `/lint`, and `/test` only through the approved/configured
   process adapters at the repository root.
-- [ ] Constrain `/commit` and `/undo` to selected paths and Patch-created commit
+- [x] Constrain `/commit` and `/undo` to selected paths and Patch-created commit
   markers without disturbing unrelated user changes.
-- [ ] Connect `/copy` and `/paste` to text-only clipboard adapters with clear
+- [x] Connect `/copy` and `/paste` to text-only clipboard adapters with clear
   unavailable-platform errors.
-- [ ] Serialize commands and provider turns through the same session queue and
+- [x] Serialize commands and provider turns through the same session queue and
   test commands submitted while a turn is active.
 
 **Acceptance:** every command shown in help/documentation has an executable

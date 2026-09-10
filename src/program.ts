@@ -191,7 +191,12 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               "response" in response &&
               typeof response.response === "string"
             ) {
-              return response.response;
+              return {
+                response: response.response,
+                ...("exit" in response && response.exit === true
+                  ? { exit: true }
+                  : {}),
+              };
             }
             return undefined;
           },

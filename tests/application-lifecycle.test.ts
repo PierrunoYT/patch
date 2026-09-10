@@ -122,7 +122,10 @@ node -e "require('fs').writeFileSync('command-ran.txt','yes')"
     expect(log).toContain("Apply Patch edits");
     expect(log).toContain("Checkpoint before Patch edits");
 
-    await git.undoLastPatchCommit();
+    await session.submit("/undo", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
     expect((await git.status()).modifiedPaths.sort()).toEqual([
       "selected.txt",
       "unrelated.txt",
