@@ -20,6 +20,7 @@ export * from "./core/file-mentions.js";
 export * from "./core/fences.js";
 export * from "./core/messages.js";
 export * from "./core/serial-queue.js";
+export * from "./core/worktree-lock.js";
 export * from "./core/session.js";
 export * from "./edits/ask.js";
 export * from "./edits/patch.js";

@@ -52,6 +52,10 @@ import type {
 import { CoderSession } from "./coder-session.js";
 import type { ChatMessage } from "./messages.js";
 import { SerialTaskQueue } from "./serial-queue.js";
+import {
+  worktreeMutationLock,
+  type WorktreeMutationLock,
+} from "./worktree-lock.js";
 
 export interface ConcreteApplicationDependencies {
   readonly catalog?: ModelCatalog;
@@ -84,6 +88,8 @@ interface ApplicationContext {
   readonly availablePaths: readonly string[];
   readonly repositoryMap?: RepositoryMap;
   readonly fence: readonly [string, string];
+  /** Shared by every session on this worktree; see `worktree-lock.ts`. */
+  readonly worktree: WorktreeMutationLock;
   readonly approvePath?: (path: string) => boolean | Promise<boolean>;
   readonly authorizeWrite?: (
     request: WriteAuthorizationRequest,
@@ -310,121 +316,131 @@ class ConcreteApplicationSession implements ApplicationSession {
           onEvent: (event) => options.emit({ type: event.type, data: event }),
           lifecycle: {
             context,
-            apply: async (candidate) => {
-              if (options.readOnly === true) {
-                return undefined;
-              }
-              const editPaths = candidate.edits.edits.flatMap((edit) =>
-                edit.kind === "move" ? [edit.fromPath, edit.path] : [edit.path],
-              );
-              const resolver = await SafePathResolver.create(
-                this.#context.root,
-              );
-              const canonicalEditPaths: string[] = [];
-              for (const path of editPaths) {
-                const canonical = portablePath(
-                  this.#context.root,
-                  await resolver.resolve(path),
+            // The mutation phase runs under the worktree lock so a second
+            // session on this checkout cannot interleave its checkpoint,
+            // apply, commit, or checks with this one. Streaming stays outside
+            // the lock.
+            apply: (candidate) =>
+              this.#context.worktree.run(async () => {
+                if (options.readOnly === true) {
+                  return undefined;
+                }
+                const editPaths = candidate.edits.edits.flatMap((edit) =>
+                  edit.kind === "move"
+                    ? [edit.fromPath, edit.path]
+                    : [edit.path],
                 );
-                canonicalEditPaths.push(canonical);
-                if (
-                  this.#session.snapshot().readOnlyPaths.includes(canonical)
-                ) {
-                  throw new Error("Cannot edit a read-only path");
-                }
-              }
-              await assertPathsNotIgnored(
-                this.#context.repository,
-                canonicalEditPaths,
-              );
-              const expandedSnapshots = [...snapshots];
-              for (const path of editPaths) {
-                if (!expandedSnapshots.some((file) => file.path === path)) {
-                  expandedSnapshots.push(
-                    await snapshot(this.#context.files, path),
+                const resolver = await SafePathResolver.create(
+                  this.#context.root,
+                );
+                const canonicalEditPaths: string[] = [];
+                for (const path of editPaths) {
+                  const canonical = portablePath(
+                    this.#context.root,
+                    await resolver.resolve(path),
                   );
+                  canonicalEditPaths.push(canonical);
+                  if (
+                    this.#session.snapshot().readOnlyPaths.includes(canonical)
+                  ) {
+                    throw new Error("Cannot edit a read-only path");
+                  }
                 }
-              }
-              let resolved;
-              try {
-                resolved = resolveEditBatch(candidate.edits, expandedSnapshots);
-              } catch (error) {
-                if (!(error instanceof EditResolutionError)) throw error;
-                return {
-                  source: "malformed" as const,
-                  diagnostic: `${error.message}: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}`,
-                };
-              }
-              if (
-                resolved.operations.length === 0 &&
-                resolved.shellCommands.length === 0
-              ) {
-                if (changedPaths.size === 0) return undefined;
-              }
+                await assertPathsNotIgnored(
+                  this.#context.repository,
+                  canonicalEditPaths,
+                );
+                const expandedSnapshots = [...snapshots];
+                for (const path of editPaths) {
+                  if (!expandedSnapshots.some((file) => file.path === path)) {
+                    expandedSnapshots.push(
+                      await snapshot(this.#context.files, path),
+                    );
+                  }
+                }
+                let resolved;
+                try {
+                  resolved = resolveEditBatch(
+                    candidate.edits,
+                    expandedSnapshots,
+                  );
+                } catch (error) {
+                  if (!(error instanceof EditResolutionError)) throw error;
+                  return {
+                    source: "malformed" as const,
+                    diagnostic: `${error.message}: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}`,
+                  };
+                }
+                if (
+                  resolved.operations.length === 0 &&
+                  resolved.shellCommands.length === 0
+                ) {
+                  if (changedPaths.size === 0) return undefined;
+                }
 
-              const transaction = await EditTransaction.stage(
-                this.#context.files,
-                resolved,
-              );
-              const repository = this.#context.repository;
-              const write = await applyAuthorizedEdits(
-                transaction,
-                this.#session.snapshot().editablePaths,
-                {
-                  presentPreview: (preview) =>
-                    options.emit({ type: "edit-preview", data: preview }),
-                  authorize: (request) =>
-                    this.#context.authorizeWrite?.(request) ?? false,
-                  isDirty: (path) => repository?.isDirty(path) ?? false,
-                  checkpointDirty: async (paths) =>
-                    (await this.#commit(
-                      paths,
-                      "Checkpoint before Patch edits",
-                    )) ?? undefined,
-                },
-                options.signal,
-              );
-              for (const path of write.changedPaths) changedPaths.add(path);
-              options.signal.throwIfAborted();
-              await this.#commit(write.changedPaths, "Apply Patch edits");
-              const signal = options.signal;
-              signal.throwIfAborted();
-              const lint = await this.#runCheck(
-                "lint",
-                this.#context.bootstrap.arguments.lintCommand,
-                signal,
-                [...changedPaths],
-                options,
-              );
-              if (lint !== undefined)
-                return { source: "lint" as const, diagnostic: lint };
-              commands.push(
-                ...(await executeModelCommands(
-                  resolved.shellCommands,
-                  { root: this.#context.root, signal },
+                const transaction = await EditTransaction.stage(
+                  this.#context.files,
+                  resolved,
+                );
+                const repository = this.#context.repository;
+                const write = await applyAuthorizedEdits(
+                  transaction,
+                  this.#session.snapshot().editablePaths,
                   {
-                    show: (command) =>
-                      options.emit({
-                        type: "command-preview",
-                        data: { command },
-                      }),
-                    approve: (command) =>
-                      this.#context.approveCommand?.(command) ?? false,
+                    presentPreview: (preview) =>
+                      options.emit({ type: "edit-preview", data: preview }),
+                    authorize: (request) =>
+                      this.#context.authorizeWrite?.(request) ?? false,
+                    isDirty: (path) => repository?.isDirty(path) ?? false,
+                    checkpointDirty: async (paths) =>
+                      (await this.#commit(
+                        paths,
+                        "Checkpoint before Patch edits",
+                      )) ?? undefined,
                   },
-                )),
-              );
-              signal.throwIfAborted();
-              const test = await this.#runCheck(
-                "test",
-                this.#context.bootstrap.arguments.testCommand,
-                signal,
-                [...changedPaths],
-                options,
-              );
-              if (test !== undefined)
-                return { source: "test" as const, diagnostic: test };
-              return undefined;
-            },
+                  options.signal,
+                );
+                for (const path of write.changedPaths) changedPaths.add(path);
+                options.signal.throwIfAborted();
+                await this.#commit(write.changedPaths, "Apply Patch edits");
+                const signal = options.signal;
+                signal.throwIfAborted();
+                const lint = await this.#runCheck(
+                  "lint",
+                  this.#context.bootstrap.arguments.lintCommand,
+                  signal,
+                  [...changedPaths],
+                  options,
+                );
+                if (lint !== undefined)
+                  return { source: "lint" as const, diagnostic: lint };
+                commands.push(
+                  ...(await executeModelCommands(
+                    resolved.shellCommands,
+                    { root: this.#context.root, signal },
+                    {
+                      show: (command) =>
+                        options.emit({
+                          type: "command-preview",
+                          data: { command },
+                        }),
+                      approve: (command) =>
+                        this.#context.approveCommand?.(command) ?? false,
+                    },
+                  )),
+                );
+                signal.throwIfAborted();
+                const test = await this.#runCheck(
+                  "test",
+                  this.#context.bootstrap.arguments.testCommand,
+                  signal,
+                  [...changedPaths],
+                  options,
+                );
+                if (test !== undefined)
+                  return { source: "test" as const, diagnostic: test };
+                return undefined;
+              }, options.signal),
           },
         })
         .finally(() => {
@@ -560,15 +576,20 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result(`Chat mode: ${format}`);
       }
       case "run": {
-        const command = await executeModelCommand(
-          effect.command,
-          { root: this.#context.root, signal: options.signal },
-          {
-            show: (command) =>
-              options.emit({ type: "command-preview", data: { command } }),
-            approve: (command) =>
-              this.#context.approveCommand?.(command) ?? false,
-          },
+        // An approved command may mutate the worktree.
+        const command = await this.#context.worktree.run(
+          () =>
+            executeModelCommand(
+              effect.command,
+              { root: this.#context.root, signal: options.signal },
+              {
+                show: (command) =>
+                  options.emit({ type: "command-preview", data: { command } }),
+                approve: (command) =>
+                  this.#context.approveCommand?.(command) ?? false,
+              },
+            ),
+          options.signal,
         );
         return result(command.stdout || command.stderr, {
           commands: [command],
@@ -611,18 +632,23 @@ class ConcreteApplicationSession implements ApplicationSession {
         const owned = state.lastPatchCommit;
         if (owned === null)
           throw new Error("This session has no Patch commit to undo");
-        const pending = await repository.lastPatchCommit();
-        if (pending.commit !== owned)
-          throw new Error(
-            `The last Patch commit ${pending.commit} was not created by this session`,
-          );
-        const selected = new Set(state.editablePaths);
-        if (pending.paths.some((path) => !selected.has(path))) {
-          throw new Error(
-            "The last Patch commit includes paths outside the editable selection",
-          );
-        }
-        const undone = await repository.undoLastPatchCommit(owned);
+        // Ownership is checked and acted on under one worktree lock so a
+        // concurrent session cannot commit between the two operations; the
+        // reset itself still compares and swaps HEAD.
+        const undone = await this.#context.worktree.run(async () => {
+          const pending = await repository.lastPatchCommit();
+          if (pending.commit !== owned)
+            throw new Error(
+              `The last Patch commit ${pending.commit} was not created by this session`,
+            );
+          const selected = new Set(state.editablePaths);
+          if (pending.paths.some((path) => !selected.has(path))) {
+            throw new Error(
+              "The last Patch commit includes paths outside the editable selection",
+            );
+          }
+          return repository.undoLastPatchCommit(owned);
+        }, options.signal);
         this.#session.recordApplied();
         return result(`Undid ${undone.commit}`, { changedPaths: undone.paths });
       }
@@ -677,16 +703,18 @@ class ConcreteApplicationSession implements ApplicationSession {
   ): Promise<string | null> {
     if (!this.#context.bootstrap.arguments.git || paths.length === 0)
       return null;
-    const commit =
-      (
-        await this.#context.repository?.commit({
-          paths: [...paths],
-          message,
-          verify: false,
-        })
-      )?.commit ?? null;
-    if (commit !== null) this.#session.recordCommit(commit);
-    return commit;
+    return this.#context.worktree.run(async () => {
+      const commit =
+        (
+          await this.#context.repository?.commit({
+            paths: [...paths],
+            message,
+            verify: false,
+          })
+        )?.commit ?? null;
+      if (commit !== null) this.#session.recordCommit(commit);
+      return commit;
+    });
   }
 
   async #runCheck(
@@ -698,23 +726,30 @@ class ConcreteApplicationSession implements ApplicationSession {
   ): Promise<string | undefined> {
     if (command === undefined) return;
     signal.throwIfAborted();
-    options.emit({ type: `${label}-start`, data: { command } });
-    const result = await executeModelCommand(
-      command,
-      { root: this.#context.root, signal },
-      { show: () => undefined, approve: () => true },
-    );
-    options.emit({ type: `${label}-complete`, data: result });
-    signal.throwIfAborted();
-    await this.#commit(changedPaths, `Apply ${label} changes`);
-    if (result.status !== "completed" || result.exitCode !== 0) {
-      const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
-      const outcome =
-        result.status === "completed"
-          ? `exited with code ${String(result.exitCode)}`
-          : `was ${result.status}`;
-      return `Configured ${label} command ${outcome}${output === "" ? "" : `\n\n${output}`}`;
-    }
+    // A configured check observes and can rewrite the working tree, so it runs
+    // under the same worktree lock as the edits it checks.
+    return this.#context.worktree.run(async () => {
+      options.emit({ type: `${label}-start`, data: { command } });
+      const result = await executeModelCommand(
+        command,
+        { root: this.#context.root, signal },
+        { show: () => undefined, approve: () => true },
+      );
+      options.emit({ type: `${label}-complete`, data: result });
+      signal.throwIfAborted();
+      await this.#commit(changedPaths, `Apply ${label} changes`);
+      if (result.status !== "completed" || result.exitCode !== 0) {
+        const output = [result.stdout, result.stderr]
+          .filter(Boolean)
+          .join("\n");
+        const outcome =
+          result.status === "completed"
+            ? `exited with code ${String(result.exitCode)}`
+            : `was ${result.status}`;
+        return `Configured ${label} command ${outcome}${output === "" ? "" : `\n\n${output}`}`;
+      }
+      return undefined;
+    }, signal);
   }
 }
 
@@ -813,6 +848,7 @@ export class ConcreteApplicationService implements ApplicationService {
       bootstrap,
       catalog,
       root,
+      worktree: worktreeMutationLock(root),
       files,
       ...(repository === undefined ? {} : { repository }),
       models,
