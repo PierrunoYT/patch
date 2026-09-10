@@ -102,6 +102,46 @@ describe("GitRepository commits", () => {
     );
   });
 
+  it("treats selected paths containing pathspec syntax literally", async () => {
+    const { root, git } = await fixture();
+    await writeFile(join(root, "[ab].txt"), "literal base\n");
+    await writeFile(join(root, "a.txt"), "matching base\n");
+    await executeFile("git", ["-C", root, "add", "."]);
+    await executeFile("git", [
+      "-C",
+      root,
+      "commit",
+      "--quiet",
+      "-m",
+      "pathspec fixture",
+    ]);
+    await writeFile(join(root, "[ab].txt"), "literal changed\n");
+    await writeFile(join(root, "a.txt"), "matching changed\n");
+
+    await expect(
+      git.commit({
+        paths: ["[ab].txt"],
+        message: "literal path",
+        verify: false,
+      }),
+    ).resolves.toMatchObject({ paths: ["[ab].txt"] });
+
+    const committedPaths = (
+      await executeFile("git", [
+        "-C",
+        root,
+        "show",
+        "--format=",
+        "--name-only",
+        "HEAD",
+      ])
+    ).stdout.trim();
+    expect(committedPaths).toBe("[ab].txt");
+    await expect(git.status()).resolves.toMatchObject({
+      modifiedPaths: ["a.txt"],
+    });
+  });
+
   it("honors hook verification and permits an explicit no-verify commit", async () => {
     const { root, git } = await fixture();
     await writeFile(join(root, "selected.txt"), "changed\n");

@@ -392,9 +392,10 @@ evidence remains incomplete.
 
 - [x] Discover one common Git worktree for selected paths and reject paths from
   multiple repositories.
-- [ ] Complete tracked/ignored repository inventory and literal path handling.
-  Status parsing exists, but tracked `.aiderignore` paths reach model context
-  and Git pathspec magic is not neutralized.
+- [x] Make repository-relative Git path arguments literal across diff, stage,
+  commit, ignore, and undo operations.
+- [ ] Complete tracked/ignored repository inventory. Status parsing exists, but
+  tracked `.aiderignore` paths reach model context.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
   a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.

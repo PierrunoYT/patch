@@ -16,10 +16,16 @@ working-directory root.
 and detached HEAD, combined diffs, dirtiness, ignore checks, and
 repository-relative paths. Machine-readable filename lists use NUL delimiters.
 
+Git child commands that accept selected pathspecs receive
+`GIT_LITERAL_PATHSPECS=1`, so selected names containing wildcard or bracket
+syntax remain literal across diff, stage, commit, and undo operations.
+`check-ignore` accepts exact pathnames rather than glob patterns and rejects
+Git's literal-pathspec magic, so that command is deliberately invoked without
+the variable. `tests/git-commit.test.ts` exercises the mutation boundary with a
+literal `[ab].txt` beside a matching `a.txt`.
+
 Current production limitations are release blockers:
 
-- Git receives repository-relative pathspecs after `--`, but pathspec magic is
-  not disabled. A literal selected name can expand to unrelated files.
 - `status().trackedPaths` is not filtered through `.aiderignore` before
   application snapshots and repository-map/model context.
 - `.aiderignore` is supplied by overriding `core.excludesFile`, not composed

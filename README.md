@@ -51,9 +51,9 @@ Selected-file edits and configured lint/test commands retain existing behavior.
 File-mention selection and per-failure reflection prompts remain unsupported.
 
 This is not yet a usable-release or Aider-parity claim. Immediate blockers
-include literal Git path handling, filtering tracked `.aiderignore` content
-before model context, move ordering, Patch/unified-diff targeting, session-owned
-undo, cross-session repository writes, and terminal control sanitization.
+include filtering tracked `.aiderignore` content before model context, move
+ordering, Patch/unified-diff targeting, session-owned undo, cross-session
+repository writes, and terminal control sanitization.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; `/undo` retains working files and
 unrelated staged changes but is not yet bound to the current session's commit.

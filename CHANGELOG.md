@@ -173,6 +173,12 @@ porting plan distinguish composed behavior from library-only adapters.
 
 - Unified-diff application now distinguishes whitespace-only source lines from
   empty hunk sides used by pure additions and deletions.
+- Made repository adapter subprocesses that accept selected pathspecs set
+  `GIT_LITERAL_PATHSPECS=1`, so names containing Git wildcard syntax cannot
+  expand to unrelated files during diff, stage, commit, or undo operations.
+  `check-ignore` retains its exact-pathname mode because that Git command rejects
+  literal-pathspec magic. A real-repository regression test and compiled-adapter
+  smoke scenario cover a literal `[ab].txt` beside `a.txt`.
 
 ### Changed
 

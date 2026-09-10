@@ -79,6 +79,7 @@ export class GitRepository {
   async #git(
     arguments_: readonly string[],
     environment: Readonly<Record<string, string>> = {},
+    literalPathspecs = true,
   ): Promise<string> {
     try {
       const { stdout } = await executeFile(
@@ -87,7 +88,12 @@ export class GitRepository {
         {
           encoding: "utf8",
           maxBuffer: 16 * 1024 * 1024,
-          env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", ...environment },
+          env: {
+            ...process.env,
+            ...environment,
+            GIT_OPTIONAL_LOCKS: "0",
+            ...(literalPathspecs ? { GIT_LITERAL_PATHSPECS: "1" } : {}),
+          },
         },
       );
       return stdout;
@@ -99,9 +105,12 @@ export class GitRepository {
     }
   }
 
-  async #tryGit(arguments_: readonly string[]): Promise<string | undefined> {
+  async #tryGit(
+    arguments_: readonly string[],
+    literalPathspecs = true,
+  ): Promise<string | undefined> {
     try {
-      return await this.#git(arguments_);
+      return await this.#git(arguments_, {}, literalPathspecs);
     } catch {
       return undefined;
     }
@@ -207,7 +216,7 @@ export class GitRepository {
     } catch {
       // The project has no aider-specific ignore file.
     }
-    return (await this.#tryGit(arguments_)) !== undefined;
+    return (await this.#tryGit(arguments_, false)) !== undefined;
   }
 
   async isDirty(path?: string): Promise<boolean> {
