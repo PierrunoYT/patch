@@ -176,6 +176,9 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
+- Reconciled the remaining-integration backlog with the current application,
+  replacing superseded problem statements and frozen local test totals with
+  implementation paths and repeatable evidence.
 - Connected one terminal input owner to new/out-of-chat write authorization,
   model command approval, and `/run`. Standalone TTY sessions show escaped,
   exact literal previews and accept only `y`/`yes`; empty/ambiguous answers,

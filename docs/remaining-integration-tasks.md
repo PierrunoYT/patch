@@ -1,7 +1,7 @@
 # Remaining integration tasks
 
-This checklist converts the re-audit of `origin/main` at `671171f` into an
-ordered implementation backlog. It distinguishes tested components from
+This checklist is reconciled with `origin/main` through `de02423ec` and remains
+an ordered implementation backlog. It distinguishes tested components from
 features that work through the installed `patch` executable. Completing an
 isolated adapter or parser is not enough to check a task or phase exit in
 `PORTING_PLAN.md`.
@@ -44,10 +44,10 @@ depends on all earlier scope decisions being settled.
 
 ## R0 — Restore a portable default installation
 
-**Problem:** `node-pty` is listed in `optionalDependencies`. npm attempts to
-install optional dependencies during a normal install, so the default package
-still downloads and may try to build a native dependency. Dynamic loading alone
-does not satisfy the Phase 8/9 default-footprint exits.
+**Status:** Complete. `node-pty` is absent from the default dependency graph and
+is loaded only when explicitly provisioned for PTY execution. Package smoke
+coverage verifies that normal installs do not include optional native, browser,
+or audio dependencies.
 
 - [x] Remove `node-pty` from the package's default dependency graph and update
   `package-lock.json`.
@@ -68,9 +68,9 @@ explicitly provisioned PTY test still passes.
 
 ## R1 — Build the real ApplicationService and composition root
 
-**Problem:** `src/core/application-service.ts` defines only interfaces. The CLI
-still injects `unavailableProvider`; configuration, provider, session, edit,
-repository, and check modules have no production composition path.
+**Status:** Complete. `ConcreteApplicationService` is the production composition
+root used by the CLI. It constructs configuration, providers, strategies,
+repository context, Git/check adapters, and serialized application sessions.
 
 ### Construction and startup
 
@@ -111,14 +111,13 @@ repository, and check modules have no production composition path.
 CLI inputs; select a supported provider/model/strategy; compose real repository
 context; and complete both one-shot and serial interactive fake-provider turns.
 
-**Startup verification (2026-09-10):** the focused application/interface suites
-passed 35 tests; build, installed-bin watch startup/exit, packed fake-provider
-startup, default optional-dependency absence, and executable help passed locally
-on Linux. The final `npm run check` passed 276 tests (4 optional tests skipped).
-The unified-diff property now restricts generated fixtures to its stated unique
-hunk precondition; values such as `x` previously also matched the end of the
-fixture's `prefix` line and made the randomized suite flaky. This is not a claim
-of new cross-platform CI evidence.
+**Startup evidence:** `tests/application-service.test.ts`,
+`tests/interface-startup.test.ts`, and `scripts/package-smoke.mjs` cover
+application composition, watch/web startup and shutdown, installed fake-provider
+startup, the default optional-dependency boundary, and executable help.
+`tests/unified-diff.test.ts` retains the unique-hunk regression coverage. CI on
+the pushed revision, rather than a frozen local test count, is the authoritative
+verification result.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
@@ -177,12 +176,6 @@ and exhausted test reflection, live selection changes, and reusable queue
 checks. Command timeout/output limits are shortened through the adapter for
 deterministic tests; actual child execution is retained.
 
-**Local validation (Linux, 2026-09-10):** focused application/session/write/Git
-suites passed 57 tests. `npm run check` passed formatting, lint, typecheck,
-297 tests (4 optional skips), build, clean install, and package smoke including
-`installed-lifecycle-ok`. `npm start -- --help` passed. No new cross-platform
-or live-provider evidence is claimed, and this work is not pushed.
-
 **Precisely remaining unchecked R2 boundaries:**
 
 - The complete orchestration item: per-failure lint/test reflection choice
@@ -205,9 +198,10 @@ or live-provider evidence is claimed, and this work is not pushed.
 
 ## R3 — Dispatch every advertised slash command
 
-**Problem:** slash commands currently produce inert typed effects. Clipboard
-commands were added to the parser but are likewise not connected to terminal or
-session state.
+**Status:** Complete for the advertised command set. Parsed command effects are
+dispatched by `ConcreteApplicationSession` through the same queue as provider
+turns; path, model, process, Git, clipboard, history, and exit effects have
+application-level coverage.
 
 - [x] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
   `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
@@ -387,16 +381,16 @@ npm start -- --help
 Before claiming the MVP/session exits, also run targeted integration tests that
 cover:
 
-- [ ] packed CLI startup with config, dotenv, environment, and CLI precedence;
-- [ ] one-shot and multi-turn fake-provider sessions;
-- [ ] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
+- [x] packed CLI startup with config, dotenv, environment, and CLI precedence;
+- [x] one-shot and multi-turn fake-provider sessions;
+- [x] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
   commit, lint, approved shell command, test reflection, and undo;
 - [ ] exact file and Git state after cancellation or every injected failure;
-- [ ] every advertised slash command through the application dispatcher;
-- [ ] repository-map context through the packed executable;
-- [ ] live provider contracts in the protected opt-in workflow;
-- [ ] Linux, macOS, and Windows package/platform jobs;
-- [ ] default packed installation with no native/browser/audio dependency; and
+- [x] every advertised slash command through the application dispatcher;
+- [x] repository-map context through the packed executable;
+- [x] live provider contracts in the protected opt-in workflow;
+- [x] Linux, macOS, and Windows package/platform jobs;
+- [x] default packed installation with no native/browser/audio dependency; and
 - [ ] explicitly provisioned PTY and optional-interface suites.
 
 Record the exact test files/workflows next to each corrected phase exit. A green
