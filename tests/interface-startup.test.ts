@@ -144,6 +144,57 @@ describe("application interface startup", () => {
     expect(provider.requests).toHaveLength(0);
   });
 
+  it("keeps a globally excluded file out of selection and provider context", async () => {
+    const root = await fixture();
+    // The ordinary Git exclusion policy a user carries between repositories.
+    // `.aiderignore` exists as well, because Patch used to pass it as
+    // `core.excludesFile` and so replaced this policy instead of composing
+    // with it.
+    const excludes = join(await fixture(), "excludes");
+    await writeFile(excludes, "global-only.ts\n");
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "core.excludesFile", excludes], {
+      cwd: root,
+    });
+    await writeFile(join(root, ".aiderignore"), "aider-only.ts\n");
+    await writeFile(join(root, "global-only.ts"), "global secret\n");
+    await writeFile(join(root, "selected.ts"), "const keep = 7;\n");
+    execFileSync("git", ["add", "--force", "global-only.ts", "selected.ts"], {
+      cwd: root,
+    });
+    const provider = new FakeProvider([turn("nothing to change")]);
+
+    await expect(
+      ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--model", "4o", "--edit-format", "ask", "global-only.ts"],
+        dependencies: { provider },
+      }),
+    ).rejects.toThrow(/ignored and cannot enter model context/);
+
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--model", "4o", "--edit-format", "ask", "selected.ts"],
+      dependencies: { provider },
+    });
+    const session = service.createSession({
+      principal: "global-ignore",
+      sessionId: "global-ignore",
+    });
+    await session.submit("summarize", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+
+    expect(provider.requests).toHaveLength(1);
+    expect(JSON.stringify(provider.requests)).not.toContain("global secret");
+    expect(JSON.stringify(provider.requests)).not.toContain("global-only.ts");
+  });
+
   it("rejects a model edit to an ignored tracked file before reading it", async () => {
     const root = await fixture();
     execFileSync("git", ["init", "--quiet"], { cwd: root });

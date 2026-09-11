@@ -51,6 +51,15 @@ export class UndoNotAllowedError extends Error {
   override readonly name = "UndoNotAllowedError";
 }
 
+async function exists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function nulFields(output: string): string[] {
   const fields = output.split("\0");
   if (fields.at(-1) === "") {
@@ -235,17 +244,36 @@ export class GitRepository {
   async filterIgnored(paths: readonly string[]): Promise<string[]> {
     const selected = paths.map((path) => this.relativePath(path));
     if (selected.length === 0) return [];
+    // Upstream keeps the two policies separate — `ignored_file` matches the
+    // aider patterns and `git_ignored_file` asks Git — so a path is excluded
+    // when either matches. Patch used to pass `.aiderignore` as
+    // `core.excludesFile`, which replaced the user's ordinary exclusion policy
+    // for this check instead of adding to it, so a file excluded only by a
+    // global ignore file became eligible for selection and model context.
+    const ignored = await this.#ignoredPaths(selected);
     const aiderIgnore = resolve(this.root, ".aiderignore");
-    const arguments_ = ["check-ignore", "--no-index", "-z", "--stdin"];
-    try {
-      await access(aiderIgnore);
-      arguments_.unshift("-c", `core.excludesFile=${aiderIgnore}`);
-    } catch {
-      // The project has no aider-specific ignore file.
+    if (await exists(aiderIgnore)) {
+      for (const path of await this.#ignoredPaths(selected, [
+        "-c",
+        `core.excludesFile=${aiderIgnore}`,
+      ])) {
+        ignored.add(path);
+      }
     }
-    let output: string;
+    return selected.filter((path) => !ignored.has(path));
+  }
+
+  /** Paths of `selected` that Git reports as ignored under `configuration`. */
+  async #ignoredPaths(
+    selected: readonly string[],
+    configuration: readonly string[] = [],
+  ): Promise<Set<string>> {
     try {
-      output = await this.#gitWithInput(arguments_, `${selected.join("\0")}\0`);
+      const output = await this.#gitWithInput(
+        [...configuration, "check-ignore", "--no-index", "-z", "--stdin"],
+        `${selected.join("\0")}\0`,
+      );
+      return new Set(nulFields(output));
     } catch (error) {
       const cause =
         error instanceof GitRepositoryError ? error.cause : undefined;
@@ -255,12 +283,11 @@ export class GitRepository {
         "code" in cause &&
         cause.code === 1
       ) {
-        return selected;
+        // Exit code 1 is Git reporting that none of the paths are ignored.
+        return new Set();
       }
       throw error;
     }
-    const ignored = new Set(nulFields(output));
-    return selected.filter((path) => !ignored.has(path));
   }
 
   async isIgnored(path: string): Promise<boolean> {

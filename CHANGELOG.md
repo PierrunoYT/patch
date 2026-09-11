@@ -286,6 +286,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- `.aiderignore` composes with ordinary Git exclusions instead of replacing
+  them. Patch supplied the file as `core.excludesFile`, so a project that had an
+  `.aiderignore` lost the user's global ignore policy for Patch's own check, and
+  a file excluded everywhere else became eligible for selection, mention
+  matching, repository maps, and provider messages. The check now runs under the
+  repository's ordinary rules as well, and a path either policy matches stays
+  out, as upstream does by keeping the two checks separate.
 - The ancestor-swap fault injection reaches its identity check on Windows. The
   swap ran while the temporary file's handle was still open, and Windows refuses
   to rename a directory that contains an open file, so the injection failed with

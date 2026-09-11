@@ -31,10 +31,16 @@ read-only, and model-targeted ignored paths fail closed before file content is
 read. The filter is repeated while composing each turn so changes to ignore
 rules cannot expose a previously visible tracked file.
 
-Current production limitations are release blockers:
-
-- `.aiderignore` is supplied by overriding `core.excludesFile`, not composed
-  independently with every existing global excludes policy.
+A path is excluded when either policy matches it, which is how upstream keeps
+`ignored_file` and `git_ignored_file` separate in `aider/repo.py`. The check
+runs once under the repository's ordinary exclusion rules — `.gitignore`,
+`.git/info/exclude`, and whatever `core.excludesFile` the user configures — and,
+when `.aiderignore` exists, once more with that file supplied as
+`core.excludesFile`; the two ignored sets are unioned. Supplying `.aiderignore`
+this way replaces the ordinary excludes file for that second invocation only, so
+the first invocation is what preserves a global ignore policy. Evidence: the
+composition cases in `tests/git-repository.test.ts` and the selection and
+provider-context case in `tests/interface-startup.test.ts`.
 
 Ignore-command failures abort the affected startup or turn. Watch-mode
 submission failures, including ignore-check errors, reach the error reporter

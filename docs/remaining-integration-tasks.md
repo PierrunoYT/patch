@@ -69,7 +69,7 @@ unchanged result of the historical audit.
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery; fenced prompts remain shared and independent Patch-format goldens are absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, temperature policy, and bounded transient retries are wired. Bundled limits/prices are incomplete, cache-specific costs are unmodeled, and editor/media/cache-keepalive workflows remain unintegrated. |
-| Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, move ordering, session-owned undo, and in-process worktree locking are enforced. Global-ignore composition and production commit policy remain open; metadata portability, Windows fault-injection evidence, and recovery limits remain documented constraints. |
+| Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Production commit policy remains open; metadata portability and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, directory/glob expansion, and command outcomes are wired. Literal glob-metacharacter filenames remain a selection gap. Help, report, and settings are selected but absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, and `/web` ingests one bounded user-named page. HTTP disconnect cancellation is wired but needs targeted evidence; quotas, expiry, backpressure, session reclamation, and structured partial-error responses remain open. GUI and CLI voice UX are deferred. |
@@ -81,8 +81,17 @@ These are open implementation/evidence tasks, not completed functionality.
 Prioritize existing behavior and its evidence before adding the ancillary commands. See the [dated audit](aider-parity-audit-2026-09-11.md)
 for revision-specific source references and reproduction limits.
 
-- [ ] Compose `.aiderignore` with ordinary global Git exclusions; test both
-  policies before selection and provider-context construction.
+- [x] Compose `.aiderignore` with ordinary global Git exclusions; test both
+  policies before selection and provider-context construction. `filterIgnored`
+  runs `check-ignore` once under the repository's ordinary rules and, when
+  `.aiderignore` exists, once more with that file as `core.excludesFile`, then
+  unions the results, so a path excluded only by a global ignore file is no
+  longer eligible. This matches upstream, which keeps `ignored_file` and
+  `git_ignored_file` separate. Every consumer — selection, mention matching,
+  repository maps, and provider messages — goes through that one method.
+  Evidence: the composition cases in `tests/git-repository.test.ts` and the
+  selection and provider-context case in `tests/interface-startup.test.ts`;
+  both fail against the previous override.
 - [ ] Supply input limits and catalog prices for advertised bundled models,
   model cache-hit/write pricing, and test executable budgeting/accounting.
 - [ ] Complete the fixture-source hash manifest and add coverage that detects

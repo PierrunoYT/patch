@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,7 @@ import { GitRepository, GitRepositoryError } from "../src/index.js";
 
 const executeFile = promisify(execFile);
 const directories: string[] = [];
+const excludeFiles: string[] = [];
 
 async function repository(commit = true): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "patch-git-"));
@@ -35,9 +37,10 @@ async function repository(commit = true): Promise<string> {
 }
 
 afterEach(async () => {
-  await Promise.all(
-    directories.splice(0).map((path) => rm(path, { recursive: true })),
-  );
+  await Promise.all([
+    ...directories.splice(0).map((path) => rm(path, { recursive: true })),
+    ...excludeFiles.splice(0).map((path) => rm(path, { force: true })),
+  ]);
 });
 
 describe("GitRepository", () => {
@@ -108,6 +111,68 @@ describe("GitRepository", () => {
     await expect(git.filterIgnored(tracked)).resolves.not.toContain(
       "private.ts",
     );
+  });
+
+  it("composes an aider ignore file with ordinary Git exclusions", async () => {
+    const root = await repository();
+    const excludes = join(root, "..", `patch-git-excludes-${randomUUID()}`);
+    excludeFiles.push(excludes);
+    await writeFile(excludes, "global-only.txt\n");
+    // An excludes file configured outside the worktree is the ordinary Git
+    // exclusion policy a user carries between repositories. Patch used to pass
+    // `.aiderignore` as `core.excludesFile`, which replaced this policy for its
+    // own check, so a file the user excludes everywhere became selectable.
+    await executeFile("git", [
+      "-C",
+      root,
+      "config",
+      "core.excludesFile",
+      excludes,
+    ]);
+    await writeFile(join(root, ".gitignore"), "repo-only.txt\n");
+    await writeFile(join(root, ".aiderignore"), "aider-only.txt\n");
+    for (const name of [
+      "global-only.txt",
+      "repo-only.txt",
+      "aider-only.txt",
+      "visible.txt",
+    ]) {
+      await writeFile(join(root, name), `${name}\n`);
+    }
+    const git = await GitRepository.open(root);
+
+    await expect(
+      git.filterIgnored([
+        "global-only.txt",
+        "repo-only.txt",
+        "aider-only.txt",
+        "visible.txt",
+      ]),
+    ).resolves.toEqual(["visible.txt"]);
+    await expect(git.isIgnored("global-only.txt")).resolves.toBe(true);
+    await expect(git.isIgnored("aider-only.txt")).resolves.toBe(true);
+    await expect(git.isIgnored("visible.txt")).resolves.toBe(false);
+  });
+
+  it("applies ordinary Git exclusions when no aider ignore file exists", async () => {
+    const root = await repository();
+    const excludes = join(root, "..", `patch-git-excludes-${randomUUID()}`);
+    excludeFiles.push(excludes);
+    await writeFile(excludes, "global-only.txt\n");
+    await executeFile("git", [
+      "-C",
+      root,
+      "config",
+      "core.excludesFile",
+      excludes,
+    ]);
+    await writeFile(join(root, "global-only.txt"), "global\n");
+    await writeFile(join(root, "visible.txt"), "visible\n");
+    const git = await GitRepository.open(root);
+
+    await expect(
+      git.filterIgnored(["global-only.txt", "visible.txt"]),
+    ).resolves.toEqual(["visible.txt"]);
   });
 
   it("represents unborn and detached HEAD without guessing a branch", async () => {
