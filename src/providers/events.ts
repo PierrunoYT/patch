@@ -39,9 +39,11 @@ const ToolCallDeltaEventSchema = z
 const UsageEventSchema = z
   .object({
     type: z.literal("usage"),
+    /** Every billed input token, cached reads and cache writes included. */
     inputTokens: z.number().int().nonnegative(),
     outputTokens: z.number().int().nonnegative(),
     cachedInputTokens: z.number().int().nonnegative().optional(),
+    cacheWriteTokens: z.number().int().nonnegative().optional(),
     cost: z.number().nonnegative().optional(),
   })
   .strict();

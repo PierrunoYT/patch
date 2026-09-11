@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery; fenced prompts remain shared and independent Patch-format goldens are absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, temperature policy, and bounded transient retries are wired. Cache-specific costs are unmodeled, and editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Production commit policy remains open; metadata portability and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, directory/glob expansion, and command outcomes are wired. Literal glob-metacharacter filenames remain a selection gap. Help, report, and settings are selected but absent. |
@@ -92,15 +92,19 @@ for revision-specific source references and reproduction limits.
   Evidence: the composition cases in `tests/git-repository.test.ts` and the
   selection and provider-context case in `tests/interface-startup.test.ts`;
   both fail against the previous override.
-- [ ] Model cache-hit/write pricing and test executable accounting. Input limits
-  and catalog prices are supplied: all six advertised bundled models carry
-  `maxInputTokens`, `maxOutputTokens`, and prices taken from the LiteLLM table
-  the pinned aider revision resolves them from, a catalog entry added without
-  them fails `tests/model-metadata-merge.test.ts`, and
-  `tests/interface-startup.test.ts` proves the limit refuses an oversized prompt
-  before the provider call. What remains is cost: `cachedInputTokens` still does
-  not change the catalog calculation, and cache-write tokens are neither
-  captured from Anthropic nor priced.
+- [x] Supply input limits and catalog prices for advertised bundled models,
+  model cache-hit/write pricing, and test executable budgeting/accounting. All
+  six advertised models carry `maxInputTokens`, `maxOutputTokens`, and input,
+  output, cache-read and cache-write prices taken from the LiteLLM table the
+  pinned aider revision resolves them from; an entry added without limits or
+  prices fails `tests/model-metadata-merge.test.ts`. The limit refuses an
+  oversized prompt before the provider call, proved through the application in
+  `tests/interface-startup.test.ts`. Cost prices the cached and written subsets
+  of the input count separately, and each adapter normalizes to one contract —
+  `inputTokens` is every billed input token — because OpenAI includes cached
+  tokens in its prompt count and Anthropic does not. Evidence:
+  `tests/usage.test.ts`, the usage case in `tests/anthropic-provider.test.ts`,
+  and the accounting line in `tests/render.test.ts`.
 - [ ] Complete the fixture-source hash manifest and add coverage that detects
   newly imported but unlisted sources. This reopens P2 fixture evidence below.
 - [ ] Expose and verify production commit policy rather than forcing fixed

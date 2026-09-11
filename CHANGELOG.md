@@ -286,6 +286,15 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Cached and written input tokens are priced separately from ordinary ones. The
+  catalog charged the flat input price for every input token, so a turn served
+  almost entirely from the provider's cache cost the same as one that was not,
+  and Anthropic's cache-write tokens were neither reported nor billed. Models
+  now carry cache-read and cache-write prices, a model that prices neither is
+  unaffected, and the accounting line names a cache write. Adapters also
+  normalize one usage contract — `inputTokens` counts every billed input token —
+  because OpenAI includes cached tokens in its prompt count and Anthropic
+  reports them alongside one that excludes them.
 - Every advertised bundled model carries an input limit, an output limit, and
   catalog prices. Only `deepseek/deepseek-chat` had a metadata entry, so
   `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`, `claude-haiku-4-5`, and

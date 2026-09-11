@@ -87,6 +87,25 @@ describe("terminal rendering", () => {
       "tokens: 1.5k sent, 900 cached, 320 received · $0.0042 turn, $0.31 session",
     );
 
+    // Cache writes cost more than ordinary input, so a turn that paid to fill
+    // the cache says so rather than hiding it inside the sent count.
+    expect(
+      renderUsage(
+        {
+          inputTokens: 1500,
+          outputTokens: 320,
+          cachedInputTokens: 900,
+          cacheWriteTokens: 200,
+          cost: 0.0042,
+          costSource: "catalog",
+        },
+        0.31,
+        { color: false },
+      ),
+    ).toBe(
+      "tokens: 1.5k sent, 900 cached, 200 cache write, 320 received · $0.0042 turn, $0.31 session",
+    );
+
     // An unpriced model reports tokens rather than implying a cost of zero.
     expect(
       renderUsage(

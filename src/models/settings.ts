@@ -42,6 +42,18 @@ export const ModelSettingsSchema = z
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),
     outputCostPerMillion: z.number().nonnegative().optional(),
+    /**
+     * Price of an input token served from the provider's cache. Absent means
+     * the provider does not discount a cache hit, so the ordinary input price
+     * applies.
+     */
+    cachedInputCostPerMillion: z.number().nonnegative().optional(),
+    /**
+     * Price of an input token written into the provider's cache, which some
+     * providers charge at a premium over an ordinary input token. Absent means
+     * the ordinary input price applies.
+     */
+    cacheWriteCostPerMillion: z.number().nonnegative().optional(),
     capabilities: ModelCapabilitiesSchema.prefault({}),
     extraParameters: z.record(z.string(), z.unknown()).default({}),
   })

@@ -136,6 +136,10 @@ describe("catalog metadata merging", () => {
       maxInputTokens: 1000000,
       inputCostPerMillion: 3,
       outputCostPerMillion: 15,
+      // A cache hit is a tenth of an ordinary input token and a cache write
+      // costs a quarter more, so a cached turn must not be billed flat.
+      cachedInputCostPerMillion: 0.3,
+      cacheWriteCostPerMillion: 3.75,
     });
     // OpenAI rejects explicit cache control, so its bundled entries keep the
     // capability off even though the endpoint reports cached tokens.

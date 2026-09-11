@@ -26,6 +26,8 @@ export const ModelMetadataSchema = z
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),
     outputCostPerMillion: z.number().nonnegative().optional(),
+    cachedInputCostPerMillion: z.number().nonnegative().optional(),
+    cacheWriteCostPerMillion: z.number().nonnegative().optional(),
     capabilities: ModelCapabilitiesSchema.partial().optional(),
   })
   .strict();
@@ -116,6 +118,12 @@ function mergeMetadata(
     ...(metadata.outputCostPerMillion === undefined
       ? {}
       : { outputCostPerMillion: metadata.outputCostPerMillion }),
+    ...(metadata.cachedInputCostPerMillion === undefined
+      ? {}
+      : { cachedInputCostPerMillion: metadata.cachedInputCostPerMillion }),
+    ...(metadata.cacheWriteCostPerMillion === undefined
+      ? {}
+      : { cacheWriteCostPerMillion: metadata.cacheWriteCostPerMillion }),
     capabilities: { ...settings.capabilities, ...metadata.capabilities },
   });
 }

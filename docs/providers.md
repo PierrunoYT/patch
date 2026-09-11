@@ -6,8 +6,9 @@ assistant-prefill request are normalized through the same factory path the
 executable uses. Catalog metadata is merged into model settings, a temperature
 policy decides what each request carries, transient failures are classified by
 HTTP status, and the terminal reports tokens and available cost after each turn. Missing bundled
-prices render as unknown rather than zero; cache-specific catalog pricing is
-not implemented. See [model catalog](model-catalog.md#usage-and-cost). Provider
+prices render as unknown rather than zero, and cache reads and cache writes are
+priced apart from ordinary input tokens against one cross-provider usage
+contract. See [model catalog](model-catalog.md#usage-and-cost). Provider
 breadth is intentionally narrower than Aider's LiteLLM surface.
 
 ## DeepSeek dialect

@@ -37,7 +37,11 @@ describe("AnthropicProvider", () => {
           {
             type: "message_start",
             message: {
-              usage: { input_tokens: 12, cache_read_input_tokens: 5 },
+              usage: {
+                input_tokens: 12,
+                cache_read_input_tokens: 5,
+                cache_creation_input_tokens: 3,
+              },
             },
           },
           {
@@ -95,7 +99,15 @@ describe("AnthropicProvider", () => {
         argumentsDelta: "",
       },
       { type: "tool-call-delta", index: 2, argumentsDelta: "{" },
-      { type: "usage", inputTokens: 12, outputTokens: 6, cachedInputTokens: 5 },
+      // Anthropic's `input_tokens` excludes the cache counts beside it, while
+      // Patch's usage contract is every billed input token, so 12 + 5 + 3.
+      {
+        type: "usage",
+        inputTokens: 20,
+        outputTokens: 6,
+        cachedInputTokens: 5,
+        cacheWriteTokens: 3,
+      },
       { type: "finish", reason: "tool-calls" },
     ]);
     expect(requestBody).toMatchObject({

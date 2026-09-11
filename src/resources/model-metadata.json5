@@ -17,7 +17,10 @@
     outputCostPerMillion: 10,
     // OpenAI caches prompts automatically and rejects explicit cache control,
     // so the `promptCaching` capability that marks a cacheable prefix stays
-    // off for these models even though the endpoint reports cached tokens.
+    // off for these models even though the endpoint reports cached tokens and
+    // discounts them. It charges nothing to write the cache, so these entries
+    // carry no cache-write price.
+    cachedInputCostPerMillion: 1.25,
   },
   "gpt-4o-mini": {
     provider: "openai",
@@ -25,6 +28,7 @@
     maxOutputTokens: 16384,
     inputCostPerMillion: 0.15,
     outputCostPerMillion: 0.6,
+    cachedInputCostPerMillion: 0.075,
   },
   "claude-sonnet-4-6": {
     provider: "anthropic",
@@ -32,6 +36,8 @@
     maxOutputTokens: 64000,
     inputCostPerMillion: 3,
     outputCostPerMillion: 15,
+    cachedInputCostPerMillion: 0.3,
+    cacheWriteCostPerMillion: 3.75,
     capabilities: {
       promptCaching: true,
     },
@@ -42,6 +48,8 @@
     maxOutputTokens: 64000,
     inputCostPerMillion: 1,
     outputCostPerMillion: 5,
+    cachedInputCostPerMillion: 0.1,
+    cacheWriteCostPerMillion: 1.25,
     capabilities: {
       promptCaching: true,
     },
@@ -52,6 +60,8 @@
     maxOutputTokens: 8192,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
+    cachedInputCostPerMillion: 0.028,
+    cacheWriteCostPerMillion: 0,
     capabilities: {
       assistantPrefill: true,
       promptCaching: true,
@@ -63,6 +73,8 @@
     maxOutputTokens: 64000,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
+    cachedInputCostPerMillion: 0.028,
+    cacheWriteCostPerMillion: 0,
     capabilities: {
       assistantPrefill: true,
       promptCaching: true,

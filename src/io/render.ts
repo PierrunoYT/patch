@@ -171,6 +171,9 @@ export function renderUsage(
     ...(usage.cachedInputTokens === undefined || usage.cachedInputTokens === 0
       ? []
       : [`${tokenCount(usage.cachedInputTokens)} cached`]),
+    ...(usage.cacheWriteTokens === undefined || usage.cacheWriteTokens === 0
+      ? []
+      : [`${tokenCount(usage.cacheWriteTokens)} cache write`]),
     `${tokenCount(usage.outputTokens)} received`,
   ];
   const cost =

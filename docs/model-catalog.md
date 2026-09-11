@@ -94,12 +94,23 @@ oversized selection through `gpt-4o` and the same selection through
 `claude-sonnet-4-6`, which has a one-million-token window, and asserts the first
 never reaches the provider.
 
-Cached input tokens are reported, but the catalog formula uses only aggregate
-input/output prices; cache-hit and cache-write pricing is not modeled, so a
-fully cached request costs the same as an uncached one. A provider-supplied cost
-takes precedence over the catalog calculation. That limitation is tracked in the
-[2026-09-11 audit](aider-parity-audit-2026-09-11.md) and the integration
-backlog.
+Cache pricing is modeled. `cachedInputCostPerMillion` and
+`cacheWriteCostPerMillion` price the two subsets of the input count separately,
+so a turn served largely from the cache costs a fraction of an uncached one and
+a turn that paid to fill the cache is charged the premium. A model that prices
+neither falls back to the ordinary input price, which leaves its total exactly
+where it was. A provider-supplied cost still takes precedence over the whole
+calculation.
+
+Providers disagree about what an input count contains, so each adapter
+normalizes to one contract: `inputTokens` is every billed input token, and
+`cachedInputTokens` and `cacheWriteTokens` name the subsets inside it. OpenAI's
+`prompt_tokens` already includes its cached tokens; Anthropic reports cache
+reads and cache writes beside a prompt count that excludes both, so the
+Anthropic adapter folds them in. The terminal's accounting line names a cache
+write separately from the sent count. Evidence: `tests/usage.test.ts`, the usage
+case in `tests/anthropic-provider.test.ts`, and the rendering case in
+`tests/render.test.ts`.
 
 ## Temperature
 

@@ -19,6 +19,11 @@ const StreamEventSchema = z
           .object({
             input_tokens: z.number().int().nonnegative(),
             cache_read_input_tokens: z.number().int().nonnegative().optional(),
+            cache_creation_input_tokens: z
+              .number()
+              .int()
+              .nonnegative()
+              .optional(),
           })
           .passthrough(),
       })
@@ -226,6 +231,7 @@ export class AnthropicProvider implements ModelProvider {
   ): AsyncIterable<CompletionEvent> {
     let inputTokens = 0;
     let cachedInputTokens: number | undefined;
+    let cacheWriteTokens: number | undefined;
     try {
       const system = systemBlocks(request.messages);
       const stream = await this.#client.messages.create(
@@ -248,8 +254,16 @@ export class AnthropicProvider implements ModelProvider {
       for await (const rawEvent of stream) {
         const event = StreamEventSchema.parse(rawEvent);
         if (event.type === "message_start" && event.message) {
-          inputTokens = event.message.usage.input_tokens;
+          // Anthropic reports cache reads and cache writes beside a prompt
+          // count that excludes both. Patch's usage contract is every billed
+          // input token, so they are folded in here rather than left for each
+          // consumer to reconcile against OpenAI's opposite convention.
           cachedInputTokens = event.message.usage.cache_read_input_tokens;
+          cacheWriteTokens = event.message.usage.cache_creation_input_tokens;
+          inputTokens =
+            event.message.usage.input_tokens +
+            (cachedInputTokens ?? 0) +
+            (cacheWriteTokens ?? 0);
         } else if (
           event.type === "content_block_start" &&
           event.content_block?.type === "tool_use"
@@ -293,6 +307,7 @@ export class AnthropicProvider implements ModelProvider {
               inputTokens,
               outputTokens: event.usage.output_tokens,
               ...(cachedInputTokens === undefined ? {} : { cachedInputTokens }),
+              ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
             };
           }
           if (event.delta?.stop_reason) {
