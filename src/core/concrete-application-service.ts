@@ -6,7 +6,7 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { realpath, stat } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 
 import {
@@ -32,7 +32,9 @@ import {
 import { selectFence } from "./fences.js";
 import { FileSystemAdapter } from "../io/filesystem.js";
 import { readClipboardText, writeClipboardText } from "../io/integrations.js";
+import { renderCommandResult } from "../io/render.js";
 import { isMissingPathError, SafePathResolver } from "../io/safe-path.js";
+import { expandSelection } from "../io/selection.js";
 import { ModelCatalog } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
@@ -208,40 +210,48 @@ function portablePath(root: string, absolute: string): string {
   return relative(root, absolute).split(sep).join("/");
 }
 
-/**
- * Directory selection is not implemented, so a directory is rejected here rather
- * than surfacing as an `EISDIR` read failure once a turn tries to snapshot it.
- */
-async function assertNotDirectory(
-  absolute: string,
-  requested: string,
-): Promise<void> {
-  let directory = false;
-  try {
-    directory = (await stat(absolute)).isDirectory();
-  } catch (error) {
-    if (!isMissingPathError(error)) throw error;
-  }
-  if (directory) {
-    throw new Error(
-      `Patch selects files, not directories: ${requested}. Name the files inside it instead.`,
-    );
-  }
+/** How a finished command ended, in one clause. */
+function commandOutcome(result: ModelCommandResult): string {
+  return result.status === "completed"
+    ? `exited with code ${String(result.exitCode)}`
+    : `was ${result.status}`;
 }
 
+/**
+ * What a failed configured check tells the model to fix. Both streams are
+ * included: a check whose only message went to stderr must not reflect as a
+ * bare exit code.
+ */
+function checkDiagnostic(
+  label: "lint" | "test",
+  result: ModelCommandResult | undefined,
+): string | undefined {
+  if (result === undefined) return undefined;
+  if (result.status === "completed" && result.exitCode === 0) return undefined;
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+  return `Configured ${label} command ${commandOutcome(result)}${
+    output === "" ? "" : `\n\n${output}`
+  }${result.truncated ? "\n\n(output truncated)" : ""}`;
+}
+
+/**
+ * Resolves the paths, directories, and globs one selection names.
+ *
+ * Expansion is bounded and contained by the resolver, and the repository's
+ * ignore rules drop expanded matches so widening a selection cannot pull ignored
+ * content into model context. A path named outright keeps its own diagnostics:
+ * it may not exist yet, and an ignored one is reported rather than dropped.
+ */
 async function selectedPaths(
   resolver: SafePathResolver,
   paths: readonly string[],
+  repository?: GitRepository,
 ): Promise<string[]> {
-  const selected: string[] = [];
-  for (const path of paths) {
-    const absolute = await resolver.resolve(path);
-    const normalized = portablePath(resolver.root, absolute);
-    if (normalized === "") throw new Error("The repository root is not a file");
-    await assertNotDirectory(absolute, path);
-    if (!selected.includes(normalized)) selected.push(normalized);
-  }
-  return selected;
+  return expandSelection(resolver, paths, {
+    ...(repository === undefined
+      ? {}
+      : { filterIgnored: (found) => repository.filterIgnored(found) }),
+  });
 }
 
 async function assertPathsNotIgnored(
@@ -580,12 +590,15 @@ class ConcreteApplicationSession implements ApplicationSession {
                 await this.#commit(write.changedPaths, "Apply Patch edits");
                 const signal = options.signal;
                 signal.throwIfAborted();
-                const lint = await this.#runCheck(
+                const lint = checkDiagnostic(
                   "lint",
-                  this.#context.bootstrap.arguments.lintCommand,
-                  signal,
-                  [...changedPaths],
-                  options,
+                  await this.#runCheck(
+                    "lint",
+                    this.#context.bootstrap.arguments.lintCommand,
+                    signal,
+                    [...changedPaths],
+                    options,
+                  ),
                 );
                 if (lint !== undefined)
                   return { source: "lint" as const, diagnostic: lint };
@@ -601,16 +614,26 @@ class ConcreteApplicationSession implements ApplicationSession {
                         }),
                       approve: (command) =>
                         this.#context.approveCommand?.(command) ?? false,
+                      // Each command reports as it finishes: approving one and
+                      // then seeing nothing is indistinguishable from a hang.
+                      report: (result) =>
+                        options.emit({
+                          type: "command-complete",
+                          data: result,
+                        }),
                     },
                   )),
                 );
                 signal.throwIfAborted();
-                const test = await this.#runCheck(
+                const test = checkDiagnostic(
                   "test",
-                  this.#context.bootstrap.arguments.testCommand,
-                  signal,
-                  [...changedPaths],
-                  options,
+                  await this.#runCheck(
+                    "test",
+                    this.#context.bootstrap.arguments.testCommand,
+                    signal,
+                    [...changedPaths],
+                    options,
+                  ),
                 );
                 if (test !== undefined)
                   return { source: "test" as const, diagnostic: test };
@@ -661,14 +684,13 @@ class ConcreteApplicationSession implements ApplicationSession {
   ): Promise<ApplicationTurnResult> {
     const state = this.#session.snapshot();
     const resolver = await SafePathResolver.create(this.#context.root);
+    // Dropping expands the same way selecting does, so `/drop` can undo `/add`
+    // with the same words, but it applies no ignore rules: what is already
+    // selected can always be dropped.
     const normalize = async (paths: readonly string[]) =>
-      Promise.all(
-        paths.map(async (path) =>
-          portablePath(this.#context.root, await resolver.resolve(path)),
-        ),
-      );
-    const selectable = async (paths: readonly string[]) =>
       selectedPaths(resolver, paths);
+    const selectable = async (paths: readonly string[]) =>
+      selectedPaths(resolver, paths, this.#context.repository);
     const result = (
       response: string,
       extra: Partial<ApplicationTurnResult> = {},
@@ -780,7 +802,10 @@ class ConcreteApplicationSession implements ApplicationSession {
             ),
           options.signal,
         );
-        return result(command.stdout || command.stderr, {
+        // Both streams, the exit status, and any truncation: a command whose
+        // only message went to stderr must not look like it said nothing, and a
+        // denied or timed-out one must not look like it succeeded silently.
+        return result(renderCommandResult(command, { color: false }), {
           commands: [command],
         });
       }
@@ -792,15 +817,22 @@ class ConcreteApplicationSession implements ApplicationSession {
             : this.#context.bootstrap.arguments.testCommand;
         if (command === undefined)
           throw new Error(`No ${effect.type} command is configured`);
-        const diagnostic = await this.#runCheck(
+        const executed = await this.#runCheck(
           effect.type,
           command,
           options.signal,
           state.editablePaths,
           options,
         );
-        if (diagnostic !== undefined) throw new Error(diagnostic);
-        return result(`${effect.type} passed`);
+        if (executed === undefined) throw new Error("The check did not run");
+        // The `<label>-complete` event already carried both streams, so the
+        // failure states the outcome instead of printing the output twice.
+        if (executed.status !== "completed" || executed.exitCode !== 0) {
+          throw new Error(
+            `Configured ${effect.type} command ${commandOutcome(executed)}`,
+          );
+        }
+        return result(`${effect.type} passed`, { commands: [executed] });
       }
       case "commit": {
         const commit = await this.#commit(
@@ -1085,7 +1117,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     signal: AbortSignal,
     changedPaths: readonly string[],
     options: ApplicationSubmitOptions,
-  ): Promise<string | undefined> {
+  ): Promise<ModelCommandResult | undefined> {
     if (command === undefined) return;
     signal.throwIfAborted();
     // A configured check observes and can rewrite the working tree, so it runs
@@ -1100,17 +1132,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       options.emit({ type: `${label}-complete`, data: result });
       signal.throwIfAborted();
       await this.#commit(changedPaths, `Apply ${label} changes`);
-      if (result.status !== "completed" || result.exitCode !== 0) {
-        const output = [result.stdout, result.stderr]
-          .filter(Boolean)
-          .join("\n");
-        const outcome =
-          result.status === "completed"
-            ? `exited with code ${String(result.exitCode)}`
-            : `was ${result.status}`;
-        return `Configured ${label} command ${outcome}${output === "" ? "" : `\n\n${output}`}`;
-      }
-      return undefined;
+      return result;
     }, signal);
   }
 }
@@ -1151,10 +1173,12 @@ export class ConcreteApplicationService implements ApplicationService {
     const editablePaths = await selectedPaths(
       resolver,
       bootstrap.arguments.files,
+      repository,
     );
     const readOnlyPaths = await selectedPaths(
       resolver,
       bootstrap.arguments.readOnlyFiles,
+      repository,
     );
     const overlap = readOnlyPaths.find((path) => editablePaths.includes(path));
     if (overlap !== undefined) {

@@ -119,9 +119,11 @@ A model is mandatory even when a provider credential is present; select it with
 `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`. Default startup
 requires an existing Git worktree; pass `--no-git` explicitly outside one.
 Editable files can be positional or repeated `--file` values; use
-`--read-only` for contained context that must not be edited. A directory is
-refused by name at startup and through `/add`; directory expansion and external
-read-only files are not supported.
+`--read-only` for contained context that must not be edited. A directory or a
+glob selects the files it covers, contained by the repository boundary, with
+symbolic links skipped, ignored files dropped, and the selection bounded; a
+named path that does not exist yet stays selectable. External read-only files
+are not supported.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. See the [provider documentation](docs/providers.md) and

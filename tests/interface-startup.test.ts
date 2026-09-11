@@ -483,20 +483,28 @@ describe("application interface startup", () => {
     ).resolves.toBeInstanceOf(ConcreteApplicationService);
   });
 
-  it("rejects a directory target at startup and through /add", async () => {
+  it("expands a directory or glob target at startup and through /add", async () => {
     const root = await fixture();
-    await mkdir(join(root, "pkg"));
+    await mkdir(join(root, "pkg", "deep"), { recursive: true });
     await writeFile(join(root, "pkg", "one.txt"), "one\n");
+    await writeFile(join(root, "pkg", "two.md"), "two\n");
+    await writeFile(join(root, "pkg", "deep", "three.txt"), "three\n");
 
-    await expect(
-      ConcreteApplicationService.create({
-        cwd: root,
-        home: root,
-        environment: {},
-        argv: ["--no-git", "--model", "4o", "--file", "pkg"],
-        dependencies: { provider: new FakeProvider([]) },
-      }),
-    ).rejects.toThrow(/selects files, not directories: pkg/u);
+    const started = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--file", "pkg"],
+      dependencies: { provider: new FakeProvider([]) },
+    });
+    expect(
+      (
+        (await started
+          .createSession({ principal: "test", sessionId: "startup" })
+          .snapshot()) as { editablePaths: readonly string[] }
+      ).editablePaths,
+    ).toEqual(["pkg/deep/three.txt", "pkg/one.txt", "pkg/two.md"]);
+    await started.close();
 
     const service = await ConcreteApplicationService.create({
       cwd: root,
@@ -515,11 +523,19 @@ describe("application interface startup", () => {
         emit: () => undefined,
       });
 
-    await expect(submit("/add pkg")).rejects.toThrow(
-      /selects files, not directories: pkg/u,
-    );
-    await expect(submit("/read-only pkg")).rejects.toThrow(
-      /selects files, not directories: pkg/u,
+    // A glob stays inside one segment unless it says otherwise.
+    await expect(submit("/add pkg/*.txt")).resolves.toMatchObject({
+      response: "Added: pkg/one.txt",
+    });
+    await expect(submit("/read-only pkg/**/*.txt")).resolves.toMatchObject({
+      response: "Read-only: pkg/deep/three.txt, pkg/one.txt",
+    });
+    await expect(submit("/drop pkg")).resolves.toMatchObject({
+      response: "Dropped: pkg/deep/three.txt, pkg/one.txt, pkg/two.md",
+    });
+    // A pattern that matches nothing says so instead of selecting nothing.
+    await expect(submit("/add pkg/*.rs")).rejects.toThrow(
+      /No file .* matches/u,
     );
     // A file inside it is still selectable, and so is a path that does not exist
     // yet.
@@ -529,5 +545,6 @@ describe("application interface startup", () => {
     await expect(submit("/add pkg/new.txt")).resolves.toMatchObject({
       response: "Added: pkg/new.txt",
     });
+    await service.close();
   });
 });

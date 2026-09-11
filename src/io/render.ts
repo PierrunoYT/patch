@@ -9,6 +9,7 @@ import type { Writable } from "node:stream";
 
 import type { EditPreview } from "../edits/write-boundary.js";
 import type { UsageReport } from "../models/usage.js";
+import type { ModelCommandResult } from "../process/model-command.js";
 import { ControlSequenceSanitizer, sanitizeTerminalText } from "./sanitize.js";
 
 const ANSI = {
@@ -183,6 +184,40 @@ export function renderUsage(
     ANSI.dim,
     useColor(options),
   );
+}
+
+/**
+ * One finished command: what ran, how it ended, and both of its streams.
+ *
+ * Output is untrusted, so it is stripped rather than styled, and every stream is
+ * shown — a command whose only message went to stderr must not look silent.
+ * Truncation and a non-`completed` status are stated rather than implied by
+ * missing text.
+ */
+export function renderCommandResult(
+  result: ModelCommandResult,
+  options: RenderOptions = {},
+): string {
+  const color = useColor(options);
+  const outcome =
+    result.status === "completed"
+      ? `exit ${String(result.exitCode)}`
+      : result.status;
+  const failed = result.status !== "completed" || result.exitCode !== 0;
+  const header = paint(
+    `$ ${stripAnsi(result.command)} — ${outcome}${
+      result.truncated ? ", output truncated" : ""
+    }`,
+    failed ? ANSI.red : ANSI.dim,
+    color,
+  );
+  const stdout = stripAnsi(result.stdout).replace(/\n+$/u, "");
+  const stderr = stripAnsi(result.stderr).replace(/\n+$/u, "");
+  return [
+    header,
+    ...(stdout === "" ? [] : [stdout]),
+    ...(stderr === "" ? [] : [paint("stderr:", ANSI.dim, color), stderr]),
+  ].join("\n");
 }
 
 export function renderEditPreview(preview: EditPreview): string {

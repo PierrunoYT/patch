@@ -602,6 +602,9 @@ node -e "require('fs').writeFileSync('command-ran.txt','yes')"
       events.indexOf("command-preview"),
     );
     expect(events.indexOf("command-preview")).toBeLessThan(
+      events.indexOf("command-complete"),
+    );
+    expect(events.indexOf("command-complete")).toBeLessThan(
       events.indexOf("test-start"),
     );
 

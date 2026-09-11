@@ -19,10 +19,12 @@ import {
 } from "./io/integrations.js";
 import {
   MarkdownStream,
+  renderCommandResult,
   renderDiff,
   renderEditPreview,
   renderUsage,
 } from "./io/render.js";
+import type { ModelCommandResult } from "./process/model-command.js";
 import type { UsageReport } from "./models/usage.js";
 import { sanitizedWriter } from "./io/sanitize.js";
 import type { EditPreview } from "./edits/write-boundary.js";
@@ -409,6 +411,18 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   write(
                     `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
                   );
+                if (
+                  event.type === "command-complete" ||
+                  event.type === "lint-complete" ||
+                  event.type === "test-complete"
+                ) {
+                  markdown.end();
+                  write(
+                    `${renderCommandResult(event.data as ModelCommandResult, {
+                      color: false,
+                    })}\n`,
+                  );
+                }
               },
               selectedPaths: () => {
                 const state = session?.snapshot() as
@@ -452,6 +466,20 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                           write(
                             `${renderDiff(
                               renderEditPreview(event.data as EditPreview),
+                              renderOptions,
+                            )}\n`,
+                          );
+                        } else if (
+                          event.type === "command-complete" ||
+                          event.type === "lint-complete" ||
+                          event.type === "test-complete"
+                        ) {
+                          // Approving or configuring a command and then seeing
+                          // nothing hides both its output and its status.
+                          markdown.end();
+                          write(
+                            `${renderCommandResult(
+                              event.data as ModelCommandResult,
                               renderOptions,
                             )}\n`,
                           );

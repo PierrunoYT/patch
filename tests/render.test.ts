@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   highlightSyntax,
   MarkdownStream,
+  renderCommandResult,
   renderDiff,
   renderEditPreview,
   renderUsage,
@@ -99,5 +100,68 @@ describe("terminal rendering", () => {
         { color: false },
       ),
     ).toBe("tokens: 12 sent, 4 received");
+  });
+
+  it("shows both command streams, the status, and truncation", () => {
+    expect(
+      renderCommandResult(
+        {
+          command: "npm test",
+          status: "completed",
+          exitCode: 1,
+          stdout: "ran 3 tests\n",
+          stderr: "one failed\n",
+          truncated: true,
+        },
+        { color: false },
+      ),
+    ).toBe(
+      "$ npm test — exit 1, output truncated\nran 3 tests\nstderr:\none failed",
+    );
+
+    // A command that only wrote to stderr must not look like it said nothing.
+    expect(
+      renderCommandResult(
+        {
+          command: "false",
+          status: "completed",
+          exitCode: 2,
+          stdout: "",
+          stderr: "boom",
+          truncated: false,
+        },
+        { color: false },
+      ),
+    ).toBe("$ false — exit 2\nstderr:\nboom");
+
+    // Denial, timeout, and cancellation are stated, not implied by silence.
+    expect(
+      renderCommandResult(
+        {
+          command: "rm -rf /",
+          status: "denied",
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          truncated: false,
+        },
+        { color: false },
+      ),
+    ).toBe("$ rm -rf / — denied");
+
+    // Child output is untrusted and cannot drive the terminal.
+    expect(
+      renderCommandResult(
+        {
+          command: "greet\u001b[2J",
+          status: "completed",
+          exitCode: 0,
+          stdout: "hi\u001b]2;owned\u0007",
+          stderr: "",
+          truncated: false,
+        },
+        { color: false },
+      ),
+    ).toBe("$ greet — exit 0\nhi");
   });
 });

@@ -105,6 +105,45 @@ describe("application slash commands", () => {
     await expect(submit("after exit")).rejects.toThrow(/closed/);
   });
 
+  it("reports both streams, the exit status, and a denial for /run", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-output-"));
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: {
+        provider: new FakeProvider([]),
+        approveCommand: (command: string) => !command.includes("refuse"),
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "output",
+    });
+    const submit = (message: string) =>
+      session.submit(message, {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      });
+
+    // Output that went only to stderr, and a non-zero exit, were both invisible.
+    const noisy = `/run node -e "process.stdout.write('out');process.stderr.write('err');process.exit(3)"`;
+    await expect(submit(noisy)).resolves.toMatchObject({
+      response: expect.stringContaining("exit 3"),
+      commands: [{ status: "completed", exitCode: 3 }],
+    });
+    const shown = (await submit(noisy)) as { response: string };
+    expect(shown.response).toContain("out");
+    expect(shown.response).toContain("stderr:\nerr");
+
+    await expect(submit("/run node -e \"''\" refuse")).resolves.toMatchObject({
+      response: expect.stringContaining("denied"),
+      commands: [{ status: "denied" }],
+    });
+    await service.close();
+  });
+
   it("contains command paths and denies unapproved process execution", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-command-safe-"));
     await writeFile(join(root, "one.txt"), "one\n");

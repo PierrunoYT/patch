@@ -454,7 +454,9 @@ evidence remains incomplete.
   command, run at repository root, cap output, and support timeout/cancellation
   in the application contract. Standalone interactive TTY input supplies one
   shared approver for writes, model commands, and `/run`; other interfaces deny
-  without injected approval. See README for exact input-mode restrictions.
+  without injected approval. See README for exact input-mode restrictions. Every
+  finished command reports its outcome and both streams, so a denied, failed, or
+  stderr-only command is never mistaken for silence.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 

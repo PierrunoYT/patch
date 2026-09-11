@@ -171,6 +171,12 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Directories and globs select files. `--file`, `--read-only`, `/add`,
+  `/read-only`, and `/drop` accept a directory or a `*`/`**`/`?`/`[...]` pattern
+  and expand it inside the repository boundary: symbolic links are skipped,
+  `.git` is never descended into, ignored files are dropped, an absolute glob is
+  refused, and a selection over 200 files or a walk past 20,000 entries fails by
+  name. A directory was previously refused outright.
 - `/run --interactive <command>` hands the terminal to one approved command
   through the optional `node-pty` package, which is loaded at that point and at
   no other. The line reader is released for the child and restored afterwards
@@ -245,6 +251,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Subprocess output and status are visible. `/run` reported only one stream and
+  no exit status, so a command that wrote to stderr, was denied, or timed out
+  looked like one that said nothing; it now reports the command, how it ended,
+  both streams, and truncation. Every model-suggested command reports the same
+  way through a `command-complete` event as it finishes, and configured lint and
+  test commands report through their `*-complete` events, so approving or
+  configuring a command and then seeing nothing no longer resembles a hang.
 - `--vim` is refused with its reason instead of being accepted and ignored.
   Node's line reader has no modal editing, so the flag promised bindings that
   were simply absent; it now fails startup, names Ctrl-X Ctrl-E as the editor

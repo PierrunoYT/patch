@@ -12,6 +12,11 @@ import { realpath } from "node:fs/promises";
 export interface ModelCommandDependencies {
   readonly show: (command: string) => void | Promise<void>;
   readonly approve: (command: string) => boolean | Promise<boolean>;
+  /**
+   * Receives every finished command, a denied or cancelled one included, so a
+   * caller can show what ran and how it ended without waiting for the turn.
+   */
+  readonly report?: (result: ModelCommandResult) => void | Promise<void>;
 }
 
 export interface ModelCommandOptions {
@@ -44,6 +49,16 @@ function validatePositiveInteger(value: number, name: string): void {
 }
 
 export async function executeModelCommand(
+  command: string,
+  options: ModelCommandOptions,
+  dependencies: ModelCommandDependencies,
+): Promise<ModelCommandResult> {
+  const result = await runModelCommand(command, options, dependencies);
+  await dependencies.report?.(result);
+  return result;
+}
+
+async function runModelCommand(
   command: string,
   options: ModelCommandOptions,
   dependencies: ModelCommandDependencies,

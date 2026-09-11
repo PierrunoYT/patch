@@ -150,10 +150,11 @@ work below is what remains before the release claims can be re-audited.
   supported or clearly rejected workflows. Both are rejected, by name and with
   the alternative: startup outside a worktree reports that Git integration is on
   and names `--no-git`, rather than surfacing a bare `git rev-parse` failure, and
-  a directory passed to `--file`, `--read-only`, `/add`, or `/read-only` is
-  refused at selection instead of failing later as `EISDIR`. A path that does not
-  exist yet stays selectable. Directory expansion stays P2. Evidence: the startup
-  rejection cases in `tests/interface-startup.test.ts`.
+  a directory passed to `--file`, `--read-only`, `/add`, or `/read-only` no
+  longer fails later as `EISDIR`. A path that does not exist yet stays
+  selectable. Directory and glob expansion landed with the P2 selection item
+  below, which replaced the interim rejection. Evidence: the startup rejection
+  cases in `tests/interface-startup.test.ts`.
 - [x] Add a clean `prepack` build/resource step before any publication claim.
   `prepack` runs `npm run build`, which cleans `dist/`, recompiles, and recopies
   the runtime resources, so `npm pack`, `npm publish`, and a Git-URL install all
@@ -243,8 +244,23 @@ work below is what remains before the release claims can be re-audited.
   Child output stays sanitized, so full-screen programs are out of scope.
   Evidence: `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,
   and the `--vim` case in `tests/cli.test.ts`.
-- [ ] Add contained path/directory/glob selection semantics and complete visible
+- [x] Add contained path/directory/glob selection semantics and complete visible
   subprocess output/status without weakening Patch's authorization bounds.
+  `expandSelection` resolves a directory or a `*`/`**`/`?`/`[...]` pattern to the
+  files it covers: the walk starts at the pattern's fixed prefix inside the
+  resolved root, skips symbolic links and `.git`, drops ignored matches, refuses
+  an absolute glob, and is bounded by a file limit and a directory-entry limit,
+  so widening a selection cannot reach outside the worktree, follow a link out of
+  it, or pull ignored content into context. Every authorization step is
+  unchanged: each expanded path still goes through `approvePath`, and a named
+  path keeps its own diagnostics. `/run` now reports the command, both streams,
+  the exit status, and truncation; a model-suggested command reports through
+  `command-complete` as it finishes and configured checks through
+  `lint-complete`/`test-complete`, all rendered by the terminal. Evidence:
+  `tests/selection.test.ts`, the expansion case in
+  `tests/interface-startup.test.ts`, the output cases in
+  `tests/application-commands.test.ts` and `tests/render.test.ts`, and the event
+  ordering case in `tests/application-lifecycle.test.ts`.
 - [ ] Define URL ingestion and HTML-to-readable-text behavior; keep the strict
   SSRF/no-subresource policy as an intentional security difference.
 - [ ] Decide explicit dispositions for Aider help, report, settings, browser GUI,
