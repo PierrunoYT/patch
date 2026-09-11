@@ -96,16 +96,21 @@ for revision-specific source references and reproduction limits.
   selection; test beside files that would match the same pattern.
 - [ ] Expose safe structured partial-turn errors to authenticated HTTP clients
   without leaking raw internal errors, and test post-write failure recovery.
-- [ ] Establish passing `platform` job evidence on macOS and Windows. The three
-  test defects that failed every run from 2026-09-10 20:18 onward are fixed
-  without weakening production containment: the permission assertion now checks
-  retention rather than a POSIX mode Windows never records, the ancestor-swap
-  injection swaps the directory after the temporary file is closed rather than
-  while Windows holds its handle, and path-resolution fixtures are canonicalized
-  the way `SafePathResolver` canonicalizes its root. Because the step failed
-  before `Build package`, macOS and Windows still have no packed-bin or
-  repository-map-language evidence for any recent revision; a green run must be
-  cited by run id.
+- [x] Establish passing `platform` job evidence on macOS and Windows. Run
+  [`34618401395`](https://github.com/PierrunoYT/patch/actions/runs/34618401395)
+  on `baebd0e83a1f317b0aba48da174feae04a7b7e61` is green on all six jobs, and
+  the macOS and Windows `platform` jobs completed `Run platform-sensitive
+  contracts`, `Build package`, and `Test packed bin and repository-map
+  languages`. That is the first packed-install and eleven-language extraction
+  evidence on those platforms; every run from 2026-09-10 20:18 onward had failed
+  the contracts step before `Build package`. The three test defects behind it
+  were corrected without weakening production containment: the permission
+  assertion now checks retention rather than a POSIX mode Windows never records,
+  the ancestor-swap injection swaps the directory after the temporary file is
+  closed rather than while Windows holds its handle, and path-resolution
+  fixtures are canonicalized the way `SafePathResolver` canonicalizes its root.
+  This establishes the jobs for that revision only; a later claim needs its own
+  run id.
 
 ### Historical immediate P0 checklist
 
@@ -853,9 +858,11 @@ cover:
   (`scripts/package-smoke.mjs`), not every-language provider-context parity;
 - [ ] broader filtered repository-map context through executable provider turns;
 - [ ] live provider contracts through catalog, factory, and session boundaries;
-- [ ] green Linux, macOS, and Windows package/platform jobs for this revision.
-  The `platform` job runs on all three; a green run for the revision being
-  claimed is what remains, and it must be cited by run, not by workflow name;
+- [x] green Linux, macOS, and Windows package/platform jobs for this revision.
+  Run [`34618401395`](https://github.com/PierrunoYT/patch/actions/runs/34618401395)
+  on `baebd0e83a1f317b0aba48da174feae04a7b7e61` is green for all three
+  `platform` jobs. Any later claim must cite its own run, not this one and not
+  the workflow name;
 - [x] default packed installation with no native/browser/audio dependency; and
 - [ ] explicitly provisioned PTY and optional-interface suites.
 
