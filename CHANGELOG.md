@@ -464,6 +464,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Continuous integration checks out and installs Node.js through
+  `actions/checkout@v5` and `actions/setup-node@v5`. The `v4` actions target
+  Node.js 20, which GitHub has deprecated and already forces onto Node.js 24, so
+  every run carried a deprecation annotation. Job inputs and behavior are
+  unchanged.
 - Reconciled live documentation with the 2026-09-11 parity audit while preserving
   the dated report as evidence. Corrected metadata, inventory, worktree-lock,
   watch-error, DeepSeek-prefill, history, and HTTP recovery claims; reopened
