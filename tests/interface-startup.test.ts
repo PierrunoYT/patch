@@ -7,9 +7,10 @@ import { createServer } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  AiWatchMode,
   ConcreteApplicationService,
   FakeProvider,
-  AiWatchMode,
+  LocalWebServer,
 } from "../src/index.js";
 import { createProgram } from "../src/program.js";
 
@@ -430,6 +431,71 @@ describe("application interface startup", () => {
     } finally {
       stop.abort();
       await running;
+    }
+  });
+
+  it("reports structured recovery after a concrete web turn fails post-write", async () => {
+    const root = await fixture();
+    await writeFile(join(root, "selected.txt"), "zero\n");
+    const provider = new FakeProvider(
+      ["one", "two", "three", "four"].map((content) =>
+        turn(`selected.txt\n\`\`\`txt\n${content}\n\`\`\``),
+      ),
+    );
+    const application = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--no-git",
+        "--model",
+        "4o",
+        "--edit-format",
+        "whole",
+        "--file",
+        "selected.txt",
+        "--test-cmd",
+        'node -e "process.exit(9)"',
+      ],
+      dependencies: { provider },
+    });
+    const server = new LocalWebServer({
+      service: application,
+      tokens: { [token]: "local" },
+    });
+    const { port } = await server.start();
+    try {
+      const base = `http://127.0.0.1:${port}`;
+      const headers = {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      };
+      const created = await fetch(`${base}/sessions`, {
+        method: "POST",
+        headers,
+      });
+      const { sessionId } = (await created.json()) as { sessionId: string };
+      const response = await fetch(`${base}/sessions/${sessionId}/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ message: "change it" }),
+      });
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({
+        error: "Turn partially applied",
+        code: "turn_partially_applied",
+        partial: {
+          changedPaths: ["selected.txt"],
+          commit: null,
+          commands: [],
+        },
+      });
+      expect(await readFile(join(root, "selected.txt"), "utf8")).toBe("four\n");
+      expect(provider.requests).toHaveLength(4);
+    } finally {
+      await server.close();
+      await application.close();
     }
   });
 

@@ -71,9 +71,9 @@ submits clipboard text as a user turn, and a turn interrupted after its edits
 landed reconciles history and reports surviving work through the terminal.
 Historical checklist completions do not establish release readiness. The latest
 [parity audit](docs/aider-parity-audit-2026-09-11.md) identifies open
-ignore-policy, model-metadata/accounting, fixture-provenance, edit/selection, and
-HTTP recovery gaps. The [live backlog](docs/remaining-integration-tasks.md)
-tracks those findings, remaining integration work, and planned commands.
+findings at its audited revision. The
+[live backlog](docs/remaining-integration-tasks.md) reconciles completed fixes,
+remaining integration work, and planned commands.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
 with import-derived coverage and status-hidden-change tests. This does not
 establish transitive dependency or resource integrity; see the
@@ -127,6 +127,8 @@ Library adapters include security-bounded [URL fetching](docs/url-fetching.md),
 [AI comment watch mode](docs/watch-mode.md), and an authenticated,
 session-isolated [local HTTP/SSE interface](docs/web-interface.md). Watch and web
 startup use only built-in Node.js adapters; no browser/native package is installed.
+Authenticated HTTP partial-turn failures expose bounded changed paths, validated
+commit metadata, and command outcomes without internal errors or command output.
 Bounded [voice recording and transcription](docs/voice-input.md)
 is available through an optional package subpath and can submit to an explicit
 application session without native default dependencies.

@@ -13,6 +13,7 @@ import type {
   ApplicationService,
   ApplicationSession,
 } from "../core/application-service.js";
+import { TurnPartiallyAppliedError } from "../core/application-service.js";
 
 export interface LocalWebServerOptions {
   readonly service: ApplicationService;
@@ -196,15 +197,21 @@ export class LocalWebServer {
             : error instanceof InvalidBodyError || error instanceof SyntaxError
               ? 400
               : 500,
-          {
-            error:
-              error instanceof BodyLimitError
-                ? error.message
-                : error instanceof InvalidBodyError ||
-                    error instanceof SyntaxError
-                  ? "Invalid JSON request"
-                  : "Request failed",
-          },
+          error instanceof TurnPartiallyAppliedError
+            ? {
+                error: "Turn partially applied",
+                code: "turn_partially_applied",
+                partial: safePartialResult(error),
+              }
+            : {
+                error:
+                  error instanceof BodyLimitError
+                    ? error.message
+                    : error instanceof InvalidBodyError ||
+                        error instanceof SyntaxError
+                      ? "Invalid JSON request"
+                      : "Request failed",
+              },
         );
       else response.end();
     }
@@ -213,6 +220,43 @@ export class LocalWebServer {
 
 class BodyLimitError extends Error {}
 class InvalidBodyError extends Error {}
+
+function hasControlCharacter(value: string): boolean {
+  return [...value].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 0x1f || codePoint === 0x7f;
+  });
+}
+
+function safePartialPath(path: string): boolean {
+  return (
+    path.length > 0 &&
+    path.length <= 4096 &&
+    !hasControlCharacter(path) &&
+    !path.startsWith("/") &&
+    !path.startsWith("\\") &&
+    !/^[A-Za-z]:[\\/]/u.test(path) &&
+    !path.split(/[\\/]/u).includes("..")
+  );
+}
+
+function safePartialResult(error: TurnPartiallyAppliedError) {
+  return {
+    changedPaths: error.changedPaths
+      .filter((path) => safePartialPath(path))
+      .slice(0, 200),
+    commit:
+      error.commit !== null &&
+      /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/iu.test(error.commit)
+        ? error.commit
+        : null,
+    commands: error.commands.slice(0, 100).map((command) => ({
+      status: command.status,
+      exitCode: command.exitCode,
+      truncated: command.truncated,
+    })),
+  };
+}
 
 function isLoopback(host: string): boolean {
   return (

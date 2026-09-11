@@ -60,6 +60,7 @@ import type {
   ApplicationSession,
   ApplicationSubmitOptions,
 } from "./application-service.js";
+import { TurnPartiallyAppliedError } from "./application-service.js";
 import { ChatSummary } from "./chat-summary.js";
 import { CoderSession } from "./coder-session.js";
 import { countMessageTokens } from "../models/token-count.js";
@@ -180,33 +181,6 @@ function createRepositoryMap(
       ? {}
       : { maxContextWindow: model.maxInputTokens }),
   });
-}
-
-/**
- * Raised when a turn fails or is cancelled after some of its work already
- * reached the worktree. The surviving paths, commit, and executed commands are
- * carried on the error so an interface can report what is now on disk instead of
- * only reporting that the turn failed.
- */
-export class TurnPartiallyAppliedError extends Error {
-  override readonly name = "TurnPartiallyAppliedError";
-  readonly changedPaths: readonly string[];
-  readonly commit: string | null;
-  readonly commands: readonly ModelCommandResult[];
-
-  constructor(cause: unknown, result: Omit<ApplicationTurnResult, "response">) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    const survived = [
-      result.changedPaths.length === 0
-        ? undefined
-        : `changed ${result.changedPaths.join(", ")}`,
-      result.commit === null ? undefined : `committed ${result.commit}`,
-    ].filter((part) => part !== undefined);
-    super(`${reason}\nThe turn already ${survived.join(" and ")}.`, { cause });
-    this.changedPaths = [...result.changedPaths];
-    this.commit = result.commit;
-    this.commands = [...result.commands];
-  }
 }
 
 export interface ApplicationTurnResult {

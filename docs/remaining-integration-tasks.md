@@ -72,7 +72,7 @@ unchanged result of the historical audit.
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, and `/web` ingests one bounded user-named page. HTTP disconnect cancellation is wired but needs targeted evidence; quotas, expiry, backpressure, session reclamation, and structured partial-error responses remain open. GUI and CLI voice UX are deferred. |
+| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
 ### Current audit follow-ups — 2026-09-11
@@ -152,8 +152,17 @@ for revision-specific source references and reproduction limits.
   missing `[ab].md` still expands; `tests/interface-startup.test.ts` proves the
   literal path through executable `/add`. Containment, ignore filtering, walk
   and result bounds, and later Git literal-pathspec handling are unchanged.
-- [ ] Expose safe structured partial-turn errors to authenticated HTTP clients
+- [x] Expose safe structured partial-turn errors to authenticated HTTP clients
   without leaking raw internal errors, and test post-write failure recovery.
+  Authenticated message requests now retain HTTP 500 but return stable code
+  `turn_partially_applied` plus an allowlisted `partial` object: bounded safe
+  repository-relative paths, a validated Git object ID or `null`, and command
+  status/exit/truncation only. Causes, messages, command text, stdout, and stderr
+  remain private; malformed absolute/control paths and invalid commit IDs are
+  omitted. `tests/web-server.test.ts` injects secrets into every excluded field,
+  and `tests/interface-startup.test.ts` drives a concrete four-attempt turn whose
+  edits survive a failing configured check and verifies both the response and
+  final file. Unexpected failures remain generic.
 - [x] Establish passing `platform` job evidence on macOS and Windows. Run
   [`34618401395`](https://github.com/PierrunoYT/patch/actions/runs/34618401395)
   on `baebd0e83a1f317b0aba48da174feae04a7b7e61` is green on all six jobs, and
@@ -827,6 +836,9 @@ remains unfinished; the API is for trusted local clients, not public hosting.
 - [x] Add supported startup/configuration for the authenticated loopback web
   server and construct it with the real `ApplicationService`. Interface choices
   are explicit CLI flags; model/file settings retain staged configuration.
+- [x] Return a bounded, allowlisted partial-turn recovery result without
+  exposing internal causes or command output. Concrete post-write failure tests
+  verify that the response matches surviving disk state.
 - [x] Define startup-failure and service-shutdown cleanup for HTTP/SSE sessions.
 - [ ] Define expiry, backpressure, bounded event buffering, quotas, session
   reclamation, and complete disconnect policy. Per-POST response-disconnect

@@ -101,8 +101,9 @@ evidence; this plan and the backlog track current status and open work.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock, and `/web` ingests one user-typed URL as
   bounded, labeled text. GUI and CLI voice UX are deferred. HTTP disconnect
-  cancellation is wired but needs targeted runtime evidence; expiry, quotas,
-  backpressure, reclamation, and structured partial-error responses remain open.
+  cancellation is wired but needs targeted runtime evidence; partial-turn errors
+  expose only bounded recovery metadata. Expiry, quotas, backpressure, and
+  reclamation remain open.
 - The eight ancillary feature families have explicit dispositions below.
   `/help`, `/settings`, and `/report` are selected for implementation but remain
   absent; deciding scope does not establish executable parity.
@@ -639,7 +640,9 @@ because the provisioned native package fails its spawn contract there.
   the concrete terminal session and Git ignore predicate; question-only turns
   suppress edits and commands. Node.js local-filesystem notifications are used.
 - [x] Add supported startup for the local authenticated HTTP/SSE server through
-  the real `ApplicationService`.
+  the real `ApplicationService`. Partial post-write failures return bounded
+  changed paths, a validated commit ID, and command outcomes without raw causes,
+  commands, or output.
 - [ ] Define session expiry, quotas, bounded event/backpressure policy, and
   disconnect cancellation. Cross-session repository mutation coordination is
   done: every session on one worktree shares a re-entrant mutation lock.

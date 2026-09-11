@@ -81,11 +81,12 @@ so history never claims edits that do not exist.
 The service exposes `TurnPartiallyAppliedError` for failed turns with recorded
 changed paths, carrying `changedPaths`, `commit`, and `commands` and naming the
 surviving work in its message. The terminal displays that diagnostic. The HTTP
-boundary currently returns a generic `500 Request failed` instead of the
-structured outcome; some progress may already have reached SSE, but clients
-cannot rely on the error response for recovery details. Checkpoint-only failures
-can retain a commit in session state without producing that structured error.
-Failures without a structured partial result are rethrown unchanged.
+boundary returns an allowlisted structured 500 with bounded safe relative paths,
+a validated commit ID, and command status metadata. It omits the cause, message,
+command text, and output; some progress may also already have reached SSE.
+Checkpoint-only failures can retain a commit in session state without producing
+that structured error. Failures without a structured partial result are rethrown
+unchanged and remain generic at the HTTP boundary.
 
 Sessions sharing a resolved worktree serialize mutation phases through one
 in-process lock. There is no cross-process Patch lock, durable recovery journal,

@@ -286,6 +286,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Returned a structured, allowlisted HTTP recovery result when a turn fails
+  after changing files or creating a commit. The response includes bounded safe
+  relative paths, a validated commit ID, and command status metadata, but never
+  the underlying error, command text, stdout, or stderr. A concrete web test
+  verifies that four edits surviving a configured-check failure match the final
+  file, while a boundary test injects secret values into every excluded field.
 - Checked exact existing files and directories before interpreting selection
   text as a glob. A literal `[ab].txt` beside `a.txt` and `b.txt` is now selected
   alone at startup and through file commands, while `[ab].md` still expands when

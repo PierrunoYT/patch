@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   LocalWebServer,
+  TurnPartiallyAppliedError,
   type ApplicationService,
   type ApplicationSession,
 } from "../src/index.js";
@@ -28,9 +29,9 @@ function service(): ApplicationService {
   };
 }
 
-async function fixture() {
+async function fixture(applicationService = service()) {
   const server = new LocalWebServer({
-    service: service(),
+    service: applicationService,
     tokens: { aliceToken: "alice", bobToken: "bob" },
   });
   servers.push(server);
@@ -155,5 +156,56 @@ describe("LocalWebServer", () => {
         )
       ).status,
     ).toBe(413);
+  });
+
+  it("exposes only allowlisted partial-turn recovery fields", async () => {
+    const internalSecret = "raw-provider-secret-must-not-leak";
+    const partialService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async () => {
+          throw new TurnPartiallyAppliedError(new Error(internalSecret), {
+            kind: "turn",
+            changedPaths: ["src/changed.ts", "/private/absolute-secret"],
+            commit: "a".repeat(40),
+            commands: [
+              {
+                command: `print ${internalSecret}`,
+                status: "completed",
+                exitCode: 9,
+                stdout: internalSecret,
+                stderr: internalSecret,
+                truncated: true,
+              },
+            ],
+          });
+        },
+      }),
+    };
+    const { base } = await fixture(partialService);
+    const created = await request(base, "/sessions", "aliceToken", {
+      method: "POST",
+    });
+    const { sessionId } = (await created.json()) as { sessionId: string };
+    const response = await request(
+      base,
+      `/sessions/${sessionId}/messages`,
+      "aliceToken",
+      { method: "POST", body: JSON.stringify({ message: "change it" }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "Turn partially applied",
+      code: "turn_partially_applied",
+      partial: {
+        changedPaths: ["src/changed.ts"],
+        commit: "a".repeat(40),
+        commands: [{ status: "completed", exitCode: 9, truncated: true }],
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain(internalSecret);
+    expect(JSON.stringify(body)).not.toContain("absolute-secret");
   });
 });

@@ -46,11 +46,28 @@ the provider. Startup bind failures also release the service. `DELETE
 that application session, not the server.
 
 A failed turn can have written files or created commits. The service may attach
-that state to `TurnPartiallyAppliedError`, but this HTTP adapter currently maps
-it to the same generic 500 as other internal failures. SSE may already contain
-progress events; the error response does not expose the structured partial
-result. Inspect the repository before retrying. Safe authenticated exposure of
-partial-turn results remains an open [audit finding](aider-parity-audit-2026-09-11.md).
+that state to `TurnPartiallyAppliedError`. The authenticated message route keeps
+HTTP 500 and returns this stable recovery shape:
+
+```json
+{
+  "error": "Turn partially applied",
+  "code": "turn_partially_applied",
+  "partial": {
+    "changedPaths": ["src/changed.ts"],
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "commands": [{ "status": "completed", "exitCode": 9, "truncated": false }]
+  }
+}
+```
+
+Paths are bounded, control-free, repository-relative values; invalid entries are
+omitted. A commit is a validated 40- or 64-hex Git object ID or `null`. Command
+text and output are never included, only bounded status metadata. The underlying
+cause and error message are also omitted, so credentials or raw diagnostics
+cannot cross the HTTP boundary. Unexpected errors remain `{ "error": "Request
+failed" }`. SSE may already contain progress events; inspect the reported paths
+and repository before retrying.
 
 Use only with trusted local clients for short-lived sessions. Idle expiry,
 session/connection quotas, SSE replay and bounded backpressure policy remain R8
@@ -65,6 +82,7 @@ This intentionally replaces the pinned upstream
 [`aider/gui.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/gui.py)
 Streamlit GUI with a small authenticated API. Evidence:
 `tests/interface-startup.test.ts` (concrete startup, malformed input, bind failure,
-active-turn shutdown), `tests/web-server.test.ts` (principal isolation, SSE,
-body limits), and `scripts/package-smoke.mjs` (packed startup and absence of
+active-turn shutdown, post-write recovery), `tests/web-server.test.ts`
+(principal isolation, SSE, body limits, partial-result redaction), and
+`scripts/package-smoke.mjs` (packed startup and absence of
 optional browser/native/audio dependencies).
