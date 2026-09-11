@@ -108,4 +108,36 @@ describe("RepositoryMap cache", () => {
     const forced = await map.getMap({ ...request, forceRefresh: true });
     expect(forced).toContain("second_name");
   });
+
+  it("isolates tracked paths it cannot read and keeps the rest of the map", async () => {
+    const root = await fixture();
+    const map = await RepositoryMap.create({
+      root,
+      maxTokens: 100,
+      countTokens,
+      refresh: "files",
+    });
+
+    // A path Git still tracks but that is no longer readable must not fail the
+    // turn that asked for the map.
+    const rendered = await map.getMap({
+      chatPaths: [],
+      otherPaths: ["defs.py", "use.py", "deleted.py"],
+    });
+
+    expect(rendered).toContain("first_name");
+    expect(map.skippedPaths).toEqual(["deleted.py"]);
+
+    await writeFile(
+      join(root, "deleted.py"),
+      "def third_name():\n    return 3\n",
+    );
+    const recovered = await map.getMap({
+      chatPaths: [],
+      otherPaths: ["defs.py", "use.py", "deleted.py"],
+      forceRefresh: true,
+    });
+    expect(recovered).toContain("third_name");
+    expect(map.skippedPaths).toEqual([]);
+  });
 });

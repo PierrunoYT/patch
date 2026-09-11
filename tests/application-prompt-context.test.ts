@@ -105,6 +105,52 @@ async function harness(options: {
   };
 }
 
+describe("editable-file prompt pair", () => {
+  it("says no files are shared, and asks which to add when a map exists", async () => {
+    const root = await temporaryDirectory("patch-no-files-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    const { submit, sent } = await harness({
+      root,
+      turns: 2,
+      argv: ["--no-git", "--model", "test/whole-model", "--file", "one.txt"],
+    });
+
+    // With a file in context the pair is the contents and the assistant's ack.
+    await submit("first question");
+    expect(sent(0)).toContain("I have *added these files to the chat*");
+    expect(sent(0)).toContain("any changes I propose will be to those files");
+
+    await submit("/drop one.txt");
+    await submit("second question");
+    expect(sent(1)).toContain("I am not sharing any files that you can edit");
+    expect(sent(1)).not.toContain("I have *added these files to the chat*");
+  });
+
+  it("asks which files need changes when a repository map is present", async () => {
+    const root = await temporaryRepository("patch-no-files-map-");
+    await writeFile(
+      join(root, "mapped.ts"),
+      "export function mappedHelper(value: number): number {\n  return value + 1;\n}\n",
+    );
+    await executeFile("git", ["-C", root, "add", "."]);
+    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "base"]);
+    const { submit, sent } = await harness({
+      root,
+      turns: 1,
+      argv: ["--model", "test/diff-model"],
+    });
+
+    await submit("where is mappedHelper");
+    expect(sent(0)).toContain(REPO_MAP_PREFIX);
+    expect(sent(0)).toContain(
+      "Tell me which files in my repo are the most likely to **need changes**",
+    );
+    expect(sent(0)).not.toContain(
+      "I am not sharing any files that you can edit",
+    );
+  });
+});
+
 describe("switching the active model", () => {
   it("rebuilds prompts, shell policy, and compatible history", async () => {
     const root = await temporaryDirectory("patch-switch-prompt-");

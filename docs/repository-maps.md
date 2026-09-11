@@ -20,9 +20,9 @@ extraction tests, and packed-package smoke coverage.
 Production filters selected and raw tracked paths through ordinary Git and root
 `.aiderignore` rules before snapshots, mention matching, map extraction, or
 provider requests. The check is repeated for each turn and ignored model edit
-targets fail before their content is read. Missing, deleted, unreadable, or
-parser-failed visible tracked files can still abort a complete turn instead of
-being skipped with a bounded warning.
+targets fail before their content is read. A missing, deleted, unreadable, or
+parser-failed tracked file is skipped rather than aborting the turn; surfacing
+the skip to the user as a bounded warning is still missing.
 
 `TagExtractor` resolves every requested file through `SafePathResolver`, reads
 UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and
@@ -43,8 +43,12 @@ not composed. Strict prefix fitting is an intentional Patch difference.
 
 `RepositoryMap` composes extraction, ranking, and rendering. Its JSON tag cache
 uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.
-Per-file read/parser failures are not isolated. The cache schema also lacks a
-query/grammar/extractor fingerprint, so resource upgrades can reuse old tags.
+Per-file read and parser failures are isolated: the map is advisory context, so
+a path that cannot be read or parsed is dropped from the map and reported by
+`skippedPaths` rather than propagating out of `getMap`. A path that becomes
+readable again is removed from that set on the next construction. The cache
+schema still lacks a query/grammar/extractor fingerprint, so resource upgrades
+can reuse old tags.
 
 The helper exposes `always`, `files`, `manual`, and `auto` refresh modes, but the
 production CLI exposes no refresh controls, does not couple prompt caching to

@@ -57,7 +57,7 @@ tests are evidence only for the cases they exercise.
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
-| Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
+| Repository maps | partial | A five-language production map exists and per-file failures are isolated; context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged and non-repository startup and directory targets are clearly rejected; inert flags, automatic packing, installed docs, and provenance checks remain. |
@@ -128,7 +128,7 @@ remains before the release claims can be re-audited.
   rejected switch leaves the previous model active. The selected fence now wraps
   file messages, and history drops media the replacement model cannot accept.
   Automatic history summarization stays P2. Evidence:
-  `tests/application-model-switch.test.ts` and the switch cases in
+  `tests/application-prompt-context.test.ts` and the switch cases in
   `tests/coder-session.test.ts`.
 - [x] Submit text returned by `/paste` as a user turn instead of displaying and
   recording it as assistant output. The clipboard text becomes the turn message
@@ -173,8 +173,16 @@ remains before the release claims can be re-audited.
   of scope. Evidence: the reflection-limit case in
   `tests/application-lifecycle.test.ts` and the reconciliation case in
   `tests/coder-session.test.ts`.
-- [ ] Isolate missing/unreadable tracked files during map construction and emit
-  the canonical no-editable-files prompt pair.
+- [x] Isolate missing/unreadable tracked files during map construction and emit
+  the canonical no-editable-files prompt pair. `RepositoryMap.getMap` now catches
+  per path: a tracked path that is gone, unreadable, or unparseable is dropped
+  from the map and listed in `skippedPaths` instead of failing the turn that
+  asked for the map. The editable-files chunk is a user/assistant pair in all
+  three upstream shapes — file contents with the assistant's acknowledgement,
+  `filesNoFullFilesWithRepoMap` with its reply when a map is present, and
+  `filesNoFullFiles` with `Ok.` otherwise. Surfacing skipped paths to the user
+  stays P2. Evidence: the isolation case in `tests/repository-map-cache.test.ts`
+  and the prompt-pair cases in `tests/application-prompt-context.test.ts`.
 - [ ] Surface watch submission/native watcher failures and refresh all selected
   AI comments for a triggered turn.
 

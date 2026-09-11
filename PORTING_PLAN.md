@@ -388,7 +388,7 @@ outcome. Exhaustive failure/cancellation coverage and remaining approval
 policies remain in R2/R3 of `docs/remaining-integration-tasks.md`.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
-`tests/application-model-switch.test.ts`, `tests/application-lifecycle.test.ts`,
+`tests/application-prompt-context.test.ts`, `tests/application-lifecycle.test.ts`,
 and packed `scripts/lifecycle-smoke.mjs`.
 See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 

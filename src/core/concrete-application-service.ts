@@ -262,6 +262,44 @@ function fileMessage(
   ];
 }
 
+/**
+ * The editable-files half of the prompt, as the user/assistant pair upstream
+ * sends. With no editable files the pair still has to say so, and says something
+ * different when a repository map is present: ask which files to add rather than
+ * inviting edits to files the model cannot see.
+ */
+function editableFilesMessages(
+  values: readonly FileSnapshot[],
+  fence: readonly [string, string],
+  hasRepositoryContent: boolean,
+): ChatMessage[] {
+  const present = fileMessage(COMMON_PROMPTS.filesContentPrefix, values, fence);
+  if (present.length > 0) {
+    return [
+      ...present,
+      {
+        role: "assistant",
+        content: COMMON_PROMPTS.filesContentAssistantReply,
+      },
+    ];
+  }
+  return hasRepositoryContent
+    ? [
+        {
+          role: "user",
+          content: COMMON_PROMPTS.filesNoFullFilesWithRepoMap,
+        },
+        {
+          role: "assistant",
+          content: COMMON_PROMPTS.filesNoFullFilesWithRepoMapReply,
+        },
+      ]
+    : [
+        { role: "user", content: COMMON_PROMPTS.filesNoFullFiles },
+        { role: "assistant", content: "Ok." },
+      ];
+}
+
 function identifierHints(message: string): string[] {
   return [...new Set(message.match(/[\p{L}_][\p{L}\p{N}_]{2,}/gu) ?? [])];
 }
@@ -401,10 +439,10 @@ class ConcreteApplicationSession implements ApplicationSession {
                     content: `${COMMON_PROMPTS.repoContentPrefix}\n\n${repositoryContent}`,
                   },
                 ],
-          editableFiles: fileMessage(
-            COMMON_PROMPTS.filesContentPrefix,
+          editableFiles: editableFilesMessages(
             editable,
             this.#profile.fence,
+            repositoryContent !== "",
           ),
           reminder: [
             {

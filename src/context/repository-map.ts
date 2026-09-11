@@ -44,8 +44,14 @@ export class RepositoryMap {
   readonly #autoCacheThresholdMs: number;
   readonly #tagCache: RepoMapTagCache;
   readonly #maps = new Map<string, string>();
+  readonly #skipped = new Set<string>();
   #lastMap: string | undefined;
   #lastProcessingMs = 0;
+
+  /** Tracked paths the most recent construction could not read or parse. */
+  get skippedPaths(): readonly string[] {
+    return [...this.#skipped].sort();
+  }
 
   private constructor(
     options: RepositoryMapOptions,
@@ -98,8 +104,17 @@ export class RepositoryMap {
       ...new Set([...request.chatPaths, ...request.otherPaths]),
     ].sort();
     const tags: RepoMapTag[] = [];
-    for (const path of allPaths)
-      tags.push(...(await this.#tagCache.tags(path)));
+    for (const path of allPaths) {
+      try {
+        tags.push(...(await this.#tagCache.tags(path)));
+        this.#skipped.delete(path);
+      } catch {
+        // The map is advisory context. A tracked path that is gone, unreadable,
+        // or unparseable is dropped from the map rather than failing the turn
+        // that asked for it.
+        this.#skipped.add(path);
+      }
+    }
     const chatPaths = new Set(request.chatPaths);
     const rankedTags = rankRepoMapTags(tags, {
       chatPaths,

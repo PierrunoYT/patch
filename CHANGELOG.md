@@ -171,6 +171,16 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Isolated per-file failures during repository-map construction. One tracked
+  path that was deleted, unreadable, or unparseable aborted the whole turn that
+  asked for the map; such a path is now dropped from the map and reported by
+  `RepositoryMap.skippedPaths`.
+- Sent the editable-files prompt as the user/assistant pair Aider defines. A
+  turn with no editable files sent no editable-files section at all, so the
+  model was never told that no file was shared; it now receives
+  `filesNoFullFilesWithRepoMap` and its reply when a repository map is present
+  and `filesNoFullFiles` otherwise, and the file-contents case carries its
+  assistant acknowledgement.
 - Reconciled history and reported a structured outcome when a turn fails or is
   cancelled after its edits already reached the worktree. Such a turn was
   discarded entirely, so the next turn saw changed files with no record of the

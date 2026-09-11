@@ -51,8 +51,13 @@ parity remains open.
 examples, read-only files, repository map, completed history, editable files,
 current turn, and reminder. That container-level order matches Aider.
 
-Concrete prompt construction does not yet reproduce all wrapper dialogue:
-repository/file sections omit Aider assistant acknowledgements, the no-editable-
-files prompt pair is unused, examples lack the reset pair, and reminder
+The editable-files section is a user/assistant pair in all three upstream
+shapes: file contents followed by `filesContentAssistantReply`;
+`filesNoFullFilesWithRepoMap` and its reply when no file is editable but a
+repository map is present; and `filesNoFullFiles` with `Ok.` otherwise.
+
+Concrete prompt construction does not yet reproduce the remaining wrapper
+dialogue: the read-only and repository-map sections still omit their Aider
+assistant acknowledgements, examples lack the reset pair, and reminder
 placement is unconditional. Prompt-cache marker placement is implemented at the
 container level, but production map refresh is not stabilized for cache reuse.
