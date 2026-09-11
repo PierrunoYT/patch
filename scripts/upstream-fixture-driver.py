@@ -431,12 +431,14 @@ def main():
     os.environ["AIDER_ANALYTICS"] = "false"
     sys.path.insert(0, str(checkout))
 
-    from aider import coders
+    # Keep direct upstream imports explicit: the Node provenance test reads
+    # these single-line module imports without executing Python or aider.
+    import aider.coders as coders
     from aider.args import get_parser
     from aider.coders.base_coder import all_fences
     from aider.coders.base_prompts import CoderPrompts
-    from aider.coders import editblock_coder
-    from aider.coders import udiff_coder
+    import aider.coders.editblock_coder as editblock_coder
+    import aider.coders.udiff_coder as udiff_coder
     from aider.coders.chat_chunks import ChatChunks
     from aider.io import InputOutput
     from aider.models import Model

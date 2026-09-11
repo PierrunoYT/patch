@@ -1,7 +1,8 @@
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -76,6 +77,33 @@ const fixture = JSON.parse(
   ),
 ) as UpstreamFixture;
 
+const driver = readFileSync(
+  new URL("../scripts/upstream-fixture-driver.py", import.meta.url),
+  "utf8",
+);
+
+// This is a check of the driver's deliberately restricted import convention,
+// not a Python parser. Import modules explicitly, one per line; from-imports
+// may name symbols only in a pinned .py module, never a package's submodules.
+function unpinnedImports(source: string, paths: string[]): string[] {
+  const missing: string[] = [];
+  for (const line of source.split("\n")) {
+    if (!/^\s*(?:from|import)\s+aider\b/u.test(line)) continue;
+    const match =
+      /^\s*(?:from (aider(?:\.\w+)+) import \w+(?: as \w+)?|import (aider(?:\.\w+)+)(?: as \w+)?)\s*$/u.exec(
+        line,
+      );
+    if (!match) throw new Error(`Unsupported upstream import: ${line.trim()}`);
+    const module = (match[1] ?? match[2])!.replaceAll(".", "/");
+    if (
+      !paths.includes(`${module}.py`) &&
+      !(match[2] && paths.includes(`${module}/__init__.py`))
+    )
+      missing.push(module);
+  }
+  return missing;
+}
+
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
     expect(fixture.schemaVersion).toBe(5);
@@ -85,7 +113,7 @@ describe("upstream compatibility fixtures", () => {
     });
   });
 
-  it("pins a blob hash for every upstream file the fixtures derive from", () => {
+  it("pins a blob hash for every explicit direct upstream import", () => {
     // The exporter refuses a dirty checkout and compares each of these against
     // both the pinned commit and the file on disk. Keeping the list honest here
     // means CI enforces the contract without needing the upstream checkout.
@@ -95,22 +123,126 @@ describe("upstream compatibility fixtures", () => {
       expect(path).toMatch(/^aider\/[\w/]+\.py$/u);
       expect(blob).toMatch(/^[0-9a-f]{40}$/u);
     }
-    // Every module the fixture driver imports must be pinned, or a fixture can
-    // change without any recorded hash changing.
-    expect(sources.map(([path]) => path)).toEqual(
-      [
-        "aider/args.py",
-        "aider/coders/base_coder.py",
-        "aider/coders/base_prompts.py",
-        "aider/coders/chat_chunks.py",
-        "aider/coders/editblock_coder.py",
-        "aider/io.py",
-        "aider/models.py",
-        "aider/repo.py",
-        "aider/repomap.py",
-      ].sort(),
-    );
+    expect(
+      unpinnedImports(
+        driver,
+        sources.map(([path]) => path),
+      ),
+    ).toEqual([]);
   });
+
+  it("detects new imports and missing module or package hashes", () => {
+    const paths = Object.keys(upstream.fixtureSources);
+    expect(
+      unpinnedImports(
+        `${driver}\nfrom aider.history import ChatSummary`,
+        paths,
+      ),
+    ).toEqual(["aider/history"]);
+    expect(
+      unpinnedImports(`${driver}\nimport aider.history as history`, paths),
+    ).toEqual(["aider/history"]);
+    for (const path of [
+      "aider/coders/__init__.py",
+      "aider/coders/udiff_coder.py",
+      "aider/special.py",
+    ]) {
+      expect(
+        unpinnedImports(
+          driver,
+          paths.filter((entry) => entry !== path),
+        ),
+      ).toEqual([path.replace(/(?:\/__init__)?\.py$/u, "")]);
+    }
+    expect(
+      unpinnedImports("from aider.coders import udiff_coder", paths),
+    ).toEqual(["aider/coders"]);
+    expect(() =>
+      unpinnedImports("import aider.special, aider.history", paths),
+    ).toThrow("Unsupported upstream import");
+  });
+
+  it("refuses status-hidden source changes before starting Python", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-provenance-"));
+    const checkout = join(root, "checkout");
+    const git = (...args: string[]) =>
+      execFileSync("git", args, {
+        cwd: checkout,
+        encoding: "utf8",
+      }).trim();
+    try {
+      await mkdir(checkout);
+      await mkdir(join(root, "scripts"));
+      const exporter = join(root, "scripts/export-upstream-fixtures.mjs");
+      await copyFile(
+        new URL("../scripts/export-upstream-fixtures.mjs", import.meta.url),
+        exporter,
+      );
+      git("init");
+      git("config", "core.autocrlf", "false");
+      git("remote", "add", "origin", upstream.repository);
+      const paths = [
+        "aider/coders/__init__.py",
+        "aider/coders/udiff_coder.py",
+        "aider/special.py",
+      ];
+      for (const path of paths) {
+        await mkdir(dirname(join(checkout, path)), { recursive: true });
+        await writeFile(join(checkout, path), "# original\n");
+      }
+      git("add", ".");
+      git(
+        "-c",
+        "user.name=Fixture Test",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--no-verify",
+        "-m",
+        "fixture",
+      );
+      await writeFile(
+        join(root, "upstream.json"),
+        JSON.stringify({
+          repository: upstream.repository,
+          commit: git("rev-parse", "HEAD"),
+          fixtureSources: Object.fromEntries(
+            paths.map((path) => [path, git("rev-parse", `HEAD:${path}`)]),
+          ),
+        }),
+      );
+      const run = () =>
+        spawnSync(process.execPath, [exporter], {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            AIDER_CHECKOUT: checkout,
+            AIDER_PYTHON: join(root, "missing-python"),
+          },
+        });
+      // A clean source reaches the Python-environment check, past every guard.
+      expect(run().stderr).toContain("Aider Python environment not found");
+      for (const flag of ["assume-unchanged", "skip-worktree"]) {
+        for (const path of paths) {
+          git("update-index", `--${flag}`, "--", path);
+          await writeFile(join(checkout, path), "# hidden modification\n");
+          expect(git("status", "--porcelain")).toBe("");
+          const result = run();
+          expect(result.status).not.toBe(0);
+          expect(result.stderr).toContain(`Checked-out ${path} hashes to`);
+          expect(result.stderr).not.toContain(
+            "Aider Python environment not found",
+          );
+          await writeFile(join(checkout, path), "# original\n");
+          git("update-index", `--no-${flag}`, "--", path);
+        }
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   it("captures each foundation behavior category", () => {
     expect(fixture.configPrecedence).toEqual({

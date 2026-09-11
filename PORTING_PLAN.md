@@ -655,8 +655,9 @@ into Patch. Record the upstream commit in every generated fixture set.
 The commit alone does not prove where a fixture came from: a dirty checkout
 reports the pinned commit too. The exporter therefore refuses an unclean working
 tree and verifies committed and on-disk blob hashes for the source files listed
-in `upstream.json`. The manifest currently omits three directly imported modules;
-complete import coverage and its regression checks remain open. See
+in `upstream.json`. All twelve direct imports now have pinned hashes; Node tests
+check the driver's explicit imports and exercise status-hidden changes against
+the exporter. Transitive imports and resource hashes are not covered. See
 [compatibility fixtures](docs/compatibility-fixtures.md).
 
 Capture at least:

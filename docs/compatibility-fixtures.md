@@ -62,17 +62,24 @@ checks four things before running aider's code:
   silenced per file with `assume-unchanged` or `skip-worktree`, so a clean report
   is not enough on its own.
 
-The hash manifest is incomplete: the driver directly imports
-`aider/coders/__init__.py`, `aider/coders/udiff_coder.py`, and `aider/special.py`
-without listing them. Normal changes to these files still fail the clean-tree
-check, but status-hidden changes do not receive the independent blob check.
-The [2026-09-11 audit](aider-parity-audit-2026-09-11.md) records this evidence gap;
-it does not invalidate the reported byte-identical regeneration.
+The manifest now covers all twelve directly imported modules, including
+`aider/coders/__init__.py`, `aider/coders/udiff_coder.py`, and `aider/special.py`,
+closing the direct-import gap in the
+[2026-09-11 audit](aider-parity-audit-2026-09-11.md). Their hashes were checked
+against the pinned upstream checkout. This is not a transitive-dependency or
+resource-file integrity guarantee.
 
 Adding a scenario that imports another aider module requires adding that module
-to `fixtureSources`. `tests/upstream-fixtures.test.ts` currently checks a fixed
-expected list and its shape, not completeness against actual imports. The list
-and its regression coverage need updating together.
+to `fixtureSources`. `tests/upstream-fixtures.test.ts` reads the driver's actual
+imports and requires a manifest entry for each module. Keep upstream imports
+explicit and single-line: `import aider.module as alias` for modules/packages,
+or `from aider.module import Symbol` for symbols in a `.py` module. Package
+submodule from-imports and compound imports are not supported by this check;
+dynamic imports are outside its scope. CI needs neither Python nor an upstream
+checkout. Regression cases add unlisted imports and remove each formerly missing
+entry. A disposable Git repository also proves that the real exporter rejects
+changes hidden with either `assume-unchanged` or `skip-worktree` before Python
+starts, while clean source reaches the Python-environment check.
 
 Regeneration is deliberately separate from `npm run check`: ordinary builds
 and CI do not require Python or the aider checkout. Tests only consume the
@@ -81,3 +88,14 @@ committed JSON output.
 Review fixture diffs before committing them. A changed fixture means either the
 pinned upstream revision changed, the exporter scenario changed, or execution
 is nondeterministic; determine which one before updating the TypeScript port.
+
+## Direct-import coverage verification — 2026-09-11
+
+On Linux, the coverage follow-up passed `npm run check` (482 tests passed,
+four gated tests skipped, plus formatting, lint, typecheck, build, and packed
+installation/lifecycle smoke tests) and `npm start -- --help`.
+`npm run fixtures:upstream` ran against the clean pinned sibling checkout and
+regenerated `aider-5dc9490b.json` byte-identically: SHA-256
+`b60061ef27c9c3df820206c777308a2af103b2fc21f325a34534aad38b4c0ea3`.
+The dated audit remains unchanged as a historical snapshot. No new Windows,
+macOS, or live-provider evidence is claimed by this follow-up.

@@ -64,6 +64,10 @@ Historical checklist completions do not establish release readiness. The latest
 ignore-policy, model-metadata/accounting, fixture-provenance, edit/selection, and
 HTTP recovery gaps. The [live backlog](docs/remaining-integration-tasks.md)
 tracks those findings, remaining integration work, and planned commands.
+The direct fixture-import hash gap is now closed: all twelve imports are pinned,
+with import-derived coverage and status-hidden-change tests. This does not
+establish transitive dependency or resource integrity; see the
+[fixture provenance boundary](docs/compatibility-fixtures.md#what-the-exporter-refuses).
 Hardlinked and non-regular mutation targets are rejected rather than replaced
 or deleted.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain

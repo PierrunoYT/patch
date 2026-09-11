@@ -73,7 +73,7 @@ unchanged result of the historical audit.
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, directory/glob expansion, and command outcomes are wired. Literal glob-metacharacter filenames remain a selection gap. Help, report, and settings are selected but absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, and `/web` ingests one bounded user-named page. HTTP disconnect cancellation is wired but needs targeted evidence; quotas, expiry, backpressure, session reclamation, and structured partial-error responses remain open. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and listed-source blob checks exist. Config-aware option breadth, provider-lifetime cleanup, complete fixture-source hashes, and attribution/provenance evidence remain open. |
+| Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -105,8 +105,12 @@ for revision-specific source references and reproduction limits.
   tokens in its prompt count and Anthropic does not. Evidence:
   `tests/usage.test.ts`, the usage case in `tests/anthropic-provider.test.ts`,
   and the accounting line in `tests/render.test.ts`.
-- [ ] Complete the fixture-source hash manifest and add coverage that detects
-  newly imported but unlisted sources. This reopens P2 fixture evidence below.
+- [x] Complete the fixture-source hash manifest and add coverage that detects
+  newly imported but unlisted sources. All twelve direct imports are pinned;
+  `tests/upstream-fixtures.test.ts` derives coverage from the driver and tests
+  unlisted imports, removed entries, and real exporter rejection of changes
+  hidden by `assume-unchanged` or `skip-worktree`. Hashes match the pinned
+  checkout. Transitive imports and resource hashes are outside this guarantee.
 - [ ] Expose and verify production commit policy rather than forcing fixed
   messages, disabled hooks, and no attribution.
 - [ ] Wire the distinct fenced-diff prompt and test the actual provider request.
@@ -136,7 +140,7 @@ for revision-specific source references and reproduction limits.
 
 The original immediate P0 and P1 lists below record completed milestones, not
 all remaining release blockers. P2's ancillary disposition is decided, but its
-commands are still absent, and the latest audit reopens fixture hash coverage.
+commands are still absent. The audit's direct fixture-import hash gap is closed.
 Current audit follow-ups and unchecked R0–R9 tasks continue to control release
 readiness. Updating documentation does not complete those implementation tasks.
 
@@ -361,17 +365,17 @@ readiness. Updating documentation does not complete those implementation tasks.
   also corrects the earlier table: settings uses `aider/format_settings.py`, and
   upstream ordinary version probes are throttled for 24 hours, not sent on
   every startup.
-- [ ] Complete fixture-source hash coverage while retaining the implemented
+- [x] Complete fixture-source hash coverage while retaining the implemented
   clean-tree checks, broader goldens, packed extraction, and documentation tests.
-  Reopened by the 2026-09-11 audit: the driver imports
+  The 2026-09-11 audit found direct imports of
   `aider/coders/__init__.py`, `aider/coders/udiff_coder.py`, and `aider/special.py`
-  without listing them in `fixtureSources`.
+  missing from `fixtureSources`; all three now carry their pinned blob hashes.
   - Dirty-upstream and listed-source blob checks are implemented:
     `npm run fixtures:upstream` refuses a dirty checkout and checks committed
-    and on-disk hashes for each manifest entry. Normal changes to omitted files
-    still fail the clean-tree check, but status-hidden changes do not receive
-    independent hash verification. `tests/upstream-fixtures.test.ts` asserts
-    a fixed expected list, not completeness against the driver's actual imports.
+    and on-disk hashes for each manifest entry. `tests/upstream-fixtures.test.ts`
+    now checks the driver's explicit direct imports instead of a fixed list and
+    proves hidden-change rejection using the real exporter and temporary Git
+    repositories. This does not cover transitive imports or resource hashes.
   - Packed extraction: `scripts/package-smoke.mjs` extracts a real sample for
     each of the eleven shipped languages, TSX included, from the installed
     tarball.
@@ -845,10 +849,12 @@ is backed by a local run, not by CI.
 The fixture exporter is not a CI job: `npm run fixtures:upstream` needs the
 pinned aider checkout and its Python environment. It refuses a checkout whose
 remote, commit, or working tree differs from `upstream.json`, including a dirty
-tree and any listed source whose blob hash has moved. CI checks the manifest's
-fixed expected entries through `tests/upstream-fixtures.test.ts`, which needs no
-checkout. It does not yet prove completeness against the driver's imports; the
-three omitted modules are tracked in the reopened P2 fixture task.
+tree and any listed source whose blob hash has moved. CI checks the manifest
+against the driver's explicit direct imports through
+`tests/upstream-fixtures.test.ts`, without Python or an upstream checkout. It
+also runs the exporter against a temporary Git repository to verify rejection
+of status-hidden source changes. Transitive imports/resources remain outside
+the direct-import coverage claim.
 
 ## Verification commands and required evidence
 

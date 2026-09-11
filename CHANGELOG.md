@@ -488,6 +488,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Closed the audited fixture-source hash gap with pinned hashes for all twelve
+  direct driver imports. Node tests now check actual explicit imports rather
+  than a fixed list and exercise exporter rejection of `assume-unchanged` and
+  `skip-worktree` modifications. This adds no runtime Python dependency and
+  does not claim transitive dependency or resource-file hash coverage.
 - Continuous integration checks out and installs Node.js through
   `actions/checkout@v5` and `actions/setup-node@v5`. The `v4` actions target
   Node.js 20, which GitHub has deprecated and already forces onto Node.js 24, so
