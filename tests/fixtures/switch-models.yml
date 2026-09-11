@@ -1,0 +1,20 @@
+# Models used only by tests/application-model-switch.test.ts. They exist to give
+# the switch tests two models that disagree on edit format, repository-map policy,
+# and image support; the bundled catalog agrees on all three.
+- name: test/whole-model
+  provider: openai
+  editFormat: whole
+  useRepoMap: false
+  capabilities:
+    streaming: true
+    systemRole: true
+    images: false
+
+- name: test/diff-model
+  provider: openai
+  editFormat: diff
+  useRepoMap: true
+  capabilities:
+    streaming: true
+    systemRole: true
+    images: true

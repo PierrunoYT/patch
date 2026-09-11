@@ -37,10 +37,13 @@ Pinned fixtures cover the candidate order, backtick prefix behavior, indentation
 and exhausted fallback.
 
 The selector itself matches the pinned candidate order. Production chooses a
-fence once from startup snapshots, still wraps file context/examples with
-literal triple backticks, ignores the fallback warning, and does not recompute
-after file/model changes or reflection. Per-attempt prompt/parser fence parity
-remains open.
+fence from startup snapshots and reselects it from the files currently in
+context whenever `/model` or `/chat-mode` switches the profile, and the selected
+fence — not a literal triple backtick — wraps the read-only and editable file
+messages, so prompt and parser agree on the same markers. Selection still
+ignores the fallback warning and does not recompute when `/add`, `/drop`, or a
+reflection changes the files in context between switches, so per-attempt fence
+parity remains open.
 
 ## Message chunk order
 

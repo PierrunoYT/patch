@@ -22,9 +22,13 @@ implemented. `/run` uses the command preview/approval adapter; `/lint` and
 
 The advertised command set is not yet a completed parity surface:
 
-- `/model` and `/chat-mode` replace provider/parser state but retain the
-  startup prompt definition, shell policy, fence, map policy, and some model
-  defaults for the next turn.
+- `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
+  parser, system prompt, examples, reminder, shell policy, fence, and
+  repository-map policy — and install it only after the session accepts the
+  switch, so a rejected or failed switch leaves the previous model active.
+  `/chat-mode code` returns to the format of the model that is active now, not
+  the startup model. Automatic history summarization is still absent, so an
+  incompatible switch drops assistant messages instead of summarizing them.
 - `/paste` reads and displays clipboard text as an application response instead
   of submitting it as a user turn.
 - `/undo` reverts only the commit this session created, and only while it is

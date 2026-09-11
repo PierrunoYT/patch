@@ -368,9 +368,12 @@ or a documented, safer rejection.
   reflects automatically rather than asking aider's per-failure confirmation.
 - [x] Implement file-mention detection and explicit approval before adding or
   editing unselected files.
-- [ ] Complete strategy/model switching with state transfer. `CoderSession`
-  replaces provider/parser state, but the concrete application retains stale
-  prompt, shell, fence, map, and model-default state.
+- [x] Complete strategy/model switching with state transfer. `/model` and
+  `/chat-mode` rebuild the model, provider, parser, prompts, shell policy,
+  fence, and repository-map policy as one profile installed only after
+  `CoderSession.switch` accepts the change, and transfer history the
+  replacement model can accept. Automatic summarization of the transferred
+  history remains P2 in `docs/remaining-integration-tasks.md`.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
 **Exit (partial):** installed-service acceptance covers streamed malformed and
@@ -380,7 +383,8 @@ interrupted-history reconciliation, and remaining approval policies remain
 in R2/R3 of `docs/remaining-integration-tasks.md`.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
-`tests/application-lifecycle.test.ts`, and packed `scripts/lifecycle-smoke.mjs`.
+`tests/application-model-switch.test.ts`, `tests/application-lifecycle.test.ts`,
+and packed `scripts/lifecycle-smoke.mjs`.
 See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers

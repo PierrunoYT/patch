@@ -53,12 +53,12 @@ tests are evidence only for the cases they exercise.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Ordinary initial turns are composed; switching, failed-mutation history, continuation, and multi-session ownership are incomplete. |
+| Core lifecycle | partial | Ordinary initial turns are composed and model/mode switching now rebuilds the whole profile atomically; failed-mutation history, continuation, and multi-session ownership are incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch; switching and paste are incorrect, while rich input and PTY remain helper-only. |
+| Commands/terminal | partial | Sixteen commands dispatch and switching is correct; paste is still incorrect, while rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged; non-repository startup, inert flags, automatic packing, installed docs, and provenance checks remain. |
 
@@ -119,8 +119,17 @@ remains before the release claims can be re-audited.
 
 ### Next P1 correctness work
 
-- [ ] Atomically switch the active model and complete strategy definition;
+- [x] Atomically switch the active model and complete strategy definition;
   rebuild prompts, shell policy, fence, map policy, and compatible history.
+  `/model` and `/chat-mode` build a whole `SessionProfile` — main model, the
+  format `/chat-mode code` returns to, strategy definition, reselected fence,
+  and the repository map the new model's `useRepoMap` requires — and install it
+  only after `CoderSession.switch` accepts the change, so a failed provider or a
+  rejected switch leaves the previous model active. The selected fence now wraps
+  file messages, and history drops media the replacement model cannot accept.
+  Automatic history summarization stays P2. Evidence:
+  `tests/application-model-switch.test.ts` and the switch cases in
+  `tests/coder-session.test.ts`.
 - [ ] Submit text returned by `/paste` as a user turn instead of displaying and
   recording it as assistant output.
 - [ ] Normalize DeepSeek endpoint model/output parameters and prefill requests;

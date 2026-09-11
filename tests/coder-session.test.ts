@@ -595,6 +595,62 @@ describe("CoderSession", () => {
     });
   });
 
+  it("drops history media a replacement model cannot accept", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "describe this" },
+            { type: "image", mediaType: "image/png", data: "aGk=" },
+          ],
+        },
+        {
+          role: "user",
+          content: [{ type: "image", mediaType: "image/png", data: "aGk=" }],
+        },
+      ],
+    });
+
+    await session.switch({
+      model: {
+        name: "text/only",
+        provider: "fake",
+        editFormat: "ask",
+        capabilities: { images: false },
+      },
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+    });
+
+    expect(session.snapshot().messages).toEqual([
+      { role: "user", content: [{ type: "text", text: "describe this" }] },
+    ]);
+  });
+
+  it("reselects the fence when the caller supplies one", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+    });
+    expect(session.fence).toEqual(["```", "```"]);
+
+    await session.switch({
+      model: { name: "other/model", provider: "fake", editFormat: "ask" },
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+      fence: ["````", "````"],
+    });
+
+    expect(session.fence).toEqual(["````", "````"]);
+  });
+
   it("removes incompatible assistant protocol output on format changes", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({

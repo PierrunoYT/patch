@@ -171,6 +171,17 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Rebuilt every model-derived input when `/model` or `/chat-mode` switches, and
+  installed it as one value. The system prompt, examples, reminder, shell
+  policy, fence, and repository-map policy previously kept describing the
+  startup model, so switching to a whole-file model still asked for
+  SEARCH/REPLACE blocks; `/chat-mode code` returned to the startup model's edit
+  format rather than the active model's, and discarded an explicit
+  `--edit-format`. The new profile is installed only after the session accepts
+  the switch, so a failed provider construction or a rejected switch leaves the
+  previous model, prompts, and policies in place. File messages are now wrapped
+  in the selected fence instead of literal triple backticks, and history drops
+  image or document parts a replacement model cannot accept.
 - Serialized repository mutations across every application session sharing one
   worktree. A re-entrant worktree lock orders each session's checkpoint, apply,
   commit, configured checks, approved commands, and undo, so terminal, watch,

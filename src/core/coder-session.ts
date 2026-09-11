@@ -11,7 +11,10 @@ import type { EditStrategy } from "../edits/strategy.js";
 import { EditTransaction } from "../edits/transaction.js";
 import { EditBatchSchema, type EditBatch } from "../edits/types.js";
 import type { FileSystemAdapter } from "../io/filesystem.js";
-import { ModelSettingsSchema } from "../models/settings.js";
+import {
+  ModelSettingsSchema,
+  type ModelCapabilities,
+} from "../models/settings.js";
 import {
   conservativeMessageTokens,
   countMessageTokens,
@@ -27,7 +30,11 @@ import {
 } from "../providers/events.js";
 import { ChatChunks } from "./chat-chunks.js";
 import { findFileMentions } from "./file-mentions.js";
-import { ChatMessageSchema, type ChatMessage } from "./messages.js";
+import {
+  ChatMessageSchema,
+  type ChatMessage,
+  type MessageContent,
+} from "./messages.js";
 import {
   SessionConfigSchema,
   SessionStateSchema,
@@ -62,6 +69,8 @@ export interface SessionSwitchOptions {
   readonly model: unknown;
   readonly provider: ModelProvider;
   readonly strategy: EditStrategy;
+  /** Replaces the fence when the caller reselects one for the new model. */
+  readonly fence?: readonly [string, string];
   readonly summarizeHistory?: (
     messages: readonly ChatMessage[],
   ) => readonly ChatMessage[] | Promise<readonly ChatMessage[]>;
@@ -241,11 +250,44 @@ export function estimateMessageTokens(
   return conservativeMessageTokens(messages);
 }
 
+function supportedContent(
+  content: MessageContent,
+  capabilities: ModelCapabilities,
+): MessageContent | null {
+  if (typeof content === "string") return content;
+  const parts = content.filter(
+    (part) =>
+      part.type === "text" ||
+      (part.type === "image" && capabilities.images) ||
+      (part.type === "document" && capabilities.documents),
+  );
+  return parts.length === 0 ? null : parts;
+}
+
+/**
+ * Drops media a replacement model cannot accept. History outlives the model that
+ * produced it, so an image or PDF part retained across a switch would otherwise be
+ * sent to a text-only endpoint and rejected.
+ */
+function supportedHistory(
+  messages: readonly ChatMessage[],
+  capabilities: ModelCapabilities,
+): ChatMessage[] {
+  return messages.flatMap((message) => {
+    if (message.role === "tool" || message.content === null) return [message];
+    const content = supportedContent(message.content, capabilities);
+    if (content !== null) return [{ ...message, content }];
+    return message.role === "assistant" && message.toolCalls !== undefined
+      ? [{ ...message, content: null }]
+      : [];
+  });
+}
+
 export class CoderSession {
   #config: SessionConfig;
   #provider: ModelProvider;
   #strategy: EditStrategy;
-  readonly fence: readonly [string, string];
+  #fence: readonly [string, string];
   readonly #retry: RetryPolicy;
   readonly #availablePaths: readonly string[];
   readonly #approvePath: PathApproval | undefined;
@@ -258,7 +300,7 @@ export class CoderSession {
     this.#config = SessionConfigSchema.parse(options.config);
     this.#provider = options.provider;
     this.#strategy = options.strategy;
-    this.fence = [...(options.fence ?? ["```", "```"])];
+    this.#fence = [...(options.fence ?? ["```", "```"])];
     this.#retry = {
       maxAttempts: options.retry?.maxAttempts ?? 3,
       initialDelayMs: options.retry?.initialDelayMs ?? 125,
@@ -299,6 +341,10 @@ export class CoderSession {
     return this.#strategy;
   }
 
+  get fence(): readonly [string, string] {
+    return this.#fence;
+  }
+
   async switch(options: SessionSwitchOptions): Promise<void> {
     if (this.#activeTurn !== undefined) {
       throw new SessionSwitchError("Cannot switch during an active turn");
@@ -310,13 +356,15 @@ export class CoderSession {
       );
     }
 
-    let messages = this.#state.messages;
+    let messages: readonly ChatMessage[] = this.#state.messages;
     if (model.editFormat !== this.#strategy.format) {
       messages = options.summarizeHistory
         ? [...(await options.summarizeHistory(structuredClone(messages)))]
         : messages.filter((message) => message.role !== "assistant");
-      messages = messages.map((message) => ChatMessageSchema.parse(message));
     }
+    messages = supportedHistory(messages, model.capabilities).map((message) =>
+      ChatMessageSchema.parse(message),
+    );
     const config = SessionConfigSchema.parse({ ...this.#config, model });
     const state = SessionStateSchema.parse({
       ...this.#state,
@@ -327,9 +375,12 @@ export class CoderSession {
       partialResponse: "",
       reflectionCount: 0,
     });
+    const fence: readonly [string, string] =
+      options.fence === undefined ? this.#fence : [...options.fence];
     this.#config = config;
     this.#provider = options.provider;
     this.#strategy = options.strategy;
+    this.#fence = fence;
     this.#state = state;
   }
 

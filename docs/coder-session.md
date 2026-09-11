@@ -77,11 +77,23 @@ callback accepts each path. Parsed model edits receive the same check before
 checks, staging, or writes; an unselected/new path is rejected when approval is
 absent or denied, and read-only paths remain non-editable.
 
-`switch` atomically replaces `CoderSession`'s model, provider, and parser
-strategy. The concrete application does not replace its immutable prompt
-definition, shell policy, fence, map policy, or startup-model default at the
-same time, so `/model` and `/chat-mode` are incomplete. Production also supplies
-no history summarizer; an incompatible switch drops assistant messages.
+`switch` atomically replaces `CoderSession`'s model, provider, parser strategy,
+and fence: every argument is validated, and history is rebuilt, before any field
+is assigned, so a rejected switch leaves the session untouched. History is made
+compatible with the replacement model in two steps — assistant output in the
+previous protocol is dropped when the edit format changes, and image or document
+parts are dropped whenever the replacement model lacks that capability, since
+history outlives the model that produced it.
+
+The concrete application rebuilds the rest of the model-derived state in the
+same operation. A `SessionProfile` holds the active main model, the format
+`/chat-mode code` returns to, the strategy definition (system prompt, examples,
+reminder, shell policy), the fence reselected from the files currently in
+context, and the repository map required by the new model's `useRepoMap`. The
+profile is replaced only after `switch` succeeds, so a failed provider
+construction or a rejected switch cannot leave prompts describing a model that
+is no longer active. Production still supplies no history summarizer; an
+incompatible switch drops assistant messages rather than summarizing them.
 
 ## Architect/editor handoff
 

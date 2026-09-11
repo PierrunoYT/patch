@@ -24,6 +24,7 @@ import {
   type FileSnapshot,
 } from "../edits/resolve.js";
 import { EditTransaction } from "../edits/transaction.js";
+import type { EditFormat } from "../edits/types.js";
 import {
   applyAuthorizedEdits,
   type WriteAuthorizationRequest,
@@ -100,6 +101,29 @@ interface ApplicationContext {
   readonly writeClipboard: (text: string) => Promise<void>;
 }
 
+/**
+ * Everything a turn derives from the active model and edit format. It is replaced
+ * as one value so a switch cannot leave prompts, shell policy, fence, or map policy
+ * describing a model that is no longer active.
+ */
+interface SessionProfile {
+  /** Active main model settings, before the active format is applied. */
+  readonly main: ModelSettings;
+  /** Format `/chat-mode code` returns to for the active model. */
+  readonly codeFormat: EditFormat;
+  readonly definition: StrategyDefinition;
+  readonly fence: readonly [string, string];
+  readonly repositoryMap?: RepositoryMap;
+}
+
+function createRepositoryMap(root: string): Promise<RepositoryMap> {
+  return RepositoryMap.create({
+    root,
+    maxTokens: 1024,
+    countTokens: (text) => Math.ceil(text.length / 4),
+  });
+}
+
 export interface ApplicationTurnResult {
   readonly response: string;
   readonly changedPaths: readonly string[];
@@ -157,6 +181,7 @@ async function snapshot(
 function fileMessage(
   prefix: string,
   values: readonly FileSnapshot[],
+  fence: readonly [string, string],
 ): ChatMessage[] {
   const existing = values.filter(
     (value): value is { path: string; content: string } =>
@@ -167,7 +192,9 @@ function fileMessage(
     {
       role: "user",
       content: `${prefix}\n\n${existing
-        .map(({ path, content }) => `${path}\n\`\`\`\n${content}\`\`\``)
+        .map(
+          ({ path, content }) => `${path}\n${fence[0]}\n${content}${fence[1]}`,
+        )
         .join("\n\n")}`,
     },
   ];
@@ -182,6 +209,7 @@ class ConcreteApplicationSession implements ApplicationSession {
   readonly #lifecycle = new AbortController();
   readonly #context: ApplicationContext;
   readonly #session: CoderSession;
+  #profile: SessionProfile;
   #closed = false;
 
   constructor(context: ApplicationContext) {
@@ -189,6 +217,15 @@ class ConcreteApplicationSession implements ApplicationSession {
     const model = {
       ...context.models.main.settings,
       editFormat: context.definition.strategy.format,
+    };
+    this.#profile = {
+      main: context.models.main.settings,
+      codeFormat: context.definition.strategy.format,
+      definition: context.definition,
+      fence: context.fence,
+      ...(context.repositoryMap === undefined
+        ? {}
+        : { repositoryMap: context.repositoryMap }),
     };
     this.#session = new CoderSession({
       config: {
@@ -271,16 +308,17 @@ class ConcreteApplicationSession implements ApplicationSession {
           system: [
             {
               role: "system" as const,
-              content: this.#context.definition.systemPrompt,
+              content: this.#profile.definition.systemPrompt,
             },
           ],
           examples: [
             ...COMMON_PROMPTS.exampleMessages,
-            ...this.#context.definition.examples,
+            ...this.#profile.definition.examples,
           ],
           readOnlyFiles: fileMessage(
             COMMON_PROMPTS.readOnlyFilesPrefix,
             readOnly,
+            this.#profile.fence,
           ),
           repository:
             repositoryContent === ""
@@ -294,12 +332,13 @@ class ConcreteApplicationSession implements ApplicationSession {
           editableFiles: fileMessage(
             COMMON_PROMPTS.filesContentPrefix,
             editable,
+            this.#profile.fence,
           ),
           reminder: [
             {
               role: "system" as const,
-              content: `${this.#context.definition.reminder}\n${
-                this.#context.definition.allowShellCommands
+              content: `${this.#profile.definition.reminder}\n${
+                this.#profile.definition.allowShellCommands
                   ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
                   : "Do not suggest shell commands."
               }`,
@@ -551,26 +590,21 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result("Chat history cleared");
       case "model": {
         const resolved = this.#context.catalog.resolve(effect.model);
-        const definition = createStrategy(resolved.settings.editFormat);
-        await this.#session.switch({
-          model: resolved.settings,
-          provider: this.#context.makeProvider(resolved.settings),
-          strategy: definition.strategy,
-        });
+        await this.#switchProfile(
+          resolved.settings,
+          resolved.settings.editFormat,
+          resolved.settings.editFormat,
+        );
         return result(`Model: ${resolved.canonicalName}`);
       }
       case "chat-mode": {
         const format =
-          effect.mode === "code"
-            ? this.#context.models.main.settings.editFormat
-            : effect.mode;
-        const definition = createStrategy(format);
-        const model = { ...state.config.model, editFormat: format };
-        await this.#session.switch({
-          model,
-          provider: this.#context.makeProvider(model),
-          strategy: definition.strategy,
-        });
+          effect.mode === "code" ? this.#profile.codeFormat : effect.mode;
+        await this.#switchProfile(
+          this.#profile.main,
+          format,
+          this.#profile.codeFormat,
+        );
         return result(`Chat mode: ${format}`);
       }
       case "run": {
@@ -671,8 +705,57 @@ class ConcreteApplicationSession implements ApplicationSession {
     }
   }
 
+  /**
+   * Rebuilds every model-derived input and installs it only once the session has
+   * accepted the switch, so a rejected or failed switch leaves the previous model,
+   * prompts, shell policy, fence, and map policy in place.
+   */
+  async #switchProfile(
+    main: ModelSettings,
+    format: EditFormat,
+    codeFormat: EditFormat,
+  ): Promise<void> {
+    const definition = createStrategy(format);
+    const model = { ...main, editFormat: format };
+    const provider = this.#context.makeProvider(model);
+    const state = this.#session.snapshot();
+    const contents = await Promise.all(
+      [...state.editablePaths, ...state.readOnlyPaths].map((path) =>
+        snapshot(this.#context.files, path),
+      ),
+    );
+    const fence = selectFence(
+      contents.flatMap(({ content }) => (content === null ? [] : [content])),
+    ).fence;
+    const repositoryMap = await this.#selectRepositoryMap(main.useRepoMap);
+    await this.#session.switch({
+      model,
+      provider,
+      strategy: definition.strategy,
+      fence,
+    });
+    this.#profile = {
+      main,
+      codeFormat,
+      definition,
+      fence,
+      ...(repositoryMap === undefined ? {} : { repositoryMap }),
+    };
+  }
+
+  async #selectRepositoryMap(
+    useRepoMap: boolean,
+  ): Promise<RepositoryMap | undefined> {
+    if (!useRepoMap || this.#context.repository === undefined) return undefined;
+    return (
+      this.#profile.repositoryMap ??
+      this.#context.repositoryMap ??
+      (await createRepositoryMap(this.#context.root))
+    );
+  }
+
   async #repositoryContext(message: string): Promise<string> {
-    const map = this.#context.repositoryMap;
+    const map = this.#profile.repositoryMap;
     if (map === undefined) return "";
     const availablePaths =
       this.#context.repository === undefined
@@ -836,11 +919,7 @@ export class ConcreteApplicationService implements ApplicationService {
           );
     const repositoryMap =
       models.main.settings.useRepoMap && repository !== undefined
-        ? await RepositoryMap.create({
-            root,
-            maxTokens: 1024,
-            countTokens: (text) => Math.ceil(text.length / 4),
-          })
+        ? await createRepositoryMap(root)
         : undefined;
     return new ConcreteApplicationService({
       bootstrap,
