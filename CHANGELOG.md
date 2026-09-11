@@ -286,6 +286,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- The permission-retention test asserts retention instead of a hard-coded
+  `0600`, so it holds on Windows. Windows `chmod` only toggles the read-only
+  bit, so the fixture's mode stayed `0666` and a correct replacement failed the
+  assertion; the mode the file actually carried is now the expectation, and the
+  POSIX case still pins `0600` explicitly.
 - Path-resolution tests compare against canonical fixture roots, so the
   `platform` CI job no longer fails on macOS and Windows. `SafePathResolver`
   canonicalizes its root, but the temporary-directory helper returned whatever

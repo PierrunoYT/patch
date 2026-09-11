@@ -94,10 +94,13 @@ Patch's threat model. A swap detected this way can leave the hidden, uniquely
 named temporary file in the directory that was moved away, because cleanup
 unlinks by path; it is never renamed over repository content.
 
-The latest Windows validation reported two failing tests: a POSIX `0600` mode
-assertion received `0666`, and the ancestor-swap injection received `EPERM`
-instead of reaching the intended identity check. These are unresolved platform
-test/portability limits, not justification to relax production containment.
+Windows validation reports one remaining failing test: the ancestor-swap
+injection receives `EPERM` instead of reaching the intended identity check. That
+is an unresolved test-portability limit, not justification to relax production
+containment. The earlier `0600`-versus-`0666` failure was a test defect and is
+fixed: retention is now asserted against the mode the file actually carried,
+because Windows `chmod` only toggles the read-only bit and never records the
+requested POSIX mode in the first place.
 
 Patch also does not promise directory-fsync or crash-durability guarantees.
 

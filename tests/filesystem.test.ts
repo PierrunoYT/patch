@@ -199,7 +199,14 @@ describe("FileSystemAdapter", () => {
     await files.writeText("owned.txt", "after\n");
 
     const after = await stat(path);
-    expect(after.mode & 0o777).toBe(0o600);
+    // The property is retention, so compare with the mode the file actually
+    // carried rather than the requested one. Windows `chmod` only toggles the
+    // read-only bit, so the mode there stays 0o666 and asserting 0o600 would
+    // fail a correct replacement.
+    if (process.platform !== "win32") {
+      expect(before.mode & 0o777).toBe(0o600);
+    }
+    expect(after.mode & 0o777).toBe(before.mode & 0o777);
     expect(after.uid).toBe(before.uid);
     expect(after.gid).toBe(before.gid);
     expect(await readFile(path, "utf8")).toBe("after\n");
