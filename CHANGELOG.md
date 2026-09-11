@@ -286,6 +286,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Path-resolution tests compare against canonical fixture roots, so the
+  `platform` CI job no longer fails on macOS and Windows. `SafePathResolver`
+  canonicalizes its root, but the temporary-directory helper returned whatever
+  `mkdtemp` produced: `/var/folders/...` on macOS, which is a link to
+  `/private/var/...`, and an 8.3 short name such as `C:\Users\RUNNER~1\...` on
+  hosts whose account name exceeds eight characters. The resolver was right and
+  the expectation was not.
 - Subprocess output and status are visible. `/run` reported only one stream and
   no exit status, so a command that wrote to stderr, was denied, or timed out
   looked like one that said nothing; it now reports the command, how it ended,

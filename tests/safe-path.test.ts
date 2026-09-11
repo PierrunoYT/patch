@@ -15,8 +15,14 @@ import { PathOutsideRootError, SafePathResolver } from "../src/index.js";
 
 const temporaryDirectories: string[] = [];
 
+// The resolver canonicalizes its root, so a fixture path that is still a
+// symbolic link or a short name cannot be compared against what it returns.
+// `tmpdir()` is `/var/folders/...` (a link to `/private/var/...`) on macOS and
+// an 8.3 short name such as `C:\Users\RUNNER~1\...` on some Windows hosts.
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "patch-safe-path-"));
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), "patch-safe-path-")),
+  );
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -126,7 +132,7 @@ describe("SafePathResolver", () => {
     // ENOTDIR means the target cannot exist, not that resolution failed: the
     // path stays contained, and only an attempt to create it fails.
     await expect(resolver.resolve("blocked/child.txt")).resolves.toBe(
-      join(root, "blocked", "child.txt"),
+      join(resolver.root, "blocked", "child.txt"),
     );
     await expect(
       resolver.resolve("blocked/../../escape.txt"),
