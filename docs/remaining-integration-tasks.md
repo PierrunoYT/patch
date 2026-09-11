@@ -196,8 +196,17 @@ work below is what remains before the release claims can be re-audited.
 
 ### P2 parity and evidence work
 
-- [ ] Add automatic long-history summarization and model-configured reasoning-tag
-  normalization before display, history, or edit parsing.
+- [x] Add automatic long-history summarization and model-configured reasoning-tag
+  normalization before display, history, or edit parsing. `ChatSummary` ports
+  aider's split-and-recurse algorithm and runs before every turn whose completed
+  history exceeds the model's `maxChatHistoryTokens`, summarizing with the active
+  model's weak model; a summarizer that fails leaves history untouched rather
+  than failing the turn. `ReasoningTagSplitter` divides a `reasoningTag` model's
+  content stream as it arrives, so the tagged span reaches neither the terminal,
+  history, nor the edit parser, and a response whose closing tag has no opening
+  tag is cleaned once complete. Evidence: `tests/chat-summary.test.ts`,
+  `tests/reasoning-tags.test.ts`, and the summarization case in
+  `tests/application-prompt-context.test.ts`.
 - [ ] Merge executable metadata limits/prices/capabilities, add temperature
   policy, broaden transient error classification, and render usage/cost.
 - [ ] Add important-root-file priority, per-file lexical reference fallback,

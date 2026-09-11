@@ -13,6 +13,7 @@ export * from "./core/application-service.js";
 export * from "./core/concrete-application-service.js";
 export * from "./core/architect.js";
 export * from "./core/context-selection.js";
+export * from "./core/chat-summary.js";
 export * from "./core/coder-session.js";
 export * from "./core/media-context.js";
 export * from "./core/prompt-cache.js";

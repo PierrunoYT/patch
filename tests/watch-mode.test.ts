@@ -141,6 +141,7 @@ describe("AI watch mode", () => {
     const reported: [string, string][] = [];
     const watcher = new AiWatchMode({
       root: directory,
+      debounceMs: 1,
       submit: async () => {
         throw new Error("provider unavailable");
       },
@@ -149,11 +150,16 @@ describe("AI watch mode", () => {
       },
     });
 
+    // flush() surfaces the rejection to its caller; a debounced notify() has
+    // only onError, so that is the path under test.
     watcher.notify("trigger.ts");
-    await watcher.flush().catch(() => undefined);
-    // flush() surfaces the rejection to its caller; notify() has only onError.
-    watcher.notify("trigger.ts");
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    for (
+      let attempt = 0;
+      reported.length === 0 && attempt < 200;
+      attempt += 1
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     expect(reported).toContainEqual(["submit", "provider unavailable"]);
     // Cancellation after close is not reported as a turn failure.

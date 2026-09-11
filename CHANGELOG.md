@@ -171,6 +171,12 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Automatic summarization of long chat history. Completed history grew without
+  bound until a turn failed the token budget; it is now summarized before the
+  turn whenever it exceeds the model's `maxChatHistoryTokens` (1024 by default),
+  keeping the most recent messages verbatim and compacting the rest with the
+  active model's weak model. A summarizer that fails leaves history untouched
+  rather than failing the turn.
 - Model-configured reasoning-tag normalization. A model whose settings carry a
   `reasoningTag` — `deepseek/deepseek-reasoner`, aliased `r1`, is the bundled
   one — reasons inside the ordinary content stream, and that span is now split

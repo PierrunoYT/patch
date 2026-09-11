@@ -151,6 +151,36 @@ describe("editable-file prompt pair", () => {
   });
 });
 
+describe("long completed history", () => {
+  it("summarizes with the weak model before the next turn", async () => {
+    const root = await temporaryDirectory("patch-summary-app-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    const { submit, provider, sent } = await harness({
+      root,
+      // The first turn, the summarization request, then the second turn.
+      turns: 3,
+      argv: [
+        "--no-git",
+        "--model",
+        "test/summarizing-model",
+        "--file",
+        "one.txt",
+      ],
+    });
+
+    await submit("first question");
+    await submit("second question");
+
+    expect(provider.requests).toHaveLength(3);
+    // The middle request is the summarization, addressed to the weak model.
+    expect(provider.requests[1]?.model).toBe("test/weak-model");
+    expect(sent(1)).toContain("Briefly* summarize this partial conversation");
+    expect(sent(1)).toContain("# ASSISTANT");
+    // The real turn then carries the summary instead of the raw exchange.
+    expect(sent(2)).toContain("I spoke to you previously about a number of");
+  });
+});
+
 describe("switching the active model", () => {
   it("rebuilds prompts, shell policy, and compatible history", async () => {
     const root = await temporaryDirectory("patch-switch-prompt-");

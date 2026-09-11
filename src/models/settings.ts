@@ -29,6 +29,8 @@ export const ModelSettingsSchema = z
      * one.
      */
     reasoningTag: z.string().min(1).optional(),
+    /** History budget before completed messages are summarized. */
+    maxChatHistoryTokens: z.number().int().positive().default(1024),
     maxInputTokens: z.number().int().positive().optional(),
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),

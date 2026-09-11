@@ -57,6 +57,18 @@ The stream is drained past the finish event because OpenAI-compatible endpoints
 deliver final usage in a later chunk; after finish only usage is still
 accounted, so nothing can extend or invalidate a completed response.
 
+Completed history is summarized automatically. Before each turn, if history
+exceeds the active model's `maxChatHistoryTokens` (1024 by default, as
+upstream), `summarizeHistory` replaces it. `ChatSummary` ports aider's algorithm:
+the most recent half-budget of messages is kept verbatim, the head is split at an
+assistant message and sent for summarization, and the result recurses up to three
+times before summarizing everything at once. The summary always ends on an
+assistant message so the next turn's user message is not the second in a row.
+The concrete application summarizes with the active model's weak model, resolved
+at call time so `/model` changes it too. A summarizer that fails leaves history
+untouched and the turn proceeds — losing a summary is recoverable, and an
+oversized prompt still fails on the explicit token-budget check.
+
 A model whose settings carry a `reasoningTag` reasons inside the ordinary
 content stream instead of a separate one. `ReasoningTagSplitter` divides those
 deltas as they arrive — holding back only text that could still begin the tag,

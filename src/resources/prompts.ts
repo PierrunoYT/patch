@@ -78,6 +78,29 @@ Do not edit these files!
   goAheadTip: "",
 } as const satisfies CommonPromptResources;
 
+/**
+ * Ported from aider/prompts.py at the pinned revision. These live outside
+ * `COMMON_PROMPTS` because that object mirrors `base_prompts.py` exactly and is
+ * pinned against an exported upstream fixture.
+ */
+export const SUMMARY_PROMPTS = {
+  summarize: `*Briefly* summarize this partial conversation about programming.
+Include less detail about older parts and more detail about the most recent messages.
+Start a new paragraph every time the topic changes!
+
+This is only part of a longer conversation so *DO NOT* conclude the summary with language like "Finally, ...". Because the conversation continues after the summary.
+The summary *MUST* include the function names, libraries, packages that are being discussed.
+The summary *MUST* include the filenames that are being referenced by the assistant inside the \`\`\`...\`\`\` fenced code blocks!
+The summaries *MUST NOT* include \`\`\`...\`\`\` fenced code blocks!
+
+Phrase the summary with the USER in first person, telling the ASSISTANT about the conversation.
+Write *as* the user.
+The user should refer to the assistant as *you*.
+Start the summary with "I asked you...".
+`,
+  summaryPrefix: "I spoke to you previously about a number of things.\n",
+} as const;
+
 /** Prompt variant from aider/coders/editblock_fenced_prompts.py. */
 export const FENCED_SEARCH_REPLACE_REMINDER = `Every SEARCH/REPLACE block must be enclosed by the active code fence.
 Inside the fence, put the language on the opening fence, then the full file path alone on a line, followed by <<<<<<< SEARCH, =======, and >>>>>>> REPLACE markers.

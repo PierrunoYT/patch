@@ -145,6 +145,7 @@ describe("DeepSeek endpoint normalization", () => {
         provider: "deepseek",
         editFormat: "diff",
         useRepoMap: false,
+        maxChatHistoryTokens: 1024,
         capabilities: {
           streaming: true,
           systemRole: true,

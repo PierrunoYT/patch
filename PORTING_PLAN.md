@@ -376,8 +376,8 @@ or a documented, safer rejection.
   `/chat-mode` rebuild the model, provider, parser, prompts, shell policy,
   fence, and repository-map policy as one profile installed only after
   `CoderSession.switch` accepts the change, and transfer history the
-  replacement model can accept. Automatic summarization of the transferred
-  history remains P2 in `docs/remaining-integration-tasks.md`.
+  replacement model can accept. Completed history that outgrows the model's
+  budget is summarized automatically with the weak model before the next turn.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
 **Exit (partial):** installed-service acceptance covers streamed malformed and

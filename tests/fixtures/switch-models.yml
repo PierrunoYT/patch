@@ -18,3 +18,23 @@
     streaming: true
     systemRole: true
     images: true
+
+# A history budget small enough that one exchange overflows it, so the
+# summarization path is reachable without a wall of fixture text.
+- name: test/summarizing-model
+  provider: openai
+  editFormat: whole
+  useRepoMap: false
+  maxChatHistoryTokens: 5
+  weakModel: test/weak-model
+  capabilities:
+    streaming: true
+    systemRole: true
+
+- name: test/weak-model
+  provider: openai
+  editFormat: whole
+  useRepoMap: false
+  capabilities:
+    streaming: true
+    systemRole: true

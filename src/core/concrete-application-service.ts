@@ -36,7 +36,10 @@ import { isMissingPathError, SafePathResolver } from "../io/safe-path.js";
 import { ModelCatalog } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
-import type { ModelProvider } from "../providers/events.js";
+import {
+  CompletionRequestSchema,
+  type ModelProvider,
+} from "../providers/events.js";
 import { createProvider } from "../providers/factory.js";
 import {
   executeModelCommand,
@@ -50,7 +53,9 @@ import type {
   ApplicationSession,
   ApplicationSubmitOptions,
 } from "./application-service.js";
+import { ChatSummary } from "./chat-summary.js";
 import { CoderSession } from "./coder-session.js";
+import { countMessageTokens } from "../models/token-count.js";
 import type { ChatMessage } from "./messages.js";
 import { SerialTaskQueue } from "./serial-queue.js";
 import {
@@ -346,6 +351,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         await resolver.resolve(path);
         return context.approvePath?.(path) ?? false;
       },
+      summarizeHistory: (messages, signal) => this.#summarize(messages, signal),
     });
   }
 
@@ -866,6 +872,46 @@ class ConcreteApplicationSession implements ApplicationSession {
       fence,
       ...(repositoryMap === undefined ? {} : { repositoryMap }),
     };
+  }
+
+  /**
+   * Summarizes completed history with the active model's weak model, as upstream
+   * does, so the cheaper model pays for compaction. The weak model is resolved at
+   * call time so `/model` changes it too.
+   */
+  async #summarize(
+    messages: readonly ChatMessage[],
+    signal?: AbortSignal,
+  ): Promise<readonly ChatMessage[]> {
+    const main = this.#profile.main;
+    const weak =
+      main.weakModel === undefined || main.weakModel === main.name
+        ? main
+        : this.#context.catalog.resolve(main.weakModel).settings;
+    const provider = this.#context.makeProvider(weak);
+    const summary = new ChatSummary({
+      maxTokens: main.maxChatHistoryTokens,
+      countTokens: (values) => countMessageTokens(values, weak).tokens,
+      send: async (request, abort) => {
+        let text = "";
+        for await (const event of provider.stream(
+          CompletionRequestSchema.parse({
+            model: weak.name,
+            messages: request,
+            extraParameters: weak.extraParameters,
+            ...(weak.maxOutputTokens === undefined
+              ? {}
+              : { maxOutputTokens: weak.maxOutputTokens }),
+          }),
+          abort,
+        )) {
+          if (event.type === "text-delta") text += event.text;
+          if (event.type === "error") throw new Error(event.message);
+        }
+        return text;
+      },
+    });
+    return summary.summarize(messages, signal);
   }
 
   async #selectRepositoryMap(

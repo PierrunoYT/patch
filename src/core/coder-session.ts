@@ -55,6 +55,14 @@ export interface CoderSessionOptions {
   readonly availablePaths?: readonly string[];
   readonly approvePath?: PathApproval;
   readonly tokenCounter?: MessageTokenCounter;
+  /**
+   * Replaces completed history once it exceeds the model's
+   * `maxChatHistoryTokens`. Without one, long history is left alone.
+   */
+  readonly summarizeHistory?: (
+    messages: readonly ChatMessage[],
+    signal?: AbortSignal,
+  ) => readonly ChatMessage[] | Promise<readonly ChatMessage[]>;
 }
 
 export interface PathApprovalRequest {
@@ -293,6 +301,7 @@ export class CoderSession {
   readonly #availablePaths: readonly string[];
   readonly #approvePath: PathApproval | undefined;
   readonly #tokenCounter: MessageTokenCounter;
+  readonly #summarizeHistory: CoderSessionOptions["summarizeHistory"];
   #state: SessionState;
   #nextTurnId = 1;
   #activeTurn: PreparedTurn | undefined;
@@ -313,6 +322,7 @@ export class CoderSession {
     this.#tokenCounter =
       options.tokenCounter ??
       ((messages, model) => countMessageTokens(messages, model).tokens);
+    this.#summarizeHistory = options.summarizeHistory;
     this.#state = SessionStateSchema.parse({
       config: this.config,
       phase: "waiting",
@@ -612,12 +622,41 @@ export class CoderSession {
     });
   }
 
+  /**
+   * Replaces completed history with a summary once it outgrows the model's
+   * budget. A summarizer that fails leaves history untouched: losing the summary
+   * is recoverable, and failing the turn over it is not what the user asked for.
+   * An oversized prompt still fails later on the explicit token-budget check.
+   */
+  async #summarizeLongHistory(signal?: AbortSignal): Promise<void> {
+    const summarize = this.#summarizeHistory;
+    if (summarize === undefined) return;
+    const messages = this.#state.messages;
+    if (messages.length === 0) return;
+    if (
+      this.#tokenCounter(messages, this.#config.model) <=
+      this.#config.model.maxChatHistoryTokens
+    )
+      return;
+    let summarized: readonly ChatMessage[];
+    try {
+      summarized = await summarize(structuredClone(messages), signal);
+    } catch {
+      return;
+    }
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      messages: summarized.map((message) => ChatMessageSchema.parse(message)),
+    });
+  }
+
   async runTurn(
     userInput: string,
     options: RunTurnOptions = {},
   ): Promise<CompletedTurn> {
     options.signal?.throwIfAborted();
     await this.#approveMentionedPaths(userInput);
+    await this.#summarizeLongHistory(options.signal);
     let context = await options.lifecycle?.context();
     const turn = this.prepareTurn(userInput, context?.prompt ?? options.prompt);
     const events: CompletionEvent[] = [];
