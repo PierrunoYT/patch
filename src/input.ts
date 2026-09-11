@@ -6,10 +6,18 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { emitKeypressEvents } from "node:readline";
 import { createInterface } from "node:readline/promises";
 import { Writable, type Readable } from "node:stream";
 
 import { completeInput, type CompletionSources } from "./io/completion.js";
+import { editInExternalEditor } from "./io/editor.js";
+
+interface KeyEvent {
+  readonly name?: string;
+  readonly ctrl?: boolean;
+  readonly meta?: boolean;
+}
 
 export interface TerminalInputOptions {
   /**
@@ -19,6 +27,11 @@ export interface TerminalInputOptions {
   readonly completionSources?: () => CompletionSources;
   /** Earlier inputs, oldest first, made recallable with the arrow keys. */
   readonly history?: readonly string[];
+  /**
+   * Editor command for Ctrl-X Ctrl-E. Omitted disables the chord rather than
+   * guessing an editor that may not exist.
+   */
+  readonly editor?: string;
 }
 
 /** One reader owns both input queues and fresh, explicit terminal answers. */
@@ -27,6 +40,10 @@ export class TerminalInput implements AsyncIterable<string> {
   readonly #queue: string[] = [];
   readonly #write: (text: string) => void;
   readonly #completionSources: (() => CompletionSources) | undefined;
+  readonly #editor: string | undefined;
+  /** Lines held by Alt-Enter until Enter submits the whole message. */
+  #continued: string[] = [];
+  #pendingPrefix = false;
   #wake: (() => void) | undefined;
   #answer: ((answer: boolean) => void) | undefined;
   #closed = false;
@@ -40,6 +57,7 @@ export class TerminalInput implements AsyncIterable<string> {
   ) {
     this.#write = write;
     this.#completionSources = options.completionSources;
+    this.#editor = options.editor;
     // No second readline/question consumer; queued messages stay messages.
     const output = new Writable({
       write(chunk, _encoding, done) {
@@ -65,11 +83,19 @@ export class TerminalInput implements AsyncIterable<string> {
       if (this.#answer !== undefined) {
         const answer = this.#answer;
         this.#answer = undefined;
+        // An approval is one line: a half-typed continuation cannot approve.
+        this.#continued = [];
         setImmediate(() => answer(!this.#closed && /^(y|yes)$/iu.test(line)));
       } else {
-        this.#queue.push(line);
+        const held = this.#continued;
+        this.#continued = [];
+        this.#queue.push(held.length === 0 ? line : [...held, line].join("\n"));
         this.#wake?.();
       }
+    });
+    emitKeypressEvents(input);
+    input.on("keypress", (_text: string, key: KeyEvent | undefined) => {
+      void this.#onKeypress(key);
     });
     this.#reader.on("close", () => {
       this.#closed = true;
@@ -109,6 +135,63 @@ export class TerminalInput implements AsyncIterable<string> {
         `\n${label} (JSON-quoted literal): ${literal}\nApprove? [y/yes; anything else denies] `,
       );
     });
+  }
+
+  /** The line currently being typed, excluding any held continuation lines. */
+  get draft(): string {
+    return this.#reader.line;
+  }
+
+  /** Replaces the visible line, leaving the cursor at its end. */
+  #replaceLine(text: string): void {
+    this.#reader.write(null, { ctrl: true, name: "u" });
+    this.#reader.write(null, { ctrl: true, name: "k" });
+    if (text !== "") this.#reader.write(text);
+  }
+
+  /**
+   * Handles the chords readline itself ignores.
+   *
+   * Alt-Enter holds the current line and starts another, so one message can span
+   * lines while a bare Enter still submits — that is what makes multiline usable
+   * turn after turn, rather than `--multiline`'s single message ending at EOF.
+   * Ctrl-X Ctrl-E hands the whole draft to an external editor and puts the
+   * result back at the prompt, so nothing is submitted without a final Enter.
+   */
+  async #onKeypress(key: KeyEvent | undefined): Promise<void> {
+    if (key === undefined || this.#answer !== undefined) return;
+    if (key.ctrl === true && key.name === "x") {
+      this.#pendingPrefix = true;
+      return;
+    }
+    const prefixed = this.#pendingPrefix;
+    this.#pendingPrefix = false;
+    if (key.meta === true && (key.name === "return" || key.name === "enter")) {
+      this.#continued.push(this.#reader.line);
+      this.#replaceLine("");
+      this.#write("\n");
+      return;
+    }
+    if (!prefixed || key.ctrl !== true || key.name !== "e") return;
+    if (this.#editor === undefined) return;
+    const draft = [...this.#continued, this.#reader.line].join("\n");
+    this.#continued = [];
+    this.#reader.pause();
+    let edited: string;
+    try {
+      edited = await editInExternalEditor(draft, { editor: this.#editor });
+    } catch (error) {
+      this.#write(
+        `\nEditor failed: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      this.#reader.resume();
+      this.#replaceLine(draft.split("\n").at(-1) ?? "");
+      return;
+    }
+    this.#reader.resume();
+    const lines = edited.split("\n");
+    this.#continued = lines.slice(0, -1);
+    this.#replaceLine(lines.at(-1) ?? "");
   }
 
   /**

@@ -82,6 +82,12 @@ describe("rich input editing", () => {
   });
 });
 
+// Control bytes the terminal sends for these chords, named so the source stays
+// readable rather than carrying invisible characters.
+const ALT_ENTER = `${String.fromCharCode(0x1b)}\r`;
+const CTRL_X = String.fromCharCode(0x18);
+const CTRL_E = String.fromCharCode(0x05);
+
 describe("terminal completion and recall", () => {
   const reader = (sources: CompletionSources) => {
     const input = new PassThrough();
@@ -143,6 +149,69 @@ describe("terminal completion and recall", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it("continues a message on alt-enter and submits it on enter", async () => {
+    const input = new PassThrough();
+    const terminal = new TerminalInput(
+      input,
+      () => undefined,
+      new AbortController().signal,
+      () => undefined,
+    );
+    const messages: string[] = [];
+    const reading = (async () => {
+      for await (const message of terminal) messages.push(message);
+    })();
+
+    input.write("first line");
+    // Alt-Enter holds the line instead of submitting it.
+    input.write(ALT_ENTER);
+    await new Promise((resolve) => setImmediate(resolve));
+    input.write("second line\r");
+    await new Promise((resolve) => setImmediate(resolve));
+    terminal.close();
+    await reading;
+
+    expect(messages).toEqual(["first line\nsecond line"]);
+  });
+
+  it("edits the whole draft externally and waits for enter to submit", async () => {
+    const input = new PassThrough();
+    const script =
+      "const fs=require('node:fs');const p=process.argv[1];fs.writeFileSync(p,'edited one\\nedited two')";
+    const terminal = new TerminalInput(
+      input,
+      () => undefined,
+      new AbortController().signal,
+      () => undefined,
+      {
+        editor: `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`,
+      },
+    );
+    const messages: string[] = [];
+    const reading = (async () => {
+      for await (const message of terminal) messages.push(message);
+    })();
+
+    input.write("draft");
+    // Ctrl-X Ctrl-E hands the draft over and puts the result back.
+    input.write(CTRL_X);
+    input.write(CTRL_E);
+    for (let wait = 0; wait < 200 && messages.length === 0; wait += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      if (terminal.draft === "edited two") break;
+    }
+    expect(terminal.draft).toBe("edited two");
+    // Nothing is submitted until the user presses enter.
+    expect(messages).toEqual([]);
+
+    input.write("\r");
+    await new Promise((resolve) => setImmediate(resolve));
+    terminal.close();
+    await reading;
+
+    expect(messages).toEqual(["edited one\nedited two"]);
   });
 
   it("names every command the parser accepts", () => {

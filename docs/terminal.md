@@ -45,15 +45,24 @@ future writes and does not delete existing files.
 ## Multiline input, bindings, and editors
 
 The executable's live reader is Node readline. It accepts ordinary lines plus
-`{`/`}` and tagged `{name`/`name}` blocks. Current `--multiline` buffers stdin
-through EOF as one message; it is not Aider's multi-turn Enter/Alt-Enter editor.
+`{`/`}` and tagged `{name`/`name}` blocks.
 
-`completeInput`, `terminalKeyBindings`, history-navigation actions, and
-`editInExternalEditor` are exported helper contracts only. The executable does
-not call them. Consequently `--vim` and `--editor` are currently accepted but
-inert, Ctrl-Up/Ctrl-Down do not load the configured JSONL history, and Ctrl-X
-Ctrl-E does not launch an editor. These flags must be removed or refused until
-one live terminal adapter wires the corresponding behavior.
+Multiline works turn after turn without a mode flag. Alt-Enter holds the current
+line and starts another, and a bare Enter submits everything held plus the line
+just typed, so one message can span lines and the next turn starts clean.
+`--multiline` remains the separate, non-interactive shape: it buffers stdin
+through EOF as a single message.
+
+Ctrl-X Ctrl-E opens the whole draft — held lines included — in `--editor`, or
+`VISUAL`/`EDITOR`, or the platform default. What comes back is placed at the
+prompt rather than submitted, so a final Enter is still required and an editor
+that fails leaves the draft intact with the reason printed.
+
+`--vim` remains inert. `terminalKeyBindings` describes Vi's modal Enter, but
+Node readline has no modal editing, and honoring it would mean replacing the
+line editor outright — cursor motion, wrapping, and terminal-width handling
+included. That is deliberately out of scope; the flag should be removed or
+refused rather than implying behavior that is absent.
 
 ## Markdown, syntax, and diffs
 

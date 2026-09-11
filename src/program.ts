@@ -9,6 +9,7 @@ import {
 } from "./core/concrete-application-service.js";
 import { runInput, TerminalInput, type InputDependencies } from "./input.js";
 import { COMMAND_NAMES } from "./commands/parse.js";
+import { discoverEditor } from "./io/editor.js";
 import { TerminalHistory } from "./io/history.js";
 import {
   generateShellCompletion,
@@ -275,6 +276,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   ...(options.inputHistoryFile === undefined
                     ? {}
                     : { history: await history.readInput() }),
+                  editor:
+                    options.editor ??
+                    discoverEditor(dependencies.environment ?? process.env),
                 },
               )
             : undefined;

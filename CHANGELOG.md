@@ -171,6 +171,12 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Multiline input that works turn after turn: Alt-Enter holds the current line
+  and starts another, and Enter submits the whole message. `--multiline`'s
+  buffer-until-EOF behavior is unchanged and remains separate.
+- Ctrl-X Ctrl-E opens the current draft in `--editor`, `VISUAL`/`EDITOR`, or the
+  platform default. The result returns to the prompt rather than being
+  submitted, and an editor that fails leaves the draft intact.
 - Tab completion is connected to the interactive reader. The completion engine
   existed but nothing called it; commands and the currently selected files now
   complete, re-read per keystroke so they follow `/add` and `/drop`.
