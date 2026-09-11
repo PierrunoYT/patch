@@ -31,6 +31,13 @@ export const ModelSettingsSchema = z
     reasoningTag: z.string().min(1).optional(),
     /** History budget before completed messages are summarized. */
     maxChatHistoryTokens: z.number().int().positive().default(1024),
+    /**
+     * `false` sends no temperature, for models that reject it; `true` sends 0,
+     * the deterministic default; a number sends that value.
+     */
+    useTemperature: z
+      .union([z.boolean(), z.number().min(0).max(2)])
+      .default(true),
     maxInputTokens: z.number().int().positive().optional(),
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),
@@ -42,3 +49,9 @@ export const ModelSettingsSchema = z
 
 export type ModelCapabilities = z.infer<typeof ModelCapabilitiesSchema>;
 export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
+
+/** The temperature a request should carry, or `undefined` to send none. */
+export function requestTemperature(model: ModelSettings): number | undefined {
+  if (model.useTemperature === false) return undefined;
+  return model.useTemperature === true ? 0 : model.useTemperature;
+}

@@ -60,11 +60,22 @@ provider exposes a more authoritative tokenizer.
 
 ## Usage and cost
 
-`reportUsage` can retain provider token counts and estimate cost from prices
-present in the executable `ModelSettings`. `ModelCatalog.resolve()` currently
-returns metadata separately and the concrete application does not merge its
-limits, prices, or capabilities into settings. Bundled metadata prices therefore
-do not produce executable cost reports. A final OpenAI-compatible usage event
-that arrives after the finish event is retained, but the terminal does not
-render usage reports. Unknown costs remain `null` rather than becoming a
-misleading zero.
+`reportUsage` retains provider token counts and estimates cost from prices in
+the executable `ModelSettings`. `ModelCatalog.resolve()` folds each metadata
+entry into those settings: settings describe behavior, metadata describes the
+endpoint's limits, prices, and capabilities, and metadata wins for the fields it
+defines, as upstream's `model-metadata.json` overrides LiteLLM's model info.
+Capabilities merge key by key, so an entry need only state what it changes, and
+`resolve()` still returns the raw `metadata` alongside the merged settings.
+Bundled metadata prices therefore reach executable cost reports. A final
+OpenAI-compatible usage event that arrives after the finish event is retained,
+but the terminal does not render usage reports. Unknown costs remain `null`
+rather than becoming a misleading zero.
+
+## Temperature
+
+`useTemperature` decides what a request carries: `false` sends no temperature,
+for models that reject the parameter; `true` — the default — sends `0`; and a
+number sends that value. `deepseek/deepseek-reasoner` sets `false`, as upstream
+records for DeepSeek R1. Patch previously sent no temperature at all, so
+sampling followed each endpoint's own default rather than a deterministic one.

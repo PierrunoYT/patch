@@ -88,6 +88,38 @@ async function loadFiles<T>(
   return values;
 }
 
+/**
+ * Folds a catalog metadata entry into the settings a session actually uses.
+ *
+ * Settings describe behavior; metadata describes the endpoint's limits, prices,
+ * and capabilities, which is where cost reporting and the token budget come
+ * from. Metadata wins for the fields it defines, as upstream's
+ * `model-metadata.json` overrides LiteLLM's model info, and capabilities merge
+ * key by key so a metadata entry need only state what it changes.
+ */
+function mergeMetadata(
+  settings: ModelSettings,
+  metadata: ModelMetadata | undefined,
+): ModelSettings {
+  if (metadata === undefined) return settings;
+  return ModelSettingsSchema.parse({
+    ...settings,
+    ...(metadata.maxInputTokens === undefined
+      ? {}
+      : { maxInputTokens: metadata.maxInputTokens }),
+    ...(metadata.maxOutputTokens === undefined
+      ? {}
+      : { maxOutputTokens: metadata.maxOutputTokens }),
+    ...(metadata.inputCostPerMillion === undefined
+      ? {}
+      : { inputCostPerMillion: metadata.inputCostPerMillion }),
+    ...(metadata.outputCostPerMillion === undefined
+      ? {}
+      : { outputCostPerMillion: metadata.outputCostPerMillion }),
+    capabilities: { ...settings.capabilities, ...metadata.capabilities },
+  });
+}
+
 export class ModelCatalog {
   readonly #aliases: ReadonlyMap<string, string>;
   readonly #settings: ReadonlyMap<string, ModelSettings>;
@@ -157,11 +189,12 @@ export class ModelCatalog {
     if (settings === undefined) {
       throw new UnknownModelError(canonicalName);
     }
+    const metadata = structuredClone(this.#metadata.get(canonicalName));
     return {
       requestedName: name,
       canonicalName,
-      settings: structuredClone(settings),
-      metadata: structuredClone(this.#metadata.get(canonicalName)),
+      settings: mergeMetadata(structuredClone(settings), metadata),
+      metadata,
     };
   }
 

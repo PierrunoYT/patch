@@ -13,6 +13,7 @@ import { EditBatchSchema, type EditBatch } from "../edits/types.js";
 import type { FileSystemAdapter } from "../io/filesystem.js";
 import {
   ModelSettingsSchema,
+  requestTemperature,
   type ModelCapabilities,
 } from "../models/settings.js";
 import {
@@ -556,6 +557,7 @@ export class CoderSession {
       messages,
       maxOutputTokens: this.config.model.maxOutputTokens,
       extraParameters: this.config.model.extraParameters,
+      temperature: requestTemperature(this.config.model),
     });
     const turn = {
       id: this.#nextTurnId,

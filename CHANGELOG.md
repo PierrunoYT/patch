@@ -171,6 +171,14 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Catalog metadata is folded into the model settings a session uses, so the
+  bundled limits, prices, and capability facts reach the token budget and cost
+  reports instead of being returned alongside and ignored. Metadata wins for the
+  fields it defines and capabilities merge key by key.
+- A `useTemperature` policy: `false` sends no temperature for models that reject
+  it, `true` (the default) sends a deterministic `0`, and a number sends that
+  value. Requests previously carried no temperature at all, leaving sampling to
+  each endpoint's own default. `deepseek/deepseek-reasoner` sets `false`.
 - Automatic summarization of long chat history. Completed history grew without
   bound until a turn failed the token budget; it is now summarized before the
   turn whenever it exceeds the model's `maxChatHistoryTokens` (1024 by default),

@@ -69,6 +69,8 @@
   useRepoMap: true
   maxOutputTokens: 8192
   reasoningTag: think
+  # The reasoner rejects a temperature, as upstream records for DeepSeek R1.
+  useTemperature: false
   capabilities:
     streaming: true
     systemRole: true
