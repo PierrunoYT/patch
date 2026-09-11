@@ -10,6 +10,8 @@ describe("parseCommand", () => {
     ],
     ["/drop", { type: "drop", paths: [] }],
     ["/read-only README.md", { type: "read-only", paths: ["README.md"] }],
+    ["/help", { type: "help" }],
+    ["/help repository map", { type: "help", query: "repository map" }],
     ["/ls", { type: "ls" }],
     ["/clear", { type: "clear" }],
     ["/model anthropic/claude", { type: "model", model: "anthropic/claude" }],
@@ -51,6 +53,15 @@ describe("parseCommand", () => {
       type: "submit",
       message: "  explain this  ",
     });
+  });
+
+  it("bounds and validates local help queries", () => {
+    expect(() => parseCommand(`/help ${"x".repeat(257)}`)).toThrow(
+      /at most 256/u,
+    );
+    expect(() => parseCommand("/help unsafe\u0000query")).toThrow(
+      /control characters/u,
+    );
   });
 
   it("parses text clipboard commands without native image behavior", () => {

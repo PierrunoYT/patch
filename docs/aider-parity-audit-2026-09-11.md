@@ -211,7 +211,7 @@ but it is not an HTTP/SSE API and has no directly equivalent response contract.
 | Media/cache | Image/PDF context construction and cache keepalive are not production-wired. |
 | Summarization | No upstream-style main-model fallback or summarizer input-window cap. |
 | Repository maps | Narrower mention matching, approximate token counting/rendering, and missing fallback requests. Empty-chat multiplier defaults to **8**, versus aider CLI's **2**. |
-| Commands/config | Much narrower option and command surface; `/help`, `/settings`, and `/report` remain planned. |
+| Commands/config | Much narrower option and command surface; `/help` now provides bounded offline search rather than aider's model-backed help, while `/settings` and `/report` remain planned. |
 | Optional interfaces | HTTP quotas, expiry, bounded backpressure, and session reclamation remain unfinished. |
 
 The eleven-language fixtures verify the samples supplied, not arbitrary

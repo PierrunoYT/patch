@@ -7,13 +7,22 @@ This ports the dispatch boundary from
 [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203)
 without copying aider's stateful Python command object.
 
-The parser recognizes `/add`, `/drop`, `/read-only`, `/ls`, `/clear`, `/model`,
-`/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
-`/paste`, and `/exit`.
+The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/ls`, `/clear`,
+`/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`,
+`/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
 typed `submit` effect.
+
+`/help` lists every supported command. `/help <query>` searches an explicit
+allowlist of six Markdown documents installed with Patch and returns at most
+eight matching lines, each limited to 240 characters and labeled with its
+document and line number. Queries are limited to 256 control-free characters;
+no match and missing-document states are reported without a provider fallback.
+Unlike aider's model-backed semantic help, this command makes no provider call,
+downloads no embeddings, uses no network, and does not add help text to chat
+history. The packed executable test verifies search outside the source checkout.
 
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
@@ -113,8 +122,9 @@ The advertised command set is not yet a completed parity surface:
   still HEAD, still carries the Patch marker, has one parent, touches selected
   paths, and has not reached its upstream branch. A session undoes its latest
   commit once; earlier commits from the same session are not tracked.
-- `/ls` and file-command matching are narrower than Aider, and semantic command
-  help is absent.
+- `/ls` and file-command matching are narrower than Aider. `/help` deliberately
+  uses bounded literal line search over installed Patch docs instead of Aider's
+  semantic model-backed help coder.
 
 `/copy` uses text-only platform utilities. `/exit` closes the session and stops
 interactive input cleanly.

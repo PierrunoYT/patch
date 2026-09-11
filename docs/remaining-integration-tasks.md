@@ -403,12 +403,12 @@ readiness. Updating documentation does not complete those implementation tasks.
   implement local `/help`, allowlisted `/settings`, and a local reviewable
   `/report` draft; defer browser GUI and voice UX; make analytics, automatic
   onboarding/OAuth, and built-in update/release-note flows non-goals.
-  This closes the product decision only. The three commands remain absent and
-  their implementation acceptance tasks below remain unchecked. Cost/privacy
-  rationale and pinned source references are retained in the plan. Source review
-  also corrects the earlier table: settings uses `aider/format_settings.py`, and
-  upstream ordinary version probes are throttled for 24 hours, not sent on
-  every startup.
+  This closed the product decision only; `/help` is now implemented and the
+  other two command acceptance tasks below remain unchecked. Cost/privacy
+  rationale and pinned source references are retained in the plan. Source
+  review also corrects the earlier table: settings uses
+  `aider/format_settings.py`, and upstream ordinary version probes are throttled
+  for 24 hours, not sent on every startup.
 - [x] Complete fixture-source hash coverage while retaining the implemented
   clean-tree checks, broader goldens, packed extraction, and documentation tests.
   The 2026-09-11 audit found direct imports of
@@ -439,14 +439,20 @@ readiness. Updating documentation does not complete those implementation tasks.
 
 ### Ancillary-command implementation follow-ups
 
-These are open implementation tasks created by the P2 item 7 decision, not
-completed commands. They must be resolved before claiming the selected command
-scope complete; checking the decision does not establish release readiness.
+These are implementation tasks created by the P2 item 7 decision. They must all
+be resolved before claiming the selected command scope complete; checking the
+decision or one command does not establish release readiness.
 
-- [ ] Implement `/help` command listing and bounded local search over installed
+- [x] Implement `/help` command listing and bounded local search over installed
   Patch docs. Test no-query, matching, no-match, malformed/oversized input, and
   missing-doc behavior; verify from an installed tarball outside the checkout
   with no provider calls, downloads, or network access.
+  `src/commands/help.ts` searches six allowlisted Markdown documents, returns at
+  most eight 240-character line excerpts with source locations, and degrades to
+  a safe message when no bundled document can be read. Parser, application, and
+  package-smoke tests cover the stated cases and prove command dispatch does not
+  call the provider or change chat history. This is intentionally local and
+  deterministic rather than pinned aider's model-backed help coder.
 - [ ] Implement read-only `/settings` from an explicit safe-field allowlist,
   reflecting both resolved bootstrap and current model/mode. Test post-switch
   output and credential-bearing environment, headers, endpoint URLs, and custom
@@ -680,9 +686,9 @@ command has its documented executable effect, and `tests/application-commands.te
 `tests/interface-startup.test.ts`, `tests/interactive-command.test.ts`, and
 `tests/url-ingestion.test.ts` assert what each one leaves behind for the next
 turn. This exit covers the existing advertised commands, not future scope.
-Aider's wider matching remains outside that evidence; `/help`, `/report`, and
-`/settings` are now selected for implementation under P2 item 7, with unchecked
-acceptance tasks in the ancillary-command follow-ups above.
+Aider's wider matching remains outside that evidence; local `/help` is now
+implemented under P2 item 7. `/report` and `/settings` remain selected with
+unchecked acceptance tasks in the ancillary-command follow-ups above.
 
 ## R4 — Add opt-in live provider contract tests
 

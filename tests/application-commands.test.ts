@@ -256,4 +256,35 @@ describe("application slash commands", () => {
     await Promise.all([turn, command]);
     expect(order).toEqual(["turn", "command"]);
   });
+
+  it("serves local help without calling the provider or changing history", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-help-"));
+    const provider = new FakeProvider([]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: { provider },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "help",
+    });
+    const submit = (message: string) =>
+      session.submit(message, {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      });
+
+    await expect(submit("/help")).resolves.toMatchObject({
+      response: expect.stringContaining("/help"),
+    });
+    await expect(submit("/help command")).resolves.toMatchObject({
+      response: expect.stringContaining("commands.md:"),
+    });
+    expect(provider.requests).toHaveLength(0);
+    expect(await session.snapshot()).toMatchObject({ messages: [] });
+    await service.close();
+  });
 });

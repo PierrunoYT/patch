@@ -24,6 +24,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "copy",
   "drop",
   "exit",
+  "help",
   "lint",
   "ls",
   "model",
@@ -46,6 +47,16 @@ function rejectArgument(command: string, argument: string): void {
   if (argument !== "") {
     throw new CommandParseError(`/${command} does not accept arguments`);
   }
+}
+
+function optionalHelpQuery(argument: string): string | undefined {
+  if (argument === "") return undefined;
+  if (argument.length > 256 || /[\p{Cc}\p{Cf}]/u.test(argument)) {
+    throw new CommandParseError(
+      "/help query must be at most 256 characters without control characters",
+    );
+  }
+  return argument;
 }
 
 function parsePaths(
@@ -110,6 +121,11 @@ export function parseCommand(input: string): CommandEffect {
     case "drop":
       effect = { type: "drop", paths: parsePaths(command, argument, false) };
       break;
+    case "help": {
+      const query = optionalHelpQuery(argument);
+      effect = { type: "help", ...(query === undefined ? {} : { query }) };
+      break;
+    }
     case "ls":
     case "clear":
     case "test":

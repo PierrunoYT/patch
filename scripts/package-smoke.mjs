@@ -116,9 +116,10 @@ try {
       timeout: 30000,
     },
   );
-  // Exercise the installed bin entry point, not just its help/parser. /exit
-  // must construct and close a watcher without making a provider request.
-  execFileSync(
+  // Exercise the installed bin entry point, not just its help/parser. Local
+  // help must find the installed docs, then /exit must close the watcher; no
+  // provider request is needed for either command.
+  const interactive = execFileSync(
     executable,
     ["--watch-files", "--no-git", "--model", "4o", "--edit-format", "ask"],
     {
@@ -129,12 +130,15 @@ try {
         USERPROFILE: consumerDirectory,
         OPENAI_API_KEY: "package-smoke-not-a-real-key",
       },
-      input: "/exit\n",
+      input: "/help command\n/exit\n",
       encoding: "utf8",
       shell: process.platform === "win32",
       timeout: 15000,
     },
   );
+  if (!interactive.includes("commands.md:")) {
+    throw new Error("The packed executable could not search installed help");
+  }
   const model = execFileSync(
     process.execPath,
     [

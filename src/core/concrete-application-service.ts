@@ -15,6 +15,7 @@ import {
   type ConfigurationBootstrap,
 } from "../config/bootstrap.js";
 import type { CommandEffect } from "../commands/effects.js";
+import { renderHelp } from "../commands/help.js";
 import { parseCommand } from "../commands/parse.js";
 import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
@@ -775,6 +776,8 @@ class ConcreteApplicationSession implements ApplicationSession {
             `Read-only: ${state.readOnlyPaths.join(", ") || "(none)"}`,
           ].join("\n"),
         );
+      case "help":
+        return result(await renderHelp(effect.query));
       case "clear":
         this.#session.clearHistory();
         return result("Chat history cleared");

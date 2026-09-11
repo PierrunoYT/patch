@@ -112,8 +112,10 @@ installed copy carries `docs/`, so the linked policies are readable offline.
 There is no published package or stable interface.
 
 The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
-selects offline `/help`, secret-safe `/settings`, and a local reviewable `/report`
-draft for implementation; **these slash commands are not available yet**.
+includes offline `/help`, which now lists commands and performs bounded search
+over installed Patch documentation without provider or network access. It also
+selects secret-safe `/settings` and a local reviewable `/report` draft for
+implementation; **those two slash commands are not available yet**.
 Browser GUI and CLI voice UX are deferred. Built-in analytics, automatic
 provider/model onboarding and OAuth, and update checks/release-note prompts are
 non-goals: configuration stays explicit, updates stay user-managed, and release

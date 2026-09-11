@@ -15,6 +15,10 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Offline `/help` command listing and bounded literal search over six allowlisted
+  installed Patch documents. Results include document/line references, require
+  no provider, embedding download, or network, and are exercised through the
+  executable installed from the packed tarball.
 - Initial project overview and development status.
 - Patch wordmark and icon assets.
 - A phased TypeScript, Node.js, and npm porting plan covering architecture,

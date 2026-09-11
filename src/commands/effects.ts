@@ -50,6 +50,9 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
       paths: z.array(z.string().min(1)).min(1),
     })
     .strict(),
+  z
+    .object({ type: z.literal("help"), query: z.string().min(1).optional() })
+    .strict(),
   z.object({ type: z.literal("ls") }).strict(),
   z.object({ type: z.literal("clear") }).strict(),
   z.object({ type: z.literal("model"), model: z.string().min(1) }).strict(),
