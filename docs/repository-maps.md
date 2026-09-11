@@ -31,8 +31,22 @@ files return no tags. Symlink escapes and traversal outside the selected root
 are rejected before reading.
 
 Ranking implements the principal Aider weighted graph/PageRank formula with
-deterministic ordering. Production mention detection, per-file lexical-reference
-fallback, important-root-file priority, and rank-only bare-file ordering remain
+deterministic ordering.
+
+A file no bundled grammar covers still contributes: `lexicalReferences` records
+its identifiers as references, so a config file, a Markdown document, or a
+language without a query still ranks the files that define the symbols it
+mentions. They are references only — nothing lexical can distinguish a
+definition from a mention — each identifier is reported once at its first line,
+one file contributes at most 200, and a file containing a NUL byte is treated as
+binary and skipped.
+
+Because the map is truncated to a prefix, order decides what survives.
+`filterImportantFiles` ports aider's root-file list — READMEs, licenses,
+manifests, lockfiles, CI definitions, and `.github/workflows/*.yml` — and those
+files are listed before ranked symbols, with the remaining untagged files after.
+Only the repository root counts: a `README.md` beside a source file describes
+that directory, not the project. Rank-only bare-file ordering remains
 incomplete.
 
 `TreeContextRenderer` provides syntax-parent headers and `⋮` elisions, but it is
@@ -70,9 +84,12 @@ requests are still absent.
 
 The pinned exporter compares raw tags, definition order, and normalized
 rendering for one two-file Python scenario. It removes line-`-1` lexical
-fallback tags and deduplicates before storage. It does not prove numeric ranks,
-personalization, important files, other languages, caches, token fitting,
-generic tree context, or the production provider request.
+fallback tags and deduplicates before storage, so it does not pin Patch's own
+lexical fallback, which reports first-line positions instead. It does not prove
+numeric ranks, personalization, other languages, caches, token fitting, generic
+tree context, or the production provider request. Important-file priority and
+the lexical fallback are covered by Patch's own tests rather than by the pinned
+exporter.
 
 The package smoke installs the tarball and exercises JavaScript, TypeScript,
 Python, Go, and Rust extraction. TSX resources are shipped but are not exercised

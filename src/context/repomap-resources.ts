@@ -4,7 +4,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type RepoMapLanguage =
-  "go" | "javascript" | "python" | "rust" | "typescript" | "tsx";
+  | "bash"
+  | "c-sharp"
+  | "cpp"
+  | "go"
+  | "java"
+  | "javascript"
+  | "python"
+  | "ruby"
+  | "rust"
+  | "typescript"
+  | "tsx";
 
 const RESOURCE_ROOT = fileURLToPath(
   new URL("../resources/repomap", import.meta.url),
@@ -31,16 +41,21 @@ export async function assertRepoMapResources(
 }
 
 export const REPO_MAP_LANGUAGES: readonly RepoMapLanguage[] = [
+  "bash",
+  "c-sharp",
+  "cpp",
   "go",
+  "java",
   "javascript",
   "python",
+  "ruby",
   "rust",
   "typescript",
   "tsx",
 ];
 
 /** Bump when extraction itself changes shape without a query or grammar edit. */
-const EXTRACTOR_VERSION = "1";
+const EXTRACTOR_VERSION = "2";
 
 let cachedFingerprint: Promise<string> | undefined;
 

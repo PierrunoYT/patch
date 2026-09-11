@@ -4,6 +4,7 @@ export * from "./config/bootstrap.js";
 export * from "./context/repo-graph.js";
 export * from "./context/repo-map-renderer.js";
 export * from "./context/repomap-resources.js";
+export * from "./context/important-files.js";
 export * from "./context/repository-map.js";
 export * from "./context/tag-cache.js";
 export * from "./context/tag-extractor.js";

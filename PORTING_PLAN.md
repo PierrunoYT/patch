@@ -66,7 +66,9 @@ edit-format, option, and interface support must be documented explicitly.
 ### Current staged parity
 
 - Repository maps are production-wired for JavaScript, TypeScript/TSX, Python,
-  Go, and Rust; context mode, broader languages, and stronger fixtures remain.
+  Go, Rust, Bash, C/C++, C#, Java, and Ruby, sized to the model's context
+  window, and files no grammar covers contribute lexical references; context
+  mode and stronger fixtures remain.
 - Unified diff and Patch formats are constructed but have unresolved targeting
   and multi-action correctness defects. Architect/editor, context, help, and
   other advanced formats remain unconstructed.
@@ -471,7 +473,8 @@ real-repository `tests/git-*.test.ts` suites.
 ### Phase 6 — Repository maps
 
 - [x] Port definitions/references extraction with `web-tree-sitter`.
-- [x] Initially support JavaScript, TypeScript, Python, Go, and Rust.
+- [x] Initially support JavaScript, TypeScript, Python, Go, and Rust. Bash,
+  C/C++, C#, Java, and Ruby were added with their upstream queries.
 - [x] Keep query files and WASM grammars under `src/resources/repomap/` or use
   version-pinned npm grammar packages; never place them in `assets/`.
 - [x] Build the weighted reference graph and deterministic personalized

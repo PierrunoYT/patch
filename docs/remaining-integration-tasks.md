@@ -57,7 +57,7 @@ tests are evidence only for the cases they exercise.
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
-| Repository maps | partial | A five-language production map exists and per-file failures are isolated; context mode, budgeting, language breadth, and fixtures are incomplete. |
+| Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, and unparsed files contribute lexical references; context mode and fixture breadth are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, and watch reports its failures and refreshes every selected file's AI comments; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged and non-repository startup and directory targets are clearly rejected; inert flags, automatic packing, installed docs, and provenance checks remain. |
@@ -218,9 +218,19 @@ work below is what remains before the release claims can be re-audited.
   `tests/model-metadata-merge.test.ts`, the classification case in
   `tests/openai-provider.test.ts`, the rendering case in `tests/render.test.ts`,
   and the accounting case in `tests/interface-startup.test.ts`.
-- [ ] Add important-root-file priority, per-file lexical reference fallback,
+- [x] Add important-root-file priority, per-file lexical reference fallback,
   model-aware map sizing, live inventory refresh, extractor-versioned caches,
-  and broader language/query fixtures.
+  and broader language/query fixtures. `filterImportantFiles` ports aider's
+  root-file list and those files are listed before ranked symbols;
+  `lexicalReferences` gives files no grammar covers a place in the ranking graph;
+  `repoMapTokens` sizes the budget from the model's input limit and widens it
+  when nothing is in the chat; the tracked inventory is re-read per turn; the tag
+  cache carries an extractor/query/grammar fingerprint; and Bash, C/C++, C#,
+  Java, and Ruby were added with their upstream queries, bringing the production
+  map to eleven languages. Context mode and Aider's fallback map requests stay
+  out of scope. Evidence: `tests/repo-map-renderer.test.ts`,
+  `tests/tag-extractor.test.ts`, `tests/repository-map-cache.test.ts`, and the
+  inventory case in `tests/application-prompt-context.test.ts`.
 - [ ] Connect completion, opted-in history navigation, Emacs/Vi bindings,
   external editor, true multi-turn multiline input, and explicit PTY dispatch.
 - [ ] Add contained path/directory/glob selection semantics and complete visible

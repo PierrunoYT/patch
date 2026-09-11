@@ -85,4 +85,23 @@ describe("renderRepoMap", () => {
     expect(output).toContain("notes.md");
     expect(output).not.toContain("chat.py");
   });
+
+  it("lists files that orient a reader before ranked symbols", async () => {
+    const root = await fixture();
+    await writeFile(join(root, "a.py"), "def alpha():\n    return 1\n");
+    await writeFile(join(root, "README.md"), "# The project\n");
+    await writeFile(join(root, "zzz.txt"), "trailing\n");
+
+    const output = await renderRepoMap({
+      root,
+      rankedTags: [ranked("a.py", 0, 2)],
+      otherPaths: ["a.py", "zzz.txt", "README.md"],
+      maxTokens: 10_000,
+      countTokens: (text) => text.length,
+    });
+
+    // The map is truncated to a prefix, so order decides what survives.
+    expect(output.indexOf("README.md")).toBeLessThan(output.indexOf("a.py"));
+    expect(output.indexOf("a.py")).toBeLessThan(output.indexOf("zzz.txt"));
+  });
 });

@@ -26,14 +26,25 @@ export interface RepoMapTag {
 }
 
 const EXTENSIONS: Readonly<Record<string, RepoMapLanguage>> = {
+  ".bash": "bash",
+  ".c": "cpp",
+  ".cc": "cpp",
   ".cjs": "javascript",
+  ".cpp": "cpp",
+  ".cs": "c-sharp",
+  ".cxx": "cpp",
   ".go": "go",
+  ".h": "cpp",
+  ".hpp": "cpp",
+  ".java": "java",
   ".js": "javascript",
   ".jsx": "javascript",
   ".mjs": "javascript",
   ".py": "python",
   ".pyi": "python",
+  ".rb": "ruby",
   ".rs": "rust",
+  ".sh": "bash",
   ".ts": "typescript",
   ".tsx": "tsx",
 } as const;
@@ -47,6 +58,38 @@ function initializeParser(): Promise<void> {
 
 export function languageForPath(path: string): RepoMapLanguage | undefined {
   return EXTENSIONS[extname(path).toLowerCase()];
+}
+
+const LEXICAL_IDENTIFIER = /[\p{L}_][\p{L}\p{N}_]{2,}/gu;
+/** Bounds what one unparsed file can contribute to the ranking graph. */
+const MAX_LEXICAL_REFERENCES = 200;
+
+/**
+ * Identifiers from a file no bundled grammar covers, recorded as references.
+ *
+ * A file Patch cannot parse is not therefore irrelevant: a config file, a
+ * Markdown document, or a language without a query still mentions the symbols a
+ * request is about, and those mentions are what rank the files that define them.
+ * They are references only — nothing here can tell a definition from a mention.
+ */
+export function lexicalReferences(
+  path: string,
+  source: string,
+): readonly RepoMapTag[] {
+  // A NUL byte means this is not text, and its "identifiers" would be noise.
+  if (source.includes("\0")) return [];
+  const seen = new Set<string>();
+  const tags: RepoMapTag[] = [];
+  for (const [index, line] of source.split(/\r?\n/u).entries()) {
+    for (const match of line.matchAll(LEXICAL_IDENTIFIER)) {
+      const name = match[0];
+      if (seen.has(name)) continue;
+      seen.add(name);
+      tags.push({ path, line: index, name, kind: "reference" });
+      if (tags.length >= MAX_LEXICAL_REFERENCES) return tags;
+    }
+  }
+  return tags;
 }
 
 export class TagExtractor {
@@ -72,14 +115,13 @@ export class TagExtractor {
 
   async extract(path: string): Promise<readonly RepoMapTag[]> {
     const languageName = languageForPath(path);
-    if (languageName === undefined) {
-      return [];
-    }
-
     const absolutePath = await this.#resolver.resolve(path);
     const source = await readFile(absolutePath, "utf8");
     if (source.length === 0) {
       return [];
+    }
+    if (languageName === undefined) {
+      return lexicalReferences(path, source);
     }
 
     const [language, querySource] = await Promise.all([

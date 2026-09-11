@@ -5,6 +5,7 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
+import { filterImportantFiles } from "./important-files.js";
 import type { RankedRepoMapTag } from "./repo-graph.js";
 import { TreeContextRenderer } from "./tree-context.js";
 
@@ -69,11 +70,21 @@ export async function renderRepoMap(
     line: tag.line,
   }));
   const taggedPaths = new Set(rankedEntries.map((entry) => entry.path));
-  const bareEntries: MapEntry[] = [...new Set(options.otherPaths)]
+  const untagged = [...new Set(options.otherPaths)]
     .filter((path) => !taggedPaths.has(path))
-    .sort()
-    .map((path) => ({ path }));
-  const entries = [...rankedEntries, ...bareEntries];
+    .sort();
+  // The map is truncated to a prefix, so order decides what survives. Files that
+  // orient a reader in an unfamiliar repository go first, then ranked symbols,
+  // then whatever else fits.
+  const important = filterImportantFiles(untagged);
+  const importantPaths = new Set(important);
+  const entries = [
+    ...important.map((path) => ({ path })),
+    ...rankedEntries,
+    ...untagged
+      .filter((path) => !importantPaths.has(path))
+      .map((path) => ({ path })),
+  ];
   const chatPaths = options.chatPaths ?? new Set<string>();
 
   let lower = 0;

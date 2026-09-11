@@ -171,6 +171,15 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Repository-map language support grew from five to eleven: Bash, C/C++, C#,
+  Java, and Ruby were added with their upstream tag queries.
+- Files no bundled grammar covers now contribute lexical references to the
+  ranking graph, so a config file or Markdown document that mentions a symbol
+  helps rank the file that defines it. References only, bounded per file, and
+  binary files are skipped.
+- Files that orient a reader in an unfamiliar repository — READMEs, licenses,
+  manifests, lockfiles, CI definitions — are listed in the map before ranked
+  symbols, so they survive truncation.
 - The repository map is sized from the model's context window rather than a
   fixed 1,024 tokens, and a turn with nothing in the chat gets a wider view of
   the repository, capped so the map cannot crowd out the conversation.

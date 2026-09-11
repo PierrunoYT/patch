@@ -62,12 +62,39 @@ describe("TagExtractor", () => {
     );
   });
 
-  it("ignores unsupported file types", async () => {
+  it("falls back to lexical references for unparsed file types", async () => {
     const root = await fixture();
-    await writeFile(join(root, "notes.md"), "# Notes\n");
-    await expect(
-      (await TagExtractor.create(root)).extract("notes.md"),
-    ).resolves.toEqual([]);
+    await writeFile(
+      join(root, "notes.md"),
+      "# Notes\n\nSee `Greeter` and greet, which is short.\n",
+    );
+    const extractor = await TagExtractor.create(root);
+
+    const tags = await extractor.extract("notes.md");
+
+    // A file no grammar covers still mentions the symbols a request is about,
+    // and those mentions rank the files that define them.
+    expect(tags).toContainEqual({
+      path: "notes.md",
+      line: 0,
+      name: "Notes",
+      kind: "reference",
+    });
+    expect(tags.map(({ name }) => name)).toContain("Greeter");
+    // Nothing lexical can tell a definition from a mention.
+    expect(tags.every((tag) => tag.kind === "reference")).toBe(true);
+    // Identifiers are reported once each, at their first line.
+    expect(new Set(tags.map(({ name }) => name)).size).toBe(tags.length);
+  });
+
+  it("reports nothing for an empty or binary file", async () => {
+    const root = await fixture();
+    await writeFile(join(root, "empty.md"), "");
+    await writeFile(join(root, "blob.bin"), "name\0name\n");
+    const extractor = await TagExtractor.create(root);
+
+    await expect(extractor.extract("empty.md")).resolves.toEqual([]);
+    await expect(extractor.extract("blob.bin")).resolves.toEqual([]);
   });
 
   it.each([
@@ -105,6 +132,39 @@ describe("TagExtractor", () => {
       definition: "greet",
       reference: "format",
     },
+    {
+      extension: "java",
+      source:
+        "public class Greeter {\n  public int greet() { return format(); }\n}\n",
+      definition: "greet",
+      reference: "format",
+    },
+    {
+      extension: "rb",
+      source: "class Greeter\n  def greet\n    format\n  end\nend\n",
+      definition: "greet",
+      reference: "format",
+    },
+    {
+      extension: "cs",
+      // The query captures a constructed type as a reference, not a bare call.
+      source:
+        "public class Greeter {\n  public object Greet() { return new Format(); }\n}\n",
+      definition: "Greet",
+      reference: "Format",
+    },
+    {
+      extension: "cpp",
+      source: "int format();\nint greet() { return format(); }\n",
+      definition: "greet",
+      reference: undefined,
+    },
+    {
+      extension: "sh",
+      source: "greet() {\n  format\n}\n",
+      definition: "greet",
+      reference: "format",
+    },
   ])(
     "extracts definitions and references from .$extension",
     async ({ extension, source, definition, reference }) => {
@@ -117,9 +177,13 @@ describe("TagExtractor", () => {
       expect(tags).toContainEqual(
         expect.objectContaining({ name: definition, kind: "definition" }),
       );
-      expect(tags).toContainEqual(
-        expect.objectContaining({ name: reference, kind: "reference" }),
-      );
+      // Upstream's C++ query captures definitions only, so some languages
+      // contribute no references at all.
+      if (reference !== undefined) {
+        expect(tags).toContainEqual(
+          expect.objectContaining({ name: reference, kind: "reference" }),
+        );
+      }
     },
   );
 
