@@ -413,6 +413,51 @@ describe("application interface startup", () => {
     }
   });
 
+  it("prints token and cost accounting after a turn", async () => {
+    const root = await fixture();
+    await writeFile(join(root, "selected.ts"), "const value = 1;\n");
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "answered" },
+          { type: "finish", reason: "stop" },
+          { type: "usage", inputTokens: 1500, outputTokens: 320 },
+        ],
+      },
+    ]);
+    let output = "";
+    await createProgram({
+      cwd: root,
+      environment: {},
+      writeOutput: (text) => {
+        output += text;
+      },
+      createApplication: async (options) =>
+        ConcreteApplicationService.create({
+          ...options,
+          home: root,
+          dependencies: { provider },
+        }),
+    }).parseAsync(
+      [
+        "--message",
+        "question",
+        "--no-git",
+        "--model",
+        "deepseek",
+        "--edit-format",
+        "ask",
+        "--no-color",
+        "selected.ts",
+      ],
+      { from: "user" },
+    );
+
+    // Catalog metadata supplies DeepSeek's prices, so the turn has a cost.
+    expect(output).toContain("tokens: 1.5k sent, 320 received");
+    expect(output).toMatch(/\$[\d.]+ turn, \$[\d.]+ session/u);
+  });
+
   it("rejects default startup outside a worktree and names the escape", async () => {
     const root = await fixture();
 

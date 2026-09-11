@@ -5,6 +5,7 @@ import {
   MarkdownStream,
   renderDiff,
   renderEditPreview,
+  renderUsage,
   stripAnsi,
 } from "../src/io/render.js";
 
@@ -65,5 +66,38 @@ describe("terminal rendering", () => {
     ).toBe(
       "--- a/src/example.ts\n+++ b/src/example.ts\n@@ proposed edit @@\n-const oldValue = 1;\n+const newValue = 2;",
     );
+  });
+
+  it("reports tokens and cost, and omits a cost it does not know", () => {
+    expect(
+      renderUsage(
+        {
+          inputTokens: 1500,
+          outputTokens: 320,
+          cachedInputTokens: 900,
+          cost: 0.0042,
+          costSource: "catalog",
+        },
+        0.31,
+        { color: false },
+      ),
+      // Sub-cent turn costs need more than two decimals to mean anything.
+    ).toBe(
+      "tokens: 1.5k sent, 900 cached, 320 received · $0.0042 turn, $0.31 session",
+    );
+
+    // An unpriced model reports tokens rather than implying a cost of zero.
+    expect(
+      renderUsage(
+        {
+          inputTokens: 12,
+          outputTokens: 4,
+          cost: null,
+          costSource: "unknown",
+        },
+        undefined,
+        { color: false },
+      ),
+    ).toBe("tokens: 12 sent, 4 received");
   });
 });

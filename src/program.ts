@@ -14,7 +14,13 @@ import {
   notifyUser,
   type CompletionShell,
 } from "./io/integrations.js";
-import { MarkdownStream, renderDiff, renderEditPreview } from "./io/render.js";
+import {
+  MarkdownStream,
+  renderDiff,
+  renderEditPreview,
+  renderUsage,
+} from "./io/render.js";
+import type { UsageReport } from "./models/usage.js";
 import { sanitizedWriter } from "./io/sanitize.js";
 import type { EditPreview } from "./edits/write-boundary.js";
 import type { ApplicationSession } from "./core/application-service.js";
@@ -384,6 +390,18 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               if (dependencies.handleMessage === undefined) {
                 markdown.end();
                 write("\n");
+                const turn =
+                  typeof response === "object" && response !== null
+                    ? (response as {
+                        usage?: UsageReport;
+                        sessionCost?: number;
+                      })
+                    : undefined;
+                if (turn?.usage !== undefined) {
+                  write(
+                    `${renderUsage(turn.usage, turn.sessionCost, renderOptions)}\n`,
+                  );
+                }
               }
               if (options.notifications === true) {
                 await notifyUser(

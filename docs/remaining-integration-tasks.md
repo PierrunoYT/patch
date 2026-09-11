@@ -207,8 +207,17 @@ work below is what remains before the release claims can be re-audited.
   tag is cleaned once complete. Evidence: `tests/chat-summary.test.ts`,
   `tests/reasoning-tags.test.ts`, and the summarization case in
   `tests/application-prompt-context.test.ts`.
-- [ ] Merge executable metadata limits/prices/capabilities, add temperature
+- [x] Merge executable metadata limits/prices/capabilities, add temperature
   policy, broaden transient error classification, and render usage/cost.
+  `ModelCatalog.resolve` folds metadata into the settings a session uses;
+  `useTemperature` decides whether a request carries no temperature, a
+  deterministic `0`, or an explicit value; `transientByStatus` retries 408, 429,
+  409 and any 5xx in both adapters and treats an unreadable chunk as retryable;
+  and `ApplicationTurnResult` carries the usage report and running session cost
+  so the terminal prints one accounting line per turn. Evidence:
+  `tests/model-metadata-merge.test.ts`, the classification case in
+  `tests/openai-provider.test.ts`, the rendering case in `tests/render.test.ts`,
+  and the accounting case in `tests/interface-startup.test.ts`.
 - [ ] Add important-root-file priority, per-file lexical reference fallback,
   model-aware map sizing, live inventory refresh, extractor-versioned caches,
   and broader language/query fixtures.

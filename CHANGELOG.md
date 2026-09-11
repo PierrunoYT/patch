@@ -171,6 +171,11 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- The terminal prints one token and cost line after each turn — sent, cached,
+  and received tokens, then the turn and session cost. Usage was already
+  collected but had nowhere to go. A model with no known prices reports tokens
+  alone rather than implying a cost of zero, and a turn costing under a cent
+  keeps four decimals so it is not displayed as `$0.00`.
 - Transient provider failures are classified by HTTP status in both adapters:
   408, 429, 409, and any 5xx — including the 529 overload some providers return
   — are retried, while a request the server rejected as malformed is not. A

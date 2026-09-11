@@ -4,9 +4,9 @@ Production support is partial. OpenAI and Anthropic have basic executable
 streaming routes, and the DeepSeek endpoint's model name, output limit, and
 assistant-prefill request are normalized through the same factory path the
 executable uses. Catalog metadata is merged into model settings, a temperature
-policy decides what each request carries, and transient failures are classified
-by HTTP status. Rendering usage and cost at the terminal remains incomplete.
-Provider breadth is intentionally narrower than Aider's LiteLLM surface.
+policy decides what each request carries, transient failures are classified by
+HTTP status, and the terminal reports tokens and cost after each turn. Provider
+breadth is intentionally narrower than Aider's LiteLLM surface.
 
 ## DeepSeek dialect
 
@@ -40,8 +40,8 @@ provider events. Tool calls are transport events only: `CoderSession` does not
 declare tools or assemble tool-call results. PDF message parts are rejected
 because Chat Completions does not define
 a portable PDF representation. `CoderSession` drains the stream past `finish`,
-so the usage chunk these endpoints send after the finish reason is accounted;
-rendering usage and cost at the terminal boundary is still incomplete.
+so the usage chunk these endpoints send after the finish reason is accounted and
+reaches the terminal's per-turn token and cost line.
 
 ## Error classification
 

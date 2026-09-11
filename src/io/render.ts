@@ -8,6 +8,7 @@
 import type { Writable } from "node:stream";
 
 import type { EditPreview } from "../edits/write-boundary.js";
+import type { UsageReport } from "../models/usage.js";
 import { ControlSequenceSanitizer, sanitizeTerminalText } from "./sanitize.js";
 
 const ANSI = {
@@ -143,6 +144,45 @@ export function renderDiff(diff: string, options: RenderOptions = {}): string {
       return line;
     })
     .join("\n");
+}
+
+function tokenCount(tokens: number): string {
+  return tokens < 1000 ? String(tokens) : `${(tokens / 1000).toFixed(1)}k`;
+}
+
+function money(amount: number): string {
+  // Per-turn costs are frequently well under a cent, so a fixed two decimals
+  // would render most turns as $0.00.
+  return `$${amount < 0.01 && amount > 0 ? amount.toFixed(4) : amount.toFixed(2)}`;
+}
+
+/**
+ * One line of token and cost accounting for a finished turn. An unpriced model
+ * reports tokens only, rather than implying a cost of zero.
+ */
+export function renderUsage(
+  usage: UsageReport,
+  sessionCost?: number,
+  options: RenderOptions = {},
+): string {
+  const parts = [
+    `${tokenCount(usage.inputTokens)} sent`,
+    ...(usage.cachedInputTokens === undefined || usage.cachedInputTokens === 0
+      ? []
+      : [`${tokenCount(usage.cachedInputTokens)} cached`]),
+    `${tokenCount(usage.outputTokens)} received`,
+  ];
+  const cost =
+    usage.cost === null
+      ? ""
+      : ` · ${money(usage.cost)} turn${
+          sessionCost === undefined ? "" : `, ${money(sessionCost)} session`
+        }`;
+  return paint(
+    `tokens: ${parts.join(", ")}${cost}`,
+    ANSI.dim,
+    useColor(options),
+  );
 }
 
 export function renderEditPreview(preview: EditPreview): string {

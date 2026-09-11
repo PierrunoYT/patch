@@ -69,8 +69,11 @@ Capabilities merge key by key, so an entry need only state what it changes, and
 `resolve()` still returns the raw `metadata` alongside the merged settings.
 Bundled metadata prices therefore reach executable cost reports. A final
 OpenAI-compatible usage event that arrives after the finish event is retained,
-but the terminal does not render usage reports. Unknown costs remain `null`
-rather than becoming a misleading zero.
+and `ApplicationTurnResult` carries the report and the running `sessionCost`, so
+the terminal prints one accounting line after each turn: tokens sent, cached,
+and received, then the turn and session cost. Unknown costs remain `null` and
+render as tokens alone rather than becoming a misleading zero, and a turn under
+a cent keeps four decimals so it does not display as `$0.00`.
 
 ## Temperature
 

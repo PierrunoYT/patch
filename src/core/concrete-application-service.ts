@@ -36,6 +36,7 @@ import { isMissingPathError, SafePathResolver } from "../io/safe-path.js";
 import { ModelCatalog } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
+import type { UsageReport } from "../models/usage.js";
 import {
   CompletionRequestSchema,
   type ModelProvider,
@@ -176,6 +177,10 @@ export interface ApplicationTurnResult {
   readonly changedPaths: readonly string[];
   readonly commit: string | null;
   readonly commands: readonly ModelCommandResult[];
+  /** Absent when the provider reported none, and for slash commands. */
+  readonly usage?: UsageReport;
+  /** Running cost for the session, including this turn. */
+  readonly sessionCost?: number;
   readonly exit?: boolean;
 }
 
@@ -621,6 +626,8 @@ class ConcreteApplicationSession implements ApplicationSession {
         changedPaths: [...changedPaths],
         commit: changedPaths.size === 0 ? null : state.lastPatchCommit,
         commands,
+        sessionCost: state.totalCost,
+        ...(completed.usage === undefined ? {} : { usage: completed.usage }),
       };
     }, options.signal);
   }
