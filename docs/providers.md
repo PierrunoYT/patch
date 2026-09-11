@@ -3,9 +3,10 @@
 Production support is partial. OpenAI and Anthropic have basic executable
 streaming routes, and the DeepSeek endpoint's model name, output limit, and
 assistant-prefill request are normalized through the same factory path the
-executable uses. Metadata merging, temperature policy, and broader transient
-error classification remain incomplete. Provider breadth is intentionally
-narrower than Aider's LiteLLM surface.
+executable uses. Catalog metadata is merged into model settings, a temperature
+policy decides what each request carries, and transient failures are classified
+by HTTP status. Rendering usage and cost at the terminal remains incomplete.
+Provider breadth is intentionally narrower than Aider's LiteLLM surface.
 
 ## DeepSeek dialect
 
@@ -36,13 +37,29 @@ output limit.
 The adapter validates streamed chunks and maps text, reasoning, fragmented tool
 calls, token usage, cached input tokens, and finish reasons into Patch's common
 provider events. Tool calls are transport events only: `CoderSession` does not
-declare tools or assemble tool-call results. Authentication, rate-limit,
-timeout, network, and context errors have focused classifications; SDK 5xx and
-response-validation failures still fall through as non-retryable provider
-errors. PDF message parts are rejected because Chat Completions does not define
+declare tools or assemble tool-call results. PDF message parts are rejected
+because Chat Completions does not define
 a portable PDF representation. `CoderSession` drains the stream past `finish`,
 so the usage chunk these endpoints send after the finish reason is accounted;
 rendering usage and cost at the terminal boundary is still incomplete.
+
+## Error classification
+
+Both adapters classify an SDK error the same way, because the retry decision
+belongs to the failure and not to the vendor. Their own error classes cover
+authentication, rate limits, timeouts, and connection loss; `transientByStatus`
+then covers what those classes miss, keyed on HTTP status rather than a table of
+exception classes: 408 as a timeout, 429 as a rate limit, and 409 or any 5xx —
+internal, bad gateway, service unavailable, and the 529 overload some providers
+return — as a retryable provider failure. A request the server rejected as
+malformed, such as a 400, stays non-retryable, because repeating it produces the
+same rejection. A chunk that fails schema validation is reported as a retryable
+provider error rather than failing the turn, since a truncated or garbled
+response is far more likely than a permanent contract change. Context-window
+errors are matched by message and bypass retries.
+
+`CoderSession` owns the retry loop with bounded exponential backoff; the SDK
+clients are constructed with `maxRetries: 0` so attempts are not multiplied.
 
 Default tests use mocked Fetch responses and never require credentials or
 network access.
@@ -79,8 +96,9 @@ system messages into Anthropic's top-level `system` field, preserves ephemeral
 cache-control markers on text blocks, and maps text, images, PDFs, tool results,
 tool calls, thinking, usage, cached tokens, and stop reasons to the shared
 contract. Constructor options support custom endpoints, timeout, headers, and
-Fetch injection. Basic message/event mapping uses the shared contract, but this
-does not imply identical retry classification for every SDK error.
+Fetch injection. Message and event mapping and the transient-failure
+classification above are both shared with the OpenAI-compatible adapter; only
+the SDK error classes and the context-window message pattern differ.
 
 ## Preflight diagnostics
 

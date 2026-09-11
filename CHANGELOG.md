@@ -171,6 +171,12 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Transient provider failures are classified by HTTP status in both adapters:
+  408, 429, 409, and any 5xx — including the 529 overload some providers return
+  — are retried, while a request the server rejected as malformed is not. A
+  chunk that fails schema validation is now a retryable provider error rather
+  than an immediate turn failure. Previously every one of these fell through as
+  a non-retryable provider error, so a single upstream hiccup ended the turn.
 - Catalog metadata is folded into the model settings a session uses, so the
   bundled limits, prices, and capability facts reach the token budget and cost
   reports instead of being returned alongside and ignored. Metadata wins for the

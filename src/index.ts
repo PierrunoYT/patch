@@ -56,6 +56,7 @@ export * from "./models/usage.js";
 export * from "./process/configured-checks.js";
 export * from "./process/model-command.js";
 export * from "./process/pty.js";
+export * from "./providers/errors.js";
 export * from "./providers/events.js";
 export * from "./providers/factory.js";
 export * from "./providers/anthropic.js";

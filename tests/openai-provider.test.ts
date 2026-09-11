@@ -120,4 +120,46 @@ describe("OpenAIProvider", () => {
       retryable: true,
     });
   });
+
+  it("treats server-side failures and unreadable chunks as retryable", async () => {
+    const failing = (status: number) =>
+      new OpenAIProvider({
+        apiKey: "test",
+        fetch: async () =>
+          new Response(
+            JSON.stringify({ error: { message: "upstream", type: "error" } }),
+            { status, headers: { "content-type": "application/json" } },
+          ),
+      });
+
+    // A server-side failure is worth another attempt.
+    for (const status of [500, 502, 503, 529, 408, 409]) {
+      expect((await collect(failing(status))).at(-1)).toMatchObject({
+        type: "error",
+        retryable: true,
+      });
+    }
+    // A request the server rejected as malformed is not.
+    expect((await collect(failing(400))).at(-1)).toMatchObject({
+      type: "error",
+      retryable: false,
+    });
+
+    // A chunk that fails schema validation is a garbled response, not a
+    // permanent contract change.
+    const garbled = new OpenAIProvider({
+      apiKey: "test",
+      fetch: async () =>
+        new Response(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: 42 } }] })}\n\ndata: [DONE]\n\n`,
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        ),
+    });
+    expect((await collect(garbled)).at(-1)).toMatchObject({
+      type: "error",
+      kind: "provider",
+      retryable: true,
+      message: expect.stringContaining("could not read"),
+    });
+  });
 });

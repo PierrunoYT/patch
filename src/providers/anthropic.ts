@@ -7,6 +7,7 @@ import type {
   CompletionRequest,
   ModelProvider,
 } from "./events.js";
+import { responseValidationEvent, transientByStatus } from "./errors.js";
 
 const StreamEventSchema = z
   .object({
@@ -194,6 +195,12 @@ function errorEvent(error: unknown): CompletionEvent {
   if (/prompt is too long|context window/iu.test(message)) {
     return { type: "error", kind: "context-window", message, retryable: false };
   }
+  const transient = transientByStatus(
+    error instanceof Anthropic.APIError ? error.status : undefined,
+  );
+  if (transient !== undefined) return { type: "error", message, ...transient };
+  const invalid = responseValidationEvent(error);
+  if (invalid !== undefined) return invalid;
   return { type: "error", kind: "provider", message, retryable: false };
 }
 

@@ -7,6 +7,7 @@ import type {
   CompletionRequest,
   ModelProvider,
 } from "./events.js";
+import { responseValidationEvent, transientByStatus } from "./errors.js";
 
 const OpenAIChunkSchema = z
   .object({
@@ -191,6 +192,12 @@ function errorEvent(error: unknown): CompletionEvent {
   if (/context (?:length|window)|maximum context/iu.test(message)) {
     return { type: "error", kind: "context-window", message, retryable: false };
   }
+  const transient = transientByStatus(
+    error instanceof OpenAI.APIError ? error.status : undefined,
+  );
+  if (transient !== undefined) return { type: "error", message, ...transient };
+  const invalid = responseValidationEvent(error);
+  if (invalid !== undefined) return invalid;
   return { type: "error", kind: "provider", message, retryable: false };
 }
 
