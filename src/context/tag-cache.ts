@@ -14,11 +14,18 @@ interface CacheEntry {
 
 interface CacheFile {
   readonly version: 1;
+  /** Identifies the extractor, queries, and grammars the tags came from. */
+  readonly fingerprint: string;
   readonly entries: Readonly<Record<string, CacheEntry>>;
 }
 
 export interface TagSource {
   extract(path: string): Promise<readonly RepoMapTag[]>;
+  /**
+   * Changes when extraction would produce different tags for identical content.
+   * A source without one gets a cache keyed on content alone.
+   */
+  readonly fingerprint?: string;
 }
 
 function validTag(value: unknown, path: string): value is RepoMapTag {
@@ -34,11 +41,18 @@ function validTag(value: unknown, path: string): value is RepoMapTag {
   );
 }
 
-function parseCache(value: unknown): Map<string, CacheEntry> {
+function parseCache(
+  value: unknown,
+  fingerprint: string,
+): Map<string, CacheEntry> {
   if (typeof value !== "object" || value === null) return new Map();
   const file = value as Partial<CacheFile>;
   if (
     file.version !== 1 ||
+    // Tags cached by a different extractor, query set, or grammar describe code
+    // the current one would read differently, so they are discarded rather than
+    // silently reused.
+    file.fingerprint !== fingerprint ||
     typeof file.entries !== "object" ||
     file.entries === null
   ) {
@@ -66,17 +80,20 @@ export class RepoMapTagCache {
   readonly #source: TagSource;
   readonly #cachePath: string;
   readonly #entries: Map<string, CacheEntry>;
+  readonly #fingerprint: string;
 
   private constructor(
     resolver: SafePathResolver,
     source: TagSource,
     cachePath: string,
     entries: Map<string, CacheEntry>,
+    fingerprint: string,
   ) {
     this.#resolver = resolver;
     this.#source = source;
     this.#cachePath = cachePath;
     this.#entries = entries;
+    this.#fingerprint = fingerprint;
   }
 
   static async create(
@@ -86,13 +103,23 @@ export class RepoMapTagCache {
   ): Promise<RepoMapTagCache> {
     const resolver = await SafePathResolver.create(root);
     const cachePath = await resolver.resolve(cacheFile);
+    const fingerprint = source.fingerprint ?? "";
     let entries = new Map<string, CacheEntry>();
     try {
-      entries = parseCache(JSON.parse(await readFile(cachePath, "utf8")));
+      entries = parseCache(
+        JSON.parse(await readFile(cachePath, "utf8")),
+        fingerprint,
+      );
     } catch {
       // Missing and malformed cache files both recover as an empty cache.
     }
-    return new RepoMapTagCache(resolver, source, cachePath, entries);
+    return new RepoMapTagCache(
+      resolver,
+      source,
+      cachePath,
+      entries,
+      fingerprint,
+    );
   }
 
   async tags(path: string): Promise<readonly RepoMapTag[]> {
@@ -131,6 +158,7 @@ export class RepoMapTagCache {
     );
     const data: CacheFile = {
       version: 1,
+      fingerprint: this.#fingerprint,
       entries: Object.fromEntries([...this.#entries.entries()].sort()),
     };
     try {

@@ -171,6 +171,15 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- The repository map is sized from the model's context window rather than a
+  fixed 1,024 tokens, and a turn with nothing in the chat gets a wider view of
+  the repository, capped so the map cannot crowd out the conversation.
+- The tag cache records an extractor fingerprint covering the extractor version,
+  every bundled query's text, and each grammar's size. Upgrading a query or
+  grammar previously reused tags extracted by the old one.
+- The tracked-file inventory is re-read each turn instead of being frozen at
+  startup, so a file added, removed, or renamed mid-session reaches file context
+  and the repository map without restarting Patch.
 - The terminal prints one token and cost line after each turn — sent, cached,
   and received tokens, then the turn and session cost. Usage was already
   collected but had nowhere to go. A model with no known prices reports tokens

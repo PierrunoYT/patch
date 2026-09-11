@@ -37,23 +37,36 @@ incomplete.
 
 `TreeContextRenderer` provides syntax-parent headers and `⋮` elisions, but it is
 a narrow approximation rather than a generic `grep_ast.TreeContext` equivalent.
-The model budget is currently a fixed 1,024 tokens with a character-count
-estimate; Aider's model-aware sizing, no-file multiplier, and user controls are
-not composed. Strict prefix fitting is an intentional Patch difference.
+The model budget is model-aware, ported from `Model.get_repo_map_tokens`:
+`repoMapTokens` gives 1,024 tokens by default and otherwise an eighth of the
+model's input limit, clamped to 1,024–4,096, so a larger context window earns a
+larger map without letting the map crowd out the conversation. A turn holding
+nothing in the chat gets a wider view of the repository — the budget times
+`mulNoFiles` (8), capped at the context window less 4,096 tokens of headroom.
+Token counting is still a character-count estimate and no user-facing control
+exposes the budget. Strict prefix fitting is an intentional Patch difference.
 
 `RepositoryMap` composes extraction, ranking, and rendering. Its JSON tag cache
 uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.
 Per-file read and parser failures are isolated: the map is advisory context, so
 a path that cannot be read or parsed is dropped from the map and reported by
 `skippedPaths` rather than propagating out of `getMap`. A path that becomes
-readable again is removed from that set on the next construction. The cache
-schema still lacks a query/grammar/extractor fingerprint, so resource upgrades
-can reuse old tags.
+readable again is removed from that set on the next construction.
+
+The cache file records an extractor fingerprint alongside its entries, and tags
+written under a different one are discarded rather than reused. The fingerprint
+covers an explicit extractor version, the contents of every bundled `.scm`
+query, and each grammar's file size — query text is hashed because editing one
+is the common case, while grammars are identified by size so a multi-megabyte
+wasm file is not rehashed on every startup.
 
 The helper exposes `always`, `files`, `manual`, and `auto` refresh modes, but the
-production CLI exposes no refresh controls, does not couple prompt caching to
-stable `files` refresh, freezes tracked inventory at service startup, and does
-not perform Aider's broader fallback map requests.
+production CLI exposes no refresh controls and does not couple prompt caching to
+stable `files` refresh. The tracked inventory is re-read from Git each turn
+rather than frozen at startup, so a file added, removed, or renamed mid-session
+reaches both file context and the map; a transient Git failure falls back to the
+startup inventory instead of failing the turn. Aider's broader fallback map
+requests are still absent.
 
 The pinned exporter compares raw tags, definition order, and normalized
 rendering for one two-file Python scenario. It removes line-`-1` lexical

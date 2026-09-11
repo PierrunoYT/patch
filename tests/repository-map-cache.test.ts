@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RepositoryMap, TagExtractor } from "../src/index.js";
+import { RepositoryMap, TagExtractor, repoMapTokens } from "../src/index.js";
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
@@ -107,6 +107,66 @@ describe("RepositoryMap cache", () => {
     expect(second === first).toBe(stale);
     const forced = await map.getMap({ ...request, forceRefresh: true });
     expect(forced).toContain("second_name");
+  });
+
+  it("discards tags cached by a different extractor fingerprint", async () => {
+    const root = await fixture();
+    const extractor = await TagExtractor.create(root);
+    let calls = 0;
+    const source = (fingerprint: string) => ({
+      fingerprint,
+      extract: async (path: string) => {
+        calls += 1;
+        return extractor.extract(path);
+      },
+    });
+    const options = (fingerprint: string) => ({
+      root,
+      maxTokens: 100,
+      countTokens,
+      refresh: "always" as const,
+      tagSource: source(fingerprint),
+    });
+
+    await (await RepositoryMap.create(options("queries-v1"))).getMap(request);
+    expect(calls).toBe(2);
+    // The same fingerprint reuses the persisted tags.
+    await (await RepositoryMap.create(options("queries-v1"))).getMap(request);
+    expect(calls).toBe(2);
+    // A changed query or grammar would read the same content differently, so
+    // those tags cannot be reused.
+    await (await RepositoryMap.create(options("queries-v2"))).getMap(request);
+    expect(calls).toBe(4);
+  });
+
+  it("sizes the budget from the model's context window", () => {
+    // A larger window earns a larger map, within fixed bounds.
+    expect(repoMapTokens(undefined)).toBe(1024);
+    expect(repoMapTokens(4000)).toBe(1024);
+    expect(repoMapTokens(32000)).toBe(4000);
+    expect(repoMapTokens(128000)).toBe(4096);
+  });
+
+  it("widens the budget when nothing is in the chat", async () => {
+    const root = await fixture();
+    await writeFile(join(root, "held.py"), "def held_name():\n    return 3\n");
+    const map = await RepositoryMap.create({
+      root,
+      // Small enough that the base budget truncates this fixture and the
+      // widened one (2 * 8) does not.
+      maxTokens: 2,
+      maxContextWindow: 5000,
+      refresh: "always",
+      countTokens,
+    });
+    const otherPaths = ["defs.py", "use.py"];
+
+    // With nothing in the chat there is room for a wider view of the repo.
+    const wide = await map.getMap({ chatPaths: [], otherPaths });
+    const narrow = await map.getMap({ chatPaths: ["held.py"], otherPaths });
+
+    expect(wide.length).toBeGreaterThan(narrow.length);
+    expect(map.maxContextWindow).toBe(5000);
   });
 
   it("isolates tracked paths it cannot read and keeps the rest of the map", async () => {

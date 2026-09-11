@@ -16,7 +16,7 @@ import {
 } from "../config/bootstrap.js";
 import type { CommandEffect } from "../commands/effects.js";
 import { parseCommand } from "../commands/parse.js";
-import { RepositoryMap } from "../context/repository-map.js";
+import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
 import {
   resolveEditBatch,
@@ -137,11 +137,17 @@ async function openWorktree(root: string): Promise<GitRepository> {
   }
 }
 
-function createRepositoryMap(root: string): Promise<RepositoryMap> {
+function createRepositoryMap(
+  root: string,
+  model: ModelSettings,
+): Promise<RepositoryMap> {
   return RepositoryMap.create({
     root,
-    maxTokens: 1024,
+    maxTokens: repoMapTokens(model.maxInputTokens),
     countTokens: (text) => Math.ceil(text.length / 4),
+    ...(model.maxInputTokens === undefined
+      ? {}
+      : { maxContextWindow: model.maxInputTokens }),
   });
 }
 
@@ -412,12 +418,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         const selectedPaths = new Set(
           [...editable, ...readOnly].map(({ path }) => path),
         );
-        const availablePaths =
-          this.#context.repository === undefined
-            ? this.#context.availablePaths
-            : await this.#context.repository.filterIgnored(
-                this.#context.availablePaths,
-              );
+        const availablePaths = await this.#availablePaths();
         const unselected = await Promise.all(
           availablePaths
             .filter((path) => !selectedPaths.has(path))
@@ -865,7 +866,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     const fence = selectFence(
       contents.flatMap(({ content }) => (content === null ? [] : [content])),
     ).fence;
-    const repositoryMap = await this.#selectRepositoryMap(main.useRepoMap);
+    const repositoryMap = await this.#selectRepositoryMap(main);
     await this.#session.switch({
       model,
       provider,
@@ -922,25 +923,46 @@ class ConcreteApplicationSession implements ApplicationSession {
   }
 
   async #selectRepositoryMap(
-    useRepoMap: boolean,
+    main: ModelSettings,
   ): Promise<RepositoryMap | undefined> {
-    if (!useRepoMap || this.#context.repository === undefined) return undefined;
-    return (
-      this.#profile.repositoryMap ??
-      this.#context.repositoryMap ??
-      (await createRepositoryMap(this.#context.root))
-    );
+    if (!main.useRepoMap || this.#context.repository === undefined) {
+      return undefined;
+    }
+    // A map built for a different context window has the wrong budget, so it is
+    // rebuilt rather than carried across a switch.
+    const existing = this.#profile.repositoryMap ?? this.#context.repositoryMap;
+    if (
+      existing !== undefined &&
+      existing.maxContextWindow === main.maxInputTokens
+    ) {
+      return existing;
+    }
+    return createRepositoryMap(this.#context.root, main);
+  }
+
+  /**
+   * The tracked, non-ignored inventory as it stands now. It is re-read per turn
+   * rather than reused from startup, so a file created, deleted, or renamed
+   * during a session is reflected in context and in the repository map.
+   */
+  async #availablePaths(): Promise<readonly string[]> {
+    const repository = this.#context.repository;
+    if (repository === undefined) return this.#context.availablePaths;
+    try {
+      return await repository.filterIgnored(
+        (await repository.status()).trackedPaths,
+      );
+    } catch {
+      // A transient Git failure must not fail the turn; the startup inventory is
+      // still a usable approximation.
+      return repository.filterIgnored(this.#context.availablePaths);
+    }
   }
 
   async #repositoryContext(message: string): Promise<string> {
     const map = this.#profile.repositoryMap;
     if (map === undefined) return "";
-    const availablePaths =
-      this.#context.repository === undefined
-        ? this.#context.availablePaths
-        : await this.#context.repository.filterIgnored(
-            this.#context.availablePaths,
-          );
+    const availablePaths = await this.#availablePaths();
     const selected = new Set([
       ...this.#session.snapshot().editablePaths,
       ...this.#session.snapshot().readOnlyPaths,
@@ -1101,7 +1123,7 @@ export class ConcreteApplicationService implements ApplicationService {
           );
     const repositoryMap =
       models.main.settings.useRepoMap && repository !== undefined
-        ? await createRepositoryMap(root)
+        ? await createRepositoryMap(root, models.main.settings)
         : undefined;
     return new ConcreteApplicationService({
       bootstrap,

@@ -14,6 +14,7 @@ import { SafePathResolver } from "../io/safe-path.js";
 import {
   repoMapGrammarPath,
   repoMapQueryPath,
+  repoMapResourceFingerprint,
   type RepoMapLanguage,
 } from "./repomap-resources.js";
 
@@ -53,13 +54,20 @@ export class TagExtractor {
   readonly #languages = new Map<RepoMapLanguage, Promise<Language>>();
   readonly #queries = new Map<RepoMapLanguage, Promise<string>>();
 
-  private constructor(resolver: SafePathResolver) {
+  /** Identifies the queries and grammars these tags were extracted with. */
+  readonly fingerprint: string;
+
+  private constructor(resolver: SafePathResolver, fingerprint: string) {
     this.#resolver = resolver;
+    this.fingerprint = fingerprint;
   }
 
   static async create(root: string): Promise<TagExtractor> {
     await initializeParser();
-    return new TagExtractor(await SafePathResolver.create(root));
+    return new TagExtractor(
+      await SafePathResolver.create(root),
+      await repoMapResourceFingerprint(),
+    );
   }
 
   async extract(path: string): Promise<readonly RepoMapTag[]> {

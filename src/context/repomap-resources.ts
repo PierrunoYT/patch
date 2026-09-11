@@ -1,4 +1,5 @@
-import { access } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { access, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,4 +28,45 @@ export async function assertRepoMapResources(
     access(repoMapQueryPath(language)),
     access(repoMapGrammarPath(language)),
   ]);
+}
+
+export const REPO_MAP_LANGUAGES: readonly RepoMapLanguage[] = [
+  "go",
+  "javascript",
+  "python",
+  "rust",
+  "typescript",
+  "tsx",
+];
+
+/** Bump when extraction itself changes shape without a query or grammar edit. */
+const EXTRACTOR_VERSION = "1";
+
+let cachedFingerprint: Promise<string> | undefined;
+
+/**
+ * Identifies the extraction inputs, so cached tags are discarded when the tags
+ * they would produce change.
+ *
+ * Query text is hashed because editing a `.scm` is the common case; grammars are
+ * identified by size rather than content because the wasm files are megabytes
+ * and would make every startup pay to hash them.
+ */
+export function repoMapResourceFingerprint(): Promise<string> {
+  cachedFingerprint ??= (async () => {
+    const hash = createHash("sha256").update(EXTRACTOR_VERSION);
+    for (const language of REPO_MAP_LANGUAGES) {
+      hash.update(language);
+      try {
+        hash.update(await readFile(repoMapQueryPath(language)));
+        hash.update(String((await stat(repoMapGrammarPath(language))).size));
+      } catch {
+        // A language whose resources are missing contributes nothing; the
+        // extractor already reports that separately.
+        hash.update("absent");
+      }
+    }
+    return hash.digest("hex").slice(0, 16);
+  })();
+  return cachedFingerprint;
 }

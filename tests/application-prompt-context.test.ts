@@ -151,6 +151,39 @@ describe("editable-file prompt pair", () => {
   });
 });
 
+describe("tracked-file inventory", () => {
+  it("re-reads the inventory each turn instead of freezing it at startup", async () => {
+    const root = await temporaryRepository("patch-inventory-");
+    await writeFile(join(root, "chat.txt"), "selected\n");
+    await writeFile(
+      join(root, "first.ts"),
+      "export function firstHelper(): number {\n  return 1;\n}\n",
+    );
+    await executeFile("git", ["-C", root, "add", "."]);
+    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "base"]);
+    const { submit, sent } = await harness({
+      root,
+      turns: 2,
+      argv: ["--model", "test/diff-model", "--file", "chat.txt"],
+    });
+
+    await submit("where is firstHelper");
+    expect(sent(0)).toContain("first.ts");
+    expect(sent(0)).not.toContain("second.ts");
+
+    // A file committed mid-session has to appear without restarting Patch.
+    await writeFile(
+      join(root, "second.ts"),
+      "export function secondHelper(): number {\n  return 2;\n}\n",
+    );
+    await executeFile("git", ["-C", root, "add", "second.ts"]);
+    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "second"]);
+
+    await submit("where is secondHelper");
+    expect(sent(1)).toContain("second.ts");
+  });
+});
+
 describe("long completed history", () => {
   it("summarizes with the weak model before the next turn", async () => {
     const root = await temporaryDirectory("patch-summary-app-");

@@ -22,6 +22,27 @@ export interface RepositoryMapOptions {
   readonly cacheFile?: string;
   readonly autoCacheThresholdMs?: number;
   readonly tagSource?: TagSource;
+  /**
+   * The model's input limit. With it, a turn holding no files in the chat gets a
+   * wider view of the repository, bounded so the map cannot crowd out the
+   * conversation.
+   */
+  readonly maxContextWindow?: number;
+  /** Budget multiplier applied when nothing is in the chat. */
+  readonly mulNoFiles?: number;
+}
+
+/** Headroom kept for the rest of the prompt when the map is widened. */
+const NO_FILES_PADDING = 4096;
+
+/**
+ * The map budget for a model, ported from `Model.get_repo_map_tokens`. A larger
+ * context window earns a larger map, within fixed bounds so a huge window does
+ * not spend most of the prompt on a map.
+ */
+export function repoMapTokens(maxInputTokens?: number): number {
+  if (maxInputTokens === undefined) return 1024;
+  return Math.max(1024, Math.min(4096, Math.floor(maxInputTokens / 8)));
 }
 
 export interface RepositoryMapRequest {
@@ -42,6 +63,8 @@ export class RepositoryMap {
   readonly #countTokens: TextTokenCounter;
   readonly #refresh: RepoMapRefresh;
   readonly #autoCacheThresholdMs: number;
+  readonly #maxContextWindow: number | undefined;
+  readonly #mulNoFiles: number;
   readonly #tagCache: RepoMapTagCache;
   readonly #maps = new Map<string, string>();
   readonly #skipped = new Set<string>();
@@ -53,6 +76,11 @@ export class RepositoryMap {
     return [...this.#skipped].sort();
   }
 
+  /** The input limit this map was budgeted against, if one was given. */
+  get maxContextWindow(): number | undefined {
+    return this.#maxContextWindow;
+  }
+
   private constructor(
     options: RepositoryMapOptions,
     tagCache: RepoMapTagCache,
@@ -62,7 +90,25 @@ export class RepositoryMap {
     this.#countTokens = options.countTokens;
     this.#refresh = options.refresh ?? "auto";
     this.#autoCacheThresholdMs = options.autoCacheThresholdMs ?? 1000;
+    this.#maxContextWindow = options.maxContextWindow;
+    this.#mulNoFiles = options.mulNoFiles ?? 8;
     this.#tagCache = tagCache;
+  }
+
+  /**
+   * The budget for one request. With nothing in the chat there is room for a
+   * wider view of the repository, capped so the map still leaves the rest of the
+   * prompt its space.
+   */
+  #budget(chatPaths: readonly string[]): number {
+    if (chatPaths.length > 0 || this.#maxContextWindow === undefined) {
+      return this.#maxTokens;
+    }
+    const widened = Math.min(
+      this.#maxTokens * this.#mulNoFiles,
+      this.#maxContextWindow - NO_FILES_PADDING,
+    );
+    return widened > this.#maxTokens ? widened : this.#maxTokens;
   }
 
   static async create(options: RepositoryMapOptions): Promise<RepositoryMap> {
@@ -126,7 +172,7 @@ export class RepositoryMap {
       rankedTags,
       otherPaths: request.otherPaths,
       chatPaths,
-      maxTokens: this.#maxTokens,
+      maxTokens: this.#budget(request.chatPaths),
       countTokens: this.#countTokens,
     });
     this.#lastProcessingMs = performance.now() - started;
