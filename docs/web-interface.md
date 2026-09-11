@@ -15,8 +15,11 @@ never prints token contents and uses one principal, `local`. It prints the
 listening address on `127.0.0.1`; `--web-port 8080` chooses a port, and omitted
 or zero chooses an available port. These interface flags are CLI-only; model,
 provider credentials, Git, and selected files use the normal staged configuration.
-No browser opens and no HTML GUI is shipped. Watch and one-shot options cannot
-be combined with `--web`.
+No browser opens and no HTML GUI is shipped. The browser GUI is **deferred**
+(wanted, not scheduled), as recorded in the
+[P2 scope decision](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7).
+The API is not GUI parity; its session-policy and approval UX work must precede
+a GUI. Watch and one-shot options cannot be combined with `--web`.
 
 `LocalWebServer` exposes the adapter-neutral `ApplicationService` over loopback HTTP. The same service contract can back terminal, watcher, or other interfaces; web code does not own model or edit behavior.
 

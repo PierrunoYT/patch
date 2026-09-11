@@ -58,15 +58,17 @@ tests are evidence only for the cases they exercise.
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, unparsed files contribute lexical references, and every shipped language's tags are pinned against upstream's own extractor; context mode and ranking/personalization fixtures are incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, rich input and explicitly requested PTY dispatch are connected to the reader, selection takes directories and globs, subprocess output and status are visible, and `/web` ingests one page; the help, report, and settings families are absent. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, watch reports its failures and refreshes every selected file's AI comments, and `/web` ingests one user-typed URL as bounded, labeled text; voice is a helper surface, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
+| Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, rich input and explicitly requested PTY dispatch are connected to the reader, selection takes directories and globs, subprocess output and status are visible, and `/web` ingests one page; the help, report, and settings families are absent and selected for implementation, not completed by the scope decision. |
+| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, watch reports its failures and refreshes every selected file's AI comments, and `/web` ingests one user-typed URL as bounded, labeled text; voice is helper-only and its CLI UX and browser GUI are deferred, local help is selected but absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup is clearly rejected, `--vim` is refused instead of ignored, shell completion comes from the parser itself, and the package ships its docs; the remaining config-aware options, provider-lifetime cleanup, and provenance checks remain. |
 
 ### Immediate P0 blockers
 
-All immediate P0 blockers, all P1 correctness work, and every P2 item except
-the disposition decision are now closed. That one open product decision is what
-remains in this section before the release claims can be re-audited.
+All immediate P0 blockers, all P1 correctness work, and the original eight P2
+items are now closed, including the ancillary feature disposition decision.
+That decision creates unchecked command implementation follow-ups below; it does
+not implement those commands or close the remaining R0–R9 work. Release claims
+still need the documentation truth pass.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
@@ -276,27 +278,19 @@ remains in this section before the release claims can be re-audited.
   documented as an intentional difference. Playwright rendering stays a library
   helper that `/web` never uses. Evidence: `tests/url-ingestion.test.ts` and
   `tests/url-fetcher.test.ts`.
-- [ ] Decide explicit dispositions for Aider help, report, settings, browser GUI,
+- [x] Decide explicit dispositions for Aider help, report, settings, browser GUI,
   voice UX, analytics, onboarding/OAuth, and update/release-note families.
-  **This one is an open product decision, not an implementation gap**, and it is
-  deliberately left unchecked until the owner makes the call. Each family below
-  needs one of three dispositions recorded in `PORTING_PLAN.md`: *implement*,
-  *deferred* (wanted, not scheduled), or *non-goal* (documented as intentionally
-  absent, with the reason).
-
-  | Family | Upstream source | What it would cost | Notes for the decision |
-  | --- | --- | --- | --- |
-  | `/help` | `aider/help.py` | Medium: needs an index over the bundled docs | Patch already ships `docs/`; a local search over them needs no network |
-  | `/settings` | `aider/args_formatter.py` | Small: print resolved bootstrap | Bootstrap already resolves and validates every value |
-  | `/report` | `aider/report.py` | Small: build a prefilled issue URL | Opens a browser, so it is a network/privacy surface |
-  | Browser GUI | `aider/gui.py` | Large: a Streamlit-equivalent web UI | Patch already serves an authenticated local HTTP/SSE API |
-  | Voice UX | `aider/io.py` voice loop | Medium: record/transcribe/submit | `src/interfaces/voice.ts` exists as a helper only |
-  | Analytics | `aider/analytics.py` | Small to add, permanent to support | Sends usage data off the machine; weigh against Patch's privacy stance |
-  | Onboarding/OAuth | `aider/onboarding.py` | Medium: OAuth flow plus model defaults | Patch deliberately requires an explicit model today |
-  | Update/release notes | `aider/versioncheck.py` | Small: a version probe on startup | Network call on every start; weigh against startup cost and privacy |
-
-  Nothing else in P2 depends on this decision, so the remaining items proceed
-  without it.
+  Recorded 2026-09-11 in
+  [`PORTING_PLAN.md`](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7):
+  implement local `/help`, allowlisted `/settings`, and a local reviewable
+  `/report` draft; defer browser GUI and voice UX; make analytics, automatic
+  onboarding/OAuth, and built-in update/release-note flows non-goals.
+  This closes the product decision only. The three commands remain absent and
+  their implementation acceptance tasks below remain unchecked. Cost/privacy
+  rationale and pinned source references are retained in the plan. Source review
+  also corrects the earlier table: settings uses `aider/format_settings.py`, and
+  upstream ordinary version probes are throttled for 24 hours, not sent on
+  every startup.
 - [x] Establish dirty-upstream/blob-hash fixture checks, broader production
   goldens, packed TSX extraction, installed documentation, and exact CI evidence.
   - Dirty-upstream and blob-hash checks: `upstream.json` records the blob hash of
@@ -321,6 +315,31 @@ remains in this section before the release claims can be re-audited.
     upstream keeps a `b/` prefix on a mid-block file transition and Patch strips
     it. Golden coverage for each remaining advertised edit format is tracked
     with R6's fixture item. Evidence: `tests/upstream-fixtures.test.ts`.
+
+### Ancillary-command implementation follow-ups
+
+These are open implementation tasks created by the P2 item 7 decision, not
+completed commands. They must be resolved before claiming the selected command
+scope complete; checking the decision does not establish release readiness.
+
+- [ ] Implement `/help` command listing and bounded local search over installed
+  Patch docs. Test no-query, matching, no-match, malformed/oversized input, and
+  missing-doc behavior; verify from an installed tarball outside the checkout
+  with no provider calls, downloads, or network access.
+- [ ] Implement read-only `/settings` from an explicit safe-field allowlist,
+  reflecting both resolved bootstrap and current model/mode. Test post-switch
+  output and credential-bearing environment, headers, endpoint URLs, and custom
+  model configuration; no secret values or suffixes may appear in terminal
+  output, history, or provider requests.
+- [ ] Implement `/report` as a bounded local, reviewable draft with allowlisted
+  version metadata and a user-supplied title. Test unavailable Git metadata,
+  oversized/control-character input, and exclusion of credentials, paths, chat,
+  source, environment, and raw diagnostics. No browser, upload, or automatic
+  provider turn; user-supplied text must be visibly identified for review.
+- [ ] Verify all three through executable dispatch and packed installation,
+  including queued commands, cancellation, and terminal sanitization, without
+  weakening write/process approval. Update command completion, README, parity
+  evidence, and help together; until then none is advertised as available.
 
 The R0–R9 sections below retain dependency context. Where a checked component
 conflicts with this re-audit, the unchecked blocker above controls release
@@ -537,8 +556,10 @@ command help.
 command has its documented executable effect, and `tests/application-commands.test.ts`,
 `tests/interface-startup.test.ts`, `tests/interactive-command.test.ts`, and
 `tests/url-ingestion.test.ts` assert what each one leaves behind for the next
-turn. Aider's wider matching and its help, report, and settings commands are
-scope decisions still open under P2 item 7, not gaps in this exit.
+turn. This exit covers the existing advertised commands, not future scope.
+Aider's wider matching remains outside that evidence; `/help`, `/report`, and
+`/settings` are now selected for implementation under P2 item 7, with unchecked
+acceptance tasks in the ancillary-command follow-ups above.
 
 ## R4 — Add opt-in live provider contract tests
 

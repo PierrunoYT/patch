@@ -58,9 +58,11 @@ preserves the metadata Node can carry portably while refusing a swapped ancestor
 `/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
 submits clipboard text as a user turn, and a turn interrupted after its edits
 landed reconciles history and reports what survived. Every P0 and P1 item in
-`docs/remaining-integration-tasks.md` is now closed; the P2 parity and evidence
-work and the documentation truth pass remain. Hardlinked and non-regular
-mutation targets are rejected rather than replaced or deleted.
+`docs/remaining-integration-tasks.md` is now closed, as are the original eight
+P2 items. The ancillary scope decision adds open command implementation work;
+the remaining integration work and documentation truth pass still apply.
+Hardlinked and non-regular mutation targets are rejected rather than replaced
+or deleted.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; a move writes and syncs its
 destination before removing its source, so an interrupted move keeps both paths.
@@ -90,6 +92,14 @@ eleven-language [repository-map engine](docs/repository-maps.md) whose
 extraction is verified for every shipped language from the packed tarball. An
 installed copy carries `docs/`, so the linked policies are readable offline.
 There is no published package or stable interface.
+
+The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
+selects offline `/help`, secret-safe `/settings`, and a local reviewable `/report`
+draft for implementation; **these slash commands are not available yet**.
+Browser GUI and CLI voice UX are deferred. Built-in analytics, automatic
+provider/model onboarding and OAuth, and update checks/release-note prompts are
+non-goals: configuration stays explicit, updates stay user-managed, and release
+notes stay in the changelog. Existing `patch --help` is unaffected.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

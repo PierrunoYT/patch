@@ -441,6 +441,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Changed
 
+- Closed the P2 ancillary feature scope decision without adding runtime behavior:
+  select local `/help`, secret-safe `/settings`, and a reviewable local `/report`
+  draft for implementation; defer browser GUI and voice UX; make analytics,
+  automatic onboarding/OAuth, and built-in update/release-note flows non-goals.
+  The plan records the rationale and pinned upstream differences, and the
+  backlog retains unchecked executable acceptance work for the three commands.
+
 - Revalidated the Phase 0 exit on Windows after a clean lockfile install: all
   default checks, 333 source tests, clean build, package install, installed
   lifecycle smoke, and installed CLI help passed without Python.

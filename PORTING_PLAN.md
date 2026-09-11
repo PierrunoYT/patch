@@ -87,12 +87,36 @@ edit-format, option, and interface support must be documented explicitly.
   share one worktree mutation lock, and `/web` ingests one user-typed URL as
   bounded, labeled text. Browser GUI, complete voice UX, and the remaining web
   session policy (expiry, quotas, backpressure, disconnect cancellation) remain.
-- Help, report, settings, browser GUI, voice UX, analytics, onboarding/OAuth,
-  and update/release-note prompts have no recorded disposition yet. Each needs
-  to be marked *implement*, *deferred*, or *non-goal* here before the parity
-  story is complete; the open decision, with the cost and privacy tradeoff for
-  each family, is tabulated in `docs/remaining-integration-tasks.md`. Until then
-  none of them is implemented and none is claimed as an intentional omission.
+- The eight ancillary feature families have explicit dispositions below.
+  `/help`, `/settings`, and `/report` are selected for implementation but remain
+  absent; deciding scope does not establish executable parity.
+
+### Ancillary feature dispositions — P2 item 7
+
+Decision recorded 2026-09-11 against Patch `47ba7f565` and aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. This supplements, rather than
+replaces, the audit of Patch `58597efc390e8e138b29024871a25d192fb27462` in
+`docs/remaining-integration-tasks.md`. Upstream paths below refer to that pinned
+checkout. *Implement* means committed scope with acceptance work still open;
+*deferred* means wanted but not scheduled; *non-goal* means intentionally absent.
+No runtime behavior changes with this decision.
+
+| Family | Disposition | Scope, rationale, and intentional difference |
+| --- | --- | --- |
+| `/help` | Implement | List supported commands and search bundled Patch docs locally with bounded excerpts and source references. No provider call, embedding download, or network access. This supports offline discovery without the cost and dependencies of aider's model-backed help (`aider/help.py`, `aider/commands.py:1119`). It does not construct aider's help coder. |
+| `/settings` | Implement | Show an allowlisted, read-only view of effective configuration and current session model/mode, including changes since bootstrap. Never dump raw arguments, environment, provider headers, or credentials; fully omit secrets rather than retaining suffixes. This keeps configuration diagnosable without reproducing `aider/format_settings.py`'s broad dump and partial key masking (`aider/commands.py:1432`). |
+| `/report` | Implement | Generate a bounded local issue draft with allowlisted Patch/Node/OS/Git versions and user-supplied title. Exclude chat, source, paths, environment, credentials, and raw diagnostics. Show the draft for review; no upload, automatic browser launch, or diagnostic-filled URL. Users can copy it into the issue tracker themselves. This trades one extra step for control over disclosure compared with `aider/report.py` and `aider/commands.py:1555`. |
+| Browser GUI | Deferred | A GUI remains wanted but unscheduled: the terminal is the primary product, and a second UI has substantial maintenance cost. The authenticated local HTTP/SSE API is not a GUI. Revisit only after its session lifetime, quotas, backpressure, and approval UX are addressed; keep the shared application contracts instead of porting Streamlit (`aider/gui.py`). |
+| Voice UX | Deferred | Keep the optional library helper, not a production CLI voice claim. A later UX must make microphone capture and transcription-provider disclosure explicit, support cancellation, and allow transcript review before submission. Cross-platform devices, optional audio tools, and audio privacy justify deferral (`aider/voice.py`, `aider/commands.py:1252`, `aider/io.py`). |
+| Analytics | Non-goal | No built-in usage telemetry, analytics identity, or analytics service integration. The privacy and permanent operational cost outweigh product metrics for this terminal tool. Local token/cost accounting is unaffected; it is not analytics collection (`aider/analytics.py`). |
+| Onboarding/OAuth | Non-goal | No automatic provider/model selection, account-tier probes, or browser OAuth/credential-persistence flow. Keep explicit model and credential configuration, supported by setup documentation and actionable validation errors. This avoids provider coupling and implicit network/credential side effects (`aider/onboarding.py`). |
+| Update/release notes | Non-goal | No built-in version probes, self-update, or automatic release-note prompts/browser launch. Updates remain user-managed through npm and release notes remain in the changelog. Upstream throttles ordinary version probes for 24 hours, but even periodic startup networking is unnecessary here (`aider/versioncheck.py`, `aider/main.py`). |
+
+The unchecked command acceptance tasks in
+[the integration backlog](docs/remaining-integration-tasks.md#ancillary-command-implementation-follow-ups)
+must be verified through the installed executable before these commands can be
+advertised as available. Deferred and non-goal families do not block those tasks
+and do not waive existing API safety work or unrelated release blockers.
 
 ### Non-goals
 
