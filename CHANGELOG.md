@@ -286,6 +286,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Checked exact existing files and directories before interpreting selection
+  text as a glob. A literal `[ab].txt` beside `a.txt` and `b.txt` is now selected
+  alone at startup and through file commands, while `[ab].md` still expands when
+  no exact path exists. Containment, ignore filtering, expansion bounds, and
+  downstream literal Git pathspecs are unchanged.
 - Parsed standard unified-diff `\ No newline at end of file` markers instead of
   rejecting them. Marker placement now preserves, adds, or removes a final
   newline through the real resolver, detached markers fail as malformed, and

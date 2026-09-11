@@ -153,8 +153,9 @@ Editable files can be positional or repeated `--file` values; use
 `--read-only` for contained context that must not be edited. A directory or a
 glob selects the files it covers, contained by the repository boundary, with
 symbolic links skipped, ignored files dropped, and the selection bounded; a
-named path that does not exist yet stays selectable. External read-only files
-are not supported.
+named path that does not exist yet stays selectable. An exact existing name is
+checked before glob interpretation, so glob metacharacters in a filename remain
+literal. External read-only files are not supported.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. Ordinary `diff` places each filename before its edit fence;

@@ -71,7 +71,7 @@ unchanged result of the historical audit.
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, directory/glob expansion, and command outcomes are wired. Literal glob-metacharacter filenames remain a selection gap. Help, report, and settings are selected but absent. |
+| Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, and `/web` ingests one bounded user-named page. HTTP disconnect cancellation is wired but needs targeted evidence; quotas, expiry, backpressure, session reclamation, and structured partial-error responses remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
@@ -143,8 +143,15 @@ for revision-specific source references and reproduction limits.
   Patch intentionally implements the standard Git meaning while retaining its
   stricter all-length unique-match requirement. Indentation, omitted-line,
   partial-context, and duplicate-edit recovery remain open under Phase 7.
-- [ ] Preserve exact existing filenames containing glob metacharacters through
-  selection; test beside files that would match the same pattern.
+- [x] Preserve exact existing filenames containing glob metacharacters through
+  selection; test beside files that would match the same pattern. Selection now
+  resolves and stats the exact contained path before deciding whether its text
+  is a glob. Existing files are selected literally, existing directories are
+  walked literally, and only a missing exact path reaches pattern expansion.
+  `tests/selection.test.ts` proves `[ab].txt` wins beside `a.txt`/`b.txt` while a
+  missing `[ab].md` still expands; `tests/interface-startup.test.ts` proves the
+  literal path through executable `/add`. Containment, ignore filtering, walk
+  and result bounds, and later Git literal-pathspec handling are unchanged.
 - [ ] Expose safe structured partial-turn errors to authenticated HTTP clients
   without leaking raw internal errors, and test post-write failure recovery.
 - [x] Establish passing `platform` job evidence on macOS and Windows. Run
@@ -355,12 +362,13 @@ readiness. Updating documentation does not complete those implementation tasks.
   resolved root, skips symbolic links and `.git`, drops ignored matches, refuses
   an absolute glob, and is bounded by a file limit and a directory-entry limit,
   so widening a selection cannot reach outside the worktree, follow a link out of
-  it, or pull ignored content into context. Every authorization step is
-  unchanged: each expanded path still goes through `approvePath`, and a named
-  path keeps its own diagnostics. `/run` now reports the command, both streams,
-  the exit status, and truncation; a model-suggested command reports through
-  `command-complete` as it finishes and configured checks through
-  `lint-complete`/`test-complete`, all rendered by the terminal. Evidence:
+  it, or pull ignored content into context. Existing literal paths are checked
+  before glob interpretation, including names such as `[ab].txt`. Every
+  authorization step is unchanged: each expanded path still goes through
+  `approvePath`, and a named path keeps its own diagnostics. `/run` now reports
+  the command, both streams, the exit status, and truncation; a model-suggested
+  command reports through `command-complete` as it finishes and configured
+  checks through `lint-complete`/`test-complete`, all rendered by the terminal. Evidence:
   `tests/selection.test.ts`, the expansion case in
   `tests/interface-startup.test.ts`, the output cases in
   `tests/application-commands.test.ts` and `tests/render.test.ts`, and the event

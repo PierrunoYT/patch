@@ -24,7 +24,9 @@ A directory selects the files beneath it and a glob selects the files it
 matches. `*` and `?` stay inside one path segment, `**` crosses segments, `**/`
 also matches no directory at all, and `[...]` is a character class. Expansion
 walks the worktree from the pattern's fixed prefix, so it works with or without
-Git, and it is contained on every side:
+Git. An exact existing file or directory is checked first, so metacharacters in
+its name stay literal; only a missing exact path is interpreted as a pattern.
+Expansion is contained on every side:
 
 - symbolic links are skipped rather than followed, since a link is the one entry
   that can leave the resolved root or loop;
@@ -36,12 +38,6 @@ Git, and it is contained on every side:
   by name, so `/add .` in a large worktree fails loudly instead of filling the
   context; and
 - a pattern that matches nothing, or a directory with no files, is reported.
-
-Known limitation: glob syntax is detected before testing for an exact existing
-file. A literal name such as `[ab].txt` is therefore treated as a pattern, not
-as that exact file. This selection gap is distinct from the Git adapter's
-literal-pathspec protection and remains open in the
-[parity audit](aider-parity-audit-2026-09-11.md).
 
 `/drop` expands the same way so it can undo an `/add` with the same words, but
 it applies no ignore rules: whatever is selected can always be dropped.

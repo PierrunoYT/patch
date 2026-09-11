@@ -95,7 +95,7 @@ to positional files, `--file`, `--read-only`, `/add`, or `/read-only` expand to
 contained files. Expansion skips symbolic links and `.git`, filters ignored
 files, and is bounded to 200 selected files and 20,000 visited directory entries.
 Empty matches and absolute globs fail explicitly. A literal path that does not
-exist yet is still selectable, because a turn may create it. Names containing
-glob metacharacters are currently interpreted as patterns even if an exact file
-exists; literal-metacharacter selection remains an open audit finding. See
-[slash commands](commands.md) for shared selection semantics.
+exist yet is still selectable, because a turn may create it. An exact existing
+file or directory wins before glob interpretation, so a name such as
+`[ab].txt` stays literal even beside `a.txt` and `b.txt`. See [slash
+commands](commands.md) for shared selection semantics.

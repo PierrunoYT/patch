@@ -146,10 +146,11 @@ function staticPrefix(pattern: string): string {
 /**
  * Resolves each pattern to the repository-relative files it selects.
  *
- * A plain path stays exactly what the caller named, including one that does not
- * exist yet. A directory selects the files beneath it and a glob selects the
- * files it matches, both contained by the resolver, filtered by the repository's
- * ignore rules, and bounded by `limit`.
+ * An exact existing path wins before glob interpretation, and a missing plain
+ * path stays exactly what the caller named. A directory selects the files
+ * beneath it and an actual glob selects the files it matches, both contained by
+ * the resolver, filtered by the repository's ignore rules, and bounded by
+ * `limit`.
  */
 export async function expandSelection(
   resolver: SafePathResolver,
@@ -165,6 +166,27 @@ export async function expandSelection(
 
   for (const raw of patterns) {
     const pattern = raw.split(sep).join("/");
+    const exact = await resolver.resolve(pattern);
+    try {
+      const exactStatus = await stat(exact);
+      if (exactStatus.isFile()) {
+        add(portable(resolver.root, exact));
+        continue;
+      }
+      if (exactStatus.isDirectory()) {
+        const found = await walk(resolver.root, exact, budget);
+        if (found.length === 0) {
+          throw new Error(
+            `No file to select under: ${portable(resolver.root, exact) || "the repository root"}`,
+          );
+        }
+        for (const path of await visible(found, raw, options)) add(path);
+        continue;
+      }
+    } catch (error) {
+      if (!isMissingPathError(error)) throw error;
+    }
+
     if (isGlobPattern(pattern)) {
       if (isAbsolute(pattern)) {
         throw new Error(
@@ -184,27 +206,10 @@ export async function expandSelection(
       continue;
     }
 
-    const absolute = await resolver.resolve(pattern);
-    const normalized = portable(resolver.root, absolute);
-    let directory = normalized === "";
-    if (!directory) {
-      try {
-        directory = (await stat(absolute)).isDirectory();
-      } catch (error) {
-        if (!isMissingPathError(error)) throw error;
-      }
-    }
-    if (!directory) {
-      add(normalized);
-      continue;
-    }
-    const found = await walk(resolver.root, absolute, budget);
-    if (found.length === 0) {
-      throw new Error(
-        `No file to select under: ${normalized === "" ? "the repository root" : raw}`,
-      );
-    }
-    for (const path of await visible(found, raw, options)) add(path);
+    // A missing plain path remains selectable so a later approved edit can
+    // create it. Existing files and directories returned above before glob
+    // interpretation, including names containing glob metacharacters.
+    add(portable(resolver.root, exact));
   }
 
   if (selected.length > limit) {

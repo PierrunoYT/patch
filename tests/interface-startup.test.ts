@@ -605,6 +605,10 @@ describe("application interface startup", () => {
     ).toEqual(["pkg/deep/three.txt", "pkg/one.txt", "pkg/two.md"]);
     await started.close();
 
+    await writeFile(join(root, "pkg", "[ot].txt"), "literal\n");
+    await writeFile(join(root, "pkg", "o.txt"), "pattern match\n");
+    await writeFile(join(root, "pkg", "t.txt"), "pattern match\n");
+
     const service = await ConcreteApplicationService.create({
       cwd: root,
       home: root,
@@ -624,13 +628,22 @@ describe("application interface startup", () => {
 
     // A glob stays inside one segment unless it says otherwise.
     await expect(submit("/add pkg/*.txt")).resolves.toMatchObject({
-      response: "Added: pkg/one.txt",
-    });
-    await expect(submit("/read-only pkg/**/*.txt")).resolves.toMatchObject({
-      response: "Read-only: pkg/deep/three.txt, pkg/one.txt",
+      response: "Added: pkg/[ot].txt, pkg/o.txt, pkg/one.txt, pkg/t.txt",
     });
     await expect(submit("/drop pkg")).resolves.toMatchObject({
-      response: "Dropped: pkg/deep/three.txt, pkg/one.txt, pkg/two.md",
+      response:
+        "Dropped: pkg/[ot].txt, pkg/deep/three.txt, pkg/o.txt, pkg/one.txt, pkg/t.txt, pkg/two.md",
+    });
+    await expect(submit("/add pkg/[ot].txt")).resolves.toMatchObject({
+      response: "Added: pkg/[ot].txt",
+    });
+    await expect(submit("/read-only pkg/**/*.txt")).resolves.toMatchObject({
+      response:
+        "Read-only: pkg/[ot].txt, pkg/deep/three.txt, pkg/o.txt, pkg/one.txt, pkg/t.txt",
+    });
+    await expect(submit("/drop pkg")).resolves.toMatchObject({
+      response:
+        "Dropped: pkg/[ot].txt, pkg/deep/three.txt, pkg/o.txt, pkg/one.txt, pkg/t.txt, pkg/two.md",
     });
     // A pattern that matches nothing says so instead of selecting nothing.
     await expect(submit("/add pkg/*.rs")).rejects.toThrow(

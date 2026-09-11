@@ -52,6 +52,22 @@ describe("glob translation", () => {
 });
 
 describe("contained selection expansion", () => {
+  it("prefers an exact existing filename over glob interpretation", async () => {
+    await mkdir(join(root, "literal"), { recursive: true });
+    await writeFile(join(root, "literal", "[ab].txt"), "literal\n");
+    await writeFile(join(root, "literal", "a.txt"), "a\n");
+    await writeFile(join(root, "literal", "b.txt"), "b\n");
+    await writeFile(join(root, "literal", "a.md"), "a\n");
+    await writeFile(join(root, "literal", "b.md"), "b\n");
+
+    await expect(
+      expandSelection(resolver, ["literal/[ab].txt"]),
+    ).resolves.toEqual(["literal/[ab].txt"]);
+    await expect(
+      expandSelection(resolver, ["literal/[ab].md"]),
+    ).resolves.toEqual(["literal/a.md", "literal/b.md"]);
+  });
+
   it("names one path, expands a directory, and matches a glob", async () => {
     await expect(expandSelection(resolver, ["README.md"])).resolves.toEqual([
       "README.md",
