@@ -29,8 +29,27 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       const handle = await actual.open(...args);
       const hook = duringOpen;
       duringOpen = undefined;
-      await hook?.();
-      return handle;
+      if (hook === undefined) {
+        return handle;
+      }
+      // Run the swap once the temporary file is closed rather than while its
+      // handle is open. Windows refuses to rename a directory that contains an
+      // open file, so swapping during `open` failed with EPERM there and never
+      // reached the identity check. Closing first still lands inside the
+      // window: the adapter rechecks the containing directory after the write
+      // and before the rename.
+      return new Proxy(handle, {
+        get(target, property) {
+          if (property === "close") {
+            return async () => {
+              await target.close();
+              await hook();
+            };
+          }
+          const value = Reflect.get(target, property, target) as unknown;
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
     },
   };
 });

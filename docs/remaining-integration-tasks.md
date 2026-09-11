@@ -96,8 +96,16 @@ for revision-specific source references and reproduction limits.
   selection; test beside files that would match the same pattern.
 - [ ] Expose safe structured partial-turn errors to authenticated HTTP clients
   without leaking raw internal errors, and test post-write failure recovery.
-- [ ] Correct Windows permission assertions and ancestor-swap fault injection
-  without weakening production containment; establish passing platform evidence.
+- [ ] Establish passing `platform` job evidence on macOS and Windows. The three
+  test defects that failed every run from 2026-09-10 20:18 onward are fixed
+  without weakening production containment: the permission assertion now checks
+  retention rather than a POSIX mode Windows never records, the ancestor-swap
+  injection swaps the directory after the temporary file is closed rather than
+  while Windows holds its handle, and path-resolution fixtures are canonicalized
+  the way `SafePathResolver` canonicalizes its root. Because the step failed
+  before `Build package`, macOS and Windows still have no packed-bin or
+  repository-map-language evidence for any recent revision; a green run must be
+  cited by run id.
 
 ### Historical immediate P0 checklist
 

@@ -286,6 +286,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- The ancestor-swap fault injection reaches its identity check on Windows. The
+  swap ran while the temporary file's handle was still open, and Windows refuses
+  to rename a directory that contains an open file, so the injection failed with
+  `EPERM` instead of exercising the detection it exists to prove. It now swaps
+  once the handle is closed, which is still inside the window the adapter
+  rechecks; production containment is unchanged.
 - The permission-retention test asserts retention instead of a hard-coded
   `0600`, so it holds on Windows. Windows `chmod` only toggles the read-only
   bit, so the fixture's mode stayed `0666` and a correct replacement failed the
