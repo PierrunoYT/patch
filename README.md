@@ -57,9 +57,9 @@ output passes through one stateful control-sequence sanitizer, and replacement
 preserves the metadata Node can carry portably while refusing a swapped ancestor;
 `/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
 submits clipboard text as a user turn, and a turn interrupted after its edits
-landed reconciles history and reports what survived. Remaining blockers are
-repository-map failure isolation, watch-failure reporting, and the documentation
-truth pass. Hardlinked and non-regular
+landed reconciles history and reports what survived. Every P0 and P1 item in
+`docs/remaining-integration-tasks.md` is now closed; the P2 parity and evidence
+work and the documentation truth pass remain. Hardlinked and non-regular
 mutation targets are rejected rather than replaced or deleted.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; a move writes and syncs its

@@ -16,10 +16,18 @@ cache, project, and temporary-file rules. Production applies ordinary Git and
 root `.aiderignore` checks. Ignore-command failures now suppress the affected
 batch rather than exposing a file, but the failure is not surfaced to the user.
 
-Only changed files carrying an actionable marker enter a submission. Aider
-reloads current AI comments from every tracked chat file after a trigger; Patch
-does not. Production debounce/submission errors are currently discarded and a
-native watcher error stops watching without an actionable diagnostic.
+A changed file carrying an actionable marker triggers the turn, and the turn
+then refreshes AI comments from every selected file, as Aider does: a comment
+written earlier in another file already in the chat rides along instead of being
+dropped because only one file changed. A selected file with no comment and a
+commented file nobody selected both stay out. Unlike Aider, a changed file is
+not added to the chat by the trigger.
+
+Failures are reported rather than discarded. `onError` receives submission
+failures and native watcher errors — the terminal prints `Watched turn failed`
+or `Watch mode stopped` with the reason — so a failed background turn or a dead
+watcher is visible behind the input loop. A reporter that throws is ignored, and
+the cancellation that follows a deliberate close is not reported as a failure.
 
 Patch intentionally emits line-oriented comment context rather than depending
 on upstream's Python Tree-sitter context renderer.
@@ -35,7 +43,8 @@ EOF, `/exit`, Ctrl-C, or SIGTERM stops the watcher, cancels pending/active watch
 submissions, and closes the concrete service after its session queue settles.
 Watcher startup failure also closes the service. Watch cannot be combined with
 web or one-shot modes. This is local-filesystem support, not a guarantee of
-notifications on network filesystems; native Node watch errors stop watching.
+notifications on network filesystems; a native Node watch error stops watching
+and is reported through `onError`.
 
 Evidence: `tests/interface-startup.test.ts` exercises real filesystem changes,
 Git ignores, shared history, question-only write suppression, selected-file edits,

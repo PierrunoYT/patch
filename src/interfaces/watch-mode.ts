@@ -53,7 +53,20 @@ export interface WatchModeOptions {
   readonly debounceMs?: number;
   readonly signal?: AbortSignal;
   readonly emit?: (event: ApplicationEvent) => void;
+  /**
+   * Paths already in the chat. A triggered turn refreshes their AI comments too,
+   * so a comment written earlier in another selected file is not lost because
+   * only one file changed.
+   */
+  readonly selectedPaths?: () => readonly string[] | Promise<readonly string[]>;
+  /**
+   * Reports a failure watch mode cannot act on. Watching runs behind the input
+   * loop, so without this a failed turn or a dead native watcher is invisible.
+   */
+  readonly onError?: (error: unknown, source: WatchErrorSource) => void;
 }
+
+export type WatchErrorSource = "watcher" | "submit";
 
 export function parseWatchComments(content: string): {
   comments: readonly WatchComment[];
@@ -126,7 +139,10 @@ export class AiWatchMode {
         if (filename !== null) this.notify(String(filename));
       },
     );
-    this.#watcher.on("error", () => this.close());
+    this.#watcher.on("error", (error: unknown) => {
+      this.#report(error, "watcher");
+      this.close();
+    });
   }
 
   notify(path: string): void {
@@ -141,8 +157,18 @@ export class AiWatchMode {
         this.#queue === undefined
           ? this.#process(paths)
           : this.#queue.run(() => this.#process(paths), this.#controller.signal)
-      ).catch(() => undefined);
+      ).catch((error: unknown) => this.#report(error, "submit"));
     }, this.#options.debounceMs ?? 100);
+  }
+
+  /** A reporter that throws must not take the watcher down with it. */
+  #report(error: unknown, source: WatchErrorSource): void {
+    if (this.#controller.signal.aborted && source === "submit") return;
+    try {
+      this.#options.onError?.(error, source);
+    } catch {
+      // The reporter is a display concern; watch mode keeps running without it.
+    }
   }
 
   async flush(): Promise<void> {
@@ -171,50 +197,74 @@ export class AiWatchMode {
     this.#watcher = undefined;
   }
 
+  /**
+   * Reads the AI comments in one path, or `undefined` when the path is ignored,
+   * unreadable, too large, or not a file.
+   */
+  async #read(
+    resolver: SafePathResolver,
+    requested: string,
+  ): Promise<
+    | { path: string; comments: readonly WatchComment[]; action?: WatchAction }
+    | undefined
+  > {
+    let absolute: string;
+    try {
+      absolute = await resolver.resolve(requested);
+    } catch {
+      return undefined;
+    }
+    const path = relative(resolver.root, absolute).split(sep).join("/");
+    if (
+      path === "" ||
+      defaultIgnored(path) ||
+      (await this.#options.isIgnored?.(path))
+    )
+      return undefined;
+    try {
+      const metadata = await stat(absolute);
+      if (
+        !metadata.isFile() ||
+        metadata.size > (this.#options.maxFileBytes ?? 1024 * 1024)
+      )
+        return undefined;
+      const parsed = parseWatchComments(await readFile(absolute, "utf8"));
+      return { path, ...parsed };
+    } catch {
+      return undefined;
+    }
+  }
+
   async #process(changedPaths: readonly string[]): Promise<void> {
     const resolver =
       this.#resolver ?? (await SafePathResolver.create(this.#options.root));
+    const triggering = new Map<string, WatchAction>();
     const selected: Array<{
       path: string;
       comments: readonly WatchComment[];
-      action: WatchAction;
     }> = [];
+    const seen = new Set<string>();
     for (const changedPath of [...new Set(changedPaths)].sort()) {
-      let absolute: string;
-      try {
-        absolute = await resolver.resolve(changedPath);
-      } catch {
-        continue;
-      }
-      const path = relative(resolver.root, absolute).split(sep).join("/");
-      if (
-        path === "" ||
-        defaultIgnored(path) ||
-        (await this.#options.isIgnored?.(path))
-      )
-        continue;
-      try {
-        const metadata = await stat(absolute);
-        if (
-          !metadata.isFile() ||
-          metadata.size > (this.#options.maxFileBytes ?? 1024 * 1024)
-        )
-          continue;
-        const parsed = parseWatchComments(await readFile(absolute, "utf8"));
-        if (parsed.action !== undefined)
-          selected.push({
-            path,
-            comments: parsed.comments,
-            action: parsed.action,
-          });
-      } catch {
-        continue;
-      }
+      const read = await this.#read(resolver, changedPath);
+      if (read === undefined || read.action === undefined) continue;
+      triggering.set(read.path, read.action);
+      seen.add(read.path);
+      selected.push({ path: read.path, comments: read.comments });
     }
-    if (selected.length === 0 || this.#controller.signal.aborted) return;
-    const action = selected.some((item) => item.action === "edit")
-      ? "edit"
-      : "ask";
+    if (triggering.size === 0 || this.#controller.signal.aborted) return;
+    // A trigger in one file runs a turn about every AI comment in the chat, so a
+    // comment written earlier in another selected file is not silently dropped.
+    for (const path of [
+      ...new Set(await (this.#options.selectedPaths?.() ?? [])),
+    ].sort()) {
+      if (seen.has(path)) continue;
+      const read = await this.#read(resolver, path);
+      if (read === undefined || read.comments.length === 0) continue;
+      seen.add(read.path);
+      selected.push({ path: read.path, comments: read.comments });
+    }
+    if (this.#controller.signal.aborted) return;
+    const action = [...triggering.values()].includes("edit") ? "edit" : "ask";
     const intro =
       action === "edit"
         ? "Follow the AI comments below, then remove those comments."

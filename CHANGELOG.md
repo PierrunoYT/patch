@@ -171,6 +171,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Surfaced watch-mode failures and refreshed every selected file's AI comments
+  on a trigger. A watched turn that failed and a native watcher error were both
+  discarded, so a background failure and a dead watcher were invisible behind
+  the input loop; both now reach the terminal through `onError`. A triggered
+  turn also rereads AI comments from every file in the chat, so a comment
+  written earlier in another selected file is no longer dropped because only one
+  file changed.
 - Isolated per-file failures during repository-map construction. One tracked
   path that was deleted, unreadable, or unparseable aborted the whole turn that
   asked for the map; such a path is now dropped from the map and reported by

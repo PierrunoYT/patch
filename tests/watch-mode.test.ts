@@ -102,4 +102,62 @@ describe("AI watch mode", () => {
     await queue.idle();
     expect(order).not.toContain("two.ts");
   });
+
+  it("refreshes AI comments in every selected file for a triggered turn", async () => {
+    const directory = await root();
+    await writeFile(join(directory, "trigger.ts"), "// AI! rename this\n");
+    await writeFile(
+      join(directory, "earlier.ts"),
+      "// AI note the edge case\n",
+    );
+    await writeFile(join(directory, "quiet.ts"), "const quiet = 1;\n");
+    await writeFile(join(directory, "unselected.ts"), "// AI stale note\n");
+    let request: WatchRequest | undefined;
+    const watcher = new AiWatchMode({
+      root: directory,
+      selectedPaths: () => ["earlier.ts", "quiet.ts", "trigger.ts"],
+      submit: async (value) => {
+        request = value;
+      },
+    });
+
+    watcher.notify("trigger.ts");
+    await watcher.flush();
+
+    expect(request?.action).toBe("edit");
+    expect(request?.paths).toEqual(["trigger.ts", "earlier.ts"]);
+    expect(request?.prompt).toContain("rename this");
+    // A comment written earlier in another selected file rides along.
+    expect(request?.prompt).toContain("note the edge case");
+    // A selected file with no comment, and a commented file nobody selected, do
+    // not.
+    expect(request?.prompt).not.toContain("quiet.ts");
+    expect(request?.prompt).not.toContain("stale note");
+  });
+
+  it("reports a failed watched turn instead of swallowing it", async () => {
+    const directory = await root();
+    await writeFile(join(directory, "trigger.ts"), "// AI! do it\n");
+    const reported: [string, string][] = [];
+    const watcher = new AiWatchMode({
+      root: directory,
+      submit: async () => {
+        throw new Error("provider unavailable");
+      },
+      onError: (error, source) => {
+        reported.push([source, error instanceof Error ? error.message : ""]);
+      },
+    });
+
+    watcher.notify("trigger.ts");
+    await watcher.flush().catch(() => undefined);
+    // flush() surfaces the rejection to its caller; notify() has only onError.
+    watcher.notify("trigger.ts");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(reported).toContainEqual(["submit", "provider unavailable"]);
+    // Cancellation after close is not reported as a turn failure.
+    watcher.close();
+    expect(reported.filter(([source]) => source === "submit")).toHaveLength(1);
+  });
 });

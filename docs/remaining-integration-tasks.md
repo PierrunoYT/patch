@@ -59,13 +59,13 @@ tests are evidence only for the cases they exercise.
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | A five-language production map exists and per-file failures are isolated; context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
+| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, and watch reports its failures and refreshes every selected file's AI comments; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged and non-repository startup and directory targets are clearly rejected; inert flags, automatic packing, installed docs, and provenance checks remain. |
 
 ### Immediate P0 blockers
 
-All immediate P0 blockers are now closed; the P1 and P2 work below is what
-remains before the release claims can be re-audited.
+All immediate P0 blockers and all P1 correctness work are now closed; the P2
+work below is what remains before the release claims can be re-audited.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
@@ -183,8 +183,16 @@ remains before the release claims can be re-audited.
   `filesNoFullFiles` with `Ok.` otherwise. Surfacing skipped paths to the user
   stays P2. Evidence: the isolation case in `tests/repository-map-cache.test.ts`
   and the prompt-pair cases in `tests/application-prompt-context.test.ts`.
-- [ ] Surface watch submission/native watcher failures and refresh all selected
-  AI comments for a triggered turn.
+- [x] Surface watch submission/native watcher failures and refresh all selected
+  AI comments for a triggered turn. `WatchModeOptions.onError` receives both
+  submission failures and native watcher errors, and the terminal prints
+  `Watched turn failed` or `Watch mode stopped` with the reason instead of
+  discarding it. Once a changed file triggers, `WatchModeOptions.selectedPaths`
+  supplies the chat's files and their AI comments join the prompt, so a comment
+  written earlier in another selected file is not dropped. Adding a changed file
+  to the chat, as Aider does, stays out of scope because it would bypass path
+  approval. Evidence: the refresh and failure-reporting cases in
+  `tests/watch-mode.test.ts`.
 
 ### P2 parity and evidence work
 

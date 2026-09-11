@@ -332,6 +332,19 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                     `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
                   );
               },
+              selectedPaths: () => {
+                const state = session?.snapshot() as
+                  { editablePaths?: readonly string[] } | undefined;
+                return state?.editablePaths ?? [];
+              },
+              onError: (error, source) => {
+                markdown.end();
+                write(
+                  `${source === "watcher" ? "Watch mode stopped" : "Watched turn failed"}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }\n`,
+                );
+              },
             });
             await watcher.start();
           }
