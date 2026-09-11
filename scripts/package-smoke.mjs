@@ -22,6 +22,26 @@ try {
   if (files.some(({ path }) => path.startsWith("dist/tests/"))) {
     throw new Error("The packed tarball unexpectedly included compiled tests");
   }
+  // `prepack` rebuilds dist from a clean directory, so the tarball must carry
+  // the entry points and every runtime resource the build copies. A missing
+  // resource only fails at runtime, long after publication.
+  const packed = new Set(files.map(({ path }) => path));
+  for (const required of [
+    "dist/cli.js",
+    "dist/index.js",
+    "dist/resources/model-aliases.json5",
+    "dist/resources/model-settings.yml",
+    "dist/resources/model-metadata.json5",
+  ]) {
+    if (!packed.has(required)) {
+      throw new Error(`The packed tarball is missing ${required}`);
+    }
+  }
+  if (!files.some(({ path }) => path.startsWith("dist/resources/repomap/"))) {
+    throw new Error(
+      "The packed tarball is missing the repository-map resources",
+    );
+  }
   const consumerDirectory = join(temporaryDirectory, "consumer");
   mkdirSync(consumerDirectory);
 

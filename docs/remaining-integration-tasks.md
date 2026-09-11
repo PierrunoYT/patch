@@ -154,7 +154,13 @@ remains before the release claims can be re-audited.
   refused at selection instead of failing later as `EISDIR`. A path that does not
   exist yet stays selectable. Directory expansion stays P2. Evidence: the startup
   rejection cases in `tests/interface-startup.test.ts`.
-- [ ] Add a clean `prepack` build/resource step before any publication claim.
+- [x] Add a clean `prepack` build/resource step before any publication claim.
+  `prepack` runs `npm run build`, which cleans `dist/`, recompiles, and recopies
+  the runtime resources, so `npm pack`, `npm publish`, and a Git-URL install all
+  package a current build rather than whatever happened to be on disk.
+  `scripts/package-smoke.mjs` asserts the tarball carries `dist/cli.js`,
+  `dist/index.js`, the three model resource files, and the repository-map
+  resources.
 - [ ] Reconcile history and structured partial results whenever files or commits
   survive a later failure or cancellation.
 - [ ] Isolate missing/unreadable tracked files during map construction and emit

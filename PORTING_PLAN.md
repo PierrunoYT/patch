@@ -173,7 +173,10 @@ tests/
 ```
 
 Runtime resources belong under `src/resources/` and in the npm package `files`
-list. `assets/` remains branding-only.
+list. A `prepack` script rebuilds `dist/` from a clean directory, so `npm pack`
+and `npm publish` cannot ship a stale or partial build, and the package smoke
+test asserts the tarball carries both entry points and every copied resource.
+`assets/` remains branding-only.
 
 ### Core contracts
 

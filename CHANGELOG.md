@@ -171,6 +171,12 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Built the package from a clean `dist/` on every `npm pack`, `npm publish`, and
+  Git-URL install through a `prepack` script, rather than packaging whatever
+  build output happened to be on disk. The package smoke test now also asserts
+  the tarball carries both entry points, the three model resource files, and the
+  repository-map resources, so a missing runtime resource fails before
+  publication instead of at a user's first turn.
 - Rejected unsupported startup shapes by name instead of leaking the underlying
   failure. Starting outside a Git worktree reported a bare
   `git rev-parse --show-toplevel` failure; it now says Patch could not open a

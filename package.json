@@ -33,6 +33,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js,ts}\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{json,js,ts}\"",
     "lint": "eslint src tests scripts",
+    "prepack": "npm run build",
     "smoke:package": "node scripts/package-smoke.mjs",
     "start": "node dist/cli.js",
     "test": "vitest run",
