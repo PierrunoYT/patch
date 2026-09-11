@@ -551,8 +551,11 @@ evidence is not claimed until that matrix completes on the pushed revision.
 
 ### Phase 7 — Advanced edit and orchestration modes
 
-- [ ] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
-  parser is constructed, but production reuses ordinary diff prompts/examples.
+- [x] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
+  concrete provider request puts the path inside the active fence while ordinary
+  diff keeps it before the fence; a quadruple-backtick application test proves
+  the selected fence reaches the example and reminder. Full canonical prompt
+  text and per-attempt fence selection remain open in Phase 1.
 - [ ] Complete unified-diff behavior. File-header transitions are handled, but
   standard no-newline markers are rejected and Aider's indentation, omitted-line,
   partial-context, and duplicate-hunk recovery stages remain absent.

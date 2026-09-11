@@ -14,10 +14,13 @@ file-context instructions, repository-map boundaries, read-only guidance, and
 post-edit status messages.
 
 Format-specific production prompts are currently short Patch-authored
-instructions, not complete pinned Aider prompt resources. `diff-fenced` reuses
-the ordinary SEARCH/REPLACE prompt, and `udiff`/`patch` lack canonical examples
-and reminders. Exact equality of `COMMON_PROMPTS` does not prove that the
-concrete application consumes every field or formats each mode equivalently.
+instructions, not complete pinned Aider prompt resources. `diff-fenced` has its
+distinct pinned protocol: the filename follows the opening fence and language,
+where ordinary `diff` puts it before the fence. Its production instruction,
+example, and reminder all teach that ordering and interpolate the active fence.
+`udiff`/`patch` still lack canonical examples and reminders. Exact equality of
+`COMMON_PROMPTS` does not prove that the concrete application consumes every
+field or formats each mode equivalently.
 
 ## Fence selection
 
@@ -40,10 +43,11 @@ The selector itself matches the pinned candidate order. Production chooses a
 fence from startup snapshots and reselects it from the files currently in
 context whenever `/model` or `/chat-mode` switches the profile, and the selected
 fence — not a literal triple backtick — wraps the read-only and editable file
-messages, so prompt and parser agree on the same markers. Selection still
-ignores the fallback warning and does not recompute when `/add`, `/drop`, or a
-reflection changes the files in context between switches, so per-attempt fence
-parity remains open.
+messages and the `diff`/`diff-fenced` examples and fenced reminder, so those
+prompts and parsers agree on the same markers. Selection still ignores the
+fallback warning and does not recompute when `/add`, `/drop`, or a reflection
+changes the files in context between switches, so per-attempt fence parity
+remains open.
 
 ## Message chunk order
 

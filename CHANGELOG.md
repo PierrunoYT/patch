@@ -488,6 +488,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Gave `diff-fenced` its distinct pinned filename-inside-fence protocol instead
+  of sending the same prompt and example as ordinary `diff`. Strategy examples
+  and the fenced reminder now interpolate the fence selected from file content,
+  and a concrete fake-provider test compares both outbound requests under a
+  forced quadruple-backtick fence. The shared parser and shell-command policy
+  are unchanged; full canonical format-specific prompt parity remains open.
 - Production commits now honor CLI/YAML/environment hook verification and
   explicit author/committer/co-author settings. Optional weak-model subject
   generation sends only selected diffs, enforces input/output/cancellation

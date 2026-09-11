@@ -320,6 +320,43 @@ describe("switching the active model", () => {
     expect(sent(1)).toContain("one.txt\\n````\\none\\n````");
   });
 
+  it("sends the distinct fenced-diff protocol with the active fence", async () => {
+    const root = await temporaryDirectory("patch-fenced-diff-prompt-");
+    await writeFile(join(root, "fenced.md"), "```\nembedded\n```\n");
+    const common = [
+      "--no-git",
+      "--model",
+      "test/diff-model",
+      "--file",
+      "fenced.md",
+    ];
+    const ordinary = await harness({
+      root,
+      turns: 1,
+      argv: [...common, "--edit-format", "diff"],
+    });
+    const fenced = await harness({
+      root,
+      turns: 1,
+      argv: [...common, "--edit-format", "diff-fenced"],
+    });
+
+    await ordinary.submit("change the value");
+    await fenced.submit("change the value");
+
+    expect(ordinary.sent(0)).toContain(
+      "src/value.ts\\n````ts\\n<<<<<<< SEARCH",
+    );
+    expect(ordinary.sent(0)).not.toContain(
+      "````ts\\nsrc/value.ts\\n<<<<<<< SEARCH",
+    );
+    expect(fenced.sent(0)).toContain("````ts\\nsrc/value.ts\\n<<<<<<< SEARCH");
+    expect(fenced.sent(0)).not.toContain(
+      "src/value.ts\\n````ts\\n<<<<<<< SEARCH",
+    );
+    expect(fenced.sent(0)).toContain("The closing fence: ````");
+  });
+
   it("leaves the previous model active when the switch fails", async () => {
     const root = await temporaryDirectory("patch-switch-atomic-");
     await writeFile(join(root, "one.txt"), "one\n");

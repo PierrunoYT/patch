@@ -53,10 +53,15 @@ adds one intentional safety rule: a SEARCH section matching multiple locations
 is rejected instead of silently changing the first one. Missing and ambiguous
 matches have distinct errors suitable for a later reflection loop.
 
-`FencedSearchReplaceEditStrategy` has a separate `diff-fenced` identity but
-currently reuses the ordinary SEARCH/REPLACE production prompt and examples.
-The exported fenced reminder is not wired, so the model is not consistently
-taught the pinned filename-inside-fence layout.
+`FencedSearchReplaceEditStrategy` has a separate `diff-fenced` identity and the
+same parser as ordinary SEARCH/REPLACE, matching pinned
+[`editblock_fenced_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/editblock_fenced_coder.py).
+Its production system instruction, example, and reminder put the full filename
+inside the active fence, immediately after the opening fence and language;
+ordinary `diff` keeps the filename before the opening fence. Both examples
+interpolate the fence selected from current file content. The prompts remain
+short Patch-authored equivalents rather than byte-identical copies of the full
+upstream prompt resources.
 
 ## Unified diff
 
@@ -146,6 +151,6 @@ Property tests cover selected local invariants. Pinned fixtures cover a small
 SEARCH/REPLACE sample and parsing one two-file unified-diff response, including
 the intentional mid-block prefix difference. They do not establish complete
 Aider parity for whole-file prompts, broader unified-diff application/recovery,
-Patch scopes or repeated actions, constructed provider requests,
-architect/context, or media. Each remaining claim needs asymmetric
-exact-revision evidence at its production boundary.
+Patch scopes or repeated actions, provider requests beyond the concrete
+`diff`/`diff-fenced` layout case, architect/context, or media. Each remaining
+claim needs asymmetric exact-revision evidence at its production boundary.

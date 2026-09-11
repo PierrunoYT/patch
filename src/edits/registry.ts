@@ -8,7 +8,9 @@ import type { EditStrategy } from "./strategy.js";
 import type { EditFormat } from "./types.js";
 import { UnifiedDiffEditStrategy } from "./unified-diff.js";
 import { WholeFileEditStrategy } from "./whole-file.js";
+import type { Fence } from "../core/fences.js";
 import type { ChatMessage } from "../core/messages.js";
+import { fencedSearchReplaceReminder } from "../resources/prompts.js";
 
 export interface StrategyDefinition {
   readonly strategy: EditStrategy;
@@ -29,7 +31,20 @@ export class UnsupportedEditFormatError extends Error {
 const editingRole = `Act as an expert software engineer. Make only the requested changes.
 Return edits using exactly the required format. Never omit unchanged context needed to apply an edit.`;
 
-export function createStrategy(format: EditFormat): StrategyDefinition {
+const DEFAULT_FENCE: Fence = ["```", "```"];
+
+function searchReplaceExample(fence: Fence, filenameInside: boolean): string {
+  const filename = "src/value.ts";
+  const block = `${fence[0]}ts\n${
+    filenameInside ? `${filename}\n` : ""
+  }<<<<<<< SEARCH\nexport const value = 1;\n=======\nexport const value = 2;\n>>>>>>> REPLACE\n${fence[1]}`;
+  return filenameInside ? block : `${filename}\n${block}`;
+}
+
+export function createStrategy(
+  format: EditFormat,
+  fence: Fence = DEFAULT_FENCE,
+): StrategyDefinition {
   switch (format) {
     case "ask":
       return {
@@ -55,23 +70,32 @@ export function createStrategy(format: EditFormat): StrategyDefinition {
         allowShellCommands: false,
       };
     case "diff":
-    case "diff-fenced":
       return {
-        strategy:
-          format === "diff"
-            ? new SearchReplaceEditStrategy()
-            : new FencedSearchReplaceEditStrategy(),
+        strategy: new SearchReplaceEditStrategy(),
         systemPrompt: `${editingRole}\nUse filename-labelled <<<<<<< SEARCH, =======, >>>>>>> REPLACE blocks.`,
         examples: [
           { role: "user", content: "Change the value from 1 to 2." },
           {
             role: "assistant",
-            content:
-              "src/value.ts\n```ts\n<<<<<<< SEARCH\nexport const value = 1;\n=======\nexport const value = 2;\n>>>>>>> REPLACE\n```",
+            content: searchReplaceExample(fence, false),
           },
         ],
         reminder:
           "SEARCH text must match exactly once. Include the filename before every edit block.",
+        allowShellCommands: true,
+      };
+    case "diff-fenced":
+      return {
+        strategy: new FencedSearchReplaceEditStrategy(),
+        systemPrompt: `${editingRole}\nUse fenced <<<<<<< SEARCH, =======, >>>>>>> REPLACE blocks with the full filename inside each fence, immediately after the opening fence and language.`,
+        examples: [
+          { role: "user", content: "Change the value from 1 to 2." },
+          {
+            role: "assistant",
+            content: searchReplaceExample(fence, true),
+          },
+        ],
+        reminder: fencedSearchReplaceReminder(fence),
         allowShellCommands: true,
       };
     case "udiff":

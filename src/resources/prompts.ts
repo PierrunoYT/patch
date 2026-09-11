@@ -101,7 +101,24 @@ Start the summary with "I asked you...".
   summaryPrefix: "I spoke to you previously about a number of things.\n",
 } as const;
 
-/** Prompt variant from aider/coders/editblock_fenced_prompts.py. */
-export const FENCED_SEARCH_REPLACE_REMINDER = `Every SEARCH/REPLACE block must be enclosed by the active code fence.
-Inside the fence, put the language on the opening fence, then the full file path alone on a line, followed by <<<<<<< SEARCH, =======, and >>>>>>> REPLACE markers.
+/**
+ * Prompt variant from aider/coders/editblock_fenced_prompts.py at the pinned
+ * revision. The upstream prompt places the filename after the active opening
+ * fence and interpolates both selected fence markers. Patch keeps the same
+ * protocol in its shorter production reminder.
+ */
+export function fencedSearchReplaceReminder(
+  fence: readonly [open: string, close: string],
+): string {
+  return `Every SEARCH/REPLACE block must be enclosed by the active code fence in this order:
+1. The opening fence and language, for example: ${fence[0]}typescript
+2. The full file path alone on a line, inside the fence.
+3. <<<<<<< SEARCH, the exact search text, =======, the replacement text, and >>>>>>> REPLACE.
+4. The closing fence: ${fence[1]}
 Include enough exact context for every SEARCH section to identify one location.`;
+}
+
+export const FENCED_SEARCH_REPLACE_REMINDER = fencedSearchReplaceReminder([
+  "```",
+  "```",
+]);

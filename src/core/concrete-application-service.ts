@@ -1059,7 +1059,6 @@ class ConcreteApplicationSession implements ApplicationSession {
     format: EditFormat,
     codeFormat: EditFormat,
   ): Promise<void> {
-    const definition = createStrategy(format);
     const model = { ...main, editFormat: format };
     const provider = this.#context.makeProvider(model);
     const state = this.#session.snapshot();
@@ -1071,6 +1070,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     const fence = selectFence(
       contents.flatMap(({ content }) => (content === null ? [] : [content])),
     ).fence;
+    const definition = createStrategy(format, fence);
     const repositoryMap = await this.#selectRepositoryMap(main);
     await this.#session.switch({
       model,
@@ -1413,7 +1413,6 @@ export class ConcreteApplicationService implements ApplicationService {
     const models = selectModels(catalog, { main: bootstrap.arguments.model });
     const requestedFormat =
       bootstrap.arguments.editFormat ?? models.main.settings.editFormat;
-    const definition = createStrategy(requestedFormat);
     const makeProvider = (model: ModelSettings) =>
       options.dependencies?.provider ??
       (options.dependencies?.createProvider ?? createProvider)(model, {
@@ -1434,6 +1433,7 @@ export class ConcreteApplicationService implements ApplicationService {
         content === null ? [] : [content],
       ),
     ).fence;
+    const definition = createStrategy(requestedFormat, fence);
     const availablePaths =
       repository === undefined
         ? [...new Set([...editablePaths, ...readOnlyPaths])]

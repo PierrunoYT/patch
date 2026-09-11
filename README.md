@@ -157,7 +157,10 @@ named path that does not exist yet stays selectable. External read-only files
 are not supported.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
-accepted. See the [provider documentation](docs/providers.md) and
+accepted. Ordinary `diff` places each filename before its edit fence;
+`diff-fenced` places it inside, immediately after the opening fence and
+language, using the fence selected from current file content. See the
+[provider documentation](docs/providers.md) and
 [input modes](docs/terminal.md#input-modes).
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).

@@ -67,7 +67,7 @@ unchanged result of the historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
-| Editing | partial | Whole-file, basic SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery; fenced prompts remain shared and independent Patch-format goldens are absent. |
+| Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery, and independent Patch-format goldens are absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
@@ -123,7 +123,16 @@ for revision-specific source references and reproduction limits.
   defaults, automatic name suffixes, model fallback/retry, prompt/language
   controls, and independent auto/dirty-commit switches remain intentional
   differences or unsupported controls in [Git policy](git-repository.md).
-- [ ] Wire the distinct fenced-diff prompt and test the actual provider request.
+- [x] Wire the distinct fenced-diff prompt and test the actual provider request.
+  `diff-fenced` now puts the filename immediately after the opening fence and
+  language in its system instruction, example, and reminder, while ordinary
+  `diff` keeps the filename before the fence. Both examples use the fence
+  selected from current file content. `tests/application-prompt-context.test.ts`
+  compares both concrete application requests and forces quadruple backticks,
+  proving that the provider receives the selected markers. The parser and shell
+  policy remain shared as at pinned `aider/coders/editblock_fenced_coder.py`;
+  full canonical format-specific prompt text and per-attempt fence reselection
+  remain open under R1.
 - [ ] Pin and handle unified-diff no-newline behavior, then broaden recovery
   fixtures without weakening ambiguity rejection.
 - [ ] Preserve exact existing filenames containing glob metacharacters through
@@ -512,8 +521,9 @@ strategy prompt, provider lifetime, or interface policy listed below.
   schema-only modes before a provider call.
 - [ ] Give each constructed strategy its canonical system prompt, examples,
   reminders, shell policy, and per-attempt fence. Production prompts remain
-  abridged. File context uses the selected fence, but selection runs at startup
-  and profile switches rather than after every file/context change.
+  abridged. `diff` and `diff-fenced` examples and reminders use their distinct
+  pinned layouts and the selected fence, but selection runs at startup and
+  profile switches rather than after every file/context change.
 
 **Acceptance:** the installed application service can start from supported
 configuration, select a main provider/model/strategy, compose repository
