@@ -77,14 +77,29 @@ and received, then the turn and session cost. Unknown costs remain `null` and
 render as tokens alone rather than becoming a misleading zero, and a turn under
 a cent keeps four decimals so it does not display as `$0.00`.
 
-Bundled coverage is incomplete: only `deepseek/deepseek-chat` has a metadata
-entry. `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`, and `claude-haiku-4-5` have
-no bundled input-token ceiling or catalog prices. The merge mechanism is wired,
-but that does not supply limits or costs absent from the resources. Cached input
-tokens are reported, but the catalog formula uses only aggregate input/output
-prices; cache-hit/write pricing is not modeled. A provider-supplied cost takes
-precedence. These limitations are tracked in the
-[2026-09-11 audit](aider-parity-audit-2026-09-11.md) and the integration backlog.
+Every advertised bundled model now carries an input limit, an output limit, and
+catalog prices, and `tests/model-metadata-merge.test.ts` fails when an entry is
+added without them. Upstream ships metadata only for the models LiteLLM's data
+misses and reads the rest from LiteLLM at runtime; Patch has no such database,
+so these values come from LiteLLM 1.84.10's
+`model_prices_and_context_window_backup.json`, the table the pinned aider
+revision resolves them from. They are a snapshot of vendor pricing at that
+version rather than a live quote, and a deployment that needs current prices
+supplies its own metadata file.
+
+The limits are load-bearing, not decoration: a prompt over the model's
+`maxInputTokens` is refused before the provider call, and the repository-map
+budget is sized from the same number. `tests/interface-startup.test.ts` sends an
+oversized selection through `gpt-4o` and the same selection through
+`claude-sonnet-4-6`, which has a one-million-token window, and asserts the first
+never reaches the provider.
+
+Cached input tokens are reported, but the catalog formula uses only aggregate
+input/output prices; cache-hit and cache-write pricing is not modeled, so a
+fully cached request costs the same as an uncached one. A provider-supplied cost
+takes precedence over the catalog calculation. That limitation is tracked in the
+[2026-09-11 audit](aider-parity-audit-2026-09-11.md) and the integration
+backlog.
 
 ## Temperature
 

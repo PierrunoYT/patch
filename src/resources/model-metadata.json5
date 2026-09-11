@@ -1,11 +1,66 @@
 // Adapted from aider/resources/model-metadata.json at revision
 // 5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Token costs were converted from
 // per-token values to Patch's per-million-token contract.
+//
+// Upstream's own file carries only the models LiteLLM's data misses, and aider
+// reads everything else from LiteLLM at runtime. Patch ships no such database,
+// so the limits and prices for the advertised bundled models are taken from
+// LiteLLM 1.84.10's `model_prices_and_context_window_backup.json`, the table
+// the pinned aider revision resolves them from. They are a snapshot of vendor
+// pricing at that version, not a live quote.
 {
+  "gpt-4o": {
+    provider: "openai",
+    maxInputTokens: 128000,
+    maxOutputTokens: 16384,
+    inputCostPerMillion: 2.5,
+    outputCostPerMillion: 10,
+    // OpenAI caches prompts automatically and rejects explicit cache control,
+    // so the `promptCaching` capability that marks a cacheable prefix stays
+    // off for these models even though the endpoint reports cached tokens.
+  },
+  "gpt-4o-mini": {
+    provider: "openai",
+    maxInputTokens: 128000,
+    maxOutputTokens: 16384,
+    inputCostPerMillion: 0.15,
+    outputCostPerMillion: 0.6,
+  },
+  "claude-sonnet-4-6": {
+    provider: "anthropic",
+    maxInputTokens: 1000000,
+    maxOutputTokens: 64000,
+    inputCostPerMillion: 3,
+    outputCostPerMillion: 15,
+    capabilities: {
+      promptCaching: true,
+    },
+  },
+  "claude-haiku-4-5": {
+    provider: "anthropic",
+    maxInputTokens: 200000,
+    maxOutputTokens: 64000,
+    inputCostPerMillion: 1,
+    outputCostPerMillion: 5,
+    capabilities: {
+      promptCaching: true,
+    },
+  },
   "deepseek/deepseek-chat": {
     provider: "deepseek",
     maxInputTokens: 128000,
     maxOutputTokens: 8192,
+    inputCostPerMillion: 0.28,
+    outputCostPerMillion: 0.42,
+    capabilities: {
+      assistantPrefill: true,
+      promptCaching: true,
+    },
+  },
+  "deepseek/deepseek-reasoner": {
+    provider: "deepseek",
+    maxInputTokens: 128000,
+    maxOutputTokens: 64000,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
     capabilities: {

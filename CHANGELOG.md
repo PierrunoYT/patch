@@ -286,6 +286,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Every advertised bundled model carries an input limit, an output limit, and
+  catalog prices. Only `deepseek/deepseek-chat` had a metadata entry, so
+  `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`, `claude-haiku-4-5`, and
+  `deepseek/deepseek-reasoner` had no input ceiling to budget against, sized
+  their repository map from the 1024-token fallback, and reported an unknown
+  cost for every turn. An oversized prompt was sent to the provider rather than
+  refused. The values come from the LiteLLM table the pinned aider revision
+  resolves them from, and a catalog entry added without them now fails a test.
 - `.aiderignore` composes with ordinary Git exclusions instead of replacing
   them. Patch supplied the file as `core.excludesFile`, so a project that had an
   `.aiderignore` lost the user's global ignore policy for Patch's own check, and

@@ -234,6 +234,54 @@ describe("application interface startup", () => {
     service.close();
   });
 
+  it("budgets a turn against the bundled model's advertised input limit", async () => {
+    const root = await fixture();
+    // Roughly 150k tokens by the estimator, over gpt-4o's 128k input limit and
+    // under claude-sonnet-4-6's one million. Without bundled metadata neither
+    // model had a limit at all, so an oversized prompt was sent to the
+    // provider instead of being refused.
+    await writeFile(join(root, "huge.ts"), `const x = 1;\n`.repeat(46_000));
+    const submit = async (model: string) => {
+      const provider = new FakeProvider([turn("answered")]);
+      const service = await ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--no-git", "--model", model, "--edit-format", "ask", "huge.ts"],
+        dependencies: { provider },
+      });
+      const session = service.createSession({
+        principal: "budget",
+        sessionId: `budget-${model}`,
+      });
+      try {
+        return await session
+          .submit("summarize", {
+            signal: new AbortController().signal,
+            emit: () => undefined,
+          })
+          .then(
+            () => ({ requests: provider.requests.length, error: undefined }),
+            (error: unknown) => ({
+              requests: provider.requests.length,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
+      } finally {
+        service.close();
+      }
+    };
+
+    await expect(submit("4o")).resolves.toMatchObject({
+      requests: 0,
+      error: expect.stringMatching(/tokens but the model limit is 128000/u),
+    });
+    await expect(submit("sonnet")).resolves.toMatchObject({
+      requests: 1,
+      error: undefined,
+    });
+  });
+
   it("applies AI! edits only to authorized selections and rejects question-only commands", async () => {
     const root = await fixture();
     await writeFile(join(root, "selected.ts"), "// AI! replace this\n");

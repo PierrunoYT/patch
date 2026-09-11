@@ -103,6 +103,46 @@ describe("catalog metadata merging", () => {
       maxInputTokens: 128000,
     });
   });
+
+  it("gives every advertised bundled model its limits and prices", async () => {
+    const catalog = await ModelCatalog.load();
+
+    // A model with no input limit cannot be budgeted and reports an unknown
+    // cost for every turn, so an entry added without metadata fails here
+    // rather than degrading quietly in production.
+    for (const name of catalog.list()) {
+      expect({ ...catalog.resolve(name).settings, model: name }).toMatchObject({
+        model: name,
+        maxInputTokens: expect.any(Number),
+        maxOutputTokens: expect.any(Number),
+        inputCostPerMillion: expect.any(Number),
+        outputCostPerMillion: expect.any(Number),
+      });
+    }
+    expect(catalog.list()).toEqual([
+      "claude-haiku-4-5",
+      "claude-sonnet-4-6",
+      "deepseek/deepseek-chat",
+      "deepseek/deepseek-reasoner",
+      "gpt-4o",
+      "gpt-4o-mini",
+    ]);
+    expect(catalog.resolve("4o").settings).toMatchObject({
+      maxInputTokens: 128000,
+      inputCostPerMillion: 2.5,
+      outputCostPerMillion: 10,
+    });
+    expect(catalog.resolve("sonnet").settings).toMatchObject({
+      maxInputTokens: 1000000,
+      inputCostPerMillion: 3,
+      outputCostPerMillion: 15,
+    });
+    // OpenAI rejects explicit cache control, so its bundled entries keep the
+    // capability off even though the endpoint reports cached tokens.
+    expect(catalog.resolve("4o").settings.capabilities.promptCaching).toBe(
+      false,
+    );
+  });
 });
 
 describe("temperature policy", () => {
