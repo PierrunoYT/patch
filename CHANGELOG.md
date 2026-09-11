@@ -286,6 +286,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Parsed standard unified-diff `\ No newline at end of file` markers instead of
+  rejecting them. Marker placement now preserves, adds, or removes a final
+  newline through the real resolver, detached markers fail as malformed, and
+  repeated marker-derived search text remains ambiguous rather than changing
+  multiple locations. This intentionally corrects pinned aider's behavior,
+  which tolerates the marker but discards its newline meaning.
 - Cached and written input tokens are priced separately from ordinary ones. The
   catalog charged the flat input price for every input token, so a turn served
   almost entirely from the provider's cache cost the same as one that was not,

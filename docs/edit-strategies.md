@@ -7,7 +7,7 @@ does not write to disk; authorization and application remain separate stages.
 
 Current parity is uneven. Whole-file and basic SEARCH/REPLACE are the mature
 paths. Unified-diff file transitions and Patch scopes/repeated actions are
-implemented as described below; unified-diff marker/recovery behavior,
+implemented as described below; broader unified-diff recovery behavior,
 format-specific prompts, and broader pinned golden coverage remain incomplete.
 Constructing a format is not a release-readiness or full parity claim.
 
@@ -74,10 +74,13 @@ or `/dev/null`; upstream applies that rule to a fence's first header pair alone,
 and Patch intentionally applies it to every transition so later files resolve to
 real repository paths.
 
-The parser currently rejects standard `\ No newline at end of file` markers,
-and before/after extraction appends a trailing newline. No-newline behavior
-needs dedicated fixtures rather than a claim that tolerating the marker alone
-would establish application parity. Aider's indentation, omitted-line,
+Standard `\ No newline at end of file` markers apply to the immediately
+preceding old, new, or context line. Parsing and application therefore preserve
+a missing final newline or add/remove it when only one side carries the marker;
+a detached marker is malformed. Pinned aider tolerates the line only by ignoring
+it, then adds a newline to both sides. Patch intentionally implements the Git
+marker's meaning instead and preserves its stronger rejection whenever search
+text identifies more than one location. Aider's indentation, omitted-line,
 partial-context, and duplicate-hunk recovery are not implemented, and identical
 repeated hunks are not deduplicated.
 

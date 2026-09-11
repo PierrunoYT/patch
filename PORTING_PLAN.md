@@ -79,9 +79,10 @@ evidence; this plan and the backlog track current status and open work.
   shipped language entry has one sample whose tags match upstream's own
   extractor exactly; context mode and broader ranking/personalization fixtures
   remain. Models without input limits use the default map budget.
-- Unified-diff file transitions and Patch scopes/repeated actions are
-  constructed and tested locally. Unified-diff recovery/no-newline behavior,
-  format-specific prompts, and broader pinned goldens remain incomplete.
+- Unified-diff file transitions and standard no-newline markers, plus Patch
+  scopes/repeated actions, are constructed and tested locally. Broader
+  unified-diff recovery, remaining format-specific prompts, and broader pinned
+  goldens remain incomplete.
   Architect/editor, context, help, and other advanced formats are unconstructed.
 - Terminal Markdown, diff previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
@@ -557,8 +558,10 @@ evidence is not claimed until that matrix completes on the pushed revision.
   the selected fence reaches the example and reminder. Full canonical prompt
   text and per-attempt fence selection remain open in Phase 1.
 - [ ] Complete unified-diff behavior. File-header transitions are handled, but
-  standard no-newline markers are rejected and Aider's indentation, omitted-line,
-  partial-context, and duplicate-hunk recovery stages remain absent.
+  Aider's indentation, omitted-line, partial-context, and duplicate-hunk
+  recovery stages remain absent. Standard no-newline markers preserve, add, or
+  remove the final newline according to their position; this intentionally
+  fixes pinned aider's marker-tolerance behavior, which loses that meaning.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. Independent pinned goldens for the format remain in R6.

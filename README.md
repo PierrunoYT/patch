@@ -162,6 +162,8 @@ accepted. Ordinary `diff` places each filename before its edit fence;
 language, using the fence selected from current file content. See the
 [provider documentation](docs/providers.md) and
 [input modes](docs/terminal.md#input-modes).
+Unified-diff input honors standard `\ No newline at end of file` markers,
+including transitions that add or remove the final newline.
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 

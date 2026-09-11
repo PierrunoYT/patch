@@ -7,6 +7,7 @@ import {
   UnifiedDiffEditStrategy,
   UnifiedDiffNoMatchError,
   UnifiedDiffNotUniqueError,
+  UnifiedDiffParseError,
 } from "../src/index.js";
 
 const context = { editablePaths: ["src/a.ts"], fence: ["```", "```"] as const };
@@ -74,6 +75,77 @@ describe("UnifiedDiffEditStrategy", () => {
 
     expect(created.edits).toMatchObject([{ path: "src/new.ts" }]);
     expect(plain.edits).toMatchObject([{ path: "src/plain.ts" }]);
+  });
+
+  it.each([
+    {
+      name: "preserves missing newlines on both sides",
+      hunk: [
+        "-old",
+        "\\ No newline at end of file",
+        "+new",
+        "\\ No newline at end of file",
+      ],
+      original: "old",
+      expected: "new",
+    },
+    {
+      name: "adds a final newline",
+      hunk: ["-old", "\\ No newline at end of file", "+new"],
+      original: "old",
+      expected: "new\n",
+    },
+    {
+      name: "removes a final newline",
+      hunk: ["-old", "+new", "\\ No newline at end of file"],
+      original: "old\n",
+      expected: "new",
+    },
+  ])("$name from standard marker placement", ({ hunk, original, expected }) => {
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -1 +1 @@",
+        ...hunk,
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(batch.edits[0]).toMatchObject({
+      search: original,
+      replacement: expected,
+    });
+    expect(
+      resolveEditBatch(batch, [{ path: "src/a.ts", content: original }])
+        .operations[0],
+    ).toMatchObject({ content: expected });
+  });
+
+  it("rejects a detached no-newline marker", () => {
+    expect(() =>
+      new UnifiedDiffEditStrategy().parse(
+        [
+          "```diff",
+          "--- a/src/a.ts",
+          "+++ b/src/a.ts",
+          "@@ -1 +1 @@",
+          "\\ No newline at end of file",
+          "-old",
+          "+new",
+          "```",
+        ].join("\n"),
+        context,
+      ),
+    ).toThrow(UnifiedDiffParseError);
+  });
+
+  it("keeps ambiguity rejection for no-newline hunks", () => {
+    expect(() => applyUnifiedDiff("oldold", "old", "new", "a.ts")).toThrow(
+      UnifiedDiffNotUniqueError,
+    );
   });
 
   it("distinguishes absent context from non-unique context", () => {

@@ -67,7 +67,7 @@ unchanged result of the historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
-| Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery, and independent Patch-format goldens are absent. |
+| Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
@@ -133,8 +133,16 @@ for revision-specific source references and reproduction limits.
   policy remain shared as at pinned `aider/coders/editblock_fenced_coder.py`;
   full canonical format-specific prompt text and per-attempt fence reselection
   remain open under R1.
-- [ ] Pin and handle unified-diff no-newline behavior, then broaden recovery
-  fixtures without weakening ambiguity rejection.
+- [x] Pin and handle unified-diff no-newline behavior, then broaden recovery
+  fixtures without weakening ambiguity rejection. Standard markers now remove
+  the synthetic trailing newline from the immediately preceding old, new, or
+  context line as appropriate; detached markers are rejected. Local fixtures
+  cover preserving, adding, and removing a final newline through parse,
+  resolution, and application, plus malformed placement and repeated no-newline
+  context. Pinned aider ignores marker semantics and always adds a newline, so
+  Patch intentionally implements the standard Git meaning while retaining its
+  stricter all-length unique-match requirement. Indentation, omitted-line,
+  partial-context, and duplicate-edit recovery remain open under Phase 7.
 - [ ] Preserve exact existing filenames containing glob metacharacters through
   selection; test beside files that would match the same pattern.
 - [ ] Expose safe structured partial-turn errors to authenticated HTTP clients

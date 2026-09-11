@@ -21,19 +21,35 @@ export class UnifiedDiffNotUniqueError extends Error {
   override readonly name = "UnifiedDiffNotUniqueError";
 }
 
+const NO_NEWLINE_MARKER = "\\ No newline at end of file";
+
 function beforeAfter(lines: readonly string[]): [string, string] {
   const before: string[] = [];
   const after: string[] = [];
+  let previousOperation: string | undefined;
   for (const line of lines) {
+    if (line === NO_NEWLINE_MARKER) {
+      if (!previousOperation || ![" ", "+", "-"].includes(previousOperation)) {
+        throw new UnifiedDiffParseError(
+          "A no-newline marker must immediately follow a hunk content line",
+        );
+      }
+      if (previousOperation === " " || previousOperation === "-") {
+        before[before.length - 1] = (before.at(-1) ?? "").slice(0, -1);
+      }
+      if (previousOperation === " " || previousOperation === "+") {
+        after[after.length - 1] = (after.at(-1) ?? "").slice(0, -1);
+      }
+      previousOperation = undefined;
+      continue;
+    }
     const operation = line[0];
     const content = line.slice(1);
-    if (operation === " " || operation === "-") before.push(content);
-    if (operation === " " || operation === "+") after.push(content);
+    if (operation === " " || operation === "-") before.push(`${content}\n`);
+    if (operation === " " || operation === "+") after.push(`${content}\n`);
+    previousOperation = operation;
   }
-  return [
-    before.length === 0 ? "" : `${before.join("\n")}\n`,
-    after.length === 0 ? "" : `${after.join("\n")}\n`,
-  ];
+  return [before.join(""), after.join("")];
 }
 
 export function applyUnifiedDiff(
@@ -137,6 +153,10 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
         }
         if (line.startsWith("@@")) {
           flush();
+          continue;
+        }
+        if (line === NO_NEWLINE_MARKER) {
+          hunk.push(line);
           continue;
         }
         if (line !== "" && ![" ", "+", "-"].includes(line[0] ?? "")) {
