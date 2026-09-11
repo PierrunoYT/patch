@@ -58,8 +58,8 @@ tests are evidence only for the cases they exercise.
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, and unparsed files contribute lexical references; context mode and fixture breadth are incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, and rich input plus explicitly requested PTY dispatch are connected to the reader; path/glob selection, visible subprocess output, and URL ingestion are incomplete. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, and watch reports its failures and refreshes every selected file's AI comments; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
+| Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, rich input and explicitly requested PTY dispatch are connected to the reader, selection takes directories and globs, subprocess output and status are visible, and `/web` ingests one page; the help, report, and settings families are absent. |
+| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, watch reports its failures and refreshes every selected file's AI comments, and `/web` ingests one user-typed URL as bounded, labeled text; voice is a helper surface, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup and directory targets are clearly rejected, and `--vim` is refused instead of ignored; the completion inventory, installed docs, and provenance checks remain. |
 
 ### Immediate P0 blockers
@@ -261,8 +261,20 @@ work below is what remains before the release claims can be re-audited.
   `tests/interface-startup.test.ts`, the output cases in
   `tests/application-commands.test.ts` and `tests/render.test.ts`, and the event
   ordering case in `tests/application-lifecycle.test.ts`.
-- [ ] Define URL ingestion and HTML-to-readable-text behavior; keep the strict
-  SSRF/no-subresource policy as an intentional security difference.
+- [x] Define URL ingestion and HTML-to-readable-text behavior; keep the strict
+  SSRF/no-subresource policy as an intentional security difference. `/web <url>`
+  fetches exactly one user-typed URL — a URL a model or a fetched page mentions
+  is never followed, and Patch does not detect URLs in prose as Aider does — and
+  adds its readable text to history as a user message labeled with the URL
+  redirects ended at, truncated to a quarter of the model's input window.
+  `htmlToReadableText` replaces upstream's BeautifulSoup/pandoc pair with a
+  dependency-free converter that keeps headings, lists, and absolute `http(s)`
+  links and drops scripts, styles, media, and every other attribute, so no
+  inline payload reaches the model. The fetcher is constructed on first use, and
+  its SSRF, redirect, size, TLS, and no-subresource policy is unchanged and
+  documented as an intentional difference. Playwright rendering stays a library
+  helper that `/web` never uses. Evidence: `tests/url-ingestion.test.ts` and
+  `tests/url-fetcher.test.ts`.
 - [ ] Decide explicit dispositions for Aider help, report, settings, browser GUI,
   voice UX, analytics, onboarding/OAuth, and update/release-note families.
   **This one is an open product decision, not an implementation gap**, and it is
@@ -597,12 +609,14 @@ importing helper modules, and the default installation remains native-free.
 ## R8 — Expose Phase 9 adapters through ApplicationService
 
 **Problem:** Watch and local HTTP/SSE startup now construct concrete application
-contracts. URL context integration and complete web operational policy remain
-unfinished; the API is for trusted local clients, not public hosting.
+contracts and `/web` ingests one user-typed URL. Complete web operational policy
+remains unfinished; the API is for trusted local clients, not public hosting.
 
-- [ ] Feed fetched URL content through bounded application context with explicit
+- [x] Feed fetched URL content through bounded application context with explicit
   user intent, source labeling, and token limits; keep Playwright separately
-  installed and opt-in.
+  installed and opt-in. `/web` is the only ingestion path, it fetches only the
+  URL the user typed, and Playwright is neither installed by default nor used by
+  the command.
 - [x] Connect `AiWatchMode` to a concrete session and Git ignore checks.
   Terminal watch shares its session queue.
 - [x] Coordinate repository mutations across independent web/application

@@ -75,8 +75,9 @@ through the optional `node-pty` package. `--vim` is refused rather than ignored;
 Vi modal editing is not implemented. Architect/context/cache/media helpers are not constructed
 modes; assistant prefill is reached by capable models but is incomplete.
 `--watch-files` shares the terminal session, and `--web` starts the local
-authenticated HTTP/SSE API—not a browser GUI. URL context integration and web
-session expiry/backpressure/mutation coordination remain unfinished. See the
+authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
+user-typed page to the chat as bounded, labeled text. Web session
+expiry/backpressure/mutation coordination remains unfinished. See the
 unchecked items in
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
 the authoritative remaining scope.

@@ -82,9 +82,9 @@ edit-format, option, and interface support must be documented explicitly.
   Executable metadata merging, temperature policy, prompt caching, media, and
   secondary-model workflows are not fully composed.
 - Watch and a local authenticated HTTP/SSE API start through the application and
-  share one worktree mutation lock. URL ingestion, browser GUI, complete voice
-  UX, and the remaining web session policy (expiry, quotas, backpressure,
-  disconnect cancellation) remain.
+  share one worktree mutation lock, and `/web` ingests one user-typed URL as
+  bounded, labeled text. Browser GUI, complete voice UX, and the remaining web
+  session policy (expiry, quotas, backpressure, disconnect cancellation) remain.
 - Help, report, settings, browser GUI, voice UX, analytics, onboarding/OAuth,
   and update/release-note prompts have no recorded disposition yet. Each needs
   to be marked *implement*, *deferred*, or *non-goal* here before the parity
@@ -562,8 +562,11 @@ because the provisioned native package fails its spawn contract there.
 
 ### Phase 9 — Optional interfaces
 
-- [ ] Feed bounded URL fetching into application context. The SSRF-safe fetcher
-  and optional renderer contract are library-only.
+- [x] Feed bounded URL fetching into application context. `/web <url>` fetches
+  one user-typed URL through the SSRF-safe fetcher, converts HTML to readable
+  text without adding a dependency, and adds it to history labeled with the
+  final URL and truncated to a share of the input window. URL detection in prose
+  and the optional Playwright renderer stay out of the command path.
 - [x] Add supported startup for `AI!`/`AI?` watch mode. `--watch-files` shares
   the concrete terminal session and Git ignore predicate; question-only turns
   suppress edits and commands. Node.js local-filesystem notifications are used.
@@ -578,8 +581,8 @@ because the provisioned native package fails its spawn contract there.
 
 **Exit (default footprint met; adapter exposure partial):** package smoke tests
 assert that optional native/browser/audio dependencies do not enter a normal
-install. Watch and local API startup work; URL context integration and web
-operational policy remain incomplete. Interface flags are CLI-only and web
+install. Watch, local API startup, and `/web` ingestion work; web operational
+policy remains incomplete. Interface flags are CLI-only and web
 cannot run alongside terminal/watch input in the same executable instance.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,

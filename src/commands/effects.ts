@@ -67,6 +67,7 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
       interactive: z.boolean().optional(),
     })
     .strict(),
+  z.object({ type: z.literal("web"), url: z.string().min(1) }).strict(),
   z.object({ type: z.literal("test") }).strict(),
   z.object({ type: z.literal("lint") }).strict(),
   z

@@ -171,6 +171,14 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- `/web <url>` fetches one user-typed URL and adds its readable text to the
+  chat, labeled with the URL redirects ended at and truncated to a quarter of the
+  model's input window. HTML becomes text through a dependency-free converter
+  that keeps headings, lists, and absolute links and drops scripts, styles,
+  media, and every other attribute. A URL a model or a fetched page mentions is
+  never followed, nothing is loaded as a subresource, and the fetcher — with its
+  SSRF, redirect, size, and content-type policy — is constructed only when the
+  command first runs.
 - Directories and globs select files. `--file`, `--read-only`, `/add`,
   `/read-only`, and `/drop` accept a directory or a `*`/`**`/`?`/`[...]` pattern
   and expand it inside the repository boundary: symbolic links are skipped,

@@ -46,6 +46,7 @@ export * from "./io/render.js";
 export * from "./io/sanitize.js";
 export * from "./io/safe-path.js";
 export * from "./io/selection.js";
+export * from "./interfaces/html-text.js";
 export * from "./interfaces/url-fetcher.js";
 export * from "./interfaces/watch-mode.js";
 export * from "./interfaces/web-server.js";

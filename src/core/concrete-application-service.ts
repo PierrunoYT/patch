@@ -50,6 +50,8 @@ import {
   executeModelCommands,
   type ModelCommandResult,
 } from "../process/model-command.js";
+import { htmlToReadableText } from "../interfaces/html-text.js";
+import type { FetchedUrl } from "../interfaces/url-fetcher.js";
 import { GitRepository } from "../repository/git.js";
 import { COMMON_PROMPTS } from "../resources/prompts.js";
 import type {
@@ -85,6 +87,14 @@ export interface ConcreteApplicationDependencies {
     command: string,
     options: { readonly root: string; readonly signal?: AbortSignal },
   ) => Promise<InteractiveCommandResult>;
+  /**
+   * Fetches one URL for `/web`. The default is a lazily constructed
+   * `UrlFetcher`, so a session that never fetches never loads it.
+   */
+  readonly fetchUrl?: (
+    url: string,
+    options: { readonly signal?: AbortSignal },
+  ) => Promise<FetchedUrl>;
   readonly readClipboard?: () => Promise<string>;
   readonly writeClipboard?: (text: string) => Promise<void>;
 }
@@ -118,6 +128,10 @@ interface ApplicationContext {
     command: string,
     options: { readonly root: string; readonly signal?: AbortSignal },
   ) => Promise<InteractiveCommandResult>;
+  readonly fetchUrl?: (
+    url: string,
+    options: { readonly signal?: AbortSignal },
+  ) => Promise<FetchedUrl>;
   readonly makeProvider: (model: ModelSettings) => ModelProvider;
   readonly readClipboard: () => Promise<string>;
   readonly writeClipboard: (text: string) => Promise<void>;
@@ -208,6 +222,15 @@ export interface ApplicationTurnResult {
 
 function portablePath(root: string, absolute: string): string {
   return relative(root, absolute).split(sep).join("/");
+}
+
+/**
+ * How much of the model's input window one fetched page may take. A quarter of
+ * the window leaves room for the repository map, the selected files, and the
+ * conversation that made the page worth fetching.
+ */
+export function urlTokenBudget(maxInputTokens: number | undefined): number {
+  return Math.max(1024, Math.floor((maxInputTokens ?? 8192) / 4));
 }
 
 /** How a finished command ended, in one clause. */
@@ -809,6 +832,8 @@ class ConcreteApplicationSession implements ApplicationSession {
           commands: [command],
         });
       }
+      case "web":
+        return result(await this.#ingestUrl(effect.url, options));
       case "lint":
       case "test": {
         const command =
@@ -890,6 +915,57 @@ class ConcreteApplicationSession implements ApplicationSession {
           "Internal switch effects are not accepted as slash commands",
         );
     }
+  }
+
+  /**
+   * Fetches one user-named URL and puts its readable text into history.
+   *
+   * Only a URL the user typed is fetched: a URL a model or a fetched page
+   * mentions is never followed, and nothing on the page is loaded as a
+   * subresource, so one command means exactly one request. The text enters
+   * history as a user message labeled with the final URL — the one redirects
+   * ended at — and is truncated to a share of the model's input window rather
+   * than allowed to fill it. Fetched text is data: it is never parsed as a
+   * command or an edit, and it carries no more authority in the prompt than any
+   * other quoted material.
+   */
+  async #ingestUrl(
+    url: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<string> {
+    const fetchUrl =
+      this.#context.fetchUrl ??
+      (await (async () => {
+        const { UrlFetcher } = await import("../interfaces/url-fetcher.js");
+        const fetcher = new UrlFetcher();
+        return (target: string, fetchOptions: { signal?: AbortSignal }) =>
+          fetcher.fetch(target, fetchOptions);
+      })());
+    options.emit({ type: "url-fetch-start", data: { url } });
+    const fetched = await fetchUrl(url, {
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    const readable = /\bhtml\b/iu.test(fetched.contentType)
+      ? htmlToReadableText(fetched.content)
+      : fetched.content;
+    const limit = urlTokenBudget(this.#profile.main.maxInputTokens);
+    // Four characters per token is the same estimate the repository map budgets
+    // with; an exact count here would need a tokenizer per model.
+    const truncated = readable.length > limit * 4;
+    const content = `Here is the content of ${fetched.url}:\n\n${
+      truncated
+        ? `${readable.slice(0, limit * 4)}\n\n[Truncated at about ${String(limit)} tokens]`
+        : readable
+    }`;
+    this.#session.appendMessages([
+      { role: "user", content },
+      { role: "assistant", content: "Ok." },
+    ]);
+    options.emit({
+      type: "url-fetch-complete",
+      data: { url: fetched.url, characters: content.length, truncated },
+    });
+    return `Added ${fetched.url} to the chat${truncated ? " (truncated)" : ""}`;
   }
 
   /**
@@ -1259,6 +1335,9 @@ export class ConcreteApplicationService implements ApplicationService {
         : {
             runInteractiveCommand: options.dependencies.runInteractiveCommand,
           }),
+      ...(options.dependencies?.fetchUrl === undefined
+        ? {}
+        : { fetchUrl: options.dependencies.fetchUrl }),
     });
   }
 

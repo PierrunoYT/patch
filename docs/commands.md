@@ -8,8 +8,8 @@ This ports the dispatch boundary from
 without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/drop`, `/read-only`, `/ls`, `/clear`, `/model`,
-`/chat-mode`, `/run`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`,
-and `/exit`.
+`/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
+`/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -64,6 +64,11 @@ The advertised command set is not yet a completed parity surface:
   is never reparsed as a command, so clipboard content the user did not write
   cannot dispatch `/run` or any other effect; an empty clipboard is rejected
   rather than submitted. Clipboard images are still not read.
+- `/web <url>` fetches one user-typed URL and adds its readable text to history,
+  labeled with the URL redirects ended at and truncated to a share of the input
+  window. A URL a model or a page mentions is never followed. See
+  [URL fetching](url-fetching.md) for the SSRF, redirect, size, and
+  no-subresource policy, which is an intentional difference from upstream.
 - `/undo` reverts only the commit this session created, and only while it is
   still HEAD, still carries the Patch marker, has one parent, touches selected
   paths, and has not reached its upstream branch. A session undoes its latest

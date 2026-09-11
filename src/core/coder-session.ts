@@ -435,6 +435,21 @@ export class CoderSession {
     });
   }
 
+  /**
+   * Appends messages the user supplied outside a turn, such as ingested URL
+   * content. They join history exactly as written; nothing in them is parsed as
+   * an edit, a command, or an instruction to this session.
+   */
+  appendMessages(messages: readonly ChatMessage[]): void {
+    if (this.#activeTurn !== undefined) {
+      throw new Error("Cannot append messages during an active turn");
+    }
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      messages: [...this.#state.messages, ...messages],
+    });
+  }
+
   clearHistory(): void {
     if (this.#activeTurn !== undefined) {
       throw new Error("Cannot clear history during an active turn");

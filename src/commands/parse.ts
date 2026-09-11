@@ -32,6 +32,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "run",
   "test",
   "undo",
+  "web",
 ];
 
 function requireArgument(command: string, argument: string): string {
@@ -128,6 +129,11 @@ export function parseCommand(input: string): CommandEffect {
       break;
     case "model":
       effect = { type: "model", model: requireArgument(command, argument) };
+      break;
+    case "web":
+      // One URL, typed by the user: a whitespace-separated list would make it
+      // easy to fetch more than was intended.
+      effect = { type: "web", url: requireArgument(command, argument) };
       break;
     case "chat-mode": {
       const mode = requireArgument(command, argument);
