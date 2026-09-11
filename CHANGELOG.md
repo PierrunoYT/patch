@@ -488,6 +488,14 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Production commits now honor CLI/YAML/environment hook verification and
+  explicit author/committer/co-author settings. Optional weak-model subject
+  generation sends only selected diffs, enforces input/output/cancellation
+  bounds, retains usage, and stops before staging on failure. Checkpoints,
+  model edits, configured checks, and `/commit` share the policy; explicit
+  manual messages bypass generation. Existing defaults remain unchanged.
+  Real-Git executable-program tests and installed-service smoke tests cover
+  the policy; broader Aider default/option parity is not claimed.
 - Closed the audited fixture-source hash gap with pinned hashes for all twelve
   direct driver imports. Node tests now check actual explicit imports rather
   than a fixed list and exercise exporter rejection of `assume-unchanged` and

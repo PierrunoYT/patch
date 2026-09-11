@@ -37,6 +37,100 @@ afterEach(async () => {
 });
 
 describe("bootstrapConfiguration", () => {
+  it("resolves commit policy through YAML, environment, dotenv, and explicit CLI overrides", async () => {
+    const root = await temporaryDirectory();
+    await initializeRepository(root);
+    const load = (argv: string[] = [], environment = {}) =>
+      bootstrapConfiguration({ cwd: root, home: root, argv, environment });
+    expect((await load()).arguments).toMatchObject({
+      gitCommitVerify: false,
+      generateCommitMessages: false,
+      commitAuthorName: undefined,
+    });
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "git-commit-verify: true\ngenerate-commit-messages: true\ncommit-author-name: YAML Author\ncommit-committer-name: YAML Committer\ncommit-co-author: Partner <partner@example.invalid>\n",
+    );
+    expect((await load()).arguments).toMatchObject({
+      gitCommitVerify: true,
+      generateCommitMessages: true,
+      commitAuthorName: "YAML Author",
+      commitCommitterName: "YAML Committer",
+      commitCoAuthor: "Partner <partner@example.invalid>",
+    });
+    const environment = {
+      PATCH_GIT_COMMIT_VERIFY: "false",
+      PATCH_GENERATE_COMMIT_MESSAGES: "false",
+      PATCH_COMMIT_AUTHOR_NAME: "Env Author",
+      PATCH_COMMIT_COMMITTER_NAME: "Env Committer",
+      PATCH_COMMIT_CO_AUTHOR: "Env Partner",
+    };
+    expect((await load([], environment)).arguments).toMatchObject({
+      gitCommitVerify: false,
+      generateCommitMessages: false,
+      commitAuthorName: "Env Author",
+      commitCommitterName: "Env Committer",
+      commitCoAuthor: "Env Partner",
+    });
+    await writeFile(
+      join(root, ".env"),
+      "PATCH_GIT_COMMIT_VERIFY=true\nPATCH_GENERATE_COMMIT_MESSAGES=true\nPATCH_COMMIT_AUTHOR_NAME=Dotenv Author\n",
+    );
+    expect((await load([], environment)).arguments).toMatchObject({
+      gitCommitVerify: true,
+      generateCommitMessages: true,
+      commitAuthorName: "Dotenv Author",
+    });
+    expect(
+      (
+        await load(
+          [
+            "--no-git-commit-verify",
+            "--no-generate-commit-messages",
+            "--commit-author-name",
+            "CLI Author",
+            "--commit-committer-name",
+            "CLI Committer",
+            "--commit-co-author",
+            "CLI Partner",
+          ],
+          environment,
+        )
+      ).arguments,
+    ).toMatchObject({
+      gitCommitVerify: false,
+      generateCommitMessages: false,
+      commitAuthorName: "CLI Author",
+      commitCommitterName: "CLI Committer",
+      commitCoAuthor: "CLI Partner",
+    });
+  });
+
+  it("rejects malformed commit policy without echoing identity values", async () => {
+    const root = await temporaryDirectory();
+    const load = (argv: string[] = [], environment = {}) =>
+      bootstrapConfiguration({ cwd: root, home: root, argv, environment });
+    for (const value of ["", "\nsecret", "secret\n", "x".repeat(257)]) {
+      await expect(
+        load([], { PATCH_COMMIT_AUTHOR_NAME: value }),
+      ).rejects.toThrow("commit-author-name must be");
+    }
+    await expect(
+      load([], { PATCH_GIT_COMMIT_VERIFY: "maybe" }),
+    ).rejects.toThrow("PATCH_GIT_COMMIT_VERIFY must be");
+    await expect(
+      load([], { PATCH_GENERATE_COMMIT_MESSAGES: "maybe" }),
+    ).rejects.toThrow("PATCH_GENERATE_COMMIT_MESSAGES must be");
+    await expect(load(["--commit-co-author"])).rejects.toThrow(
+      "requires a value",
+    );
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "git-commit-verify: sometimes\n",
+    );
+    await expect(load()).rejects.toBeInstanceOf(ConfigurationFileError);
+  });
+
   it("applies defaults, ordered configs, environment, dotenv, and CLI precedence", async () => {
     const parent = await temporaryDirectory();
     const home = join(parent, "home");

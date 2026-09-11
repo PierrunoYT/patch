@@ -69,7 +69,7 @@ unchanged result of the historical audit.
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery; fenced prompts remain shared and independent Patch-format goldens are absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
-| Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Production commit policy remains open; metadata portability and recovery limits remain documented constraints. |
+| Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, directory/glob expansion, and command outcomes are wired. Literal glob-metacharacter filenames remain a selection gap. Help, report, and settings are selected but absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, and `/web` ingests one bounded user-named page. HTTP disconnect cancellation is wired but needs targeted evidence; quotas, expiry, backpressure, session reclamation, and structured partial-error responses remain open. GUI and CLI voice UX are deferred. |
@@ -111,8 +111,18 @@ for revision-specific source references and reproduction limits.
   unlisted imports, removed entries, and real exporter rejection of changes
   hidden by `assume-unchanged` or `skip-worktree`. Hashes match the pinned
   checkout. Transitive imports and resource hashes are outside this guarantee.
-- [ ] Expose and verify production commit policy rather than forcing fixed
-  messages, disabled hooks, and no attribution.
+- [x] Expose and verify production commit policy rather than forcing fixed
+  messages, disabled hooks, and no attribution. CLI/YAML/environment controls
+  reach checkpoints, model-edit commits, configured checks, and `/commit`.
+  Message generation and explicit identity changes remain opt-in; explicit
+  manual messages bypass the provider. `tests/application-lifecycle.test.ts`
+  verifies real hooks, attribution scope, diff-only privacy, accounting, bounds,
+  cancellation, and pre-/post-write recovery. `scripts/lifecycle-smoke.mjs`
+  exercises generation, hooks, and committer identity in the installed package.
+  Compared with pinned `aider/repo.py`, `aider/args.py`, and `aider/prompts.py`;
+  defaults, automatic name suffixes, model fallback/retry, prompt/language
+  controls, and independent auto/dirty-commit switches remain intentional
+  differences or unsupported controls in [Git policy](git-repository.md).
 - [ ] Wire the distinct fenced-diff prompt and test the actual provider request.
 - [ ] Pin and handle unified-diff no-newline behavior, then broaden recovery
   fixtures without weakening ambiguity rejection.

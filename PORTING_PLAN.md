@@ -482,10 +482,15 @@ evidence remains incomplete.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
   a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.
-- [ ] Complete production commit policy. Selected commit, hook-control,
-  attribution, generated-message, and marker helpers exist, but production
-  bypasses hooks, generated messages, and attribution. Undo is now session-owned
-  and refuses root, merge, moved-HEAD, and already-pushed commits.
+- [x] Wire the selected production commit policy: configurable hook verification,
+  explicit author/committer/co-author values, and opt-in bounded weak-model
+  commit subjects through CLI/YAML/environment. Checkpoints, model edits,
+  configured checks, and manual commits share the policy, with user-authored
+  commits excluded from model-author attribution. Full Aider option/default
+  parity is not claimed; see `docs/git-repository.md` for deliberate differences.
+  Evidence: `tests/application-lifecycle.test.ts`, `tests/config-bootstrap.test.ts`,
+  and installed `scripts/lifecycle-smoke.mjs`. Undo remains session-owned and
+  refuses root, merge, moved-HEAD, and already-pushed commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
 - [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,

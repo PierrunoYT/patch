@@ -60,6 +60,11 @@ interface ProgramOptions {
   readonly envFile?: string;
   readonly encoding?: string;
   readonly git?: boolean;
+  readonly gitCommitVerify?: boolean;
+  readonly generateCommitMessages?: boolean;
+  readonly commitAuthorName?: string;
+  readonly commitCommitterName?: string;
+  readonly commitCoAuthor?: string;
   readonly model?: string;
   readonly editFormat?: string;
   readonly lintCmd?: string;
@@ -93,6 +98,21 @@ function bootstrapArguments(options: ProgramOptions, files: readonly string[]) {
   append(argv, "--edit-format", options.editFormat);
   append(argv, "--lint-cmd", options.lintCmd);
   append(argv, "--test-cmd", options.testCmd);
+  append(argv, "--commit-author-name", options.commitAuthorName);
+  append(argv, "--commit-committer-name", options.commitCommitterName);
+  append(argv, "--commit-co-author", options.commitCoAuthor);
+  if (options.gitCommitVerify !== undefined)
+    argv.push(
+      options.gitCommitVerify
+        ? "--git-commit-verify"
+        : "--no-git-commit-verify",
+    );
+  if (options.generateCommitMessages !== undefined)
+    argv.push(
+      options.generateCommitMessages
+        ? "--generate-commit-messages"
+        : "--no-generate-commit-messages",
+    );
   if (options.git === false) argv.push("--no-git");
   for (const path of options.file ?? []) argv.push("--file", path);
   for (const path of options.readOnly ?? []) argv.push("--read-only", path);
@@ -144,6 +164,31 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       .option("--env-file <path>", "dotenv file")
       .option("--encoding <encoding>", "text encoding")
       .option("--no-git", "disable Git integration")
+      .option("--git-commit-verify", "run Git commit hooks (default: disabled)")
+      .option(
+        "--no-git-commit-verify",
+        "skip Git pre-commit and commit-msg hooks",
+      )
+      .option(
+        "--generate-commit-messages",
+        "generate messages from selected diffs with the weak model (opt-in)",
+      )
+      .option(
+        "--no-generate-commit-messages",
+        "use fixed commit messages without provider calls",
+      )
+      .option(
+        "--commit-author-name <name>",
+        "explicit Git author name for Patch-authored edits",
+      )
+      .option(
+        "--commit-committer-name <name>",
+        "explicit Git committer name for all Patch commits",
+      )
+      .option(
+        "--commit-co-author <identity>",
+        "co-author trailer for Patch-authored edits",
+      )
       .option("--model <name>", "model name")
       .option("--edit-format <format>", "edit strategy")
       .option("--lint-cmd <command>", "configured lint command")
@@ -431,6 +476,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                     markdown.end();
                     write("\n");
                   }
+                  if (event.type === "commit-message-usage")
+                    write(
+                      `Commit message: ${renderUsage(event.data as UsageReport, undefined, { color: false })}\n`,
+                    );
                   if (event.type === "edit-preview")
                     write(
                       `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
@@ -485,6 +534,11 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                             "text" in event.data
                           ) {
                             markdown.write(String(event.data.text));
+                          } else if (event.type === "commit-message-usage") {
+                            markdown.end();
+                            write(
+                              `Commit message: ${renderUsage(event.data as UsageReport, undefined, renderOptions)}\n`,
+                            );
                           } else if (event.type === "edit-preview") {
                             markdown.end();
                             write(

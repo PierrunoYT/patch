@@ -26,11 +26,23 @@ const executeFile = promisify(execFile);
 const CONFIG_FILE_NAME = ".patch.conf.yml";
 const DOTENV_FILE_NAME = ".env";
 
+const CommitIdentitySchema = z
+  .string()
+  .regex(/^[^\p{Cc}]+$/u)
+  .trim()
+  .min(1)
+  .max(256);
+
 const ConfigurationFileSchema = z
   .object({
     model: z.string().min(1).optional(),
     encoding: TextEncodingSchema.optional(),
     git: z.boolean().optional(),
+    "git-commit-verify": z.boolean().optional(),
+    "generate-commit-messages": z.boolean().optional(),
+    "commit-author-name": CommitIdentitySchema.optional(),
+    "commit-committer-name": CommitIdentitySchema.optional(),
+    "commit-co-author": CommitIdentitySchema.optional(),
     "env-file": z.string().min(1).optional(),
     "lint-cmd": z.string().trim().min(1).optional(),
     "test-cmd": z.string().trim().min(1).optional(),
@@ -49,6 +61,11 @@ export interface BootstrapArguments {
   readonly envFile: string | undefined;
   readonly encoding: TextEncoding;
   readonly git: boolean;
+  readonly gitCommitVerify: boolean;
+  readonly generateCommitMessages: boolean;
+  readonly commitAuthorName: string | undefined;
+  readonly commitCommitterName: string | undefined;
+  readonly commitCoAuthor: string | undefined;
   readonly model: string | undefined;
   readonly lintCommand: string | undefined;
   readonly testCommand: string | undefined;
@@ -82,6 +99,11 @@ interface ParsedCommandLine {
   envFile: string | undefined;
   encoding: string | undefined;
   git: boolean | undefined;
+  gitCommitVerify: boolean | undefined;
+  generateCommitMessages: boolean | undefined;
+  commitAuthorName: string | undefined;
+  commitCommitterName: string | undefined;
+  commitCoAuthor: string | undefined;
   model: string | undefined;
   lintCommand: string | undefined;
   testCommand: string | undefined;
@@ -149,6 +171,11 @@ function parseCommandLine(
     envFile: undefined,
     encoding: undefined,
     git: undefined,
+    gitCommitVerify: undefined,
+    generateCommitMessages: undefined,
+    commitAuthorName: undefined,
+    commitCommitterName: undefined,
+    commitCoAuthor: undefined,
     model: undefined,
     lintCommand: undefined,
     testCommand: undefined,
@@ -171,8 +198,36 @@ function parseCommandLine(
       parsed.git = false;
       continue;
     }
+    if (
+      argument === "--git-commit-verify" ||
+      argument === "--no-git-commit-verify"
+    ) {
+      parsed.gitCommitVerify = argument === "--git-commit-verify";
+      continue;
+    }
+    if (
+      argument === "--generate-commit-messages" ||
+      argument === "--no-generate-commit-messages"
+    ) {
+      parsed.generateCommitMessages = argument === "--generate-commit-messages";
+      continue;
+    }
 
     const option = argument?.split("=", 1)[0];
+    const identityTarget =
+      option === "--commit-author-name"
+        ? "commitAuthorName"
+        : option === "--commit-committer-name"
+          ? "commitCommitterName"
+          : option === "--commit-co-author"
+            ? "commitCoAuthor"
+            : undefined;
+    if (identityTarget !== undefined) {
+      const result = optionValue(argv, index, option!);
+      parsed[identityTarget] = result.value;
+      index = result.nextIndex;
+      continue;
+    }
     const target =
       option === "--config" || option === "-c"
         ? "configFile"
@@ -248,6 +303,15 @@ function resolveArguments(
   environment: BootstrapEnvironment,
   configuration: ConfigurationFile = {},
 ): BootstrapArguments {
+  const identity = (value: string | undefined, name: string) => {
+    if (value === undefined) return undefined;
+    const parsed = CommitIdentitySchema.safeParse(value);
+    if (!parsed.success)
+      throw new BootstrapArgumentError(
+        `${name} must be 1–256 characters without control characters`,
+      );
+    return parsed.data;
+  };
   const encodingValue =
     commandLine.encoding ??
     environment.PATCH_ENCODING ??
@@ -285,6 +349,40 @@ function resolveArguments(
       environmentBoolean(environment.PATCH_GIT, "PATCH_GIT") ??
       configuration.git ??
       true,
+    gitCommitVerify:
+      commandLine.gitCommitVerify ??
+      environmentBoolean(
+        environment.PATCH_GIT_COMMIT_VERIFY,
+        "PATCH_GIT_COMMIT_VERIFY",
+      ) ??
+      configuration["git-commit-verify"] ??
+      false,
+    generateCommitMessages:
+      commandLine.generateCommitMessages ??
+      environmentBoolean(
+        environment.PATCH_GENERATE_COMMIT_MESSAGES,
+        "PATCH_GENERATE_COMMIT_MESSAGES",
+      ) ??
+      configuration["generate-commit-messages"] ??
+      false,
+    commitAuthorName: identity(
+      commandLine.commitAuthorName ??
+        environment.PATCH_COMMIT_AUTHOR_NAME ??
+        configuration["commit-author-name"],
+      "commit-author-name",
+    ),
+    commitCommitterName: identity(
+      commandLine.commitCommitterName ??
+        environment.PATCH_COMMIT_COMMITTER_NAME ??
+        configuration["commit-committer-name"],
+      "commit-committer-name",
+    ),
+    commitCoAuthor: identity(
+      commandLine.commitCoAuthor ??
+        environment.PATCH_COMMIT_CO_AUTHOR ??
+        configuration["commit-co-author"],
+      "commit-co-author",
+    ),
     model: commandLine.model ?? environment.PATCH_MODEL ?? configuration.model,
     lintCommand:
       commandLine.lintCommand ??

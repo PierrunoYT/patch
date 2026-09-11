@@ -408,6 +408,14 @@ export class CoderSession {
     });
   }
 
+  /** Account for application-owned provider requests without replacing turn usage. */
+  recordAuxiliaryCost(cost: number): void {
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      totalCost: this.#state.totalCost + cost,
+    });
+  }
+
   recordApplied(commit: string | null = null): void {
     if (this.#activeTurn !== undefined) {
       throw new Error("Cannot record applied edits during an active turn");

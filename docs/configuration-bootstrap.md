@@ -46,9 +46,19 @@ The bootstrap parser recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 `--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
 repeated `--file`, repeated `--read-only`, and positional editable paths.
 The executable Commander surface exposes `--no-git`, not a positive `--git`
-flag. Environment equivalents exist only for `PATCH_CONFIG`,
+flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
 `PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
+
+Commit policy also participates in every bootstrap stage: `git-commit-verify`,
+`generate-commit-messages`, `commit-author-name`, `commit-committer-name`, and
+`commit-co-author`. CLI flags use the same names prefixed by `--`; environment
+names use `PATCH_` plus the uppercase key with underscores. Both booleans
+default to false and have explicit `--no-…` overrides; omitted Commander flags
+do not override YAML or environment values. Identity strings are bounded and
+reject controls without echoing the rejected value. See
+[production commit policy](git-repository.md#production-commit-policy) for
+attribution scope, provider-cost opt-in, and hook authorization/recovery limits.
 
 Lint and test commands may also be set as `lint-cmd` and `test-cmd` in YAML.
 Both are optional and have no built-in default: if a user does not configure a

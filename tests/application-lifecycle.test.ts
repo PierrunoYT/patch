@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as modelCommand from "../src/process/model-command.js";
+import { createProgram } from "../src/program.js";
 
 import {
   ConcreteApplicationService,
@@ -46,6 +47,13 @@ async function repository() {
   ]);
   await executeFile("git", ["-C", root, "config", "commit.gpgsign", "false"]);
   await executeFile("git", ["-C", root, "config", "core.autocrlf", "false"]);
+  await executeFile("git", [
+    "-C",
+    root,
+    "config",
+    "core.hooksPath",
+    ".git/hooks",
+  ]);
   await writeFile(join(root, "selected.txt"), "base\n");
   await writeFile(join(root, "unrelated.txt"), "keep\n");
   await executeFile("git", ["-C", root, "add", "."]);
@@ -111,6 +119,326 @@ async function application(
 }
 
 describe("application edit lifecycle", () => {
+  it("wires generated commit policy through the executable for checkpoints, edits, and checks", async () => {
+    const root = await dirtyRepository();
+    const before = await state(root);
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: edit("selected.txt", "dirty", "edited") },
+          { type: "finish", reason: "stop" },
+          { type: "usage", inputTokens: 20, outputTokens: 10, cost: 0 },
+        ],
+      },
+      ...[
+        "chore: save user work",
+        "fix: edit selected file",
+        "style: lint selected file",
+      ].map((text) => ({
+        actions: [
+          { type: "text-delta", text },
+          { type: "finish", reason: "stop" },
+          { type: "usage", inputTokens: 100, outputTokens: 10, cost: 0.01 },
+        ],
+      })),
+    ]);
+    const lint =
+      "node -e \"require('fs').writeFileSync('selected.txt','linted\\n')\"";
+    const hook = join(root, ".git/hooks/pre-commit");
+    await writeFile(hook, "#!/bin/sh\necho ran >> .git/hook-runs\n");
+    await chmod(hook, 0o755);
+    await git(root, "config", "core.hooksPath", ".git/hooks");
+    let output = "";
+    await createProgram({
+      cwd: root,
+      environment: {},
+      writeOutput: (text) => {
+        output += text;
+      },
+      createApplication: async (options) => {
+        const service = await ConcreteApplicationService.create({
+          ...options,
+          home: root,
+          dependencies: { provider },
+        });
+        services.push(service);
+        return service;
+      },
+    }).parseAsync(
+      [
+        "--model",
+        "4o",
+        "--file",
+        "selected.txt",
+        "--message",
+        "private chat not for commit generation",
+        "--no-color",
+        "--generate-commit-messages",
+        "--git-commit-verify",
+        "--commit-author-name",
+        "Model Author",
+        "--commit-committer-name",
+        "Commit Runner",
+        "--commit-co-author",
+        "Collaborator <co@example.invalid>",
+        "--lint-cmd",
+        lint,
+      ],
+      { from: "user" },
+    );
+    expect(provider.requests).toHaveLength(4);
+    for (const request of provider.requests.slice(1)) {
+      expect(request.model).toBe("gpt-4o-mini");
+      expect(request.maxOutputTokens).toBe(128);
+      expect(JSON.stringify(request.messages)).not.toContain(
+        "private chat not for commit generation",
+      );
+      expect(JSON.stringify(request.messages)).not.toContain("unrelated");
+    }
+    expect(await git(root, "show", "HEAD~2:selected.txt")).toBe("dirty\n");
+    expect(await git(root, "show", "HEAD~1:selected.txt")).toBe("edited\n");
+    expect(await git(root, "show", "HEAD:selected.txt")).toBe("linted\n");
+    expect(await git(root, "show", "-s", "--format=%an|%cn|%s", "HEAD~2")).toBe(
+      "Patch Test|Commit Runner|chore: save user work\n",
+    );
+    expect(await git(root, "show", "-s", "--format=%an|%cn|%s", "HEAD~1")).toBe(
+      "Model Author|Commit Runner|fix: edit selected file\n",
+    );
+    expect(await git(root, "show", "-s", "--format=%B", "HEAD~1")).toContain(
+      "Co-authored-by: Collaborator <co@example.invalid>",
+    );
+    expect(
+      await git(root, "show", "-s", "--format=%B", "HEAD~2"),
+    ).not.toContain("Co-authored-by");
+    expect(await git(root, "show", "-s", "--format=%an|%cn|%s", "HEAD")).toBe(
+      "Patch Test|Commit Runner|style: lint selected file\n",
+    );
+    expect(await readFile(join(root, ".git/hook-runs"), "utf8")).toBe(
+      "ran\nran\nran\n",
+    );
+    expect(await git(root, "diff", "--cached")).toBe(before.index);
+    expect(await git(root, "diff", "--", "unrelated.txt")).toContain(
+      "unstaged unrelated",
+    );
+    expect(output).toContain("Commit message:");
+    expect(output).toContain("$0.03 session");
+  });
+
+  it("uses explicit manual messages without generation or model authorship", async () => {
+    const root = await dirtyRepository();
+    const provider = new FakeProvider([]);
+    const session = await application(root, provider, {}, [
+      "--generate-commit-messages",
+      "--commit-author-name",
+      "Model Author",
+      "--commit-committer-name",
+      "Commit Runner",
+      "--commit-co-author",
+      "Collaborator",
+    ]);
+    await session.submit("/commit User supplied message", submitOptions());
+    expect(provider.requests).toHaveLength(0);
+    expect(await git(root, "show", "-s", "--format=%an|%cn|%s")).toBe(
+      "Patch Test|Commit Runner|User supplied message\n",
+    );
+    expect(await git(root, "show", "-s", "--format=%B")).not.toContain(
+      "Co-authored-by",
+    );
+    await session.submit("/commit", submitOptions());
+    expect(provider.requests).toHaveLength(0);
+  });
+
+  it.each(["checkpoint", "after-write"])(
+    "honors failing hooks at %s and keeps the session reusable",
+    async (phase) => {
+      const root =
+        phase === "checkpoint" ? await dirtyRepository() : await repository();
+      const before = await state(root);
+      const hook = join(root, ".git/hooks/pre-commit");
+      await writeFile(hook, "#!/bin/sh\nexit 1\n");
+      await chmod(hook, 0o755);
+      await git(root, "config", "core.hooksPath", ".git/hooks");
+      const session = await application(
+        root,
+        response(
+          edit(
+            "selected.txt",
+            phase === "checkpoint" ? "dirty" : "base",
+            "edited",
+          ),
+        ),
+        {},
+        ["--git-commit-verify"],
+      );
+      await expect(session.submit("edit", submitOptions())).rejects.toThrow(
+        phase === "checkpoint"
+          ? "Git command failed"
+          : "The turn already changed selected.txt",
+      );
+      expect(await git(root, "rev-parse", "HEAD")).toBe(before.head);
+      expect(await readFile(join(root, "selected.txt"), "utf8")).toBe(
+        phase === "checkpoint" ? "dirty\n" : "edited\n",
+      );
+      const bypass = await application(root, new FakeProvider([]), {}, [
+        "--no-git-commit-verify",
+      ]);
+      await bypass.submit("/commit explicit recovery", submitOptions());
+      await expect(
+        session.submit("/ls", submitOptions()),
+      ).resolves.toMatchObject({ kind: "command" });
+    },
+  );
+
+  it.each([
+    "empty",
+    "multiline",
+    "oversized",
+    "long-subject",
+    "truncated",
+    "provider-error",
+    "cancelled",
+  ])("refuses %s commit generation before staging", async (failure) => {
+    const root = await dirtyRepository();
+    const before = await state(root);
+    const actions =
+      failure === "provider-error"
+        ? [
+            {
+              type: "error",
+              kind: "provider",
+              message: "private provider error",
+              retryable: false,
+            },
+          ]
+        : failure === "cancelled"
+          ? [{ type: "delay", milliseconds: 10_000 }]
+          : [
+              {
+                type: "text-delta",
+                text:
+                  failure === "empty"
+                    ? ""
+                    : failure === "multiline"
+                      ? "fix: change\nCo-authored-by: injected"
+                      : failure === "oversized"
+                        ? "x".repeat(513)
+                        : failure === "long-subject"
+                          ? "x".repeat(73)
+                          : "fix: cut",
+              },
+              {
+                type: "finish",
+                reason: failure === "truncated" ? "length" : "stop",
+              },
+            ];
+    const provider = new FakeProvider([{ actions }]);
+    const session = await application(root, provider, {}, [
+      "--generate-commit-messages",
+    ]);
+    const controller = new AbortController();
+    const pending = session.submit("/commit", {
+      signal: controller.signal,
+      emit: () => undefined,
+    });
+    if (failure === "cancelled") {
+      await vi.waitFor(() => expect(provider.requests).toHaveLength(1));
+      controller.abort(new Error("cancelled by test"));
+    }
+    await expect(pending).rejects.toThrow(
+      failure === "cancelled"
+        ? "cancelled by test"
+        : "Commit-message generation failed",
+    );
+    expect(await state(root)).toEqual(before);
+    await session.submit("/commit recover explicitly", submitOptions());
+    expect(await git(root, "show", "HEAD:selected.txt")).toBe("dirty\n");
+  });
+
+  it("honors configured generation when CLI flags are absent and closes the weak provider", async () => {
+    const root = await dirtyRepository();
+    const weak = response(`"${"x".repeat(72)}"`);
+    const close = vi.fn();
+    let calls = 0;
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "generate-commit-messages: true\n",
+    );
+    await createProgram({
+      cwd: root,
+      environment: {},
+      writeOutput: () => undefined,
+      createApplication: async (options) => {
+        const service = await ConcreteApplicationService.create({
+          ...options,
+          home: root,
+          dependencies: {
+            createProvider: () =>
+              ++calls === 1
+                ? new FakeProvider([])
+                : { stream: weak.stream.bind(weak), close },
+          },
+        });
+        services.push(service);
+        return service;
+      },
+    }).parseAsync(
+      ["--model", "4o", "--file", "selected.txt", "--message", "/commit"],
+      { from: "user" },
+    );
+    expect(weak.requests).toHaveLength(1);
+    expect(close).toHaveBeenCalledOnce();
+    expect((await git(root, "show", "-s", "--format=%s")).trim()).toBe(
+      "x".repeat(72),
+    );
+  });
+
+  it("refuses an oversized or newly ignored diff without sending it", async () => {
+    const root = await repository();
+    const provider = new FakeProvider([]);
+    const session = await application(root, provider, {}, [
+      "--generate-commit-messages",
+    ]);
+    await writeFile(join(root, "selected.txt"), "large diff ".repeat(30_000));
+    const before = await state(root);
+    await expect(session.submit("/commit", submitOptions())).rejects.toThrow(
+      "Selected diff is too large",
+    );
+    expect(await state(root)).toEqual(before);
+    await writeFile(join(root, ".aiderignore"), "selected.txt\n");
+    await expect(session.submit("/commit", submitOptions())).rejects.toThrow(
+      /ignored/u,
+    );
+    expect(provider.requests).toHaveLength(0);
+  });
+
+  it("reports surviving edits when commit-message generation fails after a write", async () => {
+    const root = await repository();
+    const before = await state(root);
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: edit("selected.txt", "base", "edited") },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+      { actions: [{ type: "finish", reason: "length" }] },
+    ]);
+    const session = await application(root, provider, {}, [
+      "--generate-commit-messages",
+    ]);
+    await expect(
+      session.submit("edit", submitOptions()),
+    ).rejects.toBeInstanceOf(TurnPartiallyAppliedError);
+    expect(await git(root, "rev-parse", "HEAD")).toBe(before.head);
+    expect(await git(root, "diff", "--cached")).toBe(before.index);
+    expect(await readFile(join(root, "selected.txt"), "utf8")).toBe("edited\n");
+    expect(await session.snapshot()).toMatchObject({
+      messages: expect.arrayContaining([{ role: "user", content: "edit" }]),
+    });
+    await session.submit("/commit explicit recovery", submitOptions());
+    expect(await git(root, "show", "HEAD:selected.txt")).toBe("edited\n");
+  });
+
   it.each([
     "denial",
     "stale",

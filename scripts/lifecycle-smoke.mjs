@@ -3,7 +3,7 @@
 // working files on undo and requires embedding approval for suggested commands.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -178,6 +178,54 @@ try {
   assert.equal(git("diff", "--cached", "--", "unrelated.txt"), unrelatedIndex);
   assert.equal(git("diff", "--", "unrelated.txt"), unrelatedWorktree);
   assert.equal((await session.snapshot()).lastPatchCommit, null);
+  await service.close();
+  const messageProvider = new FakeProvider([
+    {
+      actions: [
+        { type: "text-delta", text: "fix: retain selected edits" },
+        { type: "finish", reason: "stop" },
+      ],
+    },
+  ]);
+  git("config", "core.hooksPath", ".git/hooks");
+  const hook = join(root, ".git/hooks/pre-commit");
+  await writeFile(hook, "#!/bin/sh\necho verified > .git/policy-hook\n");
+  await chmod(hook, 0o755);
+  service = await ConcreteApplicationService.create({
+    cwd: root,
+    home: root,
+    environment: {},
+    argv: [
+      "--model",
+      "4o",
+      "--file",
+      "left.txt",
+      "--file",
+      "right.txt",
+      "--generate-commit-messages",
+      "--git-commit-verify",
+      "--commit-committer-name",
+      "Installed Committer",
+    ],
+    dependencies: { provider: messageProvider },
+  });
+  const policySession = await service.createSession({
+    principal: "test",
+    sessionId: "policy",
+  });
+  await policySession.submit("/commit", options);
+  assert.equal(
+    git("show", "-s", "--format=%cn|%s").trim(),
+    "Installed Committer|fix: retain selected edits",
+  );
+  assert.equal(await read(".git/policy-hook"), "verified\n");
+  assert.equal(messageProvider.requests[0].model, "gpt-4o-mini");
+  assert(
+    !JSON.stringify(messageProvider.requests[0].messages).includes("unrelated"),
+  );
+  assert.equal(git("diff", "--cached", "--", "unrelated.txt"), unrelatedIndex);
+  assert.equal(git("diff", "--", "unrelated.txt"), unrelatedWorktree);
+  process.stdout.write("installed-commit-policy-ok\n");
   process.stdout.write("installed-lifecycle-ok\n");
 } finally {
   await service?.close();

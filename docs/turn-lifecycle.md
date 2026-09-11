@@ -10,6 +10,14 @@ and rechecks the prompt budget. Linter changes to paths edited in this turn are
 committed before reflection. Final results collect changed paths and command
 results across attempts and report the latest commit, including check changes.
 
+All commit phases share the configured
+[commit policy](git-repository.md#production-commit-policy): hook verification,
+explicit identity, and opt-in weak-model messages. Generation runs under the
+worktree mutation lock before Git staging. A generation failure stops that
+commit; earlier writes/checkpoints remain. A failing hook can leave selected
+paths staged. Model-edit commits alone receive the configured author/co-author;
+checkpoint, manual, and check commits receive only the committer override.
+
 The broad sequence is adapted from pinned
 [`base_coder.py`'s provider turn](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L1560-L1623)
 and [edit boundary](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L2240-L2336).

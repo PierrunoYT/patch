@@ -37,6 +37,16 @@ fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
 the installed acceptance evidence and intentional differences from aider.
 
+Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
+`--git-commit-verify` enables repository hooks;
+`--generate-commit-messages` opts into bounded weak-model requests over selected
+diffs. `--commit-author-name`, `--commit-committer-name`, and
+`--commit-co-author` set explicit attribution. Defaults retain fixed messages,
+Git's `--no-verify`, and unchanged identity; `/commit <message>` never needs a
+generation call. Hooks are not sandboxed, and generation adds provider cost.
+See [commit policy and recovery](docs/git-repository.md#production-commit-policy)
+for exact attribution scope, limits, and intentional differences from Aider.
+
 Standalone interactive sessions with TTY input and output ask before each
 new/out-of-chat write, model-suggested shell command, and `/run` command.
 Prompts show exact JSON-quoted paths/commands; only `y` or `yes` (case-insensitive)

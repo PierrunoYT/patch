@@ -57,6 +57,15 @@ than printing the same output twice. A model-suggested command reports through
 `command-complete` as it finishes, so approving one and then seeing nothing is
 no longer indistinguishable from a hang.
 
+`/commit <message>` commits only selected editable paths with the supplied
+message, without calling a provider. `/commit` alone uses the fixed default
+unless `--generate-commit-messages` is enabled, in which case the active weak
+model receives only the selected diff. All commit paths honor configured hook
+verification and attribution. Generation failure leaves the index unchanged;
+Git-hook failures may already have staged selected paths. See
+[commit policy](git-repository.md#production-commit-policy) for limits and
+explicit recovery.
+
 ## Model-suggested and configured commands
 
 Shell commands parsed from model output remain inert until they cross the
