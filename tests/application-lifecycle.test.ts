@@ -13,6 +13,7 @@ import {
   FileSystemAdapter,
   GitRepository,
   RepositoryMap,
+  TurnPartiallyAppliedError,
   WriteAuthorizationError,
   WriteTextOptionsSchema,
   type ConcreteApplicationDependencies,
@@ -419,7 +420,18 @@ describe("application edit lifecycle", () => {
       "--test-cmd",
       'node -e "process.exit(9)"',
     ]);
-    await expect(session.submit("fix", submitOptions())).rejects.toMatchObject({
+    const head = async () => (await git(root, "rev-parse", "HEAD")).trim();
+    // The edits and their commit survive the reflection limit, so the failure
+    // reports them instead of only reporting that the turn failed.
+    const failure = await session.submit("fix", submitOptions()).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(TurnPartiallyAppliedError);
+    const partial = failure as TurnPartiallyAppliedError;
+    expect(partial.changedPaths).toEqual(["selected.txt"]);
+    expect(partial.commit).toBe(await head());
+    expect(partial.cause).toMatchObject({
       name: "ReflectionLimitError",
       diagnostic: expect.stringContaining("code 9"),
     });
@@ -430,11 +442,20 @@ describe("application edit lifecycle", () => {
     expect(await readFile(join(root, "unrelated.txt"), "utf8")).toBe(
       before.unrelated,
     );
-    expect(await session.snapshot()).toMatchObject({
+    const snapshot = (await session.snapshot()) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(snapshot).toMatchObject({
       phase: "interrupted",
       pendingEdits: [],
-      lastPatchCommit: (await git(root, "rev-parse", "HEAD")).trim(),
+      lastPatchCommit: await head(),
     });
+    // History records the turn whose edits are still on disk.
+    expect(snapshot.messages[0]).toMatchObject({
+      role: "user",
+      content: "fix",
+    });
+    expect(snapshot.messages.at(-1)).toMatchObject({ role: "assistant" });
     await session.submit("/undo", submitOptions());
     expect(await git(root, "show", "HEAD:selected.txt")).toBe("three\n");
     expect(await git(root, "diff", "--cached")).toBe(before.index);

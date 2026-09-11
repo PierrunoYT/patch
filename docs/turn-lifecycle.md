@@ -63,11 +63,20 @@ file changed and later files untouched. Inspect the working tree before retrying
 The queue remains reusable and the next turn reads actual disk contents.
 
 Interrupted turns clear pending edits and retain usage and the last completed
-commit, but do not append the interrupted conversation to finalized history.
-When files or commits survive a later failure, Patch currently loses the model
-response and reflection diagnostics that caused them. The next turn sees fresh
-disk state but not the interrupted conversation; a structured partial outcome
-and mutation-aware history finalizer remain required.
+commit. History finalization is mutation-aware: when a write reaches the
+worktree or a checkpoint/apply commit is created, the application calls
+`CoderSession.recordTurnMutation()`, and a later failure or cancellation appends
+the user message, every reflection exchange, and the model response that
+produced the surviving work. A turn that changed nothing still leaves no trace,
+so history never claims edits that do not exist.
+
+The failure itself carries the structured outcome. `submit()` wraps a rejection
+in `TurnPartiallyAppliedError` whenever paths changed or a commit was created,
+exposing `changedPaths`, `commit`, and `commands` and naming them in the
+message, so the terminal and the HTTP interface report what is on disk rather
+than only that the turn failed. A failure with nothing to report is rethrown
+unchanged.
+
 There is no durable recovery journal, per-file partial-write result, atomic
 Git/filesystem transaction, cross-session lock, or exhaustive cancellation
 guarantee. Git failures after staging and interruption between undo's two Git

@@ -161,8 +161,18 @@ remains before the release claims can be re-audited.
   `scripts/package-smoke.mjs` asserts the tarball carries `dist/cli.js`,
   `dist/index.js`, the three model resource files, and the repository-map
   resources.
-- [ ] Reconcile history and structured partial results whenever files or commits
-  survive a later failure or cancellation.
+- [x] Reconcile history and structured partial results whenever files or commits
+  survive a later failure or cancellation. The application reports each write and
+  each checkpoint/apply commit through `CoderSession.recordTurnMutation()`, so an
+  interrupted turn whose work survives appends its user message, reflection
+  exchanges, and model response to history instead of being discarded, while a
+  turn that changed nothing still leaves none. `submit()` wraps such a failure in
+  `TurnPartiallyAppliedError`, which carries `changedPaths`, `commit`, and
+  `commands` and names them in the message the terminal and HTTP interface
+  print. A durable recovery journal and per-file partial-write results remain out
+  of scope. Evidence: the reflection-limit case in
+  `tests/application-lifecycle.test.ts` and the reconciliation case in
+  `tests/coder-session.test.ts`.
 - [ ] Isolate missing/unreadable tracked files during map construction and emit
   the canonical no-editable-files prompt pair.
 - [ ] Surface watch submission/native watcher failures and refresh all selected
@@ -347,10 +357,11 @@ deterministic tests; actual child execution is retained.
 **Precisely remaining unchecked R2 boundaries:**
 
 - The complete orchestration item: per-failure lint/test reflection choice
-  (currently automatic for explicitly configured checks), reconciliation of
-  interrupted history with already-applied edits, and complete standalone-bin
-  approval-driven acceptance. The successful installed-service path finalizes
-  history, usage, changed paths, and latest commit correctly.
+  (currently automatic for explicitly configured checks) and complete
+  standalone-bin approval-driven acceptance. The successful installed-service
+  path finalizes history, usage, changed paths, and latest commit correctly, and
+  an interrupted turn whose edits survive now reconciles history and reports a
+  structured partial outcome.
 - Unrelated-work preservation across *all* failures: normal checkpoint,
   commit, failed checks, sampled cancellation, and undo preserve the unrelated
   index/worktree in tests. Git failures after staging, failure between undo's

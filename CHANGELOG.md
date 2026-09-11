@@ -171,6 +171,16 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Reconciled history and reported a structured outcome when a turn fails or is
+  cancelled after its edits already reached the worktree. Such a turn was
+  discarded entirely, so the next turn saw changed files with no record of the
+  request or response that changed them, and the caller received an error naming
+  neither the changed paths nor the commit. Writes and checkpoint/apply commits
+  are now reported to the session, an interrupted turn whose work survives keeps
+  its user message, reflection exchanges, and model response, and the rejection
+  is wrapped in `TurnPartiallyAppliedError` carrying `changedPaths`, `commit`,
+  and `commands`. A turn that changed nothing still leaves no history and its
+  error is rethrown unchanged.
 - Built the package from a clean `dist/` on every `npm pack`, `npm publish`, and
   Git-URL install through a `prepack` script, rather than packaging whatever
   build output happened to be on disk. The package smoke test now also asserts

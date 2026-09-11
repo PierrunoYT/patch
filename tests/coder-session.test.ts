@@ -595,6 +595,52 @@ describe("CoderSession", () => {
     });
   });
 
+  it("reconciles history only when a failed turn's work survives", async () => {
+    const root = await temporaryDirectory();
+    const build = () =>
+      new CoderSession({
+        config: config(root, "ask"),
+        provider: new FakeProvider([
+          {
+            actions: [
+              { type: "text-delta", text: "did the work" },
+              { type: "finish", reason: "stop" },
+            ],
+          },
+        ]),
+        strategy: new AskEditStrategy(),
+      });
+    const failing = (session: CoderSession, mutate: boolean) =>
+      session.runTurn("change it", {
+        lifecycle: {
+          context: async () => ({ prompt: {}, snapshots: [] }),
+          apply: async () => {
+            if (mutate) session.recordTurnMutation();
+            throw new Error("check failed after writing");
+          },
+        },
+      });
+
+    const mutated = build();
+    await expect(failing(mutated, true)).rejects.toThrow(/check failed/u);
+    expect(mutated.snapshot()).toMatchObject({
+      phase: "interrupted",
+      pendingEdits: [],
+      messages: [
+        { role: "user", content: "change it" },
+        { role: "assistant", content: "did the work" },
+      ],
+    });
+
+    // Nothing reached the worktree, so the turn leaves no trace.
+    const untouched = build();
+    await expect(failing(untouched, false)).rejects.toThrow(/check failed/u);
+    expect(untouched.snapshot()).toMatchObject({
+      phase: "interrupted",
+      messages: [],
+    });
+  });
+
   it("retains a usage event delivered after the finish event", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({

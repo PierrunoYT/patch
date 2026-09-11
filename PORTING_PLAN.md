@@ -382,9 +382,10 @@ or a documented, safer rejection.
 
 **Exit (partial):** installed-service acceptance covers streamed malformed and
 unresolvable responses, two-file writes, lint reflection, approved commands,
-tests, and undo with exact Git assertions. Exhaustive failure/cancellation,
-interrupted-history reconciliation, and remaining approval policies remain
-in R2/R3 of `docs/remaining-integration-tasks.md`.
+tests, and undo with exact Git assertions. An interrupted turn whose writes or
+commits survive now reconciles its history and reports a structured partial
+outcome. Exhaustive failure/cancellation coverage and remaining approval
+policies remain in R2/R3 of `docs/remaining-integration-tasks.md`.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
 `tests/application-model-switch.test.ts`, `tests/application-lifecycle.test.ts`,

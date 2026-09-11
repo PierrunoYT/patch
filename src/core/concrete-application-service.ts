@@ -139,6 +139,33 @@ function createRepositoryMap(root: string): Promise<RepositoryMap> {
   });
 }
 
+/**
+ * Raised when a turn fails or is cancelled after some of its work already
+ * reached the worktree. The surviving paths, commit, and executed commands are
+ * carried on the error so an interface can report what is now on disk instead of
+ * only reporting that the turn failed.
+ */
+export class TurnPartiallyAppliedError extends Error {
+  override readonly name = "TurnPartiallyAppliedError";
+  readonly changedPaths: readonly string[];
+  readonly commit: string | null;
+  readonly commands: readonly ModelCommandResult[];
+
+  constructor(cause: unknown, result: Omit<ApplicationTurnResult, "response">) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    const survived = [
+      result.changedPaths.length === 0
+        ? undefined
+        : `changed ${result.changedPaths.join(", ")}`,
+      result.commit === null ? undefined : `committed ${result.commit}`,
+    ].filter((part) => part !== undefined);
+    super(`${reason}\nThe turn already ${survived.join(" and ")}.`, { cause });
+    this.changedPaths = [...result.changedPaths];
+    this.commit = result.commit;
+    this.commands = [...result.commands];
+  }
+}
+
 export interface ApplicationTurnResult {
   readonly response: string;
   readonly changedPaths: readonly string[];
@@ -483,6 +510,8 @@ class ConcreteApplicationSession implements ApplicationSession {
                   options.signal,
                 );
                 for (const path of write.changedPaths) changedPaths.add(path);
+                if (write.changedPaths.length > 0)
+                  this.#session.recordTurnMutation();
                 options.signal.throwIfAborted();
                 await this.#commit(write.changedPaths, "Apply Patch edits");
                 const signal = options.signal;
@@ -531,6 +560,16 @@ class ConcreteApplicationSession implements ApplicationSession {
             [...new Set([...state.editablePaths, ...changedPaths])],
             state.readOnlyPaths,
           );
+        })
+        .catch((error: unknown) => {
+          const state = this.#session.snapshot();
+          const commit = changedPaths.size === 0 ? null : state.lastPatchCommit;
+          if (changedPaths.size === 0 && commit === null) throw error;
+          throw new TurnPartiallyAppliedError(error, {
+            changedPaths: [...changedPaths],
+            commit,
+            commands,
+          });
         });
       const state = this.#session.snapshot();
       return {
@@ -841,7 +880,11 @@ class ConcreteApplicationSession implements ApplicationSession {
             verify: false,
           })
         )?.commit ?? null;
-      if (commit !== null) this.#session.recordCommit(commit);
+      if (commit !== null) {
+        this.#session.recordCommit(commit);
+        // A checkpoint or apply commit outlives a turn that fails afterwards.
+        this.#session.recordTurnMutation();
+      }
       return commit;
     });
   }

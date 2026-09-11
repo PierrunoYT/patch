@@ -295,6 +295,7 @@ export class CoderSession {
   #state: SessionState;
   #nextTurnId = 1;
   #activeTurn: PreparedTurn | undefined;
+  #turnMutated = false;
 
   constructor(options: CoderSessionOptions) {
     this.#config = SessionConfigSchema.parse(options.config);
@@ -501,10 +502,20 @@ export class CoderSession {
     }
   }
 
+  /**
+   * Marks the active turn as having changed the worktree. A turn that mutated
+   * files or created a commit and then failed cannot simply be discarded: the
+   * work outlives the turn, so its history has to record it.
+   */
+  recordTurnMutation(): void {
+    this.#turnMutated = true;
+  }
+
   prepareTurn(userInput: string, prompt: TurnPrompt = {}): PreparedTurn {
     if (this.#activeTurn !== undefined) {
       throw new Error("A session turn is already active");
     }
+    this.#turnMutated = false;
     const userMessage = ChatMessageSchema.parse({
       role: "user",
       content: userInput,
@@ -614,6 +625,8 @@ export class CoderSession {
     let usage: UsageReport | undefined;
     let responsePrefix = "";
     let continuationCount = 0;
+    let lastResponse = "";
+    let lastReasoning = "";
 
     try {
       while (true) {
@@ -726,6 +739,9 @@ export class CoderSession {
           }
           break;
         }
+
+        lastResponse = response;
+        lastReasoning = reasoning;
 
         if (continueOutput) {
           continuationCount += 1;
@@ -848,9 +864,26 @@ export class CoderSession {
       }
     } catch (error) {
       this.#activeTurn = undefined;
+      // Edits that reached the worktree survive the failure, so the turn that
+      // produced them stays in history. Discarding it would leave the next turn
+      // describing files as unchanged when they are not.
+      const reconciled =
+        this.#turnMutated && lastResponse !== ""
+          ? [
+              ...this.#state.messages,
+              turn.userMessage,
+              ...reflectedMessages,
+              ChatMessageSchema.parse({
+                role: "assistant",
+                content: lastResponse,
+                ...(lastReasoning === "" ? {} : { reasoning: lastReasoning }),
+              }),
+            ]
+          : this.#state.messages;
       this.#state = SessionStateSchema.parse({
         ...this.#state,
         phase: "interrupted",
+        messages: reconciled,
         pendingEdits: [],
       });
       throw error;
