@@ -54,18 +54,19 @@ tests are evidence only for the cases they exercise.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial | Ordinary initial turns are composed and model/mode switching now rebuilds the whole profile atomically; failed-mutation history, continuation, and multi-session ownership are incomplete. |
-| Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
+| Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff parses a two-file response against an upstream golden, but broader targeting cases are still unpinned. |
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
-| Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, and unparsed files contribute lexical references; context mode and fixture breadth are incomplete. |
+| Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, unparsed files contribute lexical references, and every shipped language's tags are pinned against upstream's own extractor; context mode and ranking/personalization fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, rich input and explicitly requested PTY dispatch are connected to the reader, selection takes directories and globs, subprocess output and status are visible, and `/web` ingests one page; the help, report, and settings families are absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, watch reports its failures and refreshes every selected file's AI comments, and `/web` ingests one user-typed URL as bounded, labeled text; voice is a helper surface, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup is clearly rejected, `--vim` is refused instead of ignored, shell completion comes from the parser itself, and the package ships its docs; the remaining config-aware options, provider-lifetime cleanup, and provenance checks remain. |
 
 ### Immediate P0 blockers
 
-All immediate P0 blockers and all P1 correctness work are now closed; the P2
-work below is what remains before the release claims can be re-audited.
+All immediate P0 blockers, all P1 correctness work, and every P2 item except
+the disposition decision are now closed. That one open product decision is what
+remains in this section before the release claims can be re-audited.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
@@ -296,10 +297,8 @@ work below is what remains before the release claims can be re-audited.
 
   Nothing else in P2 depends on this decision, so the remaining items proceed
   without it.
-- [ ] Establish dirty-upstream/blob-hash fixture checks, broader production
+- [x] Establish dirty-upstream/blob-hash fixture checks, broader production
   goldens, packed TSX extraction, installed documentation, and exact CI evidence.
-  Four of the five are done; **broader production goldens are not**, so the item
-  stays unchecked.
   - Dirty-upstream and blob-hash checks: `upstream.json` records the blob hash of
     every module the fixture driver imports, and `npm run fixtures:upstream`
     refuses a checkout that is dirty, whose pinned blob differs, or whose
@@ -314,10 +313,14 @@ work below is what remains before the release claims can be re-audited.
     and present after install.
   - Exact CI evidence: the jobs a claim may cite are tabulated under
     [Continuous integration jobs](#continuous-integration-jobs).
-  - **Remaining:** broader production goldens. New upstream-derived fixtures
-    need the pinned aider checkout and its Python environment, which this
-    working environment does not have; the golden coverage each advertised edit
-    format needs is tracked with R6's fixture item.
+  - Broader production goldens: the fixture set grew from one two-file Python
+    repository map to one tagged sample per shipped language — all eleven —
+    plus the important-root-file selection and unified-diff parsing for a
+    two-file response. Patch reproduces upstream's tags exactly for every
+    language; the unified-diff golden records one deliberate divergence, where
+    upstream keeps a `b/` prefix on a mid-block file transition and Patch strips
+    it. Golden coverage for each remaining advertised edit format is tracked
+    with R6's fixture item. Evidence: `tests/upstream-fixtures.test.ts`.
 
 The R0–R9 sections below retain dependency context. Where a checked component
 conflicts with this re-audit, the unchecked blocker above controls release

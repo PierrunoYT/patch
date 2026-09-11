@@ -1,4 +1,7 @@
 import { readFileSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -8,7 +11,10 @@ import {
   ChatChunks,
   COMMON_PROMPTS,
   EditFormatSchema,
+  filterImportantFiles,
   selectFence,
+  TagExtractor,
+  UnifiedDiffEditStrategy,
   type ChatMessage,
 } from "../src/index.js";
 
@@ -17,9 +23,27 @@ interface FenceResult {
   fellBack: boolean;
 }
 
+interface LanguageTag {
+  line: number;
+  name: string;
+  kind: "definition" | "reference";
+}
+
+interface LanguageSample {
+  source: string;
+  tags: LanguageTag[];
+}
+
 interface UpstreamFixture {
   schemaVersion: number;
   upstream: { repository: string; commit: string };
+  repoMapLanguages: Record<string, LanguageSample>;
+  importantFiles: { candidates: string[]; important: string[] };
+  unifiedDiff: {
+    response: string;
+    diffs: { path: string; hunk: string[]; before: string; after: string }[];
+    applied: string;
+  };
   configPrecedence: Record<string, string>;
   chatChunks: {
     order: string[];
@@ -54,7 +78,7 @@ const fixture = JSON.parse(
 
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
-    expect(fixture.schemaVersion).toBe(4);
+    expect(fixture.schemaVersion).toBe(5);
     expect(fixture.upstream).toEqual({
       repository: upstream.repository,
       commit: upstream.commit,
@@ -151,5 +175,70 @@ describe("upstream compatibility fixtures", () => {
 
     expect(chunks.allMessages()).toEqual(fixture.chatChunks.withCacheHeaders);
     expect(chunks.cacheableMessages()).toEqual(fixture.chatChunks.cacheable);
+  });
+
+  it("selects the same important root files upstream does", () => {
+    expect(filterImportantFiles(fixture.importantFiles.candidates)).toEqual(
+      fixture.importantFiles.important,
+    );
+  });
+
+  it("extracts the same tags upstream does for every shipped language", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-language-golden-"));
+    try {
+      const samples = Object.entries(fixture.repoMapLanguages);
+      // Every language Patch ships a grammar for is pinned against upstream's
+      // own extractor, so a grammar or query that drifts fails here instead of
+      // quietly ranking different symbols in production maps.
+      expect(samples.length).toBe(11);
+      for (const [name, { source }] of samples) {
+        await writeFile(join(root, name), source);
+      }
+      const extractor = await TagExtractor.create(root);
+      for (const [name, { tags }] of samples) {
+        const extracted = (await extractor.extract(name))
+          .map(({ line, name: symbol, kind }) => ({ kind, line, name: symbol }))
+          .sort(
+            (left, right) =>
+              left.line - right.line ||
+              left.kind.localeCompare(right.kind) ||
+              left.name.localeCompare(right.name),
+          );
+        // Keyed so a failure names the language instead of a bare array diff.
+        expect({ [name]: extracted }).toEqual({ [name]: tags });
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("parses the same unified-diff hunks upstream does, and retargets where upstream does not", () => {
+    const parsed = new UnifiedDiffEditStrategy().parse(
+      fixture.unifiedDiff.response,
+      { editablePaths: [], fence: ["```", "```"] },
+    );
+    const expected = fixture.unifiedDiff.diffs;
+    expect(parsed.edits).toHaveLength(expected.length);
+    for (const [index, hunk] of expected.entries()) {
+      const edit = parsed.edits[index];
+      expect(edit?.kind).toBe("replace");
+      if (edit?.kind !== "replace") continue;
+      expect(edit.search).toBe(hunk.before);
+      expect(edit.replacement).toBe(hunk.after);
+    }
+
+    // Intentional difference. `process_fenced_block`
+    // (aider/coders/udiff_coder.py:337-398) strips `a/`/`b/` prefixes only from
+    // the block's leading header pair; a mid-block `--- `/`+++ ` transition
+    // keeps the prefix verbatim, so upstream targets a path that does not
+    // exist. Patch strips the prefix whenever both headers carry one.
+    expect(expected.map(({ path }) => path)).toEqual([
+      "first.py",
+      "b/second.py",
+    ]);
+    expect(parsed.edits.map((edit) => edit.path)).toEqual([
+      "first.py",
+      "second.py",
+    ]);
   });
 });

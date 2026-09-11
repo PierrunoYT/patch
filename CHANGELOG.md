@@ -178,6 +178,17 @@ porting plan distinguish composed behavior from library-only adapters.
 - Packed repository-map extraction covers all eleven shipped languages. Package
   smoke checked five, so a grammar or query that failed to pack — TSX, Bash,
   C/C++, C#, Java, or Ruby — would only have surfaced at runtime.
+- Upstream goldens grew from one two-file Python repository map to one tagged
+  sample per shipped language, the important-root-file selection, and
+  unified-diff parsing for a two-file response. Patch's WebAssembly grammars and
+  copied tag queries reproduce aider's tags exactly for all eleven languages.
+  The unified-diff golden records one deliberate divergence: upstream strips
+  `a/`/`b/` prefixes only from a block's leading header pair, so it targets
+  `b/second.py` for a mid-block file transition where Patch targets
+  `second.py`.
+- The fixture exporter runs on Windows. Aider's repository map holds its SQLite
+  tags cache open, which Windows will not let the temporary directory delete, so
+  every export failed at cleanup after computing its results.
 - `upstream.json` records a blob hash for every aider module the fixture driver
   imports. `npm run fixtures:upstream` now refuses a dirty checkout and any
   source whose hash has moved, at the pinned commit or on disk, so uncommitted

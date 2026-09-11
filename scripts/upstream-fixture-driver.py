@@ -223,7 +223,10 @@ def export_git_diff(InputOutput, GitRepo):
 
 
 def export_repo_map(InputOutput, Model, RepoMap):
-    with tempfile.TemporaryDirectory() as directory:
+    # RepoMap opens a SQLite tags cache under the map root. Windows refuses to
+    # unlink an open file, so the cache is closed before the directory goes away
+    # and a cleanup failure is never allowed to mask a real export error.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         definitions = root / "definitions.py"
         usage = root / "usage.py"
@@ -274,12 +277,139 @@ def export_repo_map(InputOutput, Model, RepoMap):
             for line in rendered.splitlines()
             if line.strip() and line.strip() != "⋮"
         ]
+        cache = getattr(repository_map, "TAGS_CACHE", None)
+        if hasattr(cache, "close"):
+            cache.close()
         return {
             "tags": tags,
             "rankOrder": rank_order,
             "rendered": rendered,
             "normalizedMap": normalized,
         }
+
+
+# One small file per language Patch ships a grammar for. Each is written to a
+# temporary map root and tagged by aider's own extractor, so Patch's eleven
+# languages are pinned against upstream rather than against themselves.
+REPO_MAP_LANGUAGE_SAMPLES = {
+    "sample.js": "function javascriptName() {}\njavascriptName();\n",
+    "sample.ts": "function typescriptName(): void {}\ntypescriptName();\n",
+    "sample.tsx": (
+        "export function TsxName() {\n  return null;\n}\nconst used = TsxName;\n"
+    ),
+    "sample.py": "def python_name():\n    pass\n\npython_name()\n",
+    "sample.go": "package main\nfunc goName() {}\nfunc main() { goName() }\n",
+    "sample.rs": "fn rust_name() {}\nfn main() { rust_name(); }\n",
+    "sample.sh": "bash_name() {\n  echo hi\n}\nbash_name\n",
+    "sample.cpp": "int cppName() { return 0; }\nint main() { return cppName(); }\n",
+    "sample.cs": (
+        "class CsharpName {\n"
+        "  public CsharpName Make() { return new CsharpName(); }\n"
+        "}\n"
+    ),
+    "sample.java": "class JavaName {\n  void run() {}\n}\n",
+    "sample.rb": "def ruby_name\n  1\nend\nruby_name\n",
+}
+
+
+def export_repo_map_languages(InputOutput, Model, RepoMap):
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        root = Path(directory)
+        for name, source in REPO_MAP_LANGUAGE_SAMPLES.items():
+            (root / name).write_text(source, encoding="utf-8")
+        repository_map = RepoMap(
+            map_tokens=512,
+            root=directory,
+            main_model=Model("gpt-3.5-turbo"),
+            io=InputOutput(pretty=False, fancy_input=False),
+            refresh="always",
+        )
+        languages = {}
+        for name in sorted(REPO_MAP_LANGUAGE_SAMPLES):
+            tags = [
+                {
+                    "line": tag.line,
+                    "name": tag.name,
+                    "kind": "definition" if tag.kind == "def" else "reference",
+                }
+                for tag in repository_map.get_tags(str(root / name), name)
+                if tag.line >= 0
+            ]
+            # The source travels with its tags so the consuming test extracts
+            # from exactly what upstream tagged, not from a second copy.
+            languages[name] = {
+                "source": REPO_MAP_LANGUAGE_SAMPLES[name],
+                "tags": sorted(
+                    (
+                        dict(items)
+                        for items in {tuple(sorted(tag.items())) for tag in tags}
+                    ),
+                    key=lambda tag: (tag["line"], tag["kind"], tag["name"]),
+                ),
+            }
+        cache = getattr(repository_map, "TAGS_CACHE", None)
+        if hasattr(cache, "close"):
+            cache.close()
+        return languages
+
+
+def export_important_files(filter_important_files):
+    candidates = [
+        "README.md",
+        "src/main.ts",
+        ".github/workflows/ci.yml",
+        ".github/workflows/notes.txt",
+        "package.json",
+        "docs/guide.md",
+        "Makefile",
+        "requirements.txt",
+        ".gitignore",
+        "deep/nested/README.md",
+    ]
+    return {
+        "candidates": candidates,
+        "important": list(filter_important_files(candidates)),
+    }
+
+
+# A single response carrying two files, so the file-header transition between
+# hunks is pinned and not only the hunks themselves.
+UNIFIED_DIFF_RESPONSE = """Here are the changes.
+
+```diff
+--- a/first.py
++++ b/first.py
+@@ ... @@
+ def first():
+-    return 1
++    return 2
+--- a/second.py
++++ b/second.py
+@@ ... @@
+ def second():
+-    return "old"
++    return "new"
+```
+"""
+
+
+def export_unified_diff(udiff_coder):
+    diffs = udiff_coder.find_diffs(UNIFIED_DIFF_RESPONSE)
+    exported = []
+    for path, hunk in diffs:
+        before, after = udiff_coder.hunk_to_before_after(hunk, lines=True)
+        exported.append(
+            {
+                "path": path,
+                "hunk": list(hunk),
+                "before": "".join(before),
+                "after": "".join(after),
+            }
+        )
+    applied = udiff_coder.directly_apply_hunk(
+        'def first():\n    return 1\n', diffs[0][1]
+    )
+    return {"response": UNIFIED_DIFF_RESPONSE, "diffs": exported, "applied": applied}
 
 
 def main():
@@ -306,14 +436,16 @@ def main():
     from aider.coders.base_coder import all_fences
     from aider.coders.base_prompts import CoderPrompts
     from aider.coders import editblock_coder
+    from aider.coders import udiff_coder
     from aider.coders.chat_chunks import ChatChunks
     from aider.io import InputOutput
     from aider.models import Model
     from aider.repo import GitRepo
     from aider.repomap import RepoMap
+    from aider.special import filter_important_files
 
     fixture = {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "upstream": {"repository": remote, "commit": commit},
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",
@@ -324,6 +456,9 @@ def main():
             "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590",
             "gitDiff": "aider/repo.py:375-417",
             "repoMap": "aider/repomap.py:266-784",
+            "repoMapLanguages": "aider/repomap.py:266-784; aider/queries/tree-sitter-language-pack/*-tags.scm",
+            "importantFiles": "aider/special.py:184-205",
+            "unifiedDiff": "aider/coders/udiff_coder.py:261-435",
         },
         "configPrecedence": export_config_precedence(get_parser),
         "chatChunks": export_chat_chunks(ChatChunks),
@@ -337,6 +472,9 @@ def main():
         "searchReplace": export_search_replace(editblock_coder),
         "gitDiff": export_git_diff(InputOutput, GitRepo),
         "repoMap": export_repo_map(InputOutput, Model, RepoMap),
+        "repoMapLanguages": export_repo_map_languages(InputOutput, Model, RepoMap),
+        "importantFiles": export_important_files(filter_important_files),
+        "unifiedDiff": export_unified_diff(udiff_coder),
     }
 
     arguments.output.parent.mkdir(parents=True, exist_ok=True)

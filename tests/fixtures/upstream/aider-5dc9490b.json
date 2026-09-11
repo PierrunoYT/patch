@@ -209,6 +209,27 @@
     }
   },
   "gitDiff": "diff --git a/staged.txt b/staged.txt\nindex 5c04105..07d44e5 100644\n--- a/staged.txt\n+++ b/staged.txt\n@@ -1 +1 @@\n-base staged\n+staged change\ndiff --git a/working.txt b/working.txt\nindex 5d1f1c6..dc42955 100644\n--- a/working.txt\n+++ b/working.txt\n@@ -1 +1 @@\n-base working\n+working change",
+  "importantFiles": {
+    "candidates": [
+      "README.md",
+      "src/main.ts",
+      ".github/workflows/ci.yml",
+      ".github/workflows/notes.txt",
+      "package.json",
+      "docs/guide.md",
+      "Makefile",
+      "requirements.txt",
+      ".gitignore",
+      "deep/nested/README.md"
+    ],
+    "important": [
+      "README.md",
+      ".github/workflows/ci.yml",
+      "package.json",
+      "requirements.txt",
+      ".gitignore"
+    ]
+  },
   "promptResources": {
     "exampleMessages": [],
     "filesContentAssistantReply": "Ok, any changes I propose will be to those files.",
@@ -295,7 +316,194 @@
       }
     ]
   },
-  "schemaVersion": 4,
+  "repoMapLanguages": {
+    "sample.cpp": {
+      "source": "int cppName() { return 0; }\nint main() { return cppName(); }\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "cppName"
+        },
+        {
+          "kind": "definition",
+          "line": 1,
+          "name": "main"
+        }
+      ]
+    },
+    "sample.cs": {
+      "source": "class CsharpName {\n  public CsharpName Make() { return new CsharpName(); }\n}\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "CsharpName"
+        },
+        {
+          "kind": "definition",
+          "line": 1,
+          "name": "Make"
+        },
+        {
+          "kind": "reference",
+          "line": 1,
+          "name": "CsharpName"
+        }
+      ]
+    },
+    "sample.go": {
+      "source": "package main\nfunc goName() {}\nfunc main() { goName() }\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "main"
+        },
+        {
+          "kind": "definition",
+          "line": 1,
+          "name": "goName"
+        },
+        {
+          "kind": "definition",
+          "line": 2,
+          "name": "main"
+        },
+        {
+          "kind": "reference",
+          "line": 2,
+          "name": "goName"
+        }
+      ]
+    },
+    "sample.java": {
+      "source": "class JavaName {\n  void run() {}\n}\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "JavaName"
+        },
+        {
+          "kind": "definition",
+          "line": 1,
+          "name": "run"
+        }
+      ]
+    },
+    "sample.js": {
+      "source": "function javascriptName() {}\njavascriptName();\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "javascriptName"
+        },
+        {
+          "kind": "reference",
+          "line": 1,
+          "name": "javascriptName"
+        }
+      ]
+    },
+    "sample.py": {
+      "source": "def python_name():\n    pass\n\npython_name()\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "python_name"
+        },
+        {
+          "kind": "reference",
+          "line": 3,
+          "name": "python_name"
+        }
+      ]
+    },
+    "sample.rb": {
+      "source": "def ruby_name\n  1\nend\nruby_name\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "ruby_name"
+        },
+        {
+          "kind": "reference",
+          "line": 0,
+          "name": "ruby_name"
+        },
+        {
+          "kind": "reference",
+          "line": 3,
+          "name": "ruby_name"
+        }
+      ]
+    },
+    "sample.rs": {
+      "source": "fn rust_name() {}\nfn main() { rust_name(); }\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "rust_name"
+        },
+        {
+          "kind": "definition",
+          "line": 1,
+          "name": "main"
+        },
+        {
+          "kind": "reference",
+          "line": 1,
+          "name": "rust_name"
+        }
+      ]
+    },
+    "sample.sh": {
+      "source": "bash_name() {\n  echo hi\n}\nbash_name\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "bash_name"
+        },
+        {
+          "kind": "reference",
+          "line": 1,
+          "name": "echo"
+        },
+        {
+          "kind": "reference",
+          "line": 3,
+          "name": "bash_name"
+        }
+      ]
+    },
+    "sample.ts": {
+      "source": "function typescriptName(): void {}\ntypescriptName();\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "typescriptName"
+        }
+      ]
+    },
+    "sample.tsx": {
+      "source": "export function TsxName() {\n  return null;\n}\nconst used = TsxName;\n",
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "TsxName"
+        }
+      ]
+    }
+  },
+  "schemaVersion": 5,
   "searchReplace": {
     "missingFilenameError": "<<<<<<< SEARCH\n\n^^^ Bad/missing filename. The filename must be alone on the line before the opening fence ```",
     "parsed": [
@@ -321,9 +529,38 @@
     "editFormats": "aider/coders/__init__.py:1-34",
     "fences": "aider/coders/base_coder.py:73-84,609-629",
     "gitDiff": "aider/repo.py:375-417",
+    "importantFiles": "aider/special.py:184-205",
     "promptResources": "aider/coders/base_prompts.py:1-60",
     "repoMap": "aider/repomap.py:266-784",
-    "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590"
+    "repoMapLanguages": "aider/repomap.py:266-784; aider/queries/tree-sitter-language-pack/*-tags.scm",
+    "searchReplace": "aider/coders/editblock_coder.py:127-217,335-590",
+    "unifiedDiff": "aider/coders/udiff_coder.py:261-435"
+  },
+  "unifiedDiff": {
+    "applied": "def first():\n    return 2\n",
+    "diffs": [
+      {
+        "after": "def first():\n    return 2\n",
+        "before": "def first():\n    return 1\n",
+        "hunk": [
+          " def first():\n",
+          "-    return 1\n",
+          "+    return 2\n"
+        ],
+        "path": "first.py"
+      },
+      {
+        "after": "def second():\n    return \"new\"\n",
+        "before": "def second():\n    return \"old\"\n",
+        "hunk": [
+          " def second():\n",
+          "-    return \"old\"\n",
+          "+    return \"new\"\n"
+        ],
+        "path": "b/second.py"
+      }
+    ],
+    "response": "Here are the changes.\n\n```diff\n--- a/first.py\n+++ b/first.py\n@@ ... @@\n def first():\n-    return 1\n+    return 2\n--- a/second.py\n+++ b/second.py\n@@ ... @@\n def second():\n-    return \"old\"\n+    return \"new\"\n```\n"
   },
   "upstream": {
     "commit": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",

@@ -12,9 +12,22 @@ The exporter currently captures:
 - the registered edit-format list;
 - SEARCH/REPLACE parsing, errors, exact edits, indentation handling, and
   `...` elision;
-- staged and unstaged Git diff behavior; and
+- unified-diff parsing for a response carrying two files, including the hunks
+  and the paths upstream targets;
+- staged and unstaged Git diff behavior;
 - a small Python repository map, including normalized tags, definition rank
-  order, and rendered context.
+  order, and rendered context;
+- one tagged sample per language Patch ships a grammar for — JavaScript,
+  TypeScript, TSX, Python, Go, Rust, Bash, C/C++, C#, Java, and Ruby — each
+  stored with the source it was tagged from; and
+- the important-root-file selection for a mixed candidate list.
+
+Patch's tree-sitter WebAssembly grammars and its copies of upstream's tag
+queries reproduce aider's tags exactly for all eleven languages. The unified-diff
+golden records one deliberate divergence: `process_fenced_block` strips `a/`/`b/`
+prefixes only from a block's leading header pair, so upstream targets `b/…` for a
+mid-block file transition, while Patch strips the prefix whenever both headers
+carry one. The test asserts both, so neither side can change unnoticed.
 
 ## Regenerating fixtures
 

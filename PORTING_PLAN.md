@@ -67,8 +67,9 @@ edit-format, option, and interface support must be documented explicitly.
 
 - Repository maps are production-wired for JavaScript, TypeScript/TSX, Python,
   Go, Rust, Bash, C/C++, C#, Java, and Ruby, sized to the model's context
-  window, and files no grammar covers contribute lexical references; context
-  mode and stronger fixtures remain.
+  window, and files no grammar covers contribute lexical references. Every
+  shipped language's tags are pinned against upstream's own extractor and match
+  exactly; context mode and ranking/personalization fixtures remain.
 - Unified diff and Patch formats are constructed but have unresolved targeting
   and multi-action correctness defects. Architect/editor, context, help, and
   other advanced formats remain unconstructed.
@@ -490,9 +491,11 @@ real-repository `tests/git-*.test.ts` suites.
   `always`, `files`, and `auto` refresh behavior.
 - [ ] Broaden independent map fixtures beyond one two-file Python example,
   including personalization, fallback references, important files, TSX packed
-  extraction, and every added language. Packed extraction is now covered for all
-  eleven shipped languages, TSX included, by `scripts/package-smoke.mjs`;
-  independent ranking/rendering fixtures for them are what remains.
+  extraction, and every added language. Tags for all eleven shipped languages,
+  TSX included, and important-root-file selection are now pinned against
+  upstream's own extractor in `tests/upstream-fixtures.test.ts`, and packed
+  extraction for the same set runs from the installed tarball. Personalization
+  and lexical fallback references are still unpinned.
 
 **Exit (configured evidence):** representative multi-language fixtures and
 packed-resource tests are in the Linux/macOS/Windows CI matrix. Cross-platform
