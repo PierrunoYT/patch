@@ -595,6 +595,45 @@ describe("CoderSession", () => {
     });
   });
 
+  it("retains a usage event delivered after the finish event", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: {
+        root,
+        model: {
+          name: "test/model",
+          provider: "fake",
+          editFormat: "ask",
+          inputCostPerMillion: 1000,
+          outputCostPerMillion: 2000,
+        },
+      },
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "answer" },
+            { type: "finish", reason: "stop" },
+            { type: "usage", inputTokens: 30, outputTokens: 10 },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+
+    const completed = await session.runTurn("question");
+
+    expect(completed.usage).toMatchObject({
+      inputTokens: 30,
+      outputTokens: 10,
+      costSource: "catalog",
+    });
+    expect(session.snapshot()).toMatchObject({
+      inputTokens: 30,
+      outputTokens: 10,
+      totalCost: 0.05,
+    });
+  });
+
   it("drops history media a replacement model cannot accept", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({

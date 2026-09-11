@@ -24,7 +24,8 @@ Patch is an unreleased, incomplete port with a working but pre-release core
 application path. The `patch` executable bootstraps configuration, constructs
 OpenAI or Anthropic routes, builds editable/read-only/repository-map context,
 and runs serialized one-shot or line-oriented interactive turns. A DeepSeek
-route is present but its catalog-to-endpoint normalization is not yet verified.
+route normalizes the catalog model name, output limit, and prefill request for
+that endpoint.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`; `udiff` and `patch` have unresolved targeting cases and are not
 release-ready.

@@ -5,9 +5,10 @@ The initial entries are `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`,
 `claude-haiku-4-5`, and `deepseek/deepseek-chat`, with the aliases `4o`,
 `sonnet`, and `deepseek`.
 
-The DeepSeek catalog entry is not yet normalized to the endpoint-facing model
-name by the executable provider path. Treat that route as incomplete until the
-catalog, factory, session, and live contract use one request shape.
+The bundled DeepSeek entry keeps the `deepseek/deepseek-chat` routing name;
+`createProvider` selects the `deepseek` dialect, which strips the prefix and
+normalizes the output limit and prefill request for the endpoint. See
+[model providers](providers.md) for the exact differences.
 
 The aliases and selection behavior are adapted from
 [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L98-L125),
@@ -56,7 +57,7 @@ provider exposes a more authoritative tokenizer.
 present in the executable `ModelSettings`. `ModelCatalog.resolve()` currently
 returns metadata separately and the concrete application does not merge its
 limits, prices, or capabilities into settings. Bundled metadata prices therefore
-do not produce executable cost reports. OpenAI-compatible final usage can also
-be dropped at the session finish boundary, and the terminal does not render
-usage reports. Unknown costs remain `null` rather than becoming a misleading
-zero.
+do not produce executable cost reports. A final OpenAI-compatible usage event
+that arrives after the finish event is retained, but the terminal does not
+render usage reports. Unknown costs remain `null` rather than becoming a
+misleading zero.

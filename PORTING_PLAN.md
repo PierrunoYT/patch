@@ -73,8 +73,9 @@ edit-format, option, and interface support must be documented explicitly.
 - Terminal Markdown, diff previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, history navigation, Vi/Emacs
   bindings, editor, multiline interaction, and PTY dispatch remain incomplete.
-- OpenAI and Anthropic have basic executable routes. DeepSeek request
-  normalization and usage delivery are incomplete; prompt caching, media, and
+- OpenAI and Anthropic have basic executable routes, DeepSeek requests are
+  normalized for its endpoint, and post-finish usage events are retained.
+  Executable metadata merging, temperature policy, prompt caching, media, and
   secondary-model workflows are not fully composed.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock. URL ingestion, browser GUI, complete voice
@@ -389,9 +390,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers
 
-- [ ] Complete OpenAI-compatible streaming integration. Basic OpenAI streaming,
-  custom constructor options, and finish events exist; final usage ordering and
-  DeepSeek endpoint normalization remain incorrect.
+- [ ] Complete OpenAI-compatible streaming integration. Streaming, custom
+  constructor options, finish events, post-finish usage ordering, and DeepSeek
+  endpoint normalization are correct; executable metadata merging, temperature
+  policy, and transient-error breadth remain.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.

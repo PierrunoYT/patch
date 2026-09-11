@@ -171,6 +171,17 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Normalized DeepSeek requests for that endpoint instead of sending OpenAI's
+  spellings. `OpenAIProvider` takes a `deepseek` dialect, selected by
+  `createProvider` from the model's provider, that strips the `deepseek/`
+  routing prefix from the model name, sends the output limit as `max_tokens`,
+  and marks a trailing assistant message `prefix: true` on the endpoint's
+  `/beta` path so a truncated turn can actually continue.
+- Retained a final usage event that arrives after the finish event. The turn
+  loop stopped reading as soon as a provider finished, so the usage chunk
+  OpenAI-compatible endpoints send last was dropped and token and cost
+  accounting silently stayed at zero. The stream is now drained past finish,
+  and only usage is accounted after it.
 - Submitted `/paste` clipboard text as a user turn instead of displaying it as
   an application response. The text becomes the turn message verbatim and is
   never reparsed as a command, so clipboard content the user did not write

@@ -55,7 +55,7 @@ tests are evidence only for the cases they exercise.
 | --- | --- | --- |
 | Core lifecycle | partial | Ordinary initial turns are composed and model/mode switching now rebuilds the whole profile atomically; failed-mutation history, continuation, and multi-session ownership are incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff still has unsafe multi-file cases. |
-| Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
+| Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
@@ -136,8 +136,16 @@ remains before the release claims can be re-audited.
   not write cannot dispatch an effect; an empty clipboard is rejected. Clipboard
   images remain unread. Evidence: the paste cases in
   `tests/application-commands.test.ts`.
-- [ ] Normalize DeepSeek endpoint model/output parameters and prefill requests;
-  retain final usage events through `CoderSession`.
+- [x] Normalize DeepSeek endpoint model/output parameters and prefill requests;
+  retain final usage events through `CoderSession`. `OpenAIProvider` takes a
+  `deepseek` dialect that strips the `deepseek/` routing prefix, sends
+  `max_tokens` instead of `max_completion_tokens`, and marks a trailing
+  assistant message `prefix: true` on the endpoint's `/beta` path;
+  `createProvider` selects it from the model's provider. `CoderSession` drains
+  the provider stream past the finish event, so the usage chunk OpenAI-compatible
+  endpoints send after it is accounted instead of dropped. Metadata merging and
+  temperature policy stay P2. Evidence: `tests/deepseek-provider.test.ts` and the
+  post-finish usage case in `tests/coder-session.test.ts`.
 - [ ] Make default non-repository startup and a sole directory target explicit
   supported or clearly rejected workflows.
 - [ ] Add a clean `prepack` build/resource step before any publication claim.
@@ -385,10 +393,10 @@ effect and application-level next-turn evidence. This exit is not met.
   time and cost bounds; do not run them for untrusted pull requests.
 - [x] Document API/network variability and distinguish mocked adapter tests from
   live contract evidence.
-- [ ] Normalize the advertised DeepSeek catalog model and request fields through
+- [x] Normalize the advertised DeepSeek catalog model and request fields through
   the same factory/session path used by the executable and live contract.
-- [ ] Preserve OpenAI-compatible usage events that arrive with or after finish,
-  then expose accurate usage/cost at the application boundary.
+- [x] Preserve OpenAI-compatible usage events that arrive with or after finish.
+  Exposing accurate usage/cost at the application boundary is still P2.
 - [ ] Merge executable model metadata into settings and classify transient 5xx/
   validation failures consistently with the session retry policy.
 

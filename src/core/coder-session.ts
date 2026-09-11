@@ -640,6 +640,13 @@ export class CoderSession {
             const event = CompletionEventSchema.parse(rawEvent);
             events.push(event);
             options.onEvent?.(structuredClone(event));
+            // OpenAI-compatible endpoints deliver final usage in a chunk after
+            // the one carrying the finish reason, so the stream is drained past
+            // finish. Only usage is still accounted; nothing can extend or
+            // invalidate a response that already finished.
+            if (finished) {
+              if (event.type !== "usage") continue;
+            }
             switch (event.type) {
               case "text-delta":
                 response += event.text;
@@ -696,7 +703,7 @@ export class CoderSession {
               case "tool-call-delta":
                 break;
             }
-            if (retry || finished) {
+            if (retry) {
               break;
             }
           }

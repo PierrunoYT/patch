@@ -2,7 +2,7 @@ import type { ModelSettings } from "../models/settings.js";
 import { AnthropicProvider } from "./anthropic.js";
 import { ProviderConfigurationError, diagnoseProvider } from "./diagnostics.js";
 import type { ModelProvider } from "./events.js";
-import { OpenAIProvider } from "./openai.js";
+import { DEEPSEEK_BASE_URL, OpenAIProvider } from "./openai.js";
 
 export interface ProviderFactoryOptions {
   readonly apiKey?: string;
@@ -74,9 +74,10 @@ export function createProvider(
   }
   const baseURL =
     options.baseURL ??
-    (model.provider === "deepseek" ? "https://api.deepseek.com" : undefined);
+    (model.provider === "deepseek" ? DEEPSEEK_BASE_URL : undefined);
   return new OpenAIProvider({
     ...shared,
+    dialect: model.provider === "deepseek" ? "deepseek" : "openai",
     ...(baseURL === undefined ? {} : { baseURL }),
   });
 }

@@ -53,6 +53,9 @@ state without changing history.
 
 `runTurn` now consumes validated provider events, incrementally assembles text
 and reasoning, reports each event to an optional observer, and records usage.
+The stream is drained past the finish event because OpenAI-compatible endpoints
+deliver final usage in a later chunk; after finish only usage is still
+accounted, so nothing can extend or invalidate a completed response.
 Classified retryable errors use bounded exponential backoff; context-window
 errors bypass retries. Cancellation, missing finish events, and output-limit
 truncation preserve diagnostic partial text but never append partial history or

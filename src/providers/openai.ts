@@ -56,9 +56,20 @@ const OpenAIChunkSchema = z
   })
   .passthrough();
 
+/**
+ * Which OpenAI-compatible endpoint this client talks to. DeepSeek accepts the
+ * Chat Completions shape but names the output limit `max_tokens`, rejects the
+ * `deepseek/` routing prefix LiteLLM uses in model names, and serves assistant
+ * prefill only from its beta path.
+ */
+export type OpenAIDialect = "openai" | "deepseek";
+
+export const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+
 export interface OpenAIProviderOptions {
   readonly apiKey: string;
   readonly baseURL?: string;
+  readonly dialect?: OpenAIDialect;
   readonly timeout?: number;
   readonly organization?: string;
   readonly project?: string;
@@ -185,39 +196,74 @@ function errorEvent(error: unknown): CompletionEvent {
 
 export class OpenAIProvider implements ModelProvider {
   readonly #client: OpenAI;
+  readonly #prefillClient: OpenAI | undefined;
+  readonly #dialect: OpenAIDialect;
 
   constructor(options: OpenAIProviderOptions) {
-    this.#client = new OpenAI({
-      apiKey: options.apiKey,
-      ...(options.baseURL === undefined ? {} : { baseURL: options.baseURL }),
-      ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
-      ...(options.organization === undefined
-        ? {}
-        : { organization: options.organization }),
-      ...(options.project === undefined ? {} : { project: options.project }),
-      ...(options.defaultHeaders === undefined
-        ? {}
-        : { defaultHeaders: options.defaultHeaders }),
-      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-      maxRetries: 0,
-    });
+    this.#dialect = options.dialect ?? "openai";
+    const client = (baseURL: string | undefined) =>
+      new OpenAI({
+        apiKey: options.apiKey,
+        ...(baseURL === undefined ? {} : { baseURL }),
+        ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
+        ...(options.organization === undefined
+          ? {}
+          : { organization: options.organization }),
+        ...(options.project === undefined ? {} : { project: options.project }),
+        ...(options.defaultHeaders === undefined
+          ? {}
+          : { defaultHeaders: options.defaultHeaders }),
+        ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+        maxRetries: 0,
+      });
+    this.#client = client(options.baseURL);
+    this.#prefillClient =
+      this.#dialect === "deepseek"
+        ? client(
+            `${(options.baseURL ?? DEEPSEEK_BASE_URL).replace(/\/+$/u, "")}/beta`,
+          )
+        : undefined;
   }
 
   async *stream(
     request: CompletionRequest,
     signal?: AbortSignal,
   ): AsyncIterable<CompletionEvent> {
+    const deepseek = this.#dialect === "deepseek";
+    const messages = request.messages.map(openAIMessage);
+    const last = messages.at(-1);
+    // DeepSeek continues a trailing assistant message only when it is marked as
+    // a prefix, and only on the beta path. Elsewhere the message stays ordinary
+    // context.
+    const prefill =
+      deepseek && last?.role === "assistant" && last.content !== null;
+    if (prefill && last !== undefined) {
+      messages[messages.length - 1] = {
+        ...last,
+        prefix: true,
+      } as OpenAI.Chat.ChatCompletionMessageParam;
+    }
+    const client =
+      prefill && this.#prefillClient !== undefined
+        ? this.#prefillClient
+        : this.#client;
     try {
-      const stream = await this.#client.chat.completions.create(
+      const stream = await client.chat.completions.create(
         {
           ...request.extraParameters,
-          model: request.model,
-          messages: request.messages.map(openAIMessage),
+          // LiteLLM routes with a `deepseek/` prefix; the endpoint itself only
+          // knows the bare model name.
+          model: deepseek
+            ? request.model.replace(/^deepseek\//u, "")
+            : request.model,
+          messages,
           stream: true,
           stream_options: { include_usage: true },
           ...(request.maxOutputTokens === undefined
             ? {}
-            : { max_completion_tokens: request.maxOutputTokens }),
+            : deepseek
+              ? { max_tokens: request.maxOutputTokens }
+              : { max_completion_tokens: request.maxOutputTokens }),
           ...(request.temperature === undefined
             ? {}
             : { temperature: request.temperature }),
