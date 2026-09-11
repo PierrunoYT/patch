@@ -171,6 +171,17 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- The installed package ships `docs/`, so the policies the README and help point
+  at — command behavior, terminal and filesystem safety, URL fetching, turn
+  ordering, configuration — are readable from an install rather than only on
+  GitHub. Package smoke asserts they survive both packing and installation.
+- Packed repository-map extraction covers all eleven shipped languages. Package
+  smoke checked five, so a grammar or query that failed to pack — TSX, Bash,
+  C/C++, C#, Java, or Ruby — would only have surfaced at runtime.
+- `upstream.json` records a blob hash for every aider module the fixture driver
+  imports. `npm run fixtures:upstream` now refuses a dirty checkout and any
+  source whose hash has moved, at the pinned commit or on disk, so uncommitted
+  upstream work cannot be exported as pinned behavior.
 - `/web <url>` fetches one user-typed URL and adds its readable text to the
   chat, labeled with the URL redirects ended at and truncated to a quarter of the
   model's input window. HTML becomes text through a dependency-free converter

@@ -61,6 +61,33 @@ describe("upstream compatibility fixtures", () => {
     });
   });
 
+  it("pins a blob hash for every upstream file the fixtures derive from", () => {
+    // The exporter refuses a dirty checkout and compares each of these against
+    // both the pinned commit and the file on disk. Keeping the list honest here
+    // means CI enforces the contract without needing the upstream checkout.
+    const sources = Object.entries(upstream.fixtureSources);
+    expect(sources.length).toBeGreaterThan(0);
+    for (const [path, blob] of sources) {
+      expect(path).toMatch(/^aider\/[\w/]+\.py$/u);
+      expect(blob).toMatch(/^[0-9a-f]{40}$/u);
+    }
+    // Every module the fixture driver imports must be pinned, or a fixture can
+    // change without any recorded hash changing.
+    expect(sources.map(([path]) => path)).toEqual(
+      [
+        "aider/args.py",
+        "aider/coders/base_coder.py",
+        "aider/coders/base_prompts.py",
+        "aider/coders/chat_chunks.py",
+        "aider/coders/editblock_coder.py",
+        "aider/io.py",
+        "aider/models.py",
+        "aider/repo.py",
+        "aider/repomap.py",
+      ].sort(),
+    );
+  });
+
   it("captures each foundation behavior category", () => {
     expect(fixture.configPrecedence).toEqual({
       configFiles: "cwd-model",

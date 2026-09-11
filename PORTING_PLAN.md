@@ -489,7 +489,9 @@ real-repository `tests/git-*.test.ts` suites.
   `always`, `files`, and `auto` refresh behavior.
 - [ ] Broaden independent map fixtures beyond one two-file Python example,
   including personalization, fallback references, important files, TSX packed
-  extraction, and every added language.
+  extraction, and every added language. Packed extraction is now covered for all
+  eleven shipped languages, TSX included, by `scripts/package-smoke.mjs`;
+  independent ranking/rendering fixtures for them are what remains.
 
 **Exit (configured evidence):** representative multi-language fixtures and
 packed-resource tests are in the Linux/macOS/Windows CI matrix. Cross-platform
@@ -597,6 +599,12 @@ and default-footprint assertions in `scripts/package-smoke.mjs`.
 Use the pinned Python checkout as a development oracle, never a production
 dependency. Fixture inputs and normalized expected outputs should be checked
 into Patch. Record the upstream commit in every generated fixture set.
+
+The commit alone does not prove where a fixture came from: a dirty checkout
+reports the pinned commit too. The exporter therefore refuses an unclean working
+tree and verifies the blob hash of every module the fixture driver imports, both
+at the pinned commit and as it sits on disk; `upstream.json` records those
+hashes. See [compatibility fixtures](docs/compatibility-fixtures.md).
 
 Capture at least:
 

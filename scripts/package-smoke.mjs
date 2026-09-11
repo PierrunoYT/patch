@@ -42,6 +42,24 @@ try {
       "The packed tarball is missing the repository-map resources",
     );
   }
+  // An installed copy must carry the documents its own README and help text
+  // point at, so the policies a user has to read are not GitHub-only.
+  for (const document of [
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md",
+    "docs/commands.md",
+    "docs/terminal.md",
+    "docs/filesystem-safety.md",
+    "docs/url-fetching.md",
+    "docs/turn-lifecycle.md",
+    "docs/configuration-bootstrap.md",
+  ]) {
+    if (!packed.has(document)) {
+      throw new Error(`The packed tarball is missing ${document}`);
+    }
+  }
   const consumerDirectory = join(temporaryDirectory, "consumer");
   mkdirSync(consumerDirectory);
 
@@ -79,6 +97,13 @@ try {
     "@pierrunoyt",
     "patch",
   );
+  // Present in the tarball is not present after install; npm can filter, and a
+  // documentation-only package change would otherwise go unverified.
+  for (const document of ["README.md", "LICENSE", "docs/commands.md"]) {
+    if (!existsSync(join(packageRoot, document))) {
+      throw new Error(`The installed package is missing ${document}`);
+    }
+  }
   execFileSync(
     process.execPath,
     [
@@ -195,12 +220,20 @@ try {
         import { TagExtractor } from './dist/index.js';
         const root = join(process.cwd(), '.repomap-smoke');
         await mkdir(root);
+        // Every language the packed map ships: a grammar or query that failed to
+        // pack only shows up when a real file of that language is extracted.
         const fixtures = {
           'sample.js': 'function javascriptName() {}\\njavascriptName();\\n',
           'sample.ts': 'function typescriptName(): void {}\\ntypescriptName();\\n',
+          'sample.tsx': 'export function TsxName() {\\n  return null;\\n}\\nconst used = TsxName;\\n',
           'sample.py': 'def python_name():\\n    pass\\n\\npython_name()\\n',
           'sample.go': 'package main\\nfunc goName() {}\\nfunc main() { goName() }\\n',
           'sample.rs': 'fn rust_name() {}\\nfn main() { rust_name(); }\\n',
+          'sample.sh': 'bash_name() {\\n  echo hi\\n}\\nbash_name\\n',
+          'sample.cpp': 'int cppName() { return 0; }\\nint main() { return cppName(); }\\n',
+          'sample.cs': 'class CsharpName {\\n  public CsharpName Make() { return new CsharpName(); }\\n}\\n',
+          'sample.java': 'class JavaName {\\n  void run() {}\\n}\\n',
+          'sample.rb': 'def ruby_name\\n  1\\nend\\nruby_name\\n',
         };
         for (const [path, source] of Object.entries(fixtures)) {
           await writeFile(join(root, path), source);

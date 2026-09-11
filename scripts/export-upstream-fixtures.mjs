@@ -34,6 +34,37 @@ if (actualRemote !== metadata.repository) {
   );
 }
 
+// A dirty checkout still reports the pinned commit and remote, so uncommitted
+// work would be exported as pinned upstream behavior.
+const dirty = git("status", "--porcelain");
+if (dirty !== "") {
+  throw new Error(
+    `Aider checkout has uncommitted changes:\n${dirty}\nExport from a clean checkout of ${metadata.commit}.`,
+  );
+}
+
+// Blob hashes of the exact files the fixtures are derived from. `status` can be
+// silenced per file (`assume-unchanged`, `skip-worktree`), so each source is
+// hashed as it sits on disk and compared with the pinned blob.
+const sources = Object.entries(metadata.fixtureSources ?? {});
+if (sources.length === 0) {
+  throw new Error("upstream.json records no fixtureSources to verify");
+}
+for (const [path, expected] of sources) {
+  const committed = git("rev-parse", `${metadata.commit}:${path}`);
+  if (committed !== expected) {
+    throw new Error(
+      `Pinned ${path} is blob ${committed}; upstream.json records ${expected}`,
+    );
+  }
+  const onDisk = git("hash-object", "--", path);
+  if (onDisk !== expected) {
+    throw new Error(
+      `Checked-out ${path} hashes to ${onDisk}; expected the pinned blob ${expected}`,
+    );
+  }
+}
+
 const defaultPython =
   process.platform === "win32"
     ? join(checkout, ".venv", "Scripts", "python.exe")

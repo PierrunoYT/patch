@@ -31,8 +31,27 @@ npm run fixtures:upstream
 ```
 
 The default checkout is the sibling directory `../aider-upstream`. Set
-`AIDER_CHECKOUT` and, when needed, `AIDER_PYTHON` to use other locations. The
-exporter rejects a remote or commit that differs from `upstream.json`.
+`AIDER_CHECKOUT` and, when needed, `AIDER_PYTHON` to use other locations.
+
+## What the exporter refuses
+
+A fixture is only evidence if it came from the pinned source, so the exporter
+checks four things before running aider's code:
+
+- the checkout's `origin` matches `upstream.json`;
+- `HEAD` is the pinned commit;
+- the working tree is clean. A dirty checkout still reports the pinned commit
+  and remote, so uncommitted work would otherwise be exported as pinned upstream
+  behavior; and
+- every file in `upstream.json`'s `fixtureSources` — one entry per module the
+  fixture driver imports — matches its recorded blob hash both at the pinned
+  commit and as it sits on disk. `status` can be silenced per file with
+  `assume-unchanged` or `skip-worktree`, so a clean report is not enough on its
+  own.
+
+Adding a scenario that imports another aider module means adding that module to
+`fixtureSources`; `tests/upstream-fixtures.test.ts` keeps the list complete and
+well-formed in ordinary CI, which has no checkout to inspect.
 
 Regeneration is deliberately separate from `npm run check`: ordinary builds
 and CI do not require Python or the aider checkout. Tests only consume the

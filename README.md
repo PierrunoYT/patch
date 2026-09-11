@@ -86,8 +86,10 @@ Implemented foundations include strict TypeScript validation, deterministic
 fake-provider tests, [safe filesystem behavior](docs/filesystem-safety.md),
 staged [configuration bootstrap](docs/configuration-bootstrap.md), a packaged
 [model catalog](docs/model-catalog.md), real Git adapters, and a packaged
-eleven-language [repository-map engine](docs/repository-maps.md). There is no
-published package or stable interface.
+eleven-language [repository-map engine](docs/repository-maps.md) whose
+extraction is verified for every shipped language from the packed tarball. An
+installed copy carries `docs/`, so the linked policies are readable offline.
+There is no published package or stable interface.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

@@ -298,6 +298,26 @@ work below is what remains before the release claims can be re-audited.
   without it.
 - [ ] Establish dirty-upstream/blob-hash fixture checks, broader production
   goldens, packed TSX extraction, installed documentation, and exact CI evidence.
+  Four of the five are done; **broader production goldens are not**, so the item
+  stays unchecked.
+  - Dirty-upstream and blob-hash checks: `upstream.json` records the blob hash of
+    every module the fixture driver imports, and `npm run fixtures:upstream`
+    refuses a checkout that is dirty, whose pinned blob differs, or whose
+    on-disk file hashes differently — `status` can be silenced per file, so each
+    source is hashed as it sits. `tests/upstream-fixtures.test.ts` keeps the
+    pinned list complete without needing the checkout.
+  - Packed extraction: `scripts/package-smoke.mjs` extracts a real sample for
+    each of the eleven shipped languages, TSX included, from the installed
+    tarball.
+  - Installed documentation: the package ships `docs/`, and package smoke
+    asserts the documents the README and help point at are both in the tarball
+    and present after install.
+  - Exact CI evidence: the jobs a claim may cite are tabulated under
+    [Continuous integration jobs](#continuous-integration-jobs).
+  - **Remaining:** broader production goldens. New upstream-derived fixtures
+    need the pinned aider checkout and its Python environment, which this
+    working environment does not have; the golden coverage each advertised edit
+    format needs is tracked with R6's fixture item.
 
 The R0–R9 sections below retain dependency context. Where a checked component
 conflicts with this re-audit, the unchecked blocker above controls release
@@ -534,9 +554,12 @@ rather than only mocked Fetch responses.
 - [x] Cover path separators, symlinks or their documented Windows substitute,
   Git worktrees, process cancellation, shell argv, history permissions,
   external editor cleanup, notifications, clipboard detection, and package bins.
-- [ ] Run repository-map extraction for every shipped language from the packed
-  package on all supported platforms. TSX is shipped but absent from package
-  smoke coverage.
+- [x] Run repository-map extraction for every shipped language from the packed
+  package on all supported platforms. `scripts/package-smoke.mjs` extracts a
+  real sample for each of the eleven shipped languages — JavaScript,
+  TypeScript, TSX, Python, Go, Rust, Bash, C/C++, C#, Java, and Ruby — from the
+  installed tarball and requires a definition tag from each, and the
+  `Package and platform contracts` job runs it on Linux, macOS, and Windows.
 - [x] Run explicit PTY tests only in jobs that provision the optional native
   dependency; verify Ctrl-C, EOF, resize, cleanup, and hostile split control
   sequences on Linux and Windows. macOS PTY is explicitly unsupported after the
@@ -669,6 +692,25 @@ they do not merely compile against an interface that has no implementation.
 **Acceptance:** not met. The table and blockers above are the current
 source-audit result; application fixes and executable evidence remain required.
 
+## Continuous integration jobs
+
+These are the exact jobs a claim may cite. A phase exit that names none of them
+is backed by a local run, not by CI.
+
+| Workflow / job | Where it runs | What it establishes |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` → `check` (“Node.js 22”) | `ubuntu-latest` | `format:check`, `lint`, `typecheck`, the whole test suite, the clean build, and `smoke:package` on one platform. |
+| `.github/workflows/ci.yml` → `platform` (“Package and platform contracts”) | `ubuntu-latest`, `macos-latest`, `windows-latest` | Platform-sensitive contracts, the clean build, the packed bin, and packed repository-map extraction for all eleven shipped languages. |
+| `.github/workflows/ci.yml` → `pty` (“Explicit PTY dependency”) | `ubuntu-latest`, `windows-latest` | The provisioned `node-pty` contract. macOS is deliberately absent: the pinned native package fails its spawn contract there. |
+| `.github/workflows/live-providers.yml` → `live` (“Protected low-cost contracts”) | `ubuntu-latest`, manual/protected | Opt-in live provider contracts. It never runs for untrusted pull requests and skips without credentials. |
+
+The fixture exporter is not a CI job: `npm run fixtures:upstream` needs the
+pinned aider checkout and its Python environment. It refuses a checkout whose
+remote, commit, or working tree differs from `upstream.json`, including a dirty
+tree and any pinned source whose blob hash has moved. CI enforces the other half
+— that every module the fixture driver imports stays pinned — through
+`tests/upstream-fixtures.test.ts`, which needs no checkout.
+
 ## Verification commands and required evidence
 
 Run these from a clean checkout with Node.js 22:
@@ -693,9 +735,12 @@ cover:
   commit, lint, approved shell command, test reflection, and owned undo;
 - [ ] exact file and Git state after cancellation or every injected failure;
 - [ ] every advertised slash command through its documented application effect;
-- [ ] filtered repository-map context through the packed executable;
+- [x] filtered repository-map context through the packed executable, for every
+  shipped language (`scripts/package-smoke.mjs`);
 - [ ] live provider contracts through catalog, factory, and session boundaries;
-- [ ] green Linux, macOS, and Windows package/platform jobs for this revision;
+- [ ] green Linux, macOS, and Windows package/platform jobs for this revision.
+  The `platform` job runs on all three; a green run for the revision being
+  claimed is what remains, and it must be cited by run, not by workflow name;
 - [x] default packed installation with no native/browser/audio dependency; and
 - [ ] explicitly provisioned PTY and optional-interface suites.
 

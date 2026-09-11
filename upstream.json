@@ -1,5 +1,16 @@
 {
   "repository": "https://github.com/Aider-AI/aider.git",
   "commit": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "fixtureSources": {
+    "aider/args.py": "5b3fdf07faf39e5db16625414d61c79aa44ac06e",
+    "aider/coders/base_coder.py": "56613782b02e756085d930554b8f9deeadeebb28",
+    "aider/coders/base_prompts.py": "36f991f1e2a9e5ca93424b855ca5c27b202947db",
+    "aider/coders/chat_chunks.py": "060099a61f1f496c52cd5e58de93c4a668a6689a",
+    "aider/coders/editblock_coder.py": "37d40d97c7077fe050670532de48c2a24febcf8a",
+    "aider/io.py": "ed6f22d51ae1b1dee249be67f6750498cbf0e905",
+    "aider/models.py": "a6f4559d58f4e0157bab39b3c32fe9f95957d033",
+    "aider/repo.py": "92b5e3bf5b81ec1bcee62feaf64c9c09fc607f54",
+    "aider/repomap.py": "541bba6ef4a5385b8cf032201ec6e3f3e32a6ea6"
+  }
 }

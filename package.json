@@ -20,6 +20,7 @@
     "dist",
     "assets/logo.svg",
     "assets/logo-icon.svg",
+    "docs",
     "CHANGELOG.md",
     "NOTICE",
     "PORTING_PLAN.md",
