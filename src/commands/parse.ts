@@ -140,9 +140,20 @@ export function parseCommand(input: string): CommandEffect {
       effect = { type: "chat-mode", mode };
       break;
     }
-    case "run":
-      effect = { type: "run", command: requireArgument(command, argument) };
+    case "run": {
+      // Upstream picks a PTY from the environment; Patch requires the user to
+      // ask for one. `--` ends the flag so a command may start with a dash.
+      const flag = /^(--interactive|--)(?:\s+(.*))?$/su.exec(argument);
+      effect = {
+        type: "run",
+        command: requireArgument(
+          command,
+          flag === null ? argument : (flag[2] ?? "").trim(),
+        ),
+        ...(flag?.[1] === "--interactive" ? { interactive: true } : {}),
+      };
       break;
+    }
     case "commit":
       effect = {
         type: "commit",

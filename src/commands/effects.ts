@@ -59,7 +59,14 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
       mode: z.union([EditFormatSchema, z.literal("code")]),
     })
     .strict(),
-  z.object({ type: z.literal("run"), command: z.string().min(1) }).strict(),
+  z
+    .object({
+      type: z.literal("run"),
+      command: z.string().min(1),
+      /** Set by `/run --interactive`; never inferred from the environment. */
+      interactive: z.boolean().optional(),
+    })
+    .strict(),
   z.object({ type: z.literal("test") }).strict(),
   z.object({ type: z.literal("lint") }).strict(),
   z

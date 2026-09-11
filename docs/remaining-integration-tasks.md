@@ -58,9 +58,9 @@ tests are evidence only for the cases they exercise.
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, and unparsed files contribute lexical references; context mode and fixture breadth are incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
+| Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, and rich input plus explicitly requested PTY dispatch are connected to the reader; path/glob selection, visible subprocess output, and URL ingestion are incomplete. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, and watch reports its failures and refreshes every selected file's AI comments; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
-| Configuration/package/provenance | partial | The supported bootstrap subset is staged and non-repository startup and directory targets are clearly rejected; inert flags, automatic packing, installed docs, and provenance checks remain. |
+| Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup and directory targets are clearly rejected, and `--vim` is refused instead of ignored; the completion inventory, installed docs, and provenance checks remain. |
 
 ### Immediate P0 blockers
 
@@ -231,8 +231,18 @@ work below is what remains before the release claims can be re-audited.
   out of scope. Evidence: `tests/repo-map-renderer.test.ts`,
   `tests/tag-extractor.test.ts`, `tests/repository-map-cache.test.ts`, and the
   inventory case in `tests/application-prompt-context.test.ts`.
-- [ ] Connect completion, opted-in history navigation, Emacs/Vi bindings,
+- [x] Connect completion, opted-in history navigation, Emacs/Vi bindings,
   external editor, true multi-turn multiline input, and explicit PTY dispatch.
+  Tab completes commands and the files selected at that keystroke;
+  `--input-history-file` also seeds recall; Alt-Enter holds a line so a message
+  spans lines with a bare Enter still submitting; Ctrl-X Ctrl-E edits the whole
+  draft in `--editor`/`VISUAL`/`EDITOR` and returns the result to the prompt;
+  and `/run --interactive` dispatches one user-typed, approved command through
+  `runPtyCommand`, releasing and restoring the line reader around it. Vi modal
+  editing is not implemented, so `--vim` is refused by name rather than ignored.
+  Child output stays sanitized, so full-screen programs are out of scope.
+  Evidence: `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,
+  and the `--vim` case in `tests/cli.test.ts`.
 - [ ] Add contained path/directory/glob selection semantics and complete visible
   subprocess output/status without weakening Patch's authorization bounds.
 - [ ] Define URL ingestion and HTML-to-readable-text behavior; keep the strict
@@ -537,19 +547,27 @@ and its exit is backed by independent golden/property and switching tests.
 **Problem:** Phase 8 modules and unit tests exist, but most are not connected to
 the interactive CLI/session workflow.
 
-- [ ] Connect command/file/identifier completion to live selected files,
-  commands, and approved source content.
-- [ ] Load persistent input history for navigation and append input/chat records
+- [x] Connect command/file/identifier completion to live selected files,
+  commands, and approved source content. Candidates are re-read per completion,
+  so they follow `/add` and `/drop`; identifier candidates remain limited to the
+  selected files' contents.
+- [x] Load persistent input history for navigation and append input/chat records
   only after the correct lifecycle events; test explicit paths and disabled-by-
-  default behavior.
-- [ ] Apply Emacs/Vi bindings and external-editor invocation in the actual input
-  loop rather than exposing declarative helpers only.
+  default behavior. Recall is seeded only when `--input-history-file` is
+  configured, and a damaged line is skipped rather than failing startup.
+- [x] Apply Emacs/Vi bindings and external-editor invocation in the actual input
+  loop rather than exposing declarative helpers only. Alt-Enter and Ctrl-X
+  Ctrl-E are handled by the reader; Vi modal editing is refused instead of
+  advertised, since Node readline cannot provide it.
 - [x] Complete terminal output safety. One stateful sanitizer covers Markdown
   streaming, diff and preview rendering, Commander output, and executable
   failure messages, and it strips every claimed control-sequence family.
   Evidence: `tests/terminal-sanitizer.test.ts`.
-- [ ] Dispatch interactive commands through `runPtyCommand` only when explicitly
+- [x] Dispatch interactive commands through `runPtyCommand` only when explicitly
   requested and available; keep noninteractive process execution portable.
+  `/run --interactive` is the only caller, the optional native package is loaded
+  at that point and nowhere else, and an interface without a terminal refuses
+  the command rather than running it unattached.
 - [ ] Generate shell completions from the real option surface, trigger
   notifications only for provider turns, and make clipboard paste submit text
   through the normal user-turn path.

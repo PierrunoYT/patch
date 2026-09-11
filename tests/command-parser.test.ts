@@ -29,6 +29,23 @@ describe("parseCommand", () => {
     expect(parseCommand(input)).toEqual(expected);
   });
 
+  it("asks for a PTY only when the user says so", () => {
+    // Upstream infers a PTY from the environment; Patch requires the flag.
+    expect(parseCommand("/run --interactive python")).toEqual({
+      type: "run",
+      command: "python",
+      interactive: true,
+    });
+    // `--` ends the flags, so a command may start with one of them.
+    expect(parseCommand("/run -- --interactive --help")).toEqual({
+      type: "run",
+      command: "--interactive --help",
+    });
+    expect(() => parseCommand("/run --interactive")).toThrow(
+      /requires an argument/u,
+    );
+  });
+
   it("returns ordinary text as a submit effect without rewriting it", () => {
     expect(parseCommand("  explain this  ")).toEqual({
       type: "submit",

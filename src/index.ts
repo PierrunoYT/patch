@@ -55,6 +55,7 @@ export * from "./models/selection.js";
 export * from "./models/token-count.js";
 export * from "./models/usage.js";
 export * from "./process/configured-checks.js";
+export * from "./process/interactive-command.js";
 export * from "./process/model-command.js";
 export * from "./process/pty.js";
 export * from "./providers/errors.js";

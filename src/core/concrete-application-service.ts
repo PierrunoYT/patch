@@ -42,6 +42,7 @@ import {
   type ModelProvider,
 } from "../providers/events.js";
 import { createProvider } from "../providers/factory.js";
+import type { InteractiveCommandResult } from "../process/interactive-command.js";
 import {
   executeModelCommand,
   executeModelCommands,
@@ -73,6 +74,15 @@ export interface ConcreteApplicationDependencies {
     request: WriteAuthorizationRequest,
   ) => boolean | Promise<boolean>;
   readonly approveCommand?: (command: string) => boolean | Promise<boolean>;
+  /**
+   * Runs one approved command with the caller's terminal attached. Supplied only
+   * by an interface that owns a real terminal, so `/run --interactive` is
+   * unavailable — rather than silently non-interactive — everywhere else.
+   */
+  readonly runInteractiveCommand?: (
+    command: string,
+    options: { readonly root: string; readonly signal?: AbortSignal },
+  ) => Promise<InteractiveCommandResult>;
   readonly readClipboard?: () => Promise<string>;
   readonly writeClipboard?: (text: string) => Promise<void>;
 }
@@ -102,6 +112,10 @@ interface ApplicationContext {
     request: WriteAuthorizationRequest,
   ) => boolean | Promise<boolean>;
   readonly approveCommand?: (command: string) => boolean | Promise<boolean>;
+  readonly runInteractiveCommand?: (
+    command: string,
+    options: { readonly root: string; readonly signal?: AbortSignal },
+  ) => Promise<InteractiveCommandResult>;
   readonly makeProvider: (model: ModelSettings) => ModelProvider;
   readonly readClipboard: () => Promise<string>;
   readonly writeClipboard: (text: string) => Promise<void>;
@@ -749,6 +763,8 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result(`Chat mode: ${format}`);
       }
       case "run": {
+        if (effect.interactive === true)
+          return this.#runInteractive(effect.command, options);
         // An approved command may mutate the worktree.
         const command = await this.#context.worktree.run(
           () =>
@@ -842,6 +858,67 @@ class ConcreteApplicationSession implements ApplicationSession {
           "Internal switch effects are not accepted as slash commands",
         );
     }
+  }
+
+  /**
+   * Runs one user-requested command with the terminal attached.
+   *
+   * Only `/run --interactive` reaches here: a model-suggested command is never
+   * given the keyboard, and an interface without a terminal refuses instead of
+   * quietly running the command with no input. Approval is the same prompt the
+   * captured path uses and is taken before the terminal is handed over.
+   */
+  async #runInteractive(
+    command: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<ApplicationTurnResult> {
+    const run = this.#context.runInteractiveCommand;
+    if (run === undefined) {
+      throw new Error(
+        "/run --interactive needs a terminal; this interface can only run captured commands",
+      );
+    }
+    options.emit({ type: "command-preview", data: { command } });
+    const approved = (await this.#context.approveCommand?.(command)) ?? false;
+    const executed: ModelCommandResult = approved
+      ? await this.#context.worktree.run(async () => {
+          const interactive = await run(command, {
+            root: this.#context.root,
+            ...(options.signal === undefined ? {} : { signal: options.signal }),
+          });
+          return {
+            command,
+            status: interactive.status,
+            exitCode: interactive.exitCode,
+            // The child already wrote to the terminal; the transcript keeps the
+            // same text so a later turn can report what was shown.
+            stdout: interactive.output,
+            stderr: "",
+            truncated: false,
+          };
+        }, options.signal)
+      : {
+          command,
+          status: "denied",
+          exitCode: null,
+          stdout: "",
+          stderr: "",
+          truncated: false,
+        };
+    const response =
+      executed.status === "denied"
+        ? "Interactive command denied"
+        : `Interactive command ${executed.status === "cancelled" ? "cancelled" : "exited"} with ${executed.exitCode}`;
+    options.emit({
+      type: "text-delta",
+      data: { type: "text-delta", text: `${response}\n` },
+    });
+    return {
+      response,
+      changedPaths: [],
+      commit: null,
+      commands: [executed],
+    };
   }
 
   /**
@@ -1153,6 +1230,11 @@ export class ConcreteApplicationService implements ApplicationService {
       ...(options.dependencies?.approveCommand === undefined
         ? {}
         : { approveCommand: options.dependencies.approveCommand }),
+      ...(options.dependencies?.runInteractiveCommand === undefined
+        ? {}
+        : {
+            runInteractiveCommand: options.dependencies.runInteractiveCommand,
+          }),
     });
   }
 

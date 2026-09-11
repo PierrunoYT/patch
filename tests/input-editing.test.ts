@@ -214,6 +214,47 @@ describe("terminal completion and recall", () => {
     expect(messages).toEqual(["edited one\nedited two"]);
   });
 
+  it("hands the terminal to an interactive child and takes it back", async () => {
+    const input = new PassThrough();
+    const terminal = new TerminalInput(
+      input,
+      () => undefined,
+      new AbortController().signal,
+      () => undefined,
+      { history: ["earlier question"] },
+    );
+    const messages: string[] = [];
+    const reading = (async () => {
+      for await (const message of terminal) messages.push(message);
+    })();
+
+    input.write("half-typed");
+    await new Promise((resolve) => setImmediate(resolve));
+    const raw: string[] = [];
+    await terminal.suspend(async (released) => {
+      const listener = (chunk: Buffer) => void raw.push(chunk.toString("utf8"));
+      released.on("data", listener);
+      released.resume();
+      // Keystrokes belong to the child, including the Enter that would
+      // otherwise submit the message being typed.
+      input.write("child input\r");
+      await new Promise((resolve) => setImmediate(resolve));
+      released.off("data", listener);
+      released.pause();
+    });
+    expect(raw).toEqual(["child input\r"]);
+    expect(messages).toEqual([]);
+    // The draft survives the handover and the next Enter submits it.
+    expect(terminal.draft).toBe("half-typed");
+
+    input.write(" and the rest\r");
+    await new Promise((resolve) => setImmediate(resolve));
+    terminal.close();
+    await reading;
+
+    expect(messages).toEqual(["half-typed and the rest"]);
+  });
+
   it("names every command the parser accepts", () => {
     // Keeps completion from drifting behind a newly added command. A command
     // may still reject this particular argument; what must not happen is the

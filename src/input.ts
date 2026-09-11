@@ -34,10 +34,19 @@ export interface TerminalInputOptions {
   readonly editor?: string;
 }
 
+/** The raw terminal stream a suspended reader hands to an interactive child. */
+export type RawTerminalStream = Readable & {
+  setRawMode?: (mode: boolean) => void;
+};
+
 /** One reader owns both input queues and fresh, explicit terminal answers. */
 export class TerminalInput implements AsyncIterable<string> {
-  readonly #reader;
+  #reader;
   readonly #queue: string[] = [];
+  readonly #input: RawTerminalStream;
+  readonly #output: Writable;
+  readonly #signal: AbortSignal;
+  readonly #interrupt: () => void;
   readonly #write: (text: string) => void;
   readonly #completionSources: (() => CompletionSources) | undefined;
   readonly #editor: string | undefined;
@@ -47,39 +56,54 @@ export class TerminalInput implements AsyncIterable<string> {
   #wake: (() => void) | undefined;
   #answer: ((answer: boolean) => void) | undefined;
   #closed = false;
+  /** True while an interactive child owns the terminal; see `suspend`. */
+  #suspended = false;
 
   constructor(
-    input: Readable,
+    input: RawTerminalStream,
     write: (text: string) => void,
     signal: AbortSignal,
     interrupt: () => void = () => this.close(),
     options: TerminalInputOptions = {},
   ) {
+    this.#input = input;
+    this.#signal = signal;
+    this.#interrupt = interrupt;
     this.#write = write;
     this.#completionSources = options.completionSources;
     this.#editor = options.editor;
     // No second readline/question consumer; queued messages stay messages.
-    const output = new Writable({
+    this.#output = new Writable({
       write(chunk, _encoding, done) {
         write(String(chunk));
         done();
       },
     });
-    this.#reader = createInterface({
-      input,
-      output,
+    // Readline recalls most-recent-first; the history file is oldest-first.
+    this.#reader = this.#createReader(
+      options.history === undefined
+        ? undefined
+        : [...options.history].reverse(),
+    );
+    emitKeypressEvents(input);
+    input.on("keypress", (_text: string, key: KeyEvent | undefined) => {
+      void this.#onKeypress(key);
+    });
+  }
+
+  #createReader(history?: readonly string[]) {
+    const reader = createInterface({
+      input: this.#input,
+      output: this.#output,
       terminal: true,
-      signal,
-      ...(options.completionSources === undefined
+      signal: this.#signal,
+      ...(this.#completionSources === undefined
         ? {}
         : { completer: (line: string) => this.complete(line) }),
-      // Readline recalls most-recent-first; the history file is oldest-first.
-      ...(options.history === undefined
-        ? {}
-        : { history: [...options.history].reverse() }),
+      ...(history === undefined ? {} : { history: [...history] }),
     });
-    this.#reader.on("SIGINT", interrupt);
-    this.#reader.on("line", (line) => {
+    reader.on("SIGINT", this.#interrupt);
+    reader.on("line", (line) => {
       if (this.#answer !== undefined) {
         const answer = this.#answer;
         this.#answer = undefined;
@@ -93,16 +117,48 @@ export class TerminalInput implements AsyncIterable<string> {
         this.#wake?.();
       }
     });
-    emitKeypressEvents(input);
-    input.on("keypress", (_text: string, key: KeyEvent | undefined) => {
-      void this.#onKeypress(key);
-    });
-    this.#reader.on("close", () => {
+    reader.on("close", () => {
+      // A reader closed to hand the terminal to a child is replaced, not ended.
+      if (this.#suspended) return;
       this.#closed = true;
       this.#answer?.(false);
       this.#answer = undefined;
       this.#wake?.();
     });
+    return reader;
+  }
+
+  /**
+   * Releases the terminal to `run`, which receives the raw input stream.
+   *
+   * The line reader is closed rather than paused, because a live readline
+   * interface keeps consuming and echoing keystrokes that belong to the child.
+   * A fresh reader afterwards restores the prompt, the recall history, and the
+   * draft that was being typed.
+   */
+  async suspend<T>(run: (input: RawTerminalStream) => Promise<T>): Promise<T> {
+    if (this.#closed) throw new Error("The terminal input is closed");
+    if (this.#suspended) throw new Error("The terminal is already suspended");
+    if (this.#answer !== undefined)
+      throw new Error("The terminal is waiting for an approval");
+    this.#suspended = true;
+    const draft = this.#reader.line;
+    // Node keeps the recall list on the interface, most recent first, but does
+    // not declare it; losing it would silently empty history on every suspend.
+    const recalled = [
+      ...(((this.#reader as { history?: readonly string[] }).history ??
+        []) as readonly string[]),
+    ];
+    this.#reader.close();
+    try {
+      return await run(this.#input);
+    } finally {
+      this.#suspended = false;
+      if (!this.#closed) {
+        this.#reader = this.#createReader(recalled);
+        if (draft !== "") this.#reader.write(draft);
+      }
+    }
   }
 
   async confirm(label: string, value: string): Promise<boolean> {
@@ -110,6 +166,7 @@ export class TerminalInput implements AsyncIterable<string> {
     await new Promise<void>((done) => setImmediate(done));
     if (
       this.#closed ||
+      this.#suspended ||
       this.#answer !== undefined ||
       this.#queue.length > 0 ||
       this.#reader.line !== ""
@@ -159,7 +216,8 @@ export class TerminalInput implements AsyncIterable<string> {
    * result back at the prompt, so nothing is submitted without a final Enter.
    */
   async #onKeypress(key: KeyEvent | undefined): Promise<void> {
-    if (key === undefined || this.#answer !== undefined) return;
+    if (key === undefined || this.#answer !== undefined || this.#suspended)
+      return;
     if (key.ctrl === true && key.name === "x") {
       this.#pendingPrefix = true;
       return;
@@ -208,7 +266,11 @@ export class TerminalInput implements AsyncIterable<string> {
   }
 
   close(): void {
+    this.#closed = true;
+    this.#answer?.(false);
+    this.#answer = undefined;
     this.#reader.close();
+    this.#wake?.();
   }
 
   async *[Symbol.asyncIterator](): AsyncIterator<string> {

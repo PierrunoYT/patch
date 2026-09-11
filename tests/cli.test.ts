@@ -68,6 +68,17 @@ describe("CLI", () => {
       { from: "user" },
     );
     expect(output).toContain("complete -F _patch patch");
+    // An option that does nothing must not be completable.
+    expect(output).not.toContain("--vim");
+  });
+
+  it("refuses the unimplemented Vi binding by name", async () => {
+    await expect(
+      createProgram({ handleMessage: () => undefined }).parseAsync(
+        ["--vim", "--message", "hello"],
+        { from: "user" },
+      ),
+    ).rejects.toThrow(/--vim is not implemented/u);
   });
 
   it("notifies after a completed response when explicitly enabled", async () => {

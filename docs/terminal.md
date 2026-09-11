@@ -58,11 +58,12 @@ Ctrl-X Ctrl-E opens the whole draft — held lines included — in `--editor`, o
 prompt rather than submitted, so a final Enter is still required and an editor
 that fails leaves the draft intact with the reason printed.
 
-`--vim` remains inert. `terminalKeyBindings` describes Vi's modal Enter, but
-Node readline has no modal editing, and honoring it would mean replacing the
-line editor outright — cursor motion, wrapping, and terminal-width handling
-included. That is deliberately out of scope; the flag should be removed or
-refused rather than implying behavior that is absent.
+`--vim` is refused with the reason rather than accepted and ignored.
+`terminalKeyBindings` still describes Vi's modal Enter, but Node readline has no
+modal editing, and honoring it would mean replacing the line editor outright —
+cursor motion, wrapping, and terminal-width handling included. That is
+deliberately out of scope, so passing the flag fails startup and names
+Ctrl-X Ctrl-E as what Patch offers instead. Shell completion no longer lists it.
 
 ## Markdown, syntax, and diffs
 
@@ -85,16 +86,43 @@ provide full tables, lists, wrapping, or unstable-tail rerendering.
 
 ## Optional interactive PTY
 
-`runPtyCommand` is a library helper with dynamically loaded `node-pty`; no
-executable command or flag currently dispatches through it. The native package
-is deliberately absent from Patch's dependency graph. Importing Patch, printing
-CLI help, and non-PTY commands never probe for it.
+`/run --interactive <command>` is the only path that dispatches through
+`runPtyCommand`. Upstream picks a PTY from the environment; Patch requires the
+user to ask for one, so nothing acquires the keyboard implicitly. `--` ends the
+flags, so `/run -- --interactive x` runs a command that starts with a dash.
+
+A model-suggested command never reaches this path — only a command the user
+typed does — and approval is the same JSON-quoted prompt the captured path uses,
+taken before the terminal is handed over. Only the standalone interactive TTY
+startup supplies the runner; `--web`, `--watch-files`, one-shot, and embedded
+callers refuse `/run --interactive` by name instead of running it with no
+terminal attached. The command string is interpreted by the same shell
+`spawn(..., { shell: true })` would choose: `/bin/sh -c` elsewhere, `%ComSpec%
+/d /s /c` on Windows.
+
+While the child runs, the line reader is closed rather than paused, because a
+live readline interface keeps consuming and echoing keystrokes that belong to
+the child. A fresh reader afterwards restores the prompt, the recall history,
+and the draft that was being typed. Keystrokes are forwarded verbatim, so
+Ctrl-C and Ctrl-D mean whatever the child's own line discipline makes of them,
+and terminal resizes are forwarded for the life of the command.
+
+Child output is still sanitized, exactly as captured output is. A command cannot
+repaint, retitle, or otherwise drive the terminal, so full-screen programs are
+not usable through this path; interactive dispatch serves prompts, REPLs, and
+other line-oriented sessions. Relaxing that would hand terminal control to a
+subprocess, which the sanitizer exists to prevent.
+
+The native package is deliberately absent from Patch's dependency graph and is
+loaded only when this command runs. Importing Patch, printing CLI help, and
+every non-interactive command never probe for it; without it the command fails
+with `PtyUnavailableError` naming the optional package.
 
 At the helper boundary, commands use executable-plus-argv input and a canonical
-working directory. Data, Ctrl-C, EOF, resize, abort, and capture are modeled;
-child output passes through a stateful sanitizer. Provisioned contract tests
-cover Linux and Windows. The pinned native package fails its spawn contract on
-the current macOS runner, so no macOS PTY support is claimed.
+working directory. Data, Ctrl-C, EOF, resize, abort, and capture are modeled.
+Provisioned contract tests cover Linux and Windows. The pinned native package
+fails its spawn contract on the current macOS runner, so no macOS PTY support is
+claimed.
 
 ## Shells, notifications, and clipboard
 

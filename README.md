@@ -67,8 +67,12 @@ destination before removing its source, so an interrupted move keeps both paths.
 `/undo` retains working files and unrelated staged changes, reverts only the
 commit the current session created, and refuses a moved HEAD or a commit its
 upstream branch already contains.
-Rich completion, history navigation, keybindings, editor and PTY dispatch remain
-library helpers. Architect/context/cache/media helpers are not constructed
+Interactive terminal input is connected: Tab completes commands and the files
+selected right now, `--input-history-file` also makes earlier input recallable,
+Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
+`$EDITOR`, and `/run --interactive` hands the terminal to one approved command
+through the optional `node-pty` package. `--vim` is refused rather than ignored;
+Vi modal editing is not implemented. Architect/context/cache/media helpers are not constructed
 modes; assistant prefill is reached by capable models but is incomplete.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. URL context integration and web

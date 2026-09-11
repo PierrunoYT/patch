@@ -26,7 +26,6 @@ const CLI_OPTIONS = [
   "--input-history-file",
   "--chat-history-file",
   "--multiline",
-  "--vim",
   "--editor",
   "--no-color",
   "--notifications",

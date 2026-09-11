@@ -171,6 +171,14 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- `/run --interactive <command>` hands the terminal to one approved command
+  through the optional `node-pty` package, which is loaded at that point and at
+  no other. The line reader is released for the child and restored afterwards
+  with its prompt, recall history, and draft. Upstream infers a PTY from the
+  environment; Patch requires the flag, never gives a model-suggested command
+  the keyboard, and refuses by name in `--web`, `--watch-files`, one-shot, and
+  embedded sessions. Child output is still sanitized, so full-screen programs
+  are not usable and only line-oriented sessions are.
 - Multiline input that works turn after turn: Alt-Enter holds the current line
   and starts another, and Enter submits the whole message. `--multiline`'s
   buffer-until-EOF behavior is unchanged and remains separate.
@@ -237,6 +245,10 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- `--vim` is refused with its reason instead of being accepted and ignored.
+  Node's line reader has no modal editing, so the flag promised bindings that
+  were simply absent; it now fails startup, names Ctrl-X Ctrl-E as the editor
+  path Patch does offer, and is no longer listed in shell completions.
 - Surfaced watch-mode failures and refreshed every selected file's AI comments
   on a trigger. A watched turn that failed and a native watcher error were both
   discarded, so a background failure and a dead watcher were invisible behind

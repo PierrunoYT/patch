@@ -73,8 +73,10 @@ edit-format, option, and interface support must be documented explicitly.
   and multi-action correctness defects. Architect/editor, context, help, and
   other advanced formats remain unconstructed.
 - Terminal Markdown, diff previews, explicit history writes, notifications, and
-  text clipboard adapters exist. Completion, history navigation, Vi/Emacs
-  bindings, editor, multiline interaction, and PTY dispatch remain incomplete.
+  text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
+  multiline, the external editor, and explicitly requested PTY dispatch are
+  connected to the reader; Vi modal editing is refused rather than implemented,
+  and the shell-completion inventory and notification timing remain incomplete.
 - OpenAI and Anthropic have basic executable routes, DeepSeek requests are
   normalized for its endpoint, and post-finish usage events are retained.
   Executable metadata merging, temperature policy, prompt caching, media, and
@@ -523,28 +525,36 @@ individual edit-strategy suites.
 
 ### Phase 8 — Rich terminal parity
 
-- [ ] Connect command, file, and identifier completion to the executable. The
-  deterministic completion engine is library-only.
-- [ ] Add persistent input/chat history navigation. Explicit append paths and
-  privacy notes work, but history is not loaded into an interactive editor.
-- [ ] Add Emacs/Vi bindings and external-editor support to the executable.
-  Tagged/EOF multiline input works; bindings and editor invocation are helpers.
+- [x] Connect command, file, and identifier completion to the executable. Tab
+  completes command names and the files selected at that keystroke, re-read per
+  completion so candidates follow `/add` and `/drop`.
+- [x] Add persistent input/chat history navigation. With
+  `--input-history-file` configured the reader seeds recall from it; without the
+  option nothing is written and nothing is recalled.
+- [x] Add Emacs/Vi bindings and external-editor support to the executable.
+  Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
+  draft in the configured editor. Vi modal editing is not implemented, so
+  `--vim` is refused by name rather than accepted and ignored.
 - [ ] Complete terminal rendering fidelity. One stateful sanitizer now covers
   every untrusted output path and strips every claimed hostile control family;
   tables, lists, wrapping, and unstable-tail rerendering remain out of scope.
-- [ ] Dispatch explicitly requested interactive commands through optional
-  `node-pty`. The provisioned PTY adapter and sanitizer are tested but not wired
-  into the executable command path.
+- [x] Dispatch explicitly requested interactive commands through optional
+  `node-pty`. `/run --interactive` is the only caller; the native package loads
+  at that point and nowhere else, the line reader is released and restored
+  around the child, and an interface with no terminal refuses the command.
 - [ ] Complete shell completions and notification timing/failure handling.
   Clipboard text semantics are settled: `/paste` submits clipboard text as a
   user turn without reparsing it as a command. Clipboard images remain unread.
 
-**Exit (not met):** provisioned PTY contract tests cover Ctrl-C, EOF, resize,
-cleanup, and hostile child sequences, but terminal-level input-loop coverage and
-executable PTY dispatch remain incomplete.
+**Exit (not met):** completion, recall, multiline, the external editor, and
+explicit PTY dispatch now run through the executable's reader, and provisioned
+PTY contract tests cover Ctrl-C, EOF, resize, cleanup, and hostile child
+sequences. The shell-completion inventory, notification timing, and
+renderer fidelity remain incomplete.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
-`tests/input-editing.test.ts`, `tests/pty-provisioned.test.ts`, and the `pty`
+`tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,
+`tests/pty-provisioned.test.ts`, and the `pty`
 Linux/Windows matrix job in `.github/workflows/ci.yml`. macOS PTY is unsupported
 because the provisioned native package fails its spawn contract there.
 

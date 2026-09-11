@@ -11,6 +11,7 @@ import { runInput, TerminalInput, type InputDependencies } from "./input.js";
 import { COMMAND_NAMES } from "./commands/parse.js";
 import { discoverEditor } from "./io/editor.js";
 import { TerminalHistory } from "./io/history.js";
+import { runInteractiveCommand } from "./process/interactive-command.js";
 import {
   generateShellCompletion,
   notifyUser,
@@ -69,6 +70,14 @@ interface ProgramOptions {
   readonly webTokenFile?: string;
 }
 
+/** Current terminal geometry, with the PTY defaults when it is not reported. */
+function terminalSize(): { columns: number; rows: number } {
+  return {
+    columns: process.stdout.columns ?? 80,
+    rows: process.stdout.rows ?? 24,
+  };
+}
+
 function append(values: string[], option: string, value: string | undefined) {
   if (value !== undefined) values.push(option, value);
 }
@@ -117,7 +126,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "--multiline",
         "read interactive input through EOF as one message",
       )
-      .option("--vim", "use Vi input bindings instead of Emacs bindings")
+      .option("--vim", "(unsupported) Vi modal input is not implemented")
       .option("--editor <command>", "external editor used by Ctrl-X Ctrl-E")
       .option("--no-color", "disable ANSI color and styling")
       .option("--notifications", "notify when a response is ready")
@@ -168,6 +177,13 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             generateShellCompletion(options.shellCompletions),
           );
           return;
+        }
+        // Refused rather than ignored: Node readline has no modal editing, and
+        // accepting the flag would imply bindings that are simply absent.
+        if (options.vim === true) {
+          throw new Error(
+            "--vim is not implemented: Patch's line reader has no modal editing. Remove the flag; Ctrl-X Ctrl-E opens $EDITOR instead.",
+          );
         }
         if (
           options.web !== true &&
@@ -314,6 +330,28 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                             terminal.confirm(
                               "Run shell command at repository root (not sandboxed)",
                               command,
+                            ),
+                          // Only a real terminal can hand over the keyboard, so
+                          // only this startup shape offers interactive dispatch.
+                          runInteractiveCommand: (command, commandOptions) =>
+                            terminal.suspend((raw) =>
+                              runInteractiveCommand(command, {
+                                root: commandOptions.root,
+                                input: raw,
+                                write,
+                                environment:
+                                  dependencies.environment ?? process.env,
+                                ...(commandOptions.signal === undefined
+                                  ? {}
+                                  : { signal: commandOptions.signal }),
+                                ...terminalSize(),
+                                onResize: (listener) => {
+                                  const notify = () => listener(terminalSize());
+                                  process.stdout.on("resize", notify);
+                                  return () =>
+                                    void process.stdout.off("resize", notify);
+                                },
+                              }),
                             ),
                         },
                       }),
