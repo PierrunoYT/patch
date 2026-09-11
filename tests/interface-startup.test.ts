@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
@@ -411,5 +411,78 @@ describe("application interface startup", () => {
     } finally {
       await new Promise<void>((done) => socket.close(() => done()));
     }
+  });
+
+  it("rejects default startup outside a worktree and names the escape", async () => {
+    const root = await fixture();
+
+    await expect(
+      ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--model", "4o"],
+        dependencies: { provider: new FakeProvider([]) },
+      }),
+    ).rejects.toThrow(/could not open a Git worktree.*--no-git/su);
+
+    // The documented workflow for a directory that is not a worktree.
+    await expect(
+      ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--no-git", "--model", "4o"],
+        dependencies: { provider: new FakeProvider([]) },
+      }),
+    ).resolves.toBeInstanceOf(ConcreteApplicationService);
+  });
+
+  it("rejects a directory target at startup and through /add", async () => {
+    const root = await fixture();
+    await mkdir(join(root, "pkg"));
+    await writeFile(join(root, "pkg", "one.txt"), "one\n");
+
+    await expect(
+      ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--no-git", "--model", "4o", "--file", "pkg"],
+        dependencies: { provider: new FakeProvider([]) },
+      }),
+    ).rejects.toThrow(/selects files, not directories: pkg/u);
+
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: { provider: new FakeProvider([]) },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "directory",
+    });
+    const submit = (message: string) =>
+      session.submit(message, {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      });
+
+    await expect(submit("/add pkg")).rejects.toThrow(
+      /selects files, not directories: pkg/u,
+    );
+    await expect(submit("/read-only pkg")).rejects.toThrow(
+      /selects files, not directories: pkg/u,
+    );
+    // A file inside it is still selectable, and so is a path that does not exist
+    // yet.
+    await expect(submit("/add pkg/one.txt")).resolves.toMatchObject({
+      response: "Added: pkg/one.txt",
+    });
+    await expect(submit("/add pkg/new.txt")).resolves.toMatchObject({
+      response: "Added: pkg/new.txt",
+    });
   });
 });

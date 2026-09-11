@@ -79,5 +79,8 @@ Aider startup one-shots are not executable controls.
 The executable uses this bootstrap before opening input. Missing models,
 credentials, unsupported providers/edit modes, mixed repositories, and unsafe
 or conflicting file selections fail before a provider turn. Default Git-enabled
-startup requires an existing worktree; a sole directory target and read-only
-directory expansion are unsupported.
+startup requires an existing worktree and is refused with a message naming
+`--no-git` when there is none. A directory passed to `--file` or `--read-only`,
+or to `/add` or `/read-only`, is refused by name rather than failing later as an
+`EISDIR` read; directory expansion remains unimplemented. A path that does not
+exist yet is still selectable, because a turn may create it.

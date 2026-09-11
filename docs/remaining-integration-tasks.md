@@ -60,7 +60,7 @@ tests are evidence only for the cases they exercise.
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
-| Configuration/package/provenance | partial | The supported bootstrap subset is staged; non-repository startup, inert flags, automatic packing, installed docs, and provenance checks remain. |
+| Configuration/package/provenance | partial | The supported bootstrap subset is staged and non-repository startup and directory targets are clearly rejected; inert flags, automatic packing, installed docs, and provenance checks remain. |
 
 ### Immediate P0 blockers
 
@@ -146,8 +146,14 @@ remains before the release claims can be re-audited.
   endpoints send after it is accounted instead of dropped. Metadata merging and
   temperature policy stay P2. Evidence: `tests/deepseek-provider.test.ts` and the
   post-finish usage case in `tests/coder-session.test.ts`.
-- [ ] Make default non-repository startup and a sole directory target explicit
-  supported or clearly rejected workflows.
+- [x] Make default non-repository startup and a sole directory target explicit
+  supported or clearly rejected workflows. Both are rejected, by name and with
+  the alternative: startup outside a worktree reports that Git integration is on
+  and names `--no-git`, rather than surfacing a bare `git rev-parse` failure, and
+  a directory passed to `--file`, `--read-only`, `/add`, or `/read-only` is
+  refused at selection instead of failing later as `EISDIR`. A path that does not
+  exist yet stays selectable. Directory expansion stays P2. Evidence: the startup
+  rejection cases in `tests/interface-startup.test.ts`.
 - [ ] Add a clean `prepack` build/resource step before any publication claim.
 - [ ] Reconcile history and structured partial results whenever files or commits
   survive a later failure or cancellation.

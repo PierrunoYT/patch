@@ -171,6 +171,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Rejected unsupported startup shapes by name instead of leaking the underlying
+  failure. Starting outside a Git worktree reported a bare
+  `git rev-parse --show-toplevel` failure; it now says Patch could not open a
+  worktree there and names `--no-git`. Passing a directory to `--file`,
+  `--read-only`, `/add`, or `/read-only` failed later as
+  `EISDIR: illegal operation on a directory`; it is now refused at selection.
+  Paths that do not exist yet remain selectable.
 - Normalized DeepSeek requests for that endpoint instead of sending OpenAI's
   spellings. `OpenAIProvider` takes a `deepseek` dialect, selected by
   `createProvider` from the model's provider, that strips the `deepseek/`

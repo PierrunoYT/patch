@@ -16,8 +16,10 @@ unknown chat modes, and unknown command names. Ordinary text is preserved in a
 typed `submit` effect.
 
 File commands resolve literal paths through the repository containment boundary
-before changing editable/read-only selections; directory/glob expansion is not
-implemented. `/run` uses the command preview/approval adapter; `/lint` and
+before changing editable/read-only selections. Directory/glob expansion is not
+implemented, and `/add` and `/read-only` refuse a directory by name rather than
+selecting something no turn can read; a path that does not exist yet is still
+selectable. `/run` uses the command preview/approval adapter; `/lint` and
 `/test` require explicit configured commands.
 
 The advertised command set is not yet a completed parity surface:

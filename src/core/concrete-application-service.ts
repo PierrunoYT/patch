@@ -6,7 +6,7 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 
 import {
@@ -116,6 +116,21 @@ interface SessionProfile {
   readonly repositoryMap?: RepositoryMap;
 }
 
+/**
+ * Git integration is on by default, so startup outside a worktree has to say what
+ * to do about it rather than surfacing a bare `git rev-parse` failure.
+ */
+async function openWorktree(root: string): Promise<GitRepository> {
+  try {
+    return await GitRepository.open(root);
+  } catch (error) {
+    throw new Error(
+      `Patch could not open a Git worktree at ${root}. Start Patch inside an existing worktree with Git installed, or pass --no-git to run without Git integration.`,
+      { cause: error },
+    );
+  }
+}
+
 function createRepositoryMap(root: string): Promise<RepositoryMap> {
   return RepositoryMap.create({
     root,
@@ -136,17 +151,37 @@ function portablePath(root: string, absolute: string): string {
   return relative(root, absolute).split(sep).join("/");
 }
 
+/**
+ * Directory selection is not implemented, so a directory is rejected here rather
+ * than surfacing as an `EISDIR` read failure once a turn tries to snapshot it.
+ */
+async function assertNotDirectory(
+  absolute: string,
+  requested: string,
+): Promise<void> {
+  let directory = false;
+  try {
+    directory = (await stat(absolute)).isDirectory();
+  } catch (error) {
+    if (!isMissingPathError(error)) throw error;
+  }
+  if (directory) {
+    throw new Error(
+      `Patch selects files, not directories: ${requested}. Name the files inside it instead.`,
+    );
+  }
+}
+
 async function selectedPaths(
   resolver: SafePathResolver,
   paths: readonly string[],
 ): Promise<string[]> {
   const selected: string[] = [];
   for (const path of paths) {
-    const normalized = portablePath(
-      resolver.root,
-      await resolver.resolve(path),
-    );
+    const absolute = await resolver.resolve(path);
+    const normalized = portablePath(resolver.root, absolute);
     if (normalized === "") throw new Error("The repository root is not a file");
+    await assertNotDirectory(absolute, path);
     if (!selected.includes(normalized)) selected.push(normalized);
   }
   return selected;
@@ -527,6 +562,8 @@ class ConcreteApplicationSession implements ApplicationSession {
           portablePath(this.#context.root, await resolver.resolve(path)),
         ),
       );
+    const selectable = async (paths: readonly string[]) =>
+      selectedPaths(resolver, paths);
     const result = (
       response: string,
       extra: Partial<ApplicationTurnResult> = {},
@@ -550,7 +587,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       case "none":
         return result("");
       case "add": {
-        const paths = await normalize(effect.paths);
+        const paths = await selectable(effect.paths);
         await assertPathsNotIgnored(this.#context.repository, paths);
         for (const path of paths) {
           if (
@@ -567,7 +604,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result(`Added: ${paths.join(", ")}`);
       }
       case "read-only": {
-        const paths = await normalize(effect.paths);
+        const paths = await selectable(effect.paths);
         await assertPathsNotIgnored(this.#context.repository, paths);
         this.#session.setSelectedPaths(
           state.editablePaths.filter((path) => !paths.includes(path)),
@@ -876,7 +913,7 @@ export class ConcreteApplicationService implements ApplicationService {
     );
     const resolver = await SafePathResolver.create(root);
     const repository = bootstrap.arguments.git
-      ? await GitRepository.open(root)
+      ? await openWorktree(root)
       : undefined;
     const editablePaths = await selectedPaths(
       resolver,
