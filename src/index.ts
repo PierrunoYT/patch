@@ -1,6 +1,7 @@
 export * from "./commands/effects.js";
 export * from "./commands/help.js";
 export * from "./commands/parse.js";
+export * from "./commands/settings.js";
 export * from "./config/bootstrap.js";
 export * from "./context/repo-graph.js";
 export * from "./context/repo-map-renderer.js";

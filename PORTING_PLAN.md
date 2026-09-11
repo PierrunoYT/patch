@@ -105,9 +105,9 @@ evidence; this plan and the backlog track current status and open work.
   expose only bounded recovery metadata. Expiry, quotas, backpressure, and
   reclamation remain open.
 - The eight ancillary feature families have explicit dispositions below.
-  Offline `/help` is implemented. `/settings` and `/report` are selected for
-  implementation but remain absent; deciding their scope does not establish
-  executable parity.
+  Offline `/help` and allowlisted `/settings` are implemented. `/report` is
+  selected for implementation but remains absent; deciding its scope does not
+  establish executable parity.
 
 ### Ancillary feature dispositions — P2 item 7
 
@@ -122,7 +122,7 @@ No runtime behavior changes with this decision.
 | Family | Disposition | Scope, rationale, and intentional difference |
 | --- | --- | --- |
 | `/help` | Implemented | Lists supported commands and searches six bundled Patch docs locally, returning at most eight bounded line excerpts with source references. It is verified through parser/application tests and the executable installed from a packed tarball. No provider call, embedding download, or network access occurs. This supports offline discovery without the cost and dependencies of aider's model-backed help (`aider/help.py`, `aider/commands.py:1119`). It does not construct aider's help coder. |
-| `/settings` | Implement | Show an allowlisted, read-only view of effective configuration and current session model/mode, including changes since bootstrap. Never dump raw arguments, environment, provider headers, or credentials; fully omit secrets rather than retaining suffixes. This keeps configuration diagnosable without reproducing `aider/format_settings.py`'s broad dump and partial key masking (`aider/commands.py:1432`). |
+| `/settings` | Implemented | Shows nine explicitly allowlisted, read-only values: bounded current model/mode labels, encoding, Git/hook/generated-message states, lint/test configured states, and whether bootstrap corrected the root. Post-switch and packed-executable tests prove current state is shown. Raw arguments, paths, commands, identities, environment, provider headers/endpoints, model extras, and credentials never enter the renderer; tests require full secrets and suffixes to be absent from terminal output, histories, and provider requests. This keeps configuration diagnosable without reproducing `aider/format_settings.py`'s broad dump and partial key masking (`aider/commands.py:1432`). |
 | `/report` | Implement | Generate a bounded local issue draft with allowlisted Patch/Node/OS/Git versions and user-supplied title. Exclude chat, source, paths, environment, credentials, and raw diagnostics. Show the draft for review; no upload, automatic browser launch, or diagnostic-filled URL. Users can copy it into the issue tracker themselves. This trades one extra step for control over disclosure compared with `aider/report.py` and `aider/commands.py:1555`. |
 | Browser GUI | Deferred | A GUI remains wanted but unscheduled: the terminal is the primary product, and a second UI has substantial maintenance cost. The authenticated local HTTP/SSE API is not a GUI. Revisit only after its session lifetime, quotas, backpressure, and approval UX are addressed; keep the shared application contracts instead of porting Streamlit (`aider/gui.py`). |
 | Voice UX | Deferred | Keep the optional library helper, not a production CLI voice claim. A later UX must make microphone capture and transcription-provider disclosure explicit, support cancellation, and allow transcript review before submission. Cross-platform devices, optional audio tools, and audio privacy justify deferral (`aider/voice.py`, `aider/commands.py:1252`, `aider/io.py`). |

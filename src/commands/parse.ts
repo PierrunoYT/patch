@@ -31,6 +31,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "paste",
   "read-only",
   "run",
+  "settings",
   "test",
   "undo",
   "web",
@@ -128,6 +129,7 @@ export function parseCommand(input: string): CommandEffect {
     }
     case "ls":
     case "clear":
+    case "settings":
     case "test":
     case "lint":
     case "undo":

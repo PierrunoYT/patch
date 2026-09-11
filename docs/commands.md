@@ -7,9 +7,9 @@ This ports the dispatch boundary from
 [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203)
 without copying aider's stateful Python command object.
 
-The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/ls`, `/clear`,
-`/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`,
-`/copy`, `/paste`, and `/exit`.
+The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/settings`, `/ls`,
+`/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`,
+`/undo`, `/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -23,6 +23,17 @@ no match and missing-document states are reported without a provider fallback.
 Unlike aider's model-backed semantic help, this command makes no provider call,
 downloads no embeddings, uses no network, and does not add help text to chat
 history. The packed executable test verifies search outside the source checkout.
+
+`/settings` shows the current model and chat mode (including successful
+post-startup switches), encoding, enabled/disabled Git, hook verification and
+generated commit messages, whether lint/test commands are configured, and
+whether bootstrap corrected the repository root. These nine values are the
+complete allowlist. The renderer cannot receive raw arguments, paths, command
+text, commit identities, environment, provider headers/endpoints, model extras,
+or credentials, and it never partially masks secrets. Display labels are
+control-free and bounded. The command performs no provider request and its
+packed-executable and secret-bearing interface tests cover terminal and history
+output.
 
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:

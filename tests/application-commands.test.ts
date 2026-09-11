@@ -4,7 +4,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { ConcreteApplicationService, FakeProvider } from "../src/index.js";
+import {
+  ConcreteApplicationService,
+  FakeProvider,
+  ModelCatalog,
+} from "../src/index.js";
+import { createProgram } from "../src/program.js";
 
 describe("application slash commands", () => {
   it("dispatches selected-file, mode, process, clipboard, history, and exit effects", async () => {
@@ -286,5 +291,99 @@ describe("application slash commands", () => {
     expect(provider.requests).toHaveLength(0);
     expect(await session.snapshot()).toMatchObject({ messages: [] });
     await service.close();
+  });
+
+  it("shows current safe settings after switches without disclosing configuration secrets", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-settings-"));
+    const apiKey = "settings-api-secret-3e7270";
+    const header = "settings-header-secret-8c14b1";
+    const endpoint = "https://settings-endpoint-secret.invalid/v1";
+    const commandSecret = "settings-command-secret-9d381c";
+    const identitySecret = "settings-identity-secret-52f0f1";
+    const settingsPath = join(root, "models.yml");
+    await writeFile(
+      settingsPath,
+      [
+        "- name: custom-safe",
+        "  provider: openai",
+        "  editFormat: ask",
+        "  extraParameters:",
+        `    endpoint: ${JSON.stringify(endpoint)}`,
+        "    headers:",
+        `      authorization: ${JSON.stringify(header)}`,
+      ].join("\n"),
+    );
+    const catalog = await ModelCatalog.load({ settings: [settingsPath] });
+    const provider = new FakeProvider([]);
+    const inputHistory = join(root, "input.jsonl");
+    const chatHistory = join(root, "chat.md");
+    let output = "";
+    const lines = async function* () {
+      yield "/settings";
+      yield "/model 4o";
+      yield "/chat-mode whole";
+      yield "/settings";
+      yield "/exit";
+    };
+
+    await createProgram({
+      cwd: root,
+      environment: {
+        OPENAI_API_KEY: apiKey,
+        OPENAI_BASE_URL: endpoint,
+        PATCH_PROVIDER_HEADERS: header,
+      },
+      outputIsTTY: false,
+      writeOutput: (text) => {
+        output += text;
+      },
+      lines: lines(),
+      createApplication: (options) =>
+        ConcreteApplicationService.create({
+          ...options,
+          home: root,
+          dependencies: { catalog, provider },
+        }),
+    }).parseAsync(
+      [
+        "--no-git",
+        "--model",
+        "custom-safe",
+        "--edit-format",
+        "ask",
+        "--lint-cmd",
+        `echo ${commandSecret}`,
+        "--test-cmd",
+        `echo ${commandSecret}`,
+        "--commit-author-name",
+        identitySecret,
+        "--input-history-file",
+        inputHistory,
+        "--chat-history-file",
+        chatHistory,
+      ],
+      { from: "user" },
+    );
+
+    expect(output).toContain("Model: custom-safe");
+    expect(output).toContain("Model: gpt-4o");
+    expect(output).toContain("Chat mode: whole");
+    expect(output).toContain("Lint command: configured");
+    expect(provider.requests).toHaveLength(0);
+    const persisted = `${await readFile(inputHistory, "utf8")}\n${await readFile(chatHistory, "utf8")}`;
+    for (const secret of [
+      apiKey,
+      header,
+      endpoint,
+      commandSecret,
+      identitySecret,
+    ]) {
+      expect(output).not.toContain(secret);
+      expect(persisted).not.toContain(secret);
+      expect(JSON.stringify(provider.requests)).not.toContain(secret);
+      // Do not partially mask credentials: suffixes are omitted too.
+      expect(output).not.toContain(secret.slice(-6));
+      expect(persisted).not.toContain(secret.slice(-6));
+    }
   });
 });

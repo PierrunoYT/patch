@@ -19,6 +19,10 @@ dated parity audits for revision-specific evidence.
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the
   executable installed from the packed tarball.
+- Read-only `/settings` output constrained to nine safe effective/current
+  values, including post-switch model and mode. Raw configuration, paths,
+  commands, identities, environment, provider options, model extras, and
+  credentials are omitted rather than partially masked.
 - Initial project overview and development status.
 - Patch wordmark and icon assets.
 - A phased TypeScript, Node.js, and npm porting plan covering architecture,

@@ -12,6 +12,7 @@ describe("parseCommand", () => {
     ["/read-only README.md", { type: "read-only", paths: ["README.md"] }],
     ["/help", { type: "help" }],
     ["/help repository map", { type: "help", query: "repository map" }],
+    ["/settings", { type: "settings" }],
     ["/ls", { type: "ls" }],
     ["/clear", { type: "clear" }],
     ["/model anthropic/claude", { type: "model", model: "anthropic/claude" }],
@@ -79,6 +80,7 @@ describe("parseCommand", () => {
     "/chat-mode architect",
     "/add 'open",
     "/ls now",
+    "/settings now",
     "/wat",
   ])("rejects malformed command %s", (input) => {
     expect(() => parseCommand(input)).toThrow(CommandParseError);

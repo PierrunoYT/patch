@@ -403,8 +403,8 @@ readiness. Updating documentation does not complete those implementation tasks.
   implement local `/help`, allowlisted `/settings`, and a local reviewable
   `/report` draft; defer browser GUI and voice UX; make analytics, automatic
   onboarding/OAuth, and built-in update/release-note flows non-goals.
-  This closed the product decision only; `/help` is now implemented and the
-  other two command acceptance tasks below remain unchecked. Cost/privacy
+  This closed the product decision only; `/help` and `/settings` are now
+  implemented and the `/report` acceptance task below remains unchecked. Cost/privacy
   rationale and pinned source references are retained in the plan. Source
   review also corrects the earlier table: settings uses
   `aider/format_settings.py`, and upstream ordinary version probes are throttled
@@ -453,11 +453,19 @@ decision or one command does not establish release readiness.
   package-smoke tests cover the stated cases and prove command dispatch does not
   call the provider or change chat history. This is intentionally local and
   deterministic rather than pinned aider's model-backed help coder.
-- [ ] Implement read-only `/settings` from an explicit safe-field allowlist,
+- [x] Implement read-only `/settings` from an explicit safe-field allowlist,
   reflecting both resolved bootstrap and current model/mode. Test post-switch
   output and credential-bearing environment, headers, endpoint URLs, and custom
   model configuration; no secret values or suffixes may appear in terminal
   output, history, or provider requests.
+  `src/commands/settings.ts` accepts only nine declared safe values: bounded
+  current model/mode labels, encoding, five booleans/configured states, and the
+  root-correction flag. It cannot receive raw argv, paths, commands, identities,
+  environment, provider objects, headers, endpoints, or model extras. An
+  executable-interface test covers a secret-bearing environment and custom model
+  plus post-startup model/mode switches, asserting full secrets and suffixes are
+  absent from terminal output, both histories, and provider requests. Package
+  smoke also dispatches `/settings` from the installed executable.
 - [ ] Implement `/report` as a bounded local, reviewable draft with allowlisted
   version metadata and a user-supplied title. Test unavailable Git metadata,
   oversized/control-character input, and exclusion of credentials, paths, chat,
@@ -686,9 +694,10 @@ command has its documented executable effect, and `tests/application-commands.te
 `tests/interface-startup.test.ts`, `tests/interactive-command.test.ts`, and
 `tests/url-ingestion.test.ts` assert what each one leaves behind for the next
 turn. This exit covers the existing advertised commands, not future scope.
-Aider's wider matching remains outside that evidence; local `/help` is now
-implemented under P2 item 7. `/report` and `/settings` remain selected with
-unchecked acceptance tasks in the ancillary-command follow-ups above.
+Aider's wider matching remains outside that evidence; local `/help` and
+secret-safe `/settings` are now implemented under P2 item 7. `/report` remains
+selected with an unchecked acceptance task in the ancillary-command follow-ups
+above.
 
 ## R4 — Add opt-in live provider contract tests
 

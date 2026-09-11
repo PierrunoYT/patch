@@ -17,6 +17,7 @@ import {
 import type { CommandEffect } from "../commands/effects.js";
 import { renderHelp } from "../commands/help.js";
 import { parseCommand } from "../commands/parse.js";
+import { renderSettings } from "../commands/settings.js";
 import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
 import {
@@ -778,6 +779,22 @@ class ConcreteApplicationSession implements ApplicationSession {
         );
       case "help":
         return result(await renderHelp(effect.query));
+      case "settings": {
+        const bootstrap = this.#context.bootstrap;
+        return result(
+          renderSettings({
+            currentModel: this.#profile.main.name,
+            currentMode: this.#profile.definition.strategy.format,
+            encoding: bootstrap.arguments.encoding,
+            git: bootstrap.arguments.git,
+            gitCommitVerify: bootstrap.arguments.gitCommitVerify,
+            generateCommitMessages: bootstrap.arguments.generateCommitMessages,
+            lintConfigured: bootstrap.arguments.lintCommand !== undefined,
+            testConfigured: bootstrap.arguments.testCommand !== undefined,
+            rootCorrected: bootstrap.rootCorrected,
+          }),
+        );
+      }
       case "clear":
         this.#session.clearHistory();
         return result("Chat history cleared");
