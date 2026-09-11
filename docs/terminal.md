@@ -13,6 +13,14 @@ completion starts after three characters to avoid a noisy menu, matching the
 pinned upstream threshold. `extractIdentifiers` recognizes Unicode identifiers;
 callers decide which approved file contents may be scanned.
 
+The interactive reader connects this to Tab. `TerminalInput` takes a
+`completionSources` callback and adapts the result to readline's completer
+contract; the executable reads the session's editable and read-only paths each
+time completion runs, so candidates follow `/add` and `/drop` rather than being
+fixed at startup. Command candidates come from `COMMAND_NAMES`, which a test
+holds level with what `parseCommand` accepts. A reader built without
+`completionSources` leaves input untouched.
+
 ## Persistent history and privacy
 
 Patch writes no terminal history by default. `--input-history-file <path>`
@@ -20,6 +28,12 @@ explicitly enables an append-only JSON Lines file (one JSON string per submitted
 input, preserving multiline text). `--chat-history-file <path>` explicitly
 enables a Markdown transcript of user messages and string responses returned by
 the configured session handler.
+
+Recall is tied to that same opt-in. When `--input-history-file` is configured,
+the reader seeds readline's history from it, so the arrow keys reach inputs from
+earlier sessions; without the option nothing is written and nothing is recalled.
+Lines that are not valid JSON strings are skipped rather than failing startup,
+because the file is appended to by every session and can be truncated mid-write.
 
 Both files can contain source code, prompts, model output, secrets, and personal
 data. Patch creates them with owner-only permissions where the platform supports

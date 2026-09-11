@@ -8,6 +8,7 @@ import {
   type ConcreteApplicationOptions,
 } from "./core/concrete-application-service.js";
 import { runInput, TerminalInput, type InputDependencies } from "./input.js";
+import { COMMAND_NAMES } from "./commands/parse.js";
 import { TerminalHistory } from "./io/history.js";
 import {
   generateShellCompletion,
@@ -233,6 +234,8 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             ? controller.signal
             : AbortSignal.any([controller.signal, dependencies.signal]);
         const input = dependencies.inputStream ?? process.stdin;
+        let application: ConcreteApplicationService | undefined;
+        let session: ApplicationSession | undefined;
         const terminal =
           input.isTTY === true &&
           (dependencies.outputIsTTY ?? process.stdout.isTTY) === true &&
@@ -242,15 +245,42 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
           options.multiline !== true &&
           options.web !== true &&
           options.watchFiles !== true
-            ? new TerminalInput(input, write, signal, () =>
-                controller.abort(new Error("Application stopped")),
+            ? new TerminalInput(
+                input,
+                write,
+                signal,
+                () => controller.abort(new Error("Application stopped")),
+                {
+                  // Read per keystroke so completion reflects the files selected
+                  // now, not those selected at startup.
+                  completionSources: () => {
+                    const state = session?.snapshot() as
+                      | {
+                          editablePaths?: readonly string[];
+                          readOnlyPaths?: readonly string[];
+                        }
+                      | undefined;
+                    return {
+                      commands: COMMAND_NAMES,
+                      files: [
+                        ...new Set([
+                          ...(state?.editablePaths ?? []),
+                          ...(state?.readOnlyPaths ?? []),
+                        ]),
+                      ],
+                    };
+                  },
+                  // Recall is opt-in: without a configured history file there is
+                  // nothing to read, and nothing is written either.
+                  ...(options.inputHistoryFile === undefined
+                    ? {}
+                    : { history: await history.readInput() }),
+                },
               )
             : undefined;
         const stop = () => controller.abort(new Error("Application stopped"));
         process.on("SIGINT", stop);
         process.on("SIGTERM", stop);
-        let application: ConcreteApplicationService | undefined;
-        let session: ApplicationSession | undefined;
         let watcher: AiWatchMode | undefined;
         let web: LocalWebServer | undefined;
         try {

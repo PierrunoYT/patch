@@ -171,6 +171,13 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Added
 
+- Tab completion is connected to the interactive reader. The completion engine
+  existed but nothing called it; commands and the currently selected files now
+  complete, re-read per keystroke so they follow `/add` and `/drop`.
+- Input recall from earlier sessions, tied to the existing
+  `--input-history-file` opt-in: with a history file configured the arrow keys
+  reach previously submitted inputs. Damaged lines are skipped rather than
+  failing startup.
 - Repository-map language support grew from five to eleven: Bash, C/C++, C#,
   Java, and Ruby were added with their upstream tag queries.
 - Files no bundled grammar covers now contribute lexical references to the

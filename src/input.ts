@@ -9,11 +9,24 @@ import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { Writable, type Readable } from "node:stream";
 
+import { completeInput, type CompletionSources } from "./io/completion.js";
+
+export interface TerminalInputOptions {
+  /**
+   * Read when the user asks for completion, so the candidates reflect the files
+   * selected right now rather than those selected at startup.
+   */
+  readonly completionSources?: () => CompletionSources;
+  /** Earlier inputs, oldest first, made recallable with the arrow keys. */
+  readonly history?: readonly string[];
+}
+
 /** One reader owns both input queues and fresh, explicit terminal answers. */
 export class TerminalInput implements AsyncIterable<string> {
   readonly #reader;
   readonly #queue: string[] = [];
   readonly #write: (text: string) => void;
+  readonly #completionSources: (() => CompletionSources) | undefined;
   #wake: (() => void) | undefined;
   #answer: ((answer: boolean) => void) | undefined;
   #closed = false;
@@ -23,8 +36,10 @@ export class TerminalInput implements AsyncIterable<string> {
     write: (text: string) => void,
     signal: AbortSignal,
     interrupt: () => void = () => this.close(),
+    options: TerminalInputOptions = {},
   ) {
     this.#write = write;
+    this.#completionSources = options.completionSources;
     // No second readline/question consumer; queued messages stay messages.
     const output = new Writable({
       write(chunk, _encoding, done) {
@@ -32,7 +47,19 @@ export class TerminalInput implements AsyncIterable<string> {
         done();
       },
     });
-    this.#reader = createInterface({ input, output, terminal: true, signal });
+    this.#reader = createInterface({
+      input,
+      output,
+      terminal: true,
+      signal,
+      ...(options.completionSources === undefined
+        ? {}
+        : { completer: (line: string) => this.complete(line) }),
+      // Readline recalls most-recent-first; the history file is oldest-first.
+      ...(options.history === undefined
+        ? {}
+        : { history: [...options.history].reverse() }),
+    });
     this.#reader.on("SIGINT", interrupt);
     this.#reader.on("line", (line) => {
       if (this.#answer !== undefined) {
@@ -82,6 +109,19 @@ export class TerminalInput implements AsyncIterable<string> {
         `\n${label} (JSON-quoted literal): ${literal}\nApprove? [y/yes; anything else denies] `,
       );
     });
+  }
+
+  /**
+   * Readline's completer contract: the candidate values, and the substring they
+   * replace. An empty list with the whole line leaves the input untouched.
+   */
+  complete(line: string): [string[], string] {
+    const sources = this.#completionSources?.();
+    if (sources === undefined) return [[], line];
+    const found = completeInput(line, line.length, sources);
+    const replaceFrom = found[0]?.replaceFrom;
+    if (replaceFrom === undefined) return [[], line];
+    return [found.map(({ value }) => value), line.slice(replaceFrom)];
   }
 
   close(): void {

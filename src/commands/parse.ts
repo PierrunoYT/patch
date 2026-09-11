@@ -12,6 +12,28 @@ export class CommandParseError extends Error {
   override readonly name = "CommandParseError";
 }
 
+/**
+ * Every command `parseCommand` accepts, for completion and help. Kept in sync by
+ * a test that parses each name, so an added command cannot stay uncompletable.
+ */
+export const COMMAND_NAMES: readonly string[] = [
+  "add",
+  "chat-mode",
+  "clear",
+  "commit",
+  "copy",
+  "drop",
+  "exit",
+  "lint",
+  "ls",
+  "model",
+  "paste",
+  "read-only",
+  "run",
+  "test",
+  "undo",
+];
+
 function requireArgument(command: string, argument: string): string {
   if (argument === "") {
     throw new CommandParseError(`/${command} requires an argument`);

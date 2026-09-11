@@ -5,7 +5,7 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { mkdir, open } from "node:fs/promises";
+import { mkdir, open, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export interface HistoryPaths {
@@ -33,6 +33,33 @@ export class TerminalHistory {
   async appendInput(input: string): Promise<void> {
     if (this.#paths.input === undefined || input.trim() === "") return;
     await appendPrivate(this.#paths.input, `${JSON.stringify(input)}\n`);
+  }
+
+  /**
+   * Previously submitted inputs, oldest first, for seeding recall in a new
+   * session. A line that is not valid JSON is skipped rather than failing
+   * startup: this file is appended to by every session and may be truncated.
+   */
+  async readInput(limit = 1000): Promise<string[]> {
+    const path = this.#paths.input;
+    if (path === undefined) return [];
+    let content: string;
+    try {
+      content = await readFile(path, "utf8");
+    } catch {
+      return [];
+    }
+    const inputs: string[] = [];
+    for (const line of content.split("\n")) {
+      if (line.trim() === "") continue;
+      try {
+        const value: unknown = JSON.parse(line);
+        if (typeof value === "string" && value !== "") inputs.push(value);
+      } catch {
+        continue;
+      }
+    }
+    return inputs.slice(-limit);
   }
 
   async appendChat(role: "user" | "assistant", message: string): Promise<void> {
