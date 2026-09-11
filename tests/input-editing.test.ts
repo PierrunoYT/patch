@@ -1,4 +1,4 @@
-import { appendFile, mkdtemp, rm } from "node:fs/promises";
+import { appendFile, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -87,6 +87,8 @@ describe("rich input editing", () => {
 const ALT_ENTER = `${String.fromCharCode(0x1b)}\r`;
 const CTRL_X = String.fromCharCode(0x18);
 const CTRL_E = String.fromCharCode(0x05);
+const CTRL_C = String.fromCharCode(0x03);
+const CTRL_D = String.fromCharCode(0x04);
 
 describe("terminal completion and recall", () => {
   const reader = (sources: CompletionSources) => {
@@ -253,6 +255,53 @@ describe("terminal completion and recall", () => {
     await reading;
 
     expect(messages).toEqual(["half-typed and the rest"]);
+  });
+
+  it("recovers from Ctrl-C and ends the iterator on EOF", async () => {
+    const input = new PassThrough();
+    const interrupts: number[] = [];
+    const terminal = new TerminalInput(
+      input,
+      () => undefined,
+      new AbortController().signal,
+      () => void interrupts.push(1),
+    );
+    const messages: string[] = [];
+    const reading = (async () => {
+      for await (const message of terminal) messages.push(message);
+    })();
+
+    input.write("abandoned");
+    await new Promise((resolve) => setImmediate(resolve));
+    input.write(CTRL_C);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(interrupts).toHaveLength(1);
+
+    // The session continues: the next line is a message, not a continuation of
+    // the abandoned one.
+    input.write("kept\r");
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(messages).toEqual(["kept"]);
+
+    // Ctrl-D on an empty line ends input rather than leaving the loop hanging.
+    input.write(CTRL_D);
+    await reading;
+    expect(messages).toEqual(["kept"]);
+  });
+
+  it("removes the editor's temporary file even when the editor fails", async () => {
+    const before = (await readdir(tmpdir())).filter((entry) =>
+      entry.startsWith("patch-editor-"),
+    );
+    await expect(
+      editInExternalEditor("draft", {
+        editor: `${JSON.stringify(process.execPath)} -e ${JSON.stringify("process.exit(3)")}`,
+      }),
+    ).rejects.toThrow(/status 3/u);
+    const after = (await readdir(tmpdir())).filter((entry) =>
+      entry.startsWith("patch-editor-"),
+    );
+    expect(after).toEqual(before);
   });
 
   it("names every command the parser accepts", () => {

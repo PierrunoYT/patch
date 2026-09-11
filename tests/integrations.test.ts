@@ -21,18 +21,38 @@ describe("terminal integrations", () => {
   });
 
   it("generates deterministic Bash, Zsh, and Fish completions", () => {
-    expect(generateShellCompletion("bash")).toContain(
+    const inventory = ["--message-file", "--notifications-command", "--help"];
+    expect(generateShellCompletion("bash", inventory)).toContain(
       "complete -F _patch patch",
     );
-    expect(generateShellCompletion("zsh")).toMatch(/^#compdef patch/u);
-    expect(generateShellCompletion("fish")).toContain(
+    expect(generateShellCompletion("zsh", inventory)).toMatch(
+      /^#compdef patch/u,
+    );
+    expect(generateShellCompletion("fish", inventory)).toContain(
       "complete -c patch -l message-file",
     );
     for (const shell of ["bash", "zsh", "fish"] as const) {
-      expect(generateShellCompletion(shell)).toContain(
+      expect(generateShellCompletion(shell, inventory)).toContain(
         shell === "fish" ? "notifications-command" : "--notifications-command",
       );
     }
+  });
+
+  it("completes only well-formed flags and refuses an empty inventory", () => {
+    // Commander reports a value placeholder and repeats; neither belongs in a
+    // completion word list.
+    expect(
+      generateShellCompletion("fish", [
+        "--model",
+        "--model",
+        "<name>",
+        "",
+        "-m",
+      ]),
+    ).toBe("complete -c patch -l model\n");
+    expect(() => generateShellCompletion("bash", [])).toThrow(
+      /at least one option/u,
+    );
   });
 
   it("uses a bell by default and argv for an explicit notification command", async () => {

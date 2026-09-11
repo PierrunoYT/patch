@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Readable } from "node:stream";
@@ -128,7 +128,14 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "--multiline",
         "read interactive input through EOF as one message",
       )
-      .option("--vim", "(unsupported) Vi modal input is not implemented")
+      // Registered, but hidden from help and completion: it exists only so the
+      // flag fails with its reason instead of a bare "unknown option".
+      .addOption(
+        new Option(
+          "--vim",
+          "(unsupported) Vi modal input is not implemented",
+        ).hideHelp(),
+      )
       .option("--editor <command>", "external editor used by Ctrl-X Ctrl-E")
       .option("--no-color", "disable ANSI color and styling")
       .option("--notifications", "notify when a response is ready")
@@ -168,392 +175,423 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "print bash, zsh, or fish completions",
       )
       .showHelpAfterError()
-      .action(async (files: string[], options: ProgramOptions) => {
-        if (options.shellCompletions !== undefined) {
-          if (!["bash", "zsh", "fish"].includes(options.shellCompletions)) {
-            throw new Error(
-              `Unsupported completion shell: ${options.shellCompletions}`,
-            );
-          }
-          (dependencies.writeOutput ?? ((text) => process.stdout.write(text)))(
-            generateShellCompletion(options.shellCompletions),
-          );
-          return;
-        }
-        // Refused rather than ignored: Node readline has no modal editing, and
-        // accepting the flag would imply bindings that are simply absent.
-        if (options.vim === true) {
-          throw new Error(
-            "--vim is not implemented: Patch's line reader has no modal editing. Remove the flag; Ctrl-X Ctrl-E opens $EDITOR instead.",
-          );
-        }
-        if (
-          options.web !== true &&
-          (options.webPort !== undefined || options.webTokenFile !== undefined)
-        ) {
-          throw new Error("--web-port and --web-token-file require --web");
-        }
-        if (
-          (options.web === true || options.watchFiles === true) &&
-          (options.message !== undefined || options.messageFile !== undefined)
-        ) {
-          throw new Error(
-            "Watcher/web startup cannot be combined with one-shot input",
-          );
-        }
-        if (options.web === true && options.watchFiles === true) {
-          throw new Error("--web and --watch-files cannot be combined");
-        }
-        const port = Number(options.webPort ?? "0");
-        if (
-          options.webPort !== undefined &&
-          (!/^\d+$/u.test(options.webPort) ||
-            !Number.isInteger(port) ||
-            port < 0 ||
-            port > 65535)
-        ) {
-          throw new Error("--web-port must be an integer from 0 to 65535");
-        }
-        let token: string | undefined;
-        if (options.web === true) {
-          if (options.webTokenFile === undefined)
-            throw new Error("--web requires --web-token-file");
-          try {
-            token = (
-              await readFile(
-                resolve(
-                  dependencies.cwd ?? process.cwd(),
-                  options.webTokenFile,
-                ),
-                "utf8",
-              )
-            ).trim();
-          } catch {
-            throw new Error("Unable to read --web-token-file");
-          }
-          if (!/^[A-Za-z0-9_-]{32,256}$/u.test(token))
-            throw new Error(
-              "Web token must contain 32–256 letters, digits, underscores or hyphens; generate a random token",
-            );
-        }
-        const history = new TerminalHistory({
-          ...(options.inputHistoryFile === undefined
-            ? {}
-            : { input: options.inputHistoryFile }),
-          ...(options.chatHistoryFile === undefined
-            ? {}
-            : { chat: options.chatHistoryFile }),
-        });
-        const write =
-          dependencies.writeOutput ??
-          ((text: string) => process.stdout.write(text));
-        const controller = new AbortController();
-        const signal =
-          dependencies.signal === undefined
-            ? controller.signal
-            : AbortSignal.any([controller.signal, dependencies.signal]);
-        const input = dependencies.inputStream ?? process.stdin;
-        let application: ConcreteApplicationService | undefined;
-        let session: ApplicationSession | undefined;
-        const terminal =
-          input.isTTY === true &&
-          (dependencies.outputIsTTY ?? process.stdout.isTTY) === true &&
-          dependencies.lines === undefined &&
-          options.message === undefined &&
-          options.messageFile === undefined &&
-          options.multiline !== true &&
-          options.web !== true &&
-          options.watchFiles !== true
-            ? new TerminalInput(
-                input,
-                write,
-                signal,
-                () => controller.abort(new Error("Application stopped")),
-                {
-                  // Read per keystroke so completion reflects the files selected
-                  // now, not those selected at startup.
-                  completionSources: () => {
-                    const state = session?.snapshot() as
-                      | {
-                          editablePaths?: readonly string[];
-                          readOnlyPaths?: readonly string[];
-                        }
-                      | undefined;
-                    return {
-                      commands: COMMAND_NAMES,
-                      files: [
-                        ...new Set([
-                          ...(state?.editablePaths ?? []),
-                          ...(state?.readOnlyPaths ?? []),
-                        ]),
-                      ],
-                    };
-                  },
-                  // Recall is opt-in: without a configured history file there is
-                  // nothing to read, and nothing is written either.
-                  ...(options.inputHistoryFile === undefined
-                    ? {}
-                    : { history: await history.readInput() }),
-                  editor:
-                    options.editor ??
-                    discoverEditor(dependencies.environment ?? process.env),
-                },
-              )
-            : undefined;
-        const stop = () => controller.abort(new Error("Application stopped"));
-        process.on("SIGINT", stop);
-        process.on("SIGTERM", stop);
-        let watcher: AiWatchMode | undefined;
-        let web: LocalWebServer | undefined;
-        try {
-          application =
-            dependencies.handleMessage === undefined
-              ? await (
-                  dependencies.createApplication ??
-                  ConcreteApplicationService.create
-                )({
-                  argv: bootstrapArguments(options, files),
-                  ...(dependencies.cwd === undefined
-                    ? {}
-                    : { cwd: dependencies.cwd }),
-                  ...(dependencies.environment === undefined
-                    ? {}
-                    : { environment: dependencies.environment }),
-                  ...(terminal === undefined
-                    ? {}
-                    : {
-                        dependencies: {
-                          authorizeWrite: (request) =>
-                            terminal.confirm(
-                              `Allow ${request.operation.kind} (${request.reason}) at repository-relative path`,
-                              request.path,
-                            ),
-                          approveCommand: (command) =>
-                            terminal.confirm(
-                              "Run shell command at repository root (not sandboxed)",
-                              command,
-                            ),
-                          // Only a real terminal can hand over the keyboard, so
-                          // only this startup shape offers interactive dispatch.
-                          runInteractiveCommand: (command, commandOptions) =>
-                            terminal.suspend((raw) =>
-                              runInteractiveCommand(command, {
-                                root: commandOptions.root,
-                                input: raw,
-                                write,
-                                environment:
-                                  dependencies.environment ?? process.env,
-                                ...(commandOptions.signal === undefined
-                                  ? {}
-                                  : { signal: commandOptions.signal }),
-                                ...terminalSize(),
-                                onResize: (listener) => {
-                                  const notify = () => listener(terminalSize());
-                                  process.stdout.on("resize", notify);
-                                  return () =>
-                                    void process.stdout.off("resize", notify);
-                                },
-                              }),
-                            ),
-                        },
-                      }),
-                })
-              : undefined;
-          signal.throwIfAborted();
-          if (options.web === true) {
-            if (application === undefined || token === undefined)
-              throw new Error("Web startup requires an application service");
-            const { LocalWebServer } =
-              await import("./interfaces/web-server.js");
-            web = new LocalWebServer({
-              service: application,
-              tokens: { [token]: "local" },
-              port,
-            });
-            const address = await web.start();
-            write(
-              `Patch HTTP API listening on http://${address.host}:${address.port}\n`,
-            );
-            if (!signal.aborted)
-              await new Promise<void>((done) =>
-                signal.addEventListener("abort", () => done(), { once: true }),
+      .action(
+        async (files: string[], options: ProgramOptions, self: Command) => {
+          if (options.shellCompletions !== undefined) {
+            if (!["bash", "zsh", "fish"].includes(options.shellCompletions)) {
+              throw new Error(
+                `Unsupported completion shell: ${options.shellCompletions}`,
               );
+            }
+            (
+              dependencies.writeOutput ?? ((text) => process.stdout.write(text))
+            )(
+              // The options this parser registered, so the script cannot advertise
+              // a flag that was removed or miss one that was added.
+              generateShellCompletion(options.shellCompletions, [
+                ...self.options
+                  .filter((option) => !option.hidden)
+                  .map((option) => option.long ?? ""),
+                "--help",
+              ]),
+            );
             return;
           }
-          session = await application?.createSession({
-            principal: "terminal",
-            sessionId: "terminal",
-          });
-          if (options.watchFiles === true) {
-            if (application === undefined || session === undefined)
-              throw new Error("Watch startup requires an application session");
-            const watchApplication = application;
-            const { AiWatchMode } = await import("./interfaces/watch-mode.js");
-            const markdown = new MarkdownStream(write, { color: false });
-            watcher = new AiWatchMode({
-              root: application.root,
-              session,
-              signal,
-              isIgnored: (path) => watchApplication.isIgnored(path),
-              emit: (event) => {
-                if (
-                  event.type === "text-delta" &&
-                  typeof event.data === "object" &&
-                  event.data !== null &&
-                  "text" in event.data
-                )
-                  markdown.write(String(event.data.text));
-                if (event.type === "finish") {
-                  markdown.end();
-                  write("\n");
-                }
-                if (event.type === "edit-preview")
-                  write(
-                    `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
-                  );
-                if (
-                  event.type === "command-complete" ||
-                  event.type === "lint-complete" ||
-                  event.type === "test-complete"
-                ) {
-                  markdown.end();
-                  write(
-                    `${renderCommandResult(event.data as ModelCommandResult, {
-                      color: false,
-                    })}\n`,
-                  );
-                }
-              },
-              selectedPaths: () => {
-                const state = session?.snapshot() as
-                  { editablePaths?: readonly string[] } | undefined;
-                return state?.editablePaths ?? [];
-              },
-              onError: (error, source) => {
-                markdown.end();
-                write(
-                  `${source === "watcher" ? "Watch mode stopped" : "Watched turn failed"}: ${
-                    error instanceof Error ? error.message : String(error)
-                  }\n`,
-                );
-              },
-            });
-            await watcher.start();
+          // Refused rather than ignored: Node readline has no modal editing, and
+          // accepting the flag would imply bindings that are simply absent.
+          if (options.vim === true) {
+            throw new Error(
+              "--vim is not implemented: Patch's line reader has no modal editing. Remove the flag; Ctrl-X Ctrl-E opens $EDITOR instead.",
+            );
           }
-          await runInput(options, {
-            signal,
-            handleMessage: async (message) => {
-              const renderOptions = {
-                ...(options.color === false ? { color: false } : {}),
-                environment: dependencies.environment ?? process.env,
-                isTTY: dependencies.outputIsTTY ?? process.stdout.isTTY,
-              };
-              const markdown = new MarkdownStream(write, renderOptions);
-              const response =
-                dependencies.handleMessage === undefined
-                  ? await session?.submit(message, {
-                      signal,
-                      emit: (event) => {
-                        if (
-                          event.type === "text-delta" &&
-                          typeof event.data === "object" &&
-                          event.data !== null &&
-                          "text" in event.data
-                        ) {
-                          markdown.write(String(event.data.text));
-                        } else if (event.type === "edit-preview") {
-                          markdown.end();
-                          write(
-                            `${renderDiff(
-                              renderEditPreview(event.data as EditPreview),
-                              renderOptions,
-                            )}\n`,
-                          );
-                        } else if (
-                          event.type === "command-complete" ||
-                          event.type === "lint-complete" ||
-                          event.type === "test-complete"
-                        ) {
-                          // Approving or configuring a command and then seeing
-                          // nothing hides both its output and its status.
-                          markdown.end();
-                          write(
-                            `${renderCommandResult(
-                              event.data as ModelCommandResult,
-                              renderOptions,
-                            )}\n`,
-                          );
-                        }
-                      },
-                    })
-                  : await dependencies.handleMessage(message);
-              if (dependencies.handleMessage === undefined) {
-                markdown.end();
-                write("\n");
+          if (
+            options.web !== true &&
+            (options.webPort !== undefined ||
+              options.webTokenFile !== undefined)
+          ) {
+            throw new Error("--web-port and --web-token-file require --web");
+          }
+          if (
+            (options.web === true || options.watchFiles === true) &&
+            (options.message !== undefined || options.messageFile !== undefined)
+          ) {
+            throw new Error(
+              "Watcher/web startup cannot be combined with one-shot input",
+            );
+          }
+          if (options.web === true && options.watchFiles === true) {
+            throw new Error("--web and --watch-files cannot be combined");
+          }
+          const port = Number(options.webPort ?? "0");
+          if (
+            options.webPort !== undefined &&
+            (!/^\d+$/u.test(options.webPort) ||
+              !Number.isInteger(port) ||
+              port < 0 ||
+              port > 65535)
+          ) {
+            throw new Error("--web-port must be an integer from 0 to 65535");
+          }
+          let token: string | undefined;
+          if (options.web === true) {
+            if (options.webTokenFile === undefined)
+              throw new Error("--web requires --web-token-file");
+            try {
+              token = (
+                await readFile(
+                  resolve(
+                    dependencies.cwd ?? process.cwd(),
+                    options.webTokenFile,
+                  ),
+                  "utf8",
+                )
+              ).trim();
+            } catch {
+              throw new Error("Unable to read --web-token-file");
+            }
+            if (!/^[A-Za-z0-9_-]{32,256}$/u.test(token))
+              throw new Error(
+                "Web token must contain 32–256 letters, digits, underscores or hyphens; generate a random token",
+              );
+          }
+          const history = new TerminalHistory({
+            ...(options.inputHistoryFile === undefined
+              ? {}
+              : { input: options.inputHistoryFile }),
+            ...(options.chatHistoryFile === undefined
+              ? {}
+              : { chat: options.chatHistoryFile }),
+          });
+          const write =
+            dependencies.writeOutput ??
+            ((text: string) => process.stdout.write(text));
+          const controller = new AbortController();
+          const signal =
+            dependencies.signal === undefined
+              ? controller.signal
+              : AbortSignal.any([controller.signal, dependencies.signal]);
+          const input = dependencies.inputStream ?? process.stdin;
+          let application: ConcreteApplicationService | undefined;
+          let session: ApplicationSession | undefined;
+          const terminal =
+            input.isTTY === true &&
+            (dependencies.outputIsTTY ?? process.stdout.isTTY) === true &&
+            dependencies.lines === undefined &&
+            options.message === undefined &&
+            options.messageFile === undefined &&
+            options.multiline !== true &&
+            options.web !== true &&
+            options.watchFiles !== true
+              ? new TerminalInput(
+                  input,
+                  write,
+                  signal,
+                  () => controller.abort(new Error("Application stopped")),
+                  {
+                    // Read per keystroke so completion reflects the files selected
+                    // now, not those selected at startup.
+                    completionSources: () => {
+                      const state = session?.snapshot() as
+                        | {
+                            editablePaths?: readonly string[];
+                            readOnlyPaths?: readonly string[];
+                          }
+                        | undefined;
+                      return {
+                        commands: COMMAND_NAMES,
+                        files: [
+                          ...new Set([
+                            ...(state?.editablePaths ?? []),
+                            ...(state?.readOnlyPaths ?? []),
+                          ]),
+                        ],
+                      };
+                    },
+                    // Recall is opt-in: without a configured history file there is
+                    // nothing to read, and nothing is written either.
+                    ...(options.inputHistoryFile === undefined
+                      ? {}
+                      : { history: await history.readInput() }),
+                    editor:
+                      options.editor ??
+                      discoverEditor(dependencies.environment ?? process.env),
+                  },
+                )
+              : undefined;
+          const stop = () => controller.abort(new Error("Application stopped"));
+          process.on("SIGINT", stop);
+          process.on("SIGTERM", stop);
+          let watcher: AiWatchMode | undefined;
+          let web: LocalWebServer | undefined;
+          try {
+            application =
+              dependencies.handleMessage === undefined
+                ? await (
+                    dependencies.createApplication ??
+                    ConcreteApplicationService.create
+                  )({
+                    argv: bootstrapArguments(options, files),
+                    ...(dependencies.cwd === undefined
+                      ? {}
+                      : { cwd: dependencies.cwd }),
+                    ...(dependencies.environment === undefined
+                      ? {}
+                      : { environment: dependencies.environment }),
+                    ...(terminal === undefined
+                      ? {}
+                      : {
+                          dependencies: {
+                            authorizeWrite: (request) =>
+                              terminal.confirm(
+                                `Allow ${request.operation.kind} (${request.reason}) at repository-relative path`,
+                                request.path,
+                              ),
+                            approveCommand: (command) =>
+                              terminal.confirm(
+                                "Run shell command at repository root (not sandboxed)",
+                                command,
+                              ),
+                            // Only a real terminal can hand over the keyboard, so
+                            // only this startup shape offers interactive dispatch.
+                            runInteractiveCommand: (command, commandOptions) =>
+                              terminal.suspend((raw) =>
+                                runInteractiveCommand(command, {
+                                  root: commandOptions.root,
+                                  input: raw,
+                                  write,
+                                  environment:
+                                    dependencies.environment ?? process.env,
+                                  ...(commandOptions.signal === undefined
+                                    ? {}
+                                    : { signal: commandOptions.signal }),
+                                  ...terminalSize(),
+                                  onResize: (listener) => {
+                                    const notify = () =>
+                                      listener(terminalSize());
+                                    process.stdout.on("resize", notify);
+                                    return () =>
+                                      void process.stdout.off("resize", notify);
+                                  },
+                                }),
+                              ),
+                          },
+                        }),
+                  })
+                : undefined;
+            signal.throwIfAborted();
+            if (options.web === true) {
+              if (application === undefined || token === undefined)
+                throw new Error("Web startup requires an application service");
+              const { LocalWebServer } =
+                await import("./interfaces/web-server.js");
+              web = new LocalWebServer({
+                service: application,
+                tokens: { [token]: "local" },
+                port,
+              });
+              const address = await web.start();
+              write(
+                `Patch HTTP API listening on http://${address.host}:${address.port}\n`,
+              );
+              if (!signal.aborted)
+                await new Promise<void>((done) =>
+                  signal.addEventListener("abort", () => done(), {
+                    once: true,
+                  }),
+                );
+              return;
+            }
+            session = await application?.createSession({
+              principal: "terminal",
+              sessionId: "terminal",
+            });
+            if (options.watchFiles === true) {
+              if (application === undefined || session === undefined)
+                throw new Error(
+                  "Watch startup requires an application session",
+                );
+              const watchApplication = application;
+              const { AiWatchMode } =
+                await import("./interfaces/watch-mode.js");
+              const markdown = new MarkdownStream(write, { color: false });
+              watcher = new AiWatchMode({
+                root: application.root,
+                session,
+                signal,
+                isIgnored: (path) => watchApplication.isIgnored(path),
+                emit: (event) => {
+                  if (
+                    event.type === "text-delta" &&
+                    typeof event.data === "object" &&
+                    event.data !== null &&
+                    "text" in event.data
+                  )
+                    markdown.write(String(event.data.text));
+                  if (event.type === "finish") {
+                    markdown.end();
+                    write("\n");
+                  }
+                  if (event.type === "edit-preview")
+                    write(
+                      `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
+                    );
+                  if (
+                    event.type === "command-complete" ||
+                    event.type === "lint-complete" ||
+                    event.type === "test-complete"
+                  ) {
+                    markdown.end();
+                    write(
+                      `${renderCommandResult(event.data as ModelCommandResult, {
+                        color: false,
+                      })}\n`,
+                    );
+                  }
+                },
+                selectedPaths: () => {
+                  const state = session?.snapshot() as
+                    { editablePaths?: readonly string[] } | undefined;
+                  return state?.editablePaths ?? [];
+                },
+                onError: (error, source) => {
+                  markdown.end();
+                  write(
+                    `${source === "watcher" ? "Watch mode stopped" : "Watched turn failed"}: ${
+                      error instanceof Error ? error.message : String(error)
+                    }\n`,
+                  );
+                },
+              });
+              await watcher.start();
+            }
+            await runInput(options, {
+              signal,
+              handleMessage: async (message) => {
+                const renderOptions = {
+                  ...(options.color === false ? { color: false } : {}),
+                  environment: dependencies.environment ?? process.env,
+                  isTTY: dependencies.outputIsTTY ?? process.stdout.isTTY,
+                };
+                const markdown = new MarkdownStream(write, renderOptions);
+                const response =
+                  dependencies.handleMessage === undefined
+                    ? await session?.submit(message, {
+                        signal,
+                        emit: (event) => {
+                          if (
+                            event.type === "text-delta" &&
+                            typeof event.data === "object" &&
+                            event.data !== null &&
+                            "text" in event.data
+                          ) {
+                            markdown.write(String(event.data.text));
+                          } else if (event.type === "edit-preview") {
+                            markdown.end();
+                            write(
+                              `${renderDiff(
+                                renderEditPreview(event.data as EditPreview),
+                                renderOptions,
+                              )}\n`,
+                            );
+                          } else if (
+                            event.type === "command-complete" ||
+                            event.type === "lint-complete" ||
+                            event.type === "test-complete"
+                          ) {
+                            // Approving or configuring a command and then seeing
+                            // nothing hides both its output and its status.
+                            markdown.end();
+                            write(
+                              `${renderCommandResult(
+                                event.data as ModelCommandResult,
+                                renderOptions,
+                              )}\n`,
+                            );
+                          }
+                        },
+                      })
+                    : await dependencies.handleMessage(message);
                 const turn =
                   typeof response === "object" && response !== null
                     ? (response as {
                         usage?: UsageReport;
                         sessionCost?: number;
+                        kind?: "turn" | "command";
                       })
                     : undefined;
-                if (turn?.usage !== undefined) {
-                  write(
-                    `${renderUsage(turn.usage, turn.sessionCost, renderOptions)}\n`,
-                  );
+                const turnKind = turn?.kind;
+                if (dependencies.handleMessage === undefined) {
+                  markdown.end();
+                  write("\n");
+                  if (turn?.usage !== undefined) {
+                    write(
+                      `${renderUsage(turn.usage, turn.sessionCost, renderOptions)}\n`,
+                    );
+                  }
                 }
-              }
-              if (options.notifications === true) {
-                await notifyUser(
-                  options.notificationsCommand === undefined
-                    ? {}
-                    : { command: options.notificationsCommand },
-                  dependencies.writeOutput === undefined
-                    ? {}
-                    : { write: dependencies.writeOutput },
-                );
-              }
-              if (typeof response === "string") return response;
-              if (
-                typeof response === "object" &&
-                response !== null &&
-                "response" in response &&
-                typeof response.response === "string"
-              ) {
-                return {
-                  response: response.response,
-                  ...("exit" in response && response.exit === true
-                    ? { exit: true }
-                    : {}),
-                };
-              }
-              return undefined;
-            },
-            ...(terminal !== undefined
-              ? { lines: terminal }
-              : dependencies.lines === undefined
+                // A slash command answers immediately; only a provider turn is
+                // worth interrupting the user for. A notification command that
+                // fails is reported, never allowed to end the input loop.
+                if (options.notifications === true && turnKind !== "command") {
+                  try {
+                    await notifyUser(
+                      options.notificationsCommand === undefined
+                        ? {}
+                        : { command: options.notificationsCommand },
+                      dependencies.writeOutput === undefined
+                        ? {}
+                        : { write: dependencies.writeOutput },
+                    );
+                  } catch (error) {
+                    write(
+                      `Notification failed: ${
+                        error instanceof Error ? error.message : String(error)
+                      }\n`,
+                    );
+                  }
+                }
+                if (typeof response === "string") return response;
+                if (
+                  typeof response === "object" &&
+                  response !== null &&
+                  "response" in response &&
+                  typeof response.response === "string"
+                ) {
+                  return {
+                    response: response.response,
+                    ...("exit" in response && response.exit === true
+                      ? { exit: true }
+                      : {}),
+                  };
+                }
+                return undefined;
+              },
+              ...(terminal !== undefined
+                ? { lines: terminal }
+                : dependencies.lines === undefined
+                  ? {}
+                  : { lines: dependencies.lines }),
+              ...(dependencies.readMessageFile === undefined
                 ? {}
-                : { lines: dependencies.lines }),
-            ...(dependencies.readMessageFile === undefined
-              ? {}
-              : { readMessageFile: dependencies.readMessageFile }),
-            recordInput: (message) => history.appendInput(message),
-            recordChat: (role, message) => history.appendChat(role, message),
-          });
-        } catch (error) {
-          if (!signal.aborted) throw error;
-        } finally {
-          terminal?.close();
-          process.off("SIGINT", stop);
-          process.off("SIGTERM", stop);
-          watcher?.close();
-          try {
-            await web?.close();
-            await session?.close?.();
+                : { readMessageFile: dependencies.readMessageFile }),
+              recordInput: (message) => history.appendInput(message),
+              recordChat: (role, message) => history.appendChat(role, message),
+            });
+          } catch (error) {
+            if (!signal.aborted) throw error;
           } finally {
-            await application?.close();
+            terminal?.close();
+            process.off("SIGINT", stop);
+            process.off("SIGTERM", stop);
+            watcher?.close();
+            try {
+              await web?.close();
+              await session?.close?.();
+            } finally {
+              await application?.close();
+            }
           }
-        }
-      })
+        },
+      )
   );
 }

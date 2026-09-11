@@ -277,6 +277,16 @@ porting plan distinguish composed behavior from library-only adapters.
   way through a `command-complete` event as it finishes, and configured lint and
   test commands report through their `*-complete` events, so approving or
   configuring a command and then seeing nothing no longer resembles a hang.
+- Shell completion is generated from the options the parser registered. The
+  inventory was a hand-kept list that had fallen behind, so `patch
+  --shell-completions` omitted `--model`, `--web`, `--watch-files`, and every
+  other option added since it was written; a test now holds the two level.
+- `--notifications` fires for a provider turn and not for a slash command, which
+  answers immediately, and a notification command that fails is reported instead
+  of ending the input loop.
+- Ctrl-C abandons the line being typed and every line Alt-Enter is holding.
+  Node's reader emits `SIGINT` without touching the buffer, so an abandoned line
+  reappeared in front of whatever was typed next.
 - `--vim` is refused with its reason instead of being accepted and ignored.
   Node's line reader has no modal editing, so the flag promised bindings that
   were simply absent; it now fails startup, names Ctrl-X Ctrl-E as the editor

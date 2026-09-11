@@ -60,7 +60,7 @@ tests are evidence only for the cases they exercise.
 | Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, and unparsed files contribute lexical references; context mode and fixture breadth are incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, rich input and explicitly requested PTY dispatch are connected to the reader, selection takes directories and globs, subprocess output and status are visible, and `/web` ingests one page; the help, report, and settings families are absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, watch reports its failures and refreshes every selected file's AI comments, and `/web` ingests one user-typed URL as bounded, labeled text; voice is a helper surface, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
-| Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup and directory targets are clearly rejected, and `--vim` is refused instead of ignored; the completion inventory, installed docs, and provenance checks remain. |
+| Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup is clearly rejected, `--vim` is refused instead of ignored, shell completion comes from the parser itself, and the package ships its docs; the remaining config-aware options, provider-lifetime cleanup, and provenance checks remain. |
 
 ### Immediate P0 blockers
 
@@ -498,17 +498,23 @@ deterministic tests; actual child execution is retained.
 
 ## R3 — Dispatch every advertised slash command
 
-**Status:** Partial for the advertised command set. All parsed effects reach
-`ConcreteApplicationSession`, but model/mode switching, `/paste`, undo
-ownership, and some command output/history semantics remain incorrect.
+**Status:** Every advertised command dispatches with its documented effect.
+Switching, `/paste`, undo ownership, selection expansion, and command output
+and status are correct. What remains is breadth rather than correctness: `/ls`
+and file-command matching are narrower than Aider's, and there is no semantic
+command help.
 
 - [x] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
-  `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
-  `/undo`, `/copy`, `/paste`, and `/exit`.
+  `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`,
+  `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
 - [x] Resolve and authorize command paths through the same containment boundary
   as model edits; never mutate session lists from raw parser strings.
-- [ ] Rebuild provider and the complete strategy/prompt state safely for
-  `/model` and `/chat-mode`, preserving or summarizing compatible history.
+- [x] Rebuild provider and the complete strategy/prompt state safely for
+  `/model` and `/chat-mode`, preserving or summarizing compatible history. Both
+  build a whole `SessionProfile` and install it only after the session accepts
+  the switch; history drops media the replacement model cannot accept, and a
+  history longer than the model's `maxChatHistoryTokens` is summarized before
+  the next turn.
 - [x] Add an interactive CLI approver for `/run`; `/lint` and `/test` use only
   configured process adapters at the repository root. `/run` shares the terminal
   approver used for model commands and writes; outside standalone interactive
@@ -517,13 +523,19 @@ ownership, and some command output/history semantics remain incorrect.
   paths, and supported ancestry/publication state without disturbing unrelated
   changes. Only the session's recorded commit is undone, root/merge/pushed
   commits are refused, and HEAD moves through a compare-and-swap.
-- [ ] Make `/copy` use text-only platform utilities and make `/paste` submit
+- [x] Make `/copy` use text-only platform utilities and make `/paste` submit
   clipboard text as a user turn rather than an assistant-labelled response.
+  Clipboard text becomes the turn message verbatim and is never reparsed as a
+  command; clipboard images remain unread.
 - [x] Serialize commands and provider turns through the same session queue and
   test commands submitted while a turn is active.
 
-**Acceptance:** every advertised command must have its documented executable
-effect and application-level next-turn evidence. This exit is not met.
+**Acceptance:** met for effect and next-turn evidence. Every advertised
+command has its documented executable effect, and `tests/application-commands.test.ts`,
+`tests/interface-startup.test.ts`, `tests/interactive-command.test.ts`, and
+`tests/url-ingestion.test.ts` assert what each one leaves behind for the next
+turn. Aider's wider matching and its help, report, and settings commands are
+scope decisions still open under P2 item 7, not gaps in this exit.
 
 ## R4 — Add opt-in live provider contract tests
 
@@ -619,15 +631,34 @@ the interactive CLI/session workflow.
   `/run --interactive` is the only caller, the optional native package is loaded
   at that point and nowhere else, and an interface without a terminal refuses
   the command rather than running it unattached.
-- [ ] Generate shell completions from the real option surface, trigger
+- [x] Generate shell completions from the real option surface, trigger
   notifications only for provider turns, and make clipboard paste submit text
-  through the normal user-turn path.
-- [ ] Add terminal-level tests covering Ctrl-C recovery, EOF, resize, multiline
+  through the normal user-turn path. `generateShellCompletion` takes the
+  inventory the parser registered instead of a list that drifted behind it;
+  `ApplicationTurnResult.kind` distinguishes a provider turn from a slash
+  command, so `--notifications` fires only for the former, and a failing
+  notification command is reported rather than ending the input loop. Evidence:
+  the completion, notification, and notifier-failure cases in
+  `tests/cli.test.ts`.
+- [x] Add terminal-level tests covering Ctrl-C recovery, EOF, resize, multiline
   submission, history navigation, editor cleanup, no-color output, hostile
-  provider/child control sequences, and process cleanup.
+  provider/child control sequences, and process cleanup. Ctrl-C now abandons the
+  draft and every held line before the interrupt handler runs — readline emits
+  `SIGINT` without touching the buffer, so an abandoned line used to reappear in
+  front of the next one — and Ctrl-D on an empty line ends input. Evidence:
+  `tests/input-editing.test.ts` (Ctrl-C, EOF, Alt-Enter submission, recall,
+  editor round-trip and temporary-file cleanup, terminal handover),
+  `tests/interactive-command.test.ts` (resize, child cleanup, hostile child
+  sequences), `tests/render.test.ts` (no-color, hostile provider sequences), and
+  `tests/terminal-sanitizer.test.ts`.
 
-**Acceptance:** Phase 8 behavior can be exercised through `patch`, not only by
-importing helper modules, and the default installation remains native-free.
+**Acceptance:** met for everything except renderer fidelity. Completion, recall,
+multiline, the external editor, explicitly requested PTY dispatch, shell
+completions, and notification timing are all reachable through `patch` rather
+than by importing helpers, and the default installation remains native-free. The
+renderer stays smaller than Aider's Rich renderer by choice: tables, lists,
+wrapping, and unstable-tail rerendering are documented as out of scope, so that
+item stays unchecked rather than being closed as done.
 
 ## R8 — Expose Phase 9 adapters through ApplicationService
 

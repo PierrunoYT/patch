@@ -54,16 +54,26 @@ just typed, so one message can span lines and the next turn starts clean.
 through EOF as a single message.
 
 Ctrl-X Ctrl-E opens the whole draft — held lines included — in `--editor`, or
-`VISUAL`/`EDITOR`, or the platform default. What comes back is placed at the
-prompt rather than submitted, so a final Enter is still required and an editor
-that fails leaves the draft intact with the reason printed.
+`VISUAL`/`EDITOR`, or the platform default. The reader is released for the
+editor exactly as it is for an interactive command, since the editor inherits
+the terminal, and is rebuilt afterwards. What comes back is placed at the prompt
+rather than submitted, so a final Enter is still required; an editor that fails
+leaves the draft and every held line intact with the reason printed, and the
+temporary file is removed either way.
+
+Ctrl-C abandons what is being typed, held lines included, before the interrupt
+handler runs. Node's readline emits `SIGINT` without touching the buffer, so an
+abandoned line would otherwise reappear in front of the next one. In the
+executable the interrupt also stops the CLI; an embedding caller that keeps the
+session alive gets a clean prompt. Ctrl-D on an empty line ends input.
 
 `--vim` is refused with the reason rather than accepted and ignored.
 `terminalKeyBindings` still describes Vi's modal Enter, but Node readline has no
 modal editing, and honoring it would mean replacing the line editor outright —
 cursor motion, wrapping, and terminal-width handling included. That is
 deliberately out of scope, so passing the flag fails startup and names
-Ctrl-X Ctrl-E as what Patch offers instead. Shell completion no longer lists it.
+Ctrl-X Ctrl-E as what Patch offers instead. The option is hidden from `--help`
+and from shell completion, because a flag that always fails is not a feature.
 
 ## Markdown, syntax, and diffs
 
@@ -126,11 +136,13 @@ claimed.
 
 ## Shells, notifications, and clipboard
 
-`patch --shell-completions bash|zsh|fish` prints a script, but its hard-coded
-option inventory omits several active CLI options. `--notifications` currently
-runs after any successfully handled line, including slash commands, rather than
-only after provider turns. A configured notification-command failure is not
-isolated and can terminate the input loop.
+`patch --shell-completions bash|zsh|fish` prints a script whose option inventory
+comes from the parser itself, so it cannot fall behind the executable; a test
+holds the two level. Hidden options — today only `--vim` — are excluded.
+
+`--notifications` fires after a provider turn and not after a slash command,
+which answers immediately. A configured notification command that fails is
+reported and the input loop continues; it cannot end the session.
 
 `/copy` and `/paste` represent text-only clipboard effects. The adapter uses
 `pbcopy`/`pbpaste`, `clip.exe`/PowerShell, `wl-copy`/`wl-paste`, or `xclip` when

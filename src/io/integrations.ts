@@ -20,31 +20,34 @@ export function isBrokenPipe(error: unknown): boolean {
   );
 }
 
-const CLI_OPTIONS = [
-  "--message",
-  "--message-file",
-  "--input-history-file",
-  "--chat-history-file",
-  "--multiline",
-  "--editor",
-  "--no-color",
-  "--notifications",
-  "--notifications-command",
-  "--shell-completions",
-  "--help",
-];
-
-export function generateShellCompletion(shell: CompletionShell): string {
-  const options = CLI_OPTIONS.join(" ");
+/**
+ * Prints a completion script for the options it is given.
+ *
+ * The inventory is a parameter rather than a list kept here, because a list kept
+ * here drifts: it silently omitted several active options while claiming to
+ * complete the executable. The caller passes the flags the parser actually
+ * registered.
+ */
+export function generateShellCompletion(
+  shell: CompletionShell,
+  cliOptions: readonly string[],
+): string {
+  const unique = [...new Set(cliOptions)].filter((option) =>
+    /^--[a-z0-9][a-z0-9-]*$/u.test(option),
+  );
+  if (unique.length === 0) {
+    throw new Error("Shell completion needs at least one option to complete");
+  }
+  const options = unique.join(" ");
   if (shell === "bash") {
     return `_patch() { COMPREPLY=( $(compgen -W '${options}' -- "${"${COMP_WORDS[COMP_CWORD]}"}") ); }\ncomplete -F _patch patch\n`;
   }
   if (shell === "zsh") {
     return `#compdef patch\n_arguments '*:option:(${options})'\n`;
   }
-  return CLI_OPTIONS.map(
-    (option) => `complete -c patch -l ${option.slice(2)}\n`,
-  ).join("");
+  return unique
+    .map((option) => `complete -c patch -l ${option.slice(2)}\n`)
+    .join("");
 }
 
 export interface IntegrationResult {

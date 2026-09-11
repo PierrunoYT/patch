@@ -75,8 +75,9 @@ edit-format, option, and interface support must be documented explicitly.
 - Terminal Markdown, diff previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
   multiline, the external editor, and explicitly requested PTY dispatch are
-  connected to the reader; Vi modal editing is refused rather than implemented,
-  and the shell-completion inventory and notification timing remain incomplete.
+  connected to the reader, shell completion is generated from the parser's own
+  options, and notifications fire for provider turns only; Vi modal editing is
+  refused rather than implemented, and renderer fidelity stays out of scope.
 - OpenAI and Anthropic have basic executable routes, DeepSeek requests are
   normalized for its endpoint, and post-finish usage events are retained.
   Executable metadata merging, temperature policy, prompt caching, media, and
@@ -546,15 +547,21 @@ individual edit-strategy suites.
   `node-pty`. `/run --interactive` is the only caller; the native package loads
   at that point and nowhere else, the line reader is released and restored
   around the child, and an interface with no terminal refuses the command.
-- [ ] Complete shell completions and notification timing/failure handling.
-  Clipboard text semantics are settled: `/paste` submits clipboard text as a
-  user turn without reparsing it as a command. Clipboard images remain unread.
+- [x] Complete shell completions and notification timing/failure handling. The
+  completion script is generated from the options the parser registered, so it
+  cannot fall behind the executable; `--notifications` fires for a provider turn
+  and not for a slash command; and a failing notification command is reported
+  instead of ending the input loop. Clipboard text semantics are settled:
+  `/paste` submits clipboard text as a user turn without reparsing it as a
+  command. Clipboard images remain unread.
 
-**Exit (not met):** completion, recall, multiline, the external editor, and
-explicit PTY dispatch now run through the executable's reader, and provisioned
-PTY contract tests cover Ctrl-C, EOF, resize, cleanup, and hostile child
-sequences. The shell-completion inventory, notification timing, and
-renderer fidelity remain incomplete.
+**Exit (met except renderer fidelity):** completion, recall, multiline, the
+external editor, explicit PTY dispatch, generated shell completions, and
+provider-turn-only notifications all run through the executable's reader, and
+provisioned PTY contract tests cover Ctrl-C, EOF, resize, cleanup, and hostile
+child sequences. The renderer stays deliberately smaller than Aider's Rich
+renderer: tables, lists, wrapping, and unstable-tail rerendering are out of
+scope.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,

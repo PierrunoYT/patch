@@ -72,6 +72,25 @@ describe("CLI", () => {
     expect(output).not.toContain("--vim");
   });
 
+  it("completes every option the parser registers", async () => {
+    // The inventory used to be a hand-kept list here and had silently fallen
+    // behind the parser; it is now derived from it, and this keeps it derived.
+    let output = "";
+    const program = createProgram({ writeOutput: (text) => (output += text) });
+    await program.parseAsync(["--shell-completions", "bash"], { from: "user" });
+
+    const advertised = program.options
+      .filter((option) => !option.hidden)
+      .map((option) => option.long);
+    expect(advertised.length).toBeGreaterThan(15);
+    for (const option of advertised) {
+      expect(output).toContain(`${String(option)} `);
+    }
+    expect(output).toContain("--help");
+    // A hidden option is registered so it can be refused, never completed.
+    expect(output).not.toContain("--vim");
+  });
+
   it("refuses the unimplemented Vi binding by name", async () => {
     await expect(
       createProgram({ handleMessage: () => undefined }).parseAsync(
@@ -88,6 +107,75 @@ describe("CLI", () => {
       writeOutput: (text) => (output += text),
     }).parseAsync(["--message", "hello", "--notifications"], { from: "user" });
     expect(output).toBe("\u0007");
+  });
+
+  it("notifies for a provider turn only, and survives a failing notifier", async () => {
+    let output = "";
+    const submitted: string[] = [];
+    async function* lines() {
+      yield "/ls";
+      yield "a question";
+    }
+    await createProgram({
+      writeOutput: (text) => (output += text),
+      lines: lines(),
+      createApplication: async () =>
+        ({
+          createSession: () => ({
+            snapshot: () => ({}),
+            submit: (message: string) => {
+              submitted.push(message);
+              return Promise.resolve(
+                message.startsWith("/")
+                  ? { kind: "command", response: "Editable: (none)" }
+                  : { kind: "turn", response: "answered" },
+              );
+            },
+          }),
+          close: () => undefined,
+        }) as never,
+    }).parseAsync(["--model", "4o", "--notifications"], { from: "user" });
+
+    expect(submitted).toEqual(["/ls", "a question"]);
+    // A slash command answers immediately; only the provider turn rings.
+    expect([...output].filter((one) => one === "\u0007")).toHaveLength(1);
+  });
+
+  it("reports a failing notification command instead of ending input", async () => {
+    let output = "";
+    const submitted: string[] = [];
+    async function* lines() {
+      yield "first";
+      yield "second";
+    }
+    await createProgram({
+      writeOutput: (text) => (output += text),
+      lines: lines(),
+      createApplication: async () =>
+        ({
+          createSession: () => ({
+            snapshot: () => ({}),
+            submit: (message: string) => {
+              submitted.push(message);
+              return Promise.resolve({ kind: "turn", response: "answered" });
+            },
+          }),
+          close: () => undefined,
+        }) as never,
+    }).parseAsync(
+      [
+        "--model",
+        "4o",
+        "--notifications",
+        "--notifications-command",
+        "patch-no-such-notifier",
+      ],
+      { from: "user" },
+    );
+
+    // The turn after the failure still runs: a broken notifier is not fatal.
+    expect(submitted).toEqual(["first", "second"]);
+    expect(output).toContain("Notification failed");
   });
 
   it("renders streamed application output and edit previews without unsafe control sequences", async () => {

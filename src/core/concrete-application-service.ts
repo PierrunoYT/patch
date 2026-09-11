@@ -209,6 +209,12 @@ export class TurnPartiallyAppliedError extends Error {
 }
 
 export interface ApplicationTurnResult {
+  /**
+   * Whether a provider answered or a slash command did. An interface needs the
+   * difference: a command answers immediately, so it is not worth a
+   * notification, and it reports no usage.
+   */
+  readonly kind: "turn" | "command";
   readonly response: string;
   readonly changedPaths: readonly string[];
   readonly commit: string | null;
@@ -676,6 +682,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           const commit = changedPaths.size === 0 ? null : state.lastPatchCommit;
           if (changedPaths.size === 0 && commit === null) throw error;
           throw new TurnPartiallyAppliedError(error, {
+            kind: "turn",
             changedPaths: [...changedPaths],
             commit,
             commands,
@@ -683,6 +690,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         });
       const state = this.#session.snapshot();
       return {
+        kind: "turn" as const,
         response: completed.response,
         changedPaths: [...changedPaths],
         commit: changedPaths.size === 0 ? null : state.lastPatchCommit,
@@ -725,6 +733,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         });
       }
       return {
+        kind: "command",
         response,
         changedPaths: [],
         commit: null,
@@ -1022,6 +1031,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       data: { type: "text-delta", text: `${response}\n` },
     });
     return {
+      kind: "command",
       response,
       changedPaths: [],
       commit: null,

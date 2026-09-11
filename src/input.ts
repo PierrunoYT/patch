@@ -102,7 +102,14 @@ export class TerminalInput implements AsyncIterable<string> {
         : { completer: (line: string) => this.complete(line) }),
       ...(history === undefined ? {} : { history: [...history] }),
     });
-    reader.on("SIGINT", this.#interrupt);
+    reader.on("SIGINT", () => {
+      // Readline emits SIGINT without touching the buffer, so an abandoned line
+      // would otherwise be prepended to whatever is typed next. Ctrl-C drops the
+      // draft and every line Alt-Enter is holding.
+      this.#continued = [];
+      this.#replaceLine("");
+      this.#interrupt();
+    });
     reader.on("line", (line) => {
       if (this.#answer !== undefined) {
         const answer = this.#answer;
@@ -231,22 +238,23 @@ export class TerminalInput implements AsyncIterable<string> {
       return;
     }
     if (!prefixed || key.ctrl !== true || key.name !== "e") return;
-    if (this.#editor === undefined) return;
+    const editor = this.#editor;
+    if (editor === undefined) return;
     const draft = [...this.#continued, this.#reader.line].join("\n");
-    this.#continued = [];
-    this.#reader.pause();
     let edited: string;
     try {
-      edited = await editInExternalEditor(draft, { editor: this.#editor });
+      // The editor inherits the terminal, so the reader is released for it the
+      // same way it is for an interactive command. A failure leaves the held
+      // lines and the draft exactly as they were.
+      edited = await this.suspend(() =>
+        editInExternalEditor(draft, { editor }),
+      );
     } catch (error) {
       this.#write(
         `\nEditor failed: ${error instanceof Error ? error.message : String(error)}\n`,
       );
-      this.#reader.resume();
-      this.#replaceLine(draft.split("\n").at(-1) ?? "");
       return;
     }
-    this.#reader.resume();
     const lines = edited.split("\n");
     this.#continued = lines.slice(0, -1);
     this.#replaceLine(lines.at(-1) ?? "");
