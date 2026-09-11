@@ -2,13 +2,20 @@
 
 Patch packages a small, provider-neutral model catalog under `src/resources/`.
 The initial entries are `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`,
-`claude-haiku-4-5`, and `deepseek/deepseek-chat`, with the aliases `4o`,
-`sonnet`, and `deepseek`.
+`claude-haiku-4-5`, `deepseek/deepseek-chat`, and
+`deepseek/deepseek-reasoner`, with the aliases `4o`, `sonnet`, `deepseek`, and
+`r1`.
 
-The bundled DeepSeek entry keeps the `deepseek/deepseek-chat` routing name;
+The bundled DeepSeek entries keep their `deepseek/` routing names;
 `createProvider` selects the `deepseek` dialect, which strips the prefix and
 normalizes the output limit and prefill request for the endpoint. See
 [model providers](providers.md) for the exact differences.
+
+`reasoningTag` names the tag a model wraps its reasoning in inside the ordinary
+content stream; `deepseek/deepseek-reasoner` carries `think`, as upstream
+assigns to DeepSeek R1. Providers that deliver reasoning on its own stream set
+no tag. See [coder session](coder-session.md) for how a tagged span is split out
+of display, history, and edit parsing.
 
 The aliases and selection behavior are adapted from
 [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L98-L125),

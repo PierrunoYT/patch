@@ -5,4 +5,5 @@
   "4o": "gpt-4o",
   sonnet: "claude-sonnet-4-6",
   deepseek: "deepseek/deepseek-chat",
+  r1: "deepseek/deepseek-reasoner",
 }

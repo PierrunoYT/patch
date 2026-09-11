@@ -23,6 +23,12 @@ export const ModelSettingsSchema = z
     weakModel: z.string().min(1).optional(),
     editorModel: z.string().min(1).optional(),
     useRepoMap: z.boolean().default(false),
+    /**
+     * Tag a model wraps its reasoning in inside the ordinary content stream, such
+     * as `think`. Providers that deliver reasoning as its own stream do not set
+     * one.
+     */
+    reasoningTag: z.string().min(1).optional(),
     maxInputTokens: z.number().int().positive().optional(),
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),

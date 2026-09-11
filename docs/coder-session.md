@@ -56,6 +56,18 @@ and reasoning, reports each event to an optional observer, and records usage.
 The stream is drained past the finish event because OpenAI-compatible endpoints
 deliver final usage in a later chunk; after finish only usage is still
 accounted, so nothing can extend or invalidate a completed response.
+
+A model whose settings carry a `reasoningTag` reasons inside the ordinary
+content stream instead of a separate one. `ReasoningTagSplitter` divides those
+deltas as they arrive — holding back only text that could still begin the tag,
+so a tag broken across deltas is still recognized — and the tagged span is
+re-emitted as `reasoning-delta`. Display, history, and the edit parser therefore
+all see the answer alone. A closing tag with no opening tag means reasoning
+began before the first delta, which streaming cannot detect in time to keep off
+the screen; the finished response is checked once more with
+`removeReasoningContent` so history and parsing are still clean, matching
+upstream. `deepseek/deepseek-reasoner`, aliased `r1`, is the bundled model that
+uses this.
 Classified retryable errors use bounded exponential backoff; context-window
 errors bypass retries. Cancellation, missing finish events, and output-limit
 truncation preserve diagnostic partial text but never append partial history or

@@ -19,6 +19,7 @@ export * from "./core/prompt-cache.js";
 export * from "./core/file-mentions.js";
 export * from "./core/fences.js";
 export * from "./core/messages.js";
+export * from "./core/reasoning.js";
 export * from "./core/serial-queue.js";
 export * from "./core/worktree-lock.js";
 export * from "./core/session.js";

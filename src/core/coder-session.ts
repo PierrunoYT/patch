@@ -30,6 +30,7 @@ import {
 } from "../providers/events.js";
 import { ChatChunks } from "./chat-chunks.js";
 import { findFileMentions } from "./file-mentions.js";
+import { ReasoningTagSplitter, removeReasoningContent } from "./reasoning.js";
 import {
   ChatMessageSchema,
   type ChatMessage,
@@ -645,12 +646,34 @@ export class CoderSession {
           let accountedAttemptCost = 0;
           response = responsePrefix;
           reasoning = "";
+          const reasoningTag = this.#config.model.reasoningTag;
+          const splitter =
+            reasoningTag === undefined
+              ? undefined
+              : new ReasoningTagSplitter(reasoningTag);
 
           for await (const rawEvent of this.provider.stream(
             request,
             options.signal,
           )) {
-            const event = CompletionEventSchema.parse(rawEvent);
+            let event = CompletionEventSchema.parse(rawEvent);
+            // A model that reasons inside the content stream is split as it
+            // arrives, so the terminal, history, and the edit parser all see the
+            // answer alone rather than the tagged text.
+            if (splitter !== undefined && event.type === "text-delta") {
+              const split = splitter.write(event.text);
+              if (split.reasoning !== "") {
+                const thought = {
+                  type: "reasoning-delta" as const,
+                  text: split.reasoning,
+                };
+                events.push(thought);
+                options.onEvent?.(structuredClone(thought));
+                reasoning += split.reasoning;
+              }
+              if (split.content === "") continue;
+              event = { type: "text-delta", text: split.content };
+            }
             events.push(event);
             options.onEvent?.(structuredClone(event));
             // OpenAI-compatible endpoints deliver final usage in a chunk after
@@ -719,6 +742,16 @@ export class CoderSession {
             if (retry) {
               break;
             }
+          }
+          if (splitter !== undefined) {
+            const rest = splitter.flush();
+            reasoning += rest.reasoning;
+            response += rest.content;
+            // A closing tag with no opening tag means reasoning began before the
+            // first delta. Streaming cannot know that in time to keep it off the
+            // screen, so the finished text is checked once more for history and
+            // edit parsing, as upstream does.
+            response = removeReasoningContent(response, reasoningTag ?? "");
           }
 
           if (retry) {

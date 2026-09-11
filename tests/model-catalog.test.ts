@@ -34,9 +34,15 @@ describe("ModelCatalog", () => {
       "claude-haiku-4-5",
       "claude-sonnet-4-6",
       "deepseek/deepseek-chat",
+      "deepseek/deepseek-reasoner",
       "gpt-4o",
       "gpt-4o-mini",
     ]);
+    // Reasoning arrives inside the content stream for this one.
+    expect(catalog.resolve("r1")).toMatchObject({
+      canonicalName: "deepseek/deepseek-reasoner",
+      settings: { reasoningTag: "think" },
+    });
     expect(catalog.resolve("4o")).toMatchObject({
       requestedName: "4o",
       canonicalName: "gpt-4o",

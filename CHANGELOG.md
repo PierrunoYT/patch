@@ -169,6 +169,16 @@ porting plan distinguish composed behavior from library-only adapters.
   cancellation, injected recorder/transcriber ports, ffmpeg/OpenAI adapters, and
   explicit `ApplicationSession` submission.
 
+### Added
+
+- Model-configured reasoning-tag normalization. A model whose settings carry a
+  `reasoningTag` — `deepseek/deepseek-reasoner`, aliased `r1`, is the bundled
+  one — reasons inside the ordinary content stream, and that span is now split
+  out as it arrives and re-emitted as reasoning, so the tagged text never
+  reaches the terminal, history, or the edit parser. A tag broken across
+  provider deltas is still recognized, and a response whose closing tag has no
+  opening tag is cleaned once it is complete.
+
 ### Fixed
 
 - Surfaced watch-mode failures and refreshed every selected file's AI comments
