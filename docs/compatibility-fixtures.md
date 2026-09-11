@@ -23,7 +23,8 @@ The exporter currently captures:
 - the important-root-file selection for a mixed candidate list.
 
 Patch's tree-sitter WebAssembly grammars and its copies of upstream's tag
-queries reproduce aider's tags exactly for all eleven languages. The unified-diff
+queries reproduce aider's tags exactly for the committed sample in each of the
+eleven shipped language entries, not for all possible programs. The unified-diff
 golden records one deliberate divergence: `process_fenced_block` strips `a/`/`b/`
 prefixes only from a block's leading header pair, so upstream targets `b/…` for a
 mid-block file transition, while Patch strips the prefix whenever both headers
@@ -56,15 +57,22 @@ checks four things before running aider's code:
 - the working tree is clean. A dirty checkout still reports the pinned commit
   and remote, so uncommitted work would otherwise be exported as pinned upstream
   behavior; and
-- every file in `upstream.json`'s `fixtureSources` — one entry per module the
-  fixture driver imports — matches its recorded blob hash both at the pinned
-  commit and as it sits on disk. `status` can be silenced per file with
-  `assume-unchanged` or `skip-worktree`, so a clean report is not enough on its
-  own.
+- every file listed in `upstream.json`'s `fixtureSources` matches its recorded
+  blob hash both at the pinned commit and as it sits on disk. `status` can be
+  silenced per file with `assume-unchanged` or `skip-worktree`, so a clean report
+  is not enough on its own.
 
-Adding a scenario that imports another aider module means adding that module to
-`fixtureSources`; `tests/upstream-fixtures.test.ts` keeps the list complete and
-well-formed in ordinary CI, which has no checkout to inspect.
+The hash manifest is incomplete: the driver directly imports
+`aider/coders/__init__.py`, `aider/coders/udiff_coder.py`, and `aider/special.py`
+without listing them. Normal changes to these files still fail the clean-tree
+check, but status-hidden changes do not receive the independent blob check.
+The [2026-09-11 audit](aider-parity-audit-2026-09-11.md) records this evidence gap;
+it does not invalidate the reported byte-identical regeneration.
+
+Adding a scenario that imports another aider module requires adding that module
+to `fixtureSources`. `tests/upstream-fixtures.test.ts` currently checks a fixed
+expected list and its shape, not completeness against actual imports. The list
+and its regression coverage need updating together.
 
 Regeneration is deliberately separate from `npm run check`: ordinary builds
 and CI do not require Python or the aider checkout. Tests only consume the

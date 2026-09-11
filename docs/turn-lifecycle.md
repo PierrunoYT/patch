@@ -70,18 +70,21 @@ the user message, every reflection exchange, and the model response that
 produced the surviving work. A turn that changed nothing still leaves no trace,
 so history never claims edits that do not exist.
 
-The failure itself carries the structured outcome. `submit()` wraps a rejection
-in `TurnPartiallyAppliedError` whenever paths changed or a commit was created,
-exposing `changedPaths`, `commit`, and `commands` and naming them in the
-message, so the terminal and the HTTP interface report what is on disk rather
-than only that the turn failed. A failure with nothing to report is rethrown
-unchanged.
+The service exposes `TurnPartiallyAppliedError` for failed turns with recorded
+changed paths, carrying `changedPaths`, `commit`, and `commands` and naming the
+surviving work in its message. The terminal displays that diagnostic. The HTTP
+boundary currently returns a generic `500 Request failed` instead of the
+structured outcome; some progress may already have reached SSE, but clients
+cannot rely on the error response for recovery details. Checkpoint-only failures
+can retain a commit in session state without producing that structured error.
+Failures without a structured partial result are rethrown unchanged.
 
-There is no durable recovery journal, per-file partial-write result, atomic
-Git/filesystem transaction, cross-session lock, or exhaustive cancellation
-guarantee. Git failures after staging and interruption between undo's two Git
-commands need further recovery evidence. Approved/configured child commands
-are not sandboxed: they can change unrelated files or Git themselves, and Patch
+Sessions sharing a resolved worktree serialize mutation phases through one
+in-process lock. There is no cross-process Patch lock, durable recovery journal,
+per-file partial-write result, atomic Git/filesystem transaction, or exhaustive
+cancellation guarantee. Git failures after staging and interruption between
+undo's two Git commands need further recovery evidence. Approved/configured
+child commands are not sandboxed: they can change unrelated files or Git themselves, and Patch
 cannot promise to preserve that work against arbitrary command side effects.
 
 ## Evidence

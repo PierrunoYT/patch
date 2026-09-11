@@ -43,11 +43,13 @@ smoke test loads the catalog from a clean tarball installation. This initial
 catalog is intentionally narrow: provider expansion should add tested settings
 rather than importing aider's LiteLLM-specific catalog wholesale.
 
-`selectModels` resolves main, weak, and editor roles as a library helper.
-Explicit role names and editor formats follow Aider-like precedence without
-recursive secondary construction. The concrete application currently constructs
-only the main provider/session; weak/editor roles and their consuming workflows
-are not executable behavior.
+`selectModels` resolves main, weak, and editor roles without recursive secondary
+construction. Explicit role overrides are library options, not executable
+controls. The concrete application constructs the main provider/session and
+resolves the active main model's weak model when compacting long history, so a
+model switch also changes subsequent summarization. Editor handoff and generated
+commit-message workflows remain unintegrated; role resolution alone does not
+establish those workflows.
 
 ## Token counting
 
@@ -74,6 +76,15 @@ the terminal prints one accounting line after each turn: tokens sent, cached,
 and received, then the turn and session cost. Unknown costs remain `null` and
 render as tokens alone rather than becoming a misleading zero, and a turn under
 a cent keeps four decimals so it does not display as `$0.00`.
+
+Bundled coverage is incomplete: only `deepseek/deepseek-chat` has a metadata
+entry. `gpt-4o`, `gpt-4o-mini`, `claude-sonnet-4-6`, and `claude-haiku-4-5` have
+no bundled input-token ceiling or catalog prices. The merge mechanism is wired,
+but that does not supply limits or costs absent from the resources. Cached input
+tokens are reported, but the catalog formula uses only aggregate input/output
+prices; cache-hit/write pricing is not modeled. A provider-supplied cost takes
+precedence. These limitations are tracked in the
+[2026-09-11 audit](aider-parity-audit-2026-09-11.md) and the integration backlog.
 
 ## Temperature
 

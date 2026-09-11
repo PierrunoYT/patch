@@ -27,8 +27,9 @@ and runs serialized one-shot or line-oriented interactive turns. A DeepSeek
 route normalizes the catalog model name, output limit, and prefill request for
 that endpoint.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
-and `patch`; `udiff` and `patch` have unresolved targeting cases and are not
-release-ready.
+and `patch`. Unified-diff recovery/no-newline handling, format-specific prompts,
+and broader pinned fixtures remain incomplete; constructed formats are not a
+release-readiness claim.
 Selected-file edits are dry-run resolved, previewed, written, optionally
 committed, and followed by explicitly configured lint/test commands. Parse,
 resolution, and post-write check failures share a three-reflection budget with
@@ -57,10 +58,12 @@ output passes through one stateful control-sequence sanitizer, and replacement
 preserves the metadata Node can carry portably while refusing a swapped ancestor;
 `/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
 submits clipboard text as a user turn, and a turn interrupted after its edits
-landed reconciles history and reports what survived. Every P0 and P1 item in
-`docs/remaining-integration-tasks.md` is now closed, as are the original eight
-P2 items. The ancillary scope decision adds open command implementation work;
-the remaining integration work and documentation truth pass still apply.
+landed reconciles history and reports surviving work through the terminal.
+Historical checklist completions do not establish release readiness. The latest
+[parity audit](docs/aider-parity-audit-2026-09-11.md) identifies open
+ignore-policy, model-metadata/accounting, fixture-provenance, edit/selection, and
+HTTP recovery gaps. The [live backlog](docs/remaining-integration-tasks.md)
+tracks those findings, remaining integration work, and planned commands.
 Hardlinked and non-regular mutation targets are rejected rather than replaced
 or deleted.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain
@@ -78,9 +81,10 @@ Vi modal editing is not implemented. Architect/context/cache/media helpers are n
 modes; assistant prefill is reached by capable models but is incomplete.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
-user-typed page to the chat as bounded, labeled text. Web session
-expiry/backpressure/mutation coordination remains unfinished. See the
-unchecked items in
+user-typed page to the chat as bounded, labeled text. Web session expiry,
+quotas, backpressure, reclamation, and structured partial-error responses remain
+unfinished. Worktree mutations are serialized in-process, not across separate
+Patch processes. See the unchecked items in
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
 the authoritative remaining scope.
 
@@ -140,7 +144,7 @@ are not supported.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. See the [provider documentation](docs/providers.md) and
-[input modes](docs/input-modes.md).
+[input modes](docs/terminal.md#input-modes).
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 

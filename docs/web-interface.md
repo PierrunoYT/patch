@@ -45,6 +45,13 @@ the provider. Startup bind failures also release the service. `DELETE
 /sessions/:id` closes an individual session; `/exit` in a message only closes
 that application session, not the server.
 
+A failed turn can have written files or created commits. The service may attach
+that state to `TurnPartiallyAppliedError`, but this HTTP adapter currently maps
+it to the same generic 500 as other internal failures. SSE may already contain
+progress events; the error response does not expose the structured partial
+result. Inspect the repository before retrying. Safe authenticated exposure of
+partial-turn results remains an open [audit finding](aider-parity-audit-2026-09-11.md).
+
 Use only with trusted local clients for short-lived sessions. Idle expiry,
 session/connection quotas, SSE replay and bounded backpressure policy remain R8
 work: a slow SSE consumer can accumulate buffered output, and the concrete

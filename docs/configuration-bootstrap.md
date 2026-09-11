@@ -80,7 +80,12 @@ The executable uses this bootstrap before opening input. Missing models,
 credentials, unsupported providers/edit modes, mixed repositories, and unsafe
 or conflicting file selections fail before a provider turn. Default Git-enabled
 startup requires an existing worktree and is refused with a message naming
-`--no-git` when there is none. A directory passed to `--file` or `--read-only`,
-or to `/add` or `/read-only`, is refused by name rather than failing later as an
-`EISDIR` read; directory expansion remains unimplemented. A path that does not
-exist yet is still selectable, because a turn may create it.
+`--no-git` when there is none. Directories and repository-relative globs passed
+to positional files, `--file`, `--read-only`, `/add`, or `/read-only` expand to
+contained files. Expansion skips symbolic links and `.git`, filters ignored
+files, and is bounded to 200 selected files and 20,000 visited directory entries.
+Empty matches and absolute globs fail explicitly. A literal path that does not
+exist yet is still selectable, because a turn may create it. Names containing
+glob metacharacters are currently interpreted as patterns even if an exact file
+exists; literal-metacharacter selection remains an open audit finding. See
+[slash commands](commands.md) for shared selection semantics.

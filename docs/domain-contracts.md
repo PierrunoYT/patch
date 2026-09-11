@@ -20,8 +20,10 @@ The contracts are internal and may change before the first release.
 | `src/models/settings.ts` | Normalized model identity, edit formats, limits, prices, secondary models, and capabilities | [`models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L127-L150) |
 | `src/core/session.ts` | Serializable configuration and session state | [`base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L88-L201) |
 
-`src/index.ts` is the single source export surface. The npm package does not yet
-declare a stable public library API.
+`src/index.ts` is the main library export surface. Optional voice contracts are
+available separately through `@pierrunoyt/patch/voice`; the default CLI and root
+entry point do not import them. The npm package does not yet declare a stable
+public library API.
 
 ## Enforced invariants
 

@@ -6,8 +6,10 @@ response plus the selected files and active fence into an `EditBatch`. Parsing
 does not write to disk; authorization and application remain separate stages.
 
 Current parity is uneven. Whole-file and basic SEARCH/REPLACE are the mature
-paths. Constructed `udiff` and `patch` formats have unresolved target-selection
-and repeated-action defects described below and are not release-ready.
+paths. Unified-diff file transitions and Patch scopes/repeated actions are
+implemented as described below; unified-diff marker/recovery behavior,
+format-specific prompts, and broader pinned golden coverage remain incomplete.
+Constructing a format is not a release-readiness or full parity claim.
 
 ## Ask
 
@@ -67,8 +69,12 @@ or `/dev/null`; upstream applies that rule to a fence's first header pair alone,
 and Patch intentionally applies it to every transition so later files resolve to
 real repository paths.
 
-It does not yet implement Aider's indentation, omitted-line, partial-context, or
-duplicate-hunk recovery, and identical repeated hunks are not deduplicated.
+The parser currently rejects standard `\ No newline at end of file` markers,
+and before/after extraction appends a trailing newline. No-newline behavior
+needs dedicated fixtures rather than a claim that tolerating the marker alone
+would establish application parity. Aider's indentation, omitted-line,
+partial-context, and duplicate-hunk recovery are not implemented, and identical
+repeated hunks are not deduplicated.
 
 ## Patch actions
 
@@ -136,9 +142,10 @@ the later Git workflow.
 
 ## Property coverage
 
-Property tests cover selected local invariants, and pinned fixtures cover a
-small SEARCH/REPLACE sample. They do not establish complete Aider parity for
-whole-file prompts, unified-diff recovery/multi-file routing, Patch scopes or
-repeated actions, constructed provider requests, architect/context, or media.
-Each of those needs an asymmetric exact-revision fixture at its production
-boundary.
+Property tests cover selected local invariants. Pinned fixtures cover a small
+SEARCH/REPLACE sample and parsing one two-file unified-diff response, including
+the intentional mid-block prefix difference. They do not establish complete
+Aider parity for whole-file prompts, broader unified-diff application/recovery,
+Patch scopes or repeated actions, constructed provider requests,
+architect/context, or media. Each remaining claim needs asymmetric
+exact-revision evidence at its production boundary.

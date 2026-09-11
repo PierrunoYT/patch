@@ -37,6 +37,12 @@ Git, and it is contained on every side:
   context; and
 - a pattern that matches nothing, or a directory with no files, is reported.
 
+Known limitation: glob syntax is detected before testing for an exact existing
+file. A literal name such as `[ab].txt` is therefore treated as a pattern, not
+as that exact file. This selection gap is distinct from the Git adapter's
+literal-pathspec protection and remains open in the
+[parity audit](aider-parity-audit-2026-09-11.md).
+
 `/drop` expands the same way so it can undo an `/add` with the same words, but
 it applies no ignore rules: whatever is selected can always be dropped.
 
@@ -51,6 +57,33 @@ than printing the same output twice. A model-suggested command reports through
 `command-complete` as it finishes, so approving one and then seeing nothing is
 no longer indistinguishable from a hang.
 
+## Model-suggested and configured commands
+
+Shell commands parsed from model output remain inert until they cross the
+`executeModelCommand` approval boundary. This adapts pinned
+[`aider/run_cmd.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/run_cmd.py#L11-L132)
+to cancellable Node.js child processes. Before spawning, the application shows
+the exact command and requires approval for that command; without an approver,
+it is denied. Denial has no process side effect.
+
+Approved commands run through the platform shell with `cwd` set to the
+canonical repository root. Combined captured stdout and stderr is capped at a
+configurable byte count while both streams continue to be drained. A timeout
+and an `AbortSignal` terminate execution and produce distinct `timed-out` or
+`cancelled` statuses. These bounds are adapter options, not additional CLI
+flags, and do not sandbox an approved command.
+
+`executeModelCommands` processes suggestions serially and stops after timeout
+or cancellation. Configured lint/test commands reuse the bounded executor:
+the concrete application calls `executeModelCommand` under the worktree lock,
+while `createConfiguredChecks` remains the callback adapter for embedding
+callers. Only explicitly configured commands run; Patch never infers a
+package-manager command when `lint-cmd` or `test-cmd` is absent. Configuring a
+check authorizes its execution without a per-run prompt. See
+[turn lifecycle](turn-lifecycle.md) for reflection ordering and failure behavior.
+
+## Parity limits
+
 The advertised command set is not yet a completed parity surface:
 
 - `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
@@ -58,8 +91,10 @@ The advertised command set is not yet a completed parity surface:
   repository-map policy — and install it only after the session accepts the
   switch, so a rejected or failed switch leaves the previous model active.
   `/chat-mode code` returns to the format of the model that is active now, not
-  the startup model. Automatic history summarization is still absent, so an
+  the startup model. Switch-time history summarization is not supplied, so an
   incompatible switch drops assistant messages instead of summarizing them.
+  This differs from automatic long-history compaction before ordinary turns,
+  which is production-wired through the active model's weak model.
 - `/paste` submits clipboard text as a user turn. The text is used verbatim and
   is never reparsed as a command, so clipboard content the user did not write
   cannot dispatch `/run` or any other effect; an empty clipboard is rejected

@@ -35,9 +35,13 @@ Current production limitations are release blockers:
 
 - `.aiderignore` is supplied by overriding `core.excludesFile`, not composed
   independently with every existing global excludes policy.
-- Ignore-command failures abort the affected startup or turn, but watch-mode
-  submission failures still lack an actionable diagnostic.
-- The tracked inventory is frozen when the service starts.
+
+Ignore-command failures abort the affected startup or turn. Watch-mode
+submission failures, including ignore-check errors, reach the error reporter
+rather than disappearing silently. The tracked inventory is re-read each turn;
+a status failure falls back to the startup inventory, filtered again through
+current ignore rules. See [watch mode](watch-mode.md) and
+[repository maps](repository-maps.md) for those production paths.
 
 Selected-file commit, hook verification, attribution, generated-message, and
 marker helpers exist at the adapter level. The concrete application uses fixed

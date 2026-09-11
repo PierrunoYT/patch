@@ -13,8 +13,9 @@ or browser dependency is loaded.
 debounced, deduplicated, contained, and bounded to regular files no larger than
 1 MiB. The built-in ignore list is narrower than Aider's canonical editor,
 cache, project, and temporary-file rules. Production applies ordinary Git and
-root `.aiderignore` checks. Ignore-command failures now suppress the affected
-batch rather than exposing a file, but the failure is not surfaced to the user.
+root `.aiderignore` checks. Ignore-command failures abort the affected batch
+rather than exposing a file and reach the submission error reporter described
+below.
 
 A changed file carrying an actionable marker triggers the turn, and the turn
 then refreshes AI comments from every selected file, as Aider does: a comment

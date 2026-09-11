@@ -1,11 +1,17 @@
 # Remaining integration tasks
 
-This checklist is reconciled with Patch
-`58597efc390e8e138b29024871a25d192fb27462` and remains an ordered
-implementation backlog. It distinguishes tested components from features that
-work through the installed `patch` executable. Completing an
-isolated adapter or parser is not enough to check a task or phase exit in
-`PORTING_PLAN.md`.
+This is the live implementation backlog, not a frozen audit report. The
+historical source audit compared Patch
+`58597efc390e8e138b29024871a25d192fb27462` with aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The latest
+[dated audit](aider-parity-audit-2026-09-11.md) compares Patch
+`476d1657410bdd47982cc7fddb179ccf83d4a734` with that same aider revision.
+The current matrix and follow-ups below reconcile those findings without
+rewriting either audit's evidence boundary.
+
+This backlog distinguishes tested components from features that work through
+the installed `patch` executable. Completing an isolated adapter or parser is
+not enough to check a task or phase exit in `PORTING_PLAN.md`.
 
 ## Completion rules
 
@@ -43,32 +49,63 @@ R0 native footprint
 R9 should also be applied incrementally after each milestone; its final pass
 depends on all earlier scope decisions being settled.
 
-## Pinned Aider parity re-audit — 2026-09-10
+## Pinned Aider parity audits and current status
 
-Nine read-only subsystem audits compared the production path and exported
-helpers with Aider
-`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The audit inspected both source
-trees; it did not run Patch tests, live providers, native tools, or CI. Existing
-tests are evidence only for the cases they exercise.
+The 2026-09-10 audit used nine read-only subsystem reviews of the historical
+Patch revision above. Eight read-only reviews on 2026-09-11 audited the newer
+revision; parent review also reproduced the fenced-prompt, unified-diff marker,
+missing model metadata, and cache-cost findings against the existing build.
+Neither audit ran live providers or CI. The dated report records which findings
+were reproduced and which are source-only. Existing tests are evidence only
+for the cases they exercise.
+
+### Current parity matrix
+
+This matrix is live status reconciled with the 2026-09-11 report, not the
+unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Ordinary initial turns are composed and model/mode switching now rebuilds the whole profile atomically; failed-mutation history, continuation, and multi-session ownership are incomplete. |
-| Editing | partial | Whole-file, basic SEARCH/REPLACE, and Patch multi-action handling are strongest; unified-diff parses a two-file response against an upstream golden, but broader targeting cases are still unpinned. |
-| Models/providers | partial | OpenAI and Anthropic basic streaming routes exist, DeepSeek requests are normalized, and post-finish usage is retained; metadata merging, temperature policy, and retry breadth are incomplete. |
-| Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
-| Repository maps | partial | An eleven-language production map exists, per-file failures are isolated, the budget is model-aware, unparsed files contribute lexical references, and every shipped language's tags are pinned against upstream's own extractor; context mode and ranking/personalization fixtures are incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch, switching and paste are correct, rich input and explicitly requested PTY dispatch are connected to the reader, selection takes directories and globs, subprocess output and status are visible, and `/web` ingests one page; the help, report, and settings families are absent and selected for implementation, not completed by the scope decision. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock, watch reports its failures and refreshes every selected file's AI comments, and `/web` ingests one user-typed URL as bounded, labeled text; voice is helper-only and its CLI UX and browser GUI are deferred, local help is selected but absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
-| Configuration/package/provenance | partial | The supported bootstrap subset is staged, non-repository startup is clearly rejected, `--vim` is refused instead of ignored, shell completion comes from the parser itself, and the package ships its docs; the remaining config-aware options, provider-lifetime cleanup, and provenance checks remain. |
+| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
+| Editing | partial | Whole-file, basic SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff file transitions are implemented. The two-file unified-diff golden does not cover no-newline markers or broader recovery; fenced prompts remain shared and independent Patch-format goldens are absent. |
+| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, temperature policy, and bounded transient retries are wired. Bundled limits/prices are incomplete, cache-specific costs are unmodeled, and editor/media/cache-keepalive workflows remain unintegrated. |
+| Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, move ordering, session-owned undo, and in-process worktree locking are enforced. Global-ignore composition and production commit policy remain open; metadata portability, Windows fault-injection evidence, and recovery limits remain documented constraints. |
+| Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
+| Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, directory/glob expansion, and command outcomes are wired. Literal glob-metacharacter filenames remain a selection gap. Help, report, and settings are selected but absent. |
+| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, and `/web` ingests one bounded user-named page. HTTP disconnect cancellation is wired but needs targeted evidence; quotas, expiry, backpressure, session reclamation, and structured partial-error responses remain open. GUI and CLI voice UX are deferred. |
+| Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and listed-source blob checks exist. Config-aware option breadth, provider-lifetime cleanup, complete fixture-source hashes, and attribution/provenance evidence remain open. |
 
-### Immediate P0 blockers
+### Current audit follow-ups — 2026-09-11
 
-All immediate P0 blockers, all P1 correctness work, and the original eight P2
-items are now closed, including the ancillary feature disposition decision.
-That decision creates unchecked command implementation follow-ups below; it does
-not implement those commands or close the remaining R0–R9 work. Release claims
-still need the documentation truth pass.
+These are open implementation/evidence tasks, not completed functionality.
+Prioritize existing behavior and its evidence before adding the ancillary commands. See the [dated audit](aider-parity-audit-2026-09-11.md)
+for revision-specific source references and reproduction limits.
+
+- [ ] Compose `.aiderignore` with ordinary global Git exclusions; test both
+  policies before selection and provider-context construction.
+- [ ] Supply input limits and catalog prices for advertised bundled models,
+  model cache-hit/write pricing, and test executable budgeting/accounting.
+- [ ] Complete the fixture-source hash manifest and add coverage that detects
+  newly imported but unlisted sources. This reopens P2 fixture evidence below.
+- [ ] Expose and verify production commit policy rather than forcing fixed
+  messages, disabled hooks, and no attribution.
+- [ ] Wire the distinct fenced-diff prompt and test the actual provider request.
+- [ ] Pin and handle unified-diff no-newline behavior, then broaden recovery
+  fixtures without weakening ambiguity rejection.
+- [ ] Preserve exact existing filenames containing glob metacharacters through
+  selection; test beside files that would match the same pattern.
+- [ ] Expose safe structured partial-turn errors to authenticated HTTP clients
+  without leaking raw internal errors, and test post-write failure recovery.
+- [ ] Correct Windows permission assertions and ancestor-swap fault injection
+  without weakening production containment; establish passing platform evidence.
+
+### Historical immediate P0 checklist
+
+The original immediate P0 and P1 lists below record completed milestones, not
+all remaining release blockers. P2's ancillary disposition is decided, but its
+commands are still absent, and the latest audit reopens fixture hash coverage.
+Current audit follow-ups and unchecked R0–R9 tasks continue to control release
+readiness. Updating documentation does not complete those implementation tasks.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
@@ -291,14 +328,17 @@ still need the documentation truth pass.
   also corrects the earlier table: settings uses `aider/format_settings.py`, and
   upstream ordinary version probes are throttled for 24 hours, not sent on
   every startup.
-- [x] Establish dirty-upstream/blob-hash fixture checks, broader production
-  goldens, packed TSX extraction, installed documentation, and exact CI evidence.
-  - Dirty-upstream and blob-hash checks: `upstream.json` records the blob hash of
-    every module the fixture driver imports, and `npm run fixtures:upstream`
-    refuses a checkout that is dirty, whose pinned blob differs, or whose
-    on-disk file hashes differently — `status` can be silenced per file, so each
-    source is hashed as it sits. `tests/upstream-fixtures.test.ts` keeps the
-    pinned list complete without needing the checkout.
+- [ ] Complete fixture-source hash coverage while retaining the implemented
+  clean-tree checks, broader goldens, packed extraction, and documentation tests.
+  Reopened by the 2026-09-11 audit: the driver imports
+  `aider/coders/__init__.py`, `aider/coders/udiff_coder.py`, and `aider/special.py`
+  without listing them in `fixtureSources`.
+  - Dirty-upstream and listed-source blob checks are implemented:
+    `npm run fixtures:upstream` refuses a dirty checkout and checks committed
+    and on-disk hashes for each manifest entry. Normal changes to omitted files
+    still fail the clean-tree check, but status-hidden changes do not receive
+    independent hash verification. `tests/upstream-fixtures.test.ts` asserts
+    a fixed expected list, not completeness against the driver's actual imports.
   - Packed extraction: `scripts/package-smoke.mjs` extracts a real sample for
     each of the eleven shipped languages, TSX included, from the installed
     tarball.
@@ -310,10 +350,10 @@ still need the documentation truth pass.
   - Broader production goldens: the fixture set grew from one two-file Python
     repository map to one tagged sample per shipped language — all eleven —
     plus the important-root-file selection and unified-diff parsing for a
-    two-file response. Patch reproduces upstream's tags exactly for every
-    language; the unified-diff golden records one deliberate divergence, where
-    upstream keeps a `b/` prefix on a mid-block file transition and Patch strips
-    it. Golden coverage for each remaining advertised edit format is tracked
+    two-file response. Patch reproduces upstream's tags exactly for each
+    committed language sample; the unified-diff golden records one deliberate
+    divergence, where upstream keeps a `b/` prefix on a mid-block file transition
+    and Patch strips it. Golden coverage for each remaining advertised edit format is tracked
     with R6's fixture item. Evidence: `tests/upstream-fixtures.test.ts`.
 
 ### Ancillary-command implementation follow-ups
@@ -424,8 +464,9 @@ strategy prompt, provider lifetime, or interface policy listed below.
 - [x] Add a strategy registry for genuinely implemented modes and reject
   schema-only modes before a provider call.
 - [ ] Give each constructed strategy its canonical system prompt, examples,
-  reminders, shell policy, and per-attempt fence. Current production prompts
-  are abridged and the selected fence is not used consistently.
+  reminders, shell policy, and per-attempt fence. Production prompts remain
+  abridged. File context uses the selected fence, but selection runs at startup
+  and profile switches rather than after every file/context change.
 
 **Acceptance:** the installed application service can start from supported
 configuration, select a main provider/model/strategy, compose repository
@@ -611,17 +652,21 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
 - [ ] Keep user-facing mode schemas/settings aligned with the six constructed
   formats. Helper-only `help`, `udiff-simple`, `architect`, `editor-*`, and
   `context` values still exist in broader schemas or model data.
-- [ ] Port distinct help/editor prompts and enforce editor-specific no-shell,
+- [ ] Port distinct editor prompts and enforce editor-specific no-shell,
   no-repo-map, and fresh-history behavior where required by pinned Aider.
+  The selected local `/help` command is tracked separately; it does not require
+  constructing Aider's model-backed help coder.
 - [ ] Integrate architect acceptance, fresh editor construction, state/cost/
   commit transfer, and final architect history through `ApplicationService`.
 - [ ] Integrate context convergence with forced repository-map refresh, expanded
   initial map budget, complete replacement of selected files, and relevant
   identifier hints.
-- [ ] Integrate prompt-cache boundaries and keepalive scheduling using only the
-  cacheable prefix; document retry/cancellation behavior.
-- [ ] Integrate assistant-prefill continuation and contained, size-limited image/
-  PDF loading through provider capability checks.
+- [ ] Schedule prompt-cache keepalive using only the cacheable prefix and
+  verify retry/cancellation behavior. Cache-boundary markers are already wired;
+  the keepalive helper is not.
+- [ ] Complete repeated assistant-prefill continuation and integrate contained,
+  size-limited image/PDF loading. Bounded continuation and DeepSeek prefix
+  normalization are wired; repeated-prefix accumulation and media loading remain.
 - [ ] Add independent pinned golden fixtures plus asymmetric property tests for
   every advertised edit format, including switching away from incompatible
   protocol history.
@@ -631,13 +676,16 @@ and its exit is backed by independent golden/property and switching tests.
 
 ## R7 — Integrate Phase 8 terminal behavior
 
-**Problem:** Phase 8 modules and unit tests exist, but most are not connected to
-the interactive CLI/session workflow.
+**Status:** the supported completion, recall, multiline, editor, notification,
+and explicit PTY paths are connected to the interactive CLI. Renderer fidelity,
+true Vi modal editing, and broader platform evidence remain limited as detailed
+below; helper capabilities must not be read as additional executable behavior.
 
-- [x] Connect command/file/identifier completion to live selected files,
-  commands, and approved source content. Candidates are re-read per completion,
-  so they follow `/add` and `/drop`; identifier candidates remain limited to the
-  selected files' contents.
+- [x] Connect command/file completion to the current command inventory and live
+  selected paths; candidates follow `/add` and `/drop`.
+- [ ] Supply approved source-identifier candidates to executable completion.
+  `completeInput` can consume them, but `program.ts` currently supplies only
+  command names and selected file paths.
 - [x] Load persistent input history for navigation and append input/chat records
   only after the correct lifecycle events; test explicit paths and disabled-by-
   default behavior. Recall is seeded only when `--input-history-file` is
@@ -676,8 +724,9 @@ the interactive CLI/session workflow.
   sequences), `tests/render.test.ts` (no-color, hostile provider sequences), and
   `tests/terminal-sanitizer.test.ts`.
 
-**Acceptance:** met for everything except renderer fidelity. Completion, recall,
-multiline, the external editor, explicitly requested PTY dispatch, shell
+**Acceptance:** met for the listed command/file input paths, not source-identifier
+completion or full renderer fidelity. Recall, multiline, the external editor,
+explicitly requested PTY dispatch, shell
 completions, and notification timing are all reachable through `patch` rather
 than by importing helpers, and the default installation remains native-free. The
 renderer stays smaller than Aider's Rich renderer by choice: tables, lists,
@@ -706,8 +755,9 @@ remains unfinished; the API is for trusted local clients, not public hosting.
   server and construct it with the real `ApplicationService`. Interface choices
   are explicit CLI flags; model/file settings retain staged configuration.
 - [x] Define startup-failure and service-shutdown cleanup for HTTP/SSE sessions.
-- [ ] Define expiry, backpressure, bounded event buffering, quotas, and
-  disconnect cancellation policy.
+- [ ] Define expiry, backpressure, bounded event buffering, quotas, session
+  reclamation, and complete disconnect policy. Per-POST response-disconnect
+  cancellation is wired; targeted runtime verification remains open.
 - [x] Expose voice transcription as explicit input to an application session
   without importing voice code from the root/CLI path or requiring ffmpeg at
   install time.
@@ -762,9 +812,10 @@ is backed by a local run, not by CI.
 The fixture exporter is not a CI job: `npm run fixtures:upstream` needs the
 pinned aider checkout and its Python environment. It refuses a checkout whose
 remote, commit, or working tree differs from `upstream.json`, including a dirty
-tree and any pinned source whose blob hash has moved. CI enforces the other half
-— that every module the fixture driver imports stays pinned — through
-`tests/upstream-fixtures.test.ts`, which needs no checkout.
+tree and any listed source whose blob hash has moved. CI checks the manifest's
+fixed expected entries through `tests/upstream-fixtures.test.ts`, which needs no
+checkout. It does not yet prove completeness against the driver's imports; the
+three omitted modules are tracked in the reopened P2 fixture task.
 
 ## Verification commands and required evidence
 
@@ -790,8 +841,9 @@ cover:
   commit, lint, approved shell command, test reflection, and owned undo;
 - [ ] exact file and Git state after cancellation or every injected failure;
 - [ ] every advertised slash command through its documented application effect;
-- [x] filtered repository-map context through the packed executable, for every
-  shipped language (`scripts/package-smoke.mjs`);
+- [x] tag extraction from the installed package for every shipped language
+  (`scripts/package-smoke.mjs`), not every-language provider-context parity;
+- [ ] broader filtered repository-map context through executable provider turns;
 - [ ] live provider contracts through catalog, factory, and session boundaries;
 - [ ] green Linux, macOS, and Windows package/platform jobs for this revision.
   The `platform` job runs on all three; a green run for the revision being

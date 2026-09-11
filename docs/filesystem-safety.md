@@ -49,8 +49,9 @@ style is selected.
 A dry run performs path, decoding, encoding, and line-ending resolution and
 returns the prospective byte count without creating a file or directory. A
 real write creates a unique sibling temporary file, flushes and closes it, then
-renames it over the destination. Existing permission bits and ownership are
-retained, and a failed operation removes the temporary file. The destination is
+renames it over the destination. Permission bits and ownership are carried over
+only within the platform and privilege limits below; cleanup of a failed
+operation attempts to remove the temporary file. The destination is
 resolved again before rename, and a changed or escaping path — or a containing
 directory that is no longer the one authorized — aborts the replacement.
 
@@ -66,7 +67,7 @@ without mutating the selected target.
 
 | Attribute                                                     | Policy                                                                                                                                                                                                                                                        |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mode bits                                                     | Preserved: the temporary file is created with the target's permission bits.                                                                                                                                                                                   |
+| Mode bits                                                     | Passed to temporary-file creation on POSIX, subject to the process umask. Windows does not provide equivalent POSIX mode preservation; this is not a Windows ACL guarantee.                                                                                                                                                                                   |
 | Owner and group                                               | Preserved when the process is permitted to set them. A refusal (`EPERM`, `EINVAL`, `ENOSYS`, `ENOTSUP`) leaves the writing process as the owner rather than failing the write; an unprivileged process replacing a file it does not own is the ordinary case. |
 | Byte-order mark and line endings                              | Preserved as described above.                                                                                                                                                                                                                                 |
 | Inode                                                         | Not preserved: replacement is a rename, by design, so no partial content is ever visible.                                                                                                                                                                     |
@@ -92,6 +93,11 @@ an untrusted local process with write access to an ancestor is still outside
 Patch's threat model. A swap detected this way can leave the hidden, uniquely
 named temporary file in the directory that was moved away, because cleanup
 unlinks by path; it is never renamed over repository content.
+
+The latest Windows validation reported two failing tests: a POSIX `0600` mode
+assertion received `0666`, and the ancestor-swap injection received `EPERM`
+instead of reaching the intended identity check. These are unresolved platform
+test/portability limits, not justification to relax production containment.
 
 Patch also does not promise directory-fsync or crash-durability guarantees.
 

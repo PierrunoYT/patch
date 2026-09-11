@@ -5,7 +5,9 @@ streaming routes, and the DeepSeek endpoint's model name, output limit, and
 assistant-prefill request are normalized through the same factory path the
 executable uses. Catalog metadata is merged into model settings, a temperature
 policy decides what each request carries, transient failures are classified by
-HTTP status, and the terminal reports tokens and cost after each turn. Provider
+HTTP status, and the terminal reports tokens and available cost after each turn. Missing bundled
+prices render as unknown rather than zero; cache-specific catalog pricing is
+not implemented. See [model catalog](model-catalog.md#usage-and-cost). Provider
 breadth is intentionally narrower than Aider's LiteLLM surface.
 
 ## DeepSeek dialect
@@ -128,9 +130,10 @@ callers; the executable bootstrap does not expose them.
 `CoderSession` adds ephemeral prompt-cache boundaries only for models declaring
 `promptCaching`. `keepPromptCacheAlive` is a caller-scheduled library helper.
 Models declaring `assistantPrefill` enter a bounded continuation path in
-production, but Patch currently sends an ordinary assistant message rather than
-Aider's provider prefix field and accumulates duplicate prefixes after repeated
-truncation. It is not complete provider-wire parity.
+production. DeepSeek receives `prefix: true` on the trailing assistant message
+and uses the `/beta` endpoint, as described above; the OpenAI dialect sends an
+ordinary assistant message. Repeated truncations still accumulate duplicate
+prefixes, so continuation is not complete provider-wire parity.
 
 `buildReadOnlyMediaMessage` labels image and PDF references and includes only
 parts supported by the selected model. PDFs are always context-only and remain

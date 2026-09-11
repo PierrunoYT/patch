@@ -45,6 +45,14 @@ aider's essential workflow:
 The first release will not claim complete aider compatibility. Provider,
 edit-format, option, and interface support must be documented explicitly.
 
+Current implementation priorities live in
+[the integration backlog](docs/remaining-integration-tasks.md). The latest
+[dated audit](docs/aider-parity-audit-2026-09-11.md) compares Patch
+`476d1657410bdd47982cc7fddb179ccf83d4a734` with the pinned aider revision above;
+it supplements the historical audit of Patch
+`58597efc390e8e138b29024871a25d192fb27462`. Dated reports preserve their original
+evidence; this plan and the backlog track current status and open work.
+
 ## Scope decisions
 
 ### MVP
@@ -68,11 +76,13 @@ edit-format, option, and interface support must be documented explicitly.
 - Repository maps are production-wired for JavaScript, TypeScript/TSX, Python,
   Go, Rust, Bash, C/C++, C#, Java, and Ruby, sized to the model's context
   window, and files no grammar covers contribute lexical references. Every
-  shipped language's tags are pinned against upstream's own extractor and match
-  exactly; context mode and ranking/personalization fixtures remain.
-- Unified diff and Patch formats are constructed but have unresolved targeting
-  and multi-action correctness defects. Architect/editor, context, help, and
-  other advanced formats remain unconstructed.
+  shipped language entry has one sample whose tags match upstream's own
+  extractor exactly; context mode and broader ranking/personalization fixtures
+  remain. Models without input limits use the default map budget.
+- Unified-diff file transitions and Patch scopes/repeated actions are
+  constructed and tested locally. Unified-diff recovery/no-newline behavior,
+  format-specific prompts, and broader pinned goldens remain incomplete.
+  Architect/editor, context, help, and other advanced formats are unconstructed.
 - Terminal Markdown, diff previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
   multiline, the external editor, and explicitly requested PTY dispatch are
@@ -81,12 +91,14 @@ edit-format, option, and interface support must be documented explicitly.
   refused rather than implemented, and renderer fidelity stays out of scope.
 - OpenAI and Anthropic have basic executable routes, DeepSeek requests are
   normalized for its endpoint, and post-finish usage events are retained.
-  Executable metadata merging, temperature policy, prompt caching, media, and
-  secondary-model workflows are not fully composed.
+  Metadata merging, temperature policy, bounded retries, and weak-model history
+  compaction are wired. Bundled limits/prices and cache accounting are incomplete;
+  editor, media, and cache-keepalive workflows remain unintegrated.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock, and `/web` ingests one user-typed URL as
-  bounded, labeled text. Browser GUI, complete voice UX, and the remaining web
-  session policy (expiry, quotas, backpressure, disconnect cancellation) remain.
+  bounded, labeled text. GUI and CLI voice UX are deferred. HTTP disconnect
+  cancellation is wired but needs targeted runtime evidence; expiry, quotas,
+  backpressure, reclamation, and structured partial-error responses remain open.
 - The eight ancillary feature families have explicit dispositions below.
   `/help`, `/settings`, and `/report` are selected for implementation but remain
   absent; deciding scope does not establish executable parity.
@@ -428,10 +440,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers
 
-- [ ] Complete OpenAI-compatible streaming integration. Streaming, custom
-  constructor options, finish events, post-finish usage ordering, and DeepSeek
-  endpoint normalization are correct; executable metadata merging, temperature
-  policy, and transient-error breadth remain.
+- [ ] Complete OpenAI-compatible streaming parity. Streaming, custom
+  constructor options, post-finish usage, DeepSeek normalization, metadata
+  merging, temperature policy, and bounded transient retries are wired.
+  Repeated continuation and broader provider-wire evidence remain incomplete.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
@@ -439,9 +451,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   checks.
 - [x] Add model-aware token counting where reliable and conservative estimates
   elsewhere.
-- [ ] Deliver authoritative usage and estimated cost through the executable.
-  Current OpenAI-compatible session handling can drop final usage, and bundled
-  metadata is not merged into executable settings.
+- [ ] Complete executable usage and cost coverage. Post-finish usage is retained,
+  metadata merges into settings, and turn/session reports reach the terminal.
+  Most bundled models lack input limits/prices, cache-specific costs are not
+  modeled, and wider provider evidence remains incomplete.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
@@ -463,7 +476,9 @@ evidence remains incomplete.
   commit, ignore, and undo operations.
 - [x] Filter selected and tracked paths through Git and `.aiderignore` rules
   before snapshots, mention matching, repository maps, or provider requests.
-- [ ] Refresh the tracked repository inventory after service startup.
+- [x] Refresh the tracked repository inventory per turn after service startup.
+  A status failure falls back to the startup inventory, filtered through current
+  ignore rules. Evidence: `tests/application-prompt-context.test.ts`.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
   a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
   report changed files.
@@ -531,11 +546,11 @@ evidence is not claimed until that matrix completes on the pushed revision.
 
 ### Phase 7 — Advanced edit and orchestration modes
 
-- [x] Port fenced diff as a prompt variant over SEARCH/REPLACE.
-- [ ] Complete unified-diff behavior. The constructed parser has exact/unique
-  diagnostics and now follows every file-header transition, but it still lacks
-  Aider's indentation, omitted-line, partial-context, and duplicate-hunk
-  recovery stages.
+- [ ] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
+  parser is constructed, but production reuses ordinary diff prompts/examples.
+- [ ] Complete unified-diff behavior. File-header transitions are handled, but
+  standard no-newline markers are rejected and Aider's indentation, omitted-line,
+  partial-context, and duplicate-hunk recovery stages remain absent.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. Independent pinned goldens for the format remain in R6.
@@ -543,9 +558,10 @@ evidence is not claimed until that matrix completes on the pushed revision.
   library helper exists but is not constructed by `ApplicationService`.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
-- [ ] Integrate prompt-cache boundaries and keepalive scheduling. Assistant
-  prefill is reached through `CoderSession`, but repeated truncations accumulate
-  duplicate prefixes; media remains a helper-only context shape.
+- [ ] Complete cache/continuation/media integration. Prompt-cache boundaries
+  and bounded prefill are wired, including DeepSeek prefix normalization, but
+  keepalive is unscheduled and repeated truncations accumulate duplicate
+  prefixes. Media remains a helper-only context shape.
 
 **Exit (not met):** advanced helpers are not advertised as CLI modes. The six
 constructed formats still need independent pinned golden/property evidence and
@@ -557,9 +573,11 @@ individual edit-strategy suites.
 
 ### Phase 8 — Rich terminal parity
 
-- [x] Connect command, file, and identifier completion to the executable. Tab
-  completes command names and the files selected at that keystroke, re-read per
-  completion so candidates follow `/add` and `/drop`.
+- [x] Connect command and file completion to the executable. Tab completes
+  command names and files selected at that keystroke, re-read per completion so
+  candidates follow `/add` and `/drop`.
+- [ ] Connect approved source-identifier candidates to executable completion;
+  the completion helper accepts them, but the CLI currently supplies none.
 - [x] Add persistent input/chat history navigation. With
   `--input-history-file` configured the reader seeds recall from it; without the
   option nothing is written and nothing is recalled.
@@ -582,7 +600,7 @@ individual edit-strategy suites.
   `/paste` submits clipboard text as a user turn without reparsing it as a
   command. Clipboard images remain unread.
 
-**Exit (met except renderer fidelity):** completion, recall, multiline, the
+**Exit (partial):** command/file completion, recall, multiline, the
 external editor, explicit PTY dispatch, generated shell completions, and
 provider-turn-only notifications all run through the executable's reader, and
 provisioned PTY contract tests cover Ctrl-C, EOF, resize, cleanup, and hostile
@@ -636,9 +654,10 @@ into Patch. Record the upstream commit in every generated fixture set.
 
 The commit alone does not prove where a fixture came from: a dirty checkout
 reports the pinned commit too. The exporter therefore refuses an unclean working
-tree and verifies the blob hash of every module the fixture driver imports, both
-at the pinned commit and as it sits on disk; `upstream.json` records those
-hashes. See [compatibility fixtures](docs/compatibility-fixtures.md).
+tree and verifies committed and on-disk blob hashes for the source files listed
+in `upstream.json`. The manifest currently omits three directly imported modules;
+complete import coverage and its regression checks remain open. See
+[compatibility fixtures](docs/compatibility-fixtures.md).
 
 Capture at least:
 

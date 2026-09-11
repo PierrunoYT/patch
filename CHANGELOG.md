@@ -9,6 +9,9 @@ The project has not published a release yet.
 Items under **Added** inventory tested components and contracts. They are not a
 claim that every component is reachable through the CLI; **Changed** and the
 porting plan distinguish composed behavior from library-only adapters.
+Entries record milestones at the time they were made, not a consolidated current
+status. Use `docs/remaining-integration-tasks.md` for the live backlog and the
+dated parity audits for revision-specific evidence.
 
 ### Added
 
@@ -181,7 +184,8 @@ porting plan distinguish composed behavior from library-only adapters.
 - Upstream goldens grew from one two-file Python repository map to one tagged
   sample per shipped language, the important-root-file selection, and
   unified-diff parsing for a two-file response. Patch's WebAssembly grammars and
-  copied tag queries reproduce aider's tags exactly for all eleven languages.
+  copied tag queries reproduce aider's tags exactly for each committed sample
+  across the eleven shipped language entries.
   The unified-diff golden records one deliberate divergence: upstream strips
   `a/`/`b/` prefixes only from a block's leading header pair, so it targets
   `b/second.py` for a mid-block file transition where Patch targets
@@ -189,10 +193,11 @@ porting plan distinguish composed behavior from library-only adapters.
 - The fixture exporter runs on Windows. Aider's repository map holds its SQLite
   tags cache open, which Windows will not let the temporary directory delete, so
   every export failed at cleanup after computing its results.
-- `upstream.json` records a blob hash for every aider module the fixture driver
-  imports. `npm run fixtures:upstream` now refuses a dirty checkout and any
-  source whose hash has moved, at the pinned commit or on disk, so uncommitted
-  upstream work cannot be exported as pinned behavior.
+- Added source blob hashes in `upstream.json` and exporter rejection of dirty
+  checkouts and mismatched committed/on-disk hashes for listed sources. The later
+  2026-09-11 audit found three imported modules missing from the list; ordinary
+  changes still fail the clean-tree check, but independent hash coverage is
+  incomplete and remains open.
 - `/web <url>` fetches one user-typed URL and adds its readable text to the
   chat, labeled with the URL redirects ended at and truncated to a quarter of the
   model's input window. HTML becomes text through a dependency-free converter
@@ -440,6 +445,17 @@ porting plan distinguish composed behavior from library-only adapters.
   content.
 
 ### Changed
+
+- Reconciled live documentation with the 2026-09-11 parity audit while preserving
+  the dated report as evidence. Corrected metadata, inventory, worktree-lock,
+  watch-error, DeepSeek-prefill, history, and HTTP recovery claims; reopened
+  incomplete fixture-source hash coverage without claiming an implementation fix.
+  Fenced-diff prompt parity and executable source-identifier completion are now
+  explicitly unchecked rather than inferred from constructed helpers.
+  Merged input modes into the terminal guide and model-command execution into
+  the command guide, removed the superseded historical composition plan, and
+  linked the latest audit from contributor guidance, the README, and the backlog.
+  No runtime behavior changed.
 
 - Closed the P2 ancillary feature scope decision without adding runtime behavior:
   select local `/help`, secret-safe `/settings`, and a reviewable local `/report`

@@ -11,11 +11,12 @@ runtime dependencies. The build copies queries to `dist/resources/repomap`, and
 all resources are resolved relative to `import.meta.url`, never the process
 working directory. Branding-only `assets/` remains unchanged.
 
-The initial grammar set is JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`),
-TypeScript (`.ts`, `.tsx`), Python (`.py`, `.pyi`), Go (`.go`), and Rust
-(`.rs`). TypeScript and TSX use their corresponding grammars. A new language
-requires a pinned grammar, an attributed tag query, compatibility fixtures,
-extraction tests, and packed-package smoke coverage.
+The shipped extraction set covers JavaScript, TypeScript, TSX, Python, Go,
+Rust, Bash, C/C++, C#, Java, and Ruby. TypeScript and TSX use distinct grammars;
+Patch currently routes `.c` and `.h` through the C++ grammar. The C/C++ golden
+uses a `.cpp` sample, so it does not establish separate C-source/header parity.
+A new language requires a pinned grammar, an attributed tag query,
+compatibility fixtures, extraction tests, and packed-package smoke coverage.
 
 Production filters selected and raw tracked paths through ordinary Git and root
 `.aiderignore` rules before snapshots, mention matching, map extraction, or
@@ -55,10 +56,13 @@ The model budget is model-aware, ported from `Model.get_repo_map_tokens`:
 `repoMapTokens` gives 1,024 tokens by default and otherwise an eighth of the
 model's input limit, clamped to 1,024–4,096, so a larger context window earns a
 larger map without letting the map crowd out the conversation. A turn holding
-nothing in the chat gets a wider view of the repository — the budget times
-`mulNoFiles` (8), capped at the context window less 4,096 tokens of headroom.
-Token counting is still a character-count estimate and no user-facing control
-exposes the budget. Strict prefix fitting is an intentional Patch difference.
+nothing in the chat gets a wider view only when its model has an input limit:
+the budget times `mulNoFiles` (8), capped at the context window less 4,096 tokens
+of headroom. This follows the upstream helper's default multiplier, not aider's
+CLI default of 2. Token counting is still a character-count estimate and no
+user-facing control exposes the budget. Most bundled models lack input limits
+and therefore use the default map budget; see [model catalog](model-catalog.md).
+Strict prefix fitting is an intentional Patch difference.
 
 `RepositoryMap` composes extraction, ranking, and rendering. Its JSON tag cache
 uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.
@@ -83,15 +87,14 @@ startup inventory instead of failing the turn. Aider's broader fallback map
 requests are still absent.
 
 The pinned exporter compares raw tags, definition order, and normalized
-rendering for one two-file Python scenario. It removes line-`-1` lexical
-fallback tags and deduplicates before storage, so it does not pin Patch's own
-lexical fallback, which reports first-line positions instead. It does not prove
-numeric ranks, personalization, other languages, caches, token fitting, generic
-tree context, or the production provider request. Important-file priority and
-the lexical fallback are covered by Patch's own tests rather than by the pinned
-exporter.
+rendering for one two-file Python scenario. It also captures important-root-file
+selection and one source-backed tag sample for every shipped language entry.
+These samples do not establish full language, numeric rank, personalization,
+cache, token-fitting, generic tree-context, or production-request parity. The
+Python map fixture removes line-`-1` lexical fallback tags and deduplicates before
+storage, so it does not pin Patch's own lexical fallback, which reports first-line
+positions instead. That fallback remains covered by Patch's local tests.
 
-The package smoke installs the tarball and exercises JavaScript, TypeScript,
-Python, Go, and Rust extraction. TSX resources are shipped but are not exercised
-after clean install, and the smoke does not render a complete installed
-`RepositoryMap`.
+The package smoke installs the tarball and exercises tag extraction for all
+eleven shipped language entries, including TSX. This is installed-extractor
+coverage, not complete installed-map ranking/rendering parity.

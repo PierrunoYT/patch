@@ -10,10 +10,12 @@ mode.
 contract. It loads catalog records, constructs the main provider and one
 supported strategy, canonicalizes selected files, rebuilds selected snapshots
 and repository-map context for each turn, and serializes callers per session.
-Catalog metadata is not yet merged into executable settings, tracked inventory
-is frozen at service startup, and independent sessions do not share a repository
-mutation queue. The composed modes are `ask`, `whole`, `diff`, `diff-fenced`,
-`udiff`, and `patch`; the latter two have unresolved targeting cases.
+Catalog metadata is merged into executable settings, tracked inventory is
+refreshed per turn with a startup-inventory fallback on status failure, and
+sessions sharing a resolved worktree use one in-process mutation lock. Separate
+processes are not serialized by that lock. The composed modes are `ask`, `whole`,
+`diff`, `diff-fenced`, `udiff`, and `patch`; constructed parsers do not establish
+complete prompt, recovery, or fixture parity. See [edit strategies](edit-strategies.md).
 
 The constructor injects a `ModelProvider` and an `EditStrategy` alongside a
 validated session config, initial messages, editable/read-only paths, and fence.
@@ -31,8 +33,9 @@ stages the complete batch, emits a preview, authorizes new or out-of-chat paths,
 checkpoints dirty selected files, applies and commits only selected paths, runs
 configured lint against edited disk content, approves suggested commands one
 at a time, then runs configured tests. Ordinary literal selected-path
-commits exclude unrelated work; Git pathspec magic and commit-failure index
-restoration remain unresolved. A successful application records the final
+commits exclude unrelated work, and Git path arguments are literal so wildcard
+or bracket names cannot expand at that boundary. Commit-failure index
+restoration remains unresolved. A successful application records the final
 marker-bearing commit and returns the session to `waiting`.
 
 Multi-file writes are not transactionally rolled back after the first rename.
@@ -82,8 +85,10 @@ upstream. `deepseek/deepseek-reasoner`, aliased `r1`, is the bundled model that
 uses this.
 Classified retryable errors use bounded exponential backoff; context-window
 errors bypass retries. Cancellation, missing finish events, and output-limit
-truncation preserve diagnostic partial text but never append partial history or
-stage edits. Successful responses alone pass through `finalizeTurn`.
+truncation preserve diagnostic partial text and do not parse or stage that
+incomplete response. If earlier attempts already mutated the worktree, history
+retains the exchanges associated with the surviving work; a turn with no
+mutation leaves history unchanged on failure. See [turn recovery](turn-lifecycle.md).
 
 Malformed strategy output automatically produces a corrective reflection turn.
 Callers can inject lint and test checks that return diagnostics, allowing the
@@ -119,8 +124,10 @@ reminder, shell policy), the fence reselected from the files currently in
 context, and the repository map required by the new model's `useRepoMap`. The
 profile is replaced only after `switch` succeeds, so a failed provider
 construction or a rejected switch cannot leave prompts describing a model that
-is no longer active. Production still supplies no history summarizer; an
-incompatible switch drops assistant messages rather than summarizing them.
+is no longer active. Production supplies no switch-time history summarizer, so
+an incompatible switch drops assistant messages rather than summarizing them.
+The automatic long-history compaction described above is a separate,
+production-wired path.
 
 ## Architect/editor handoff
 

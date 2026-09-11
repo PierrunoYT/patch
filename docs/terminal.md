@@ -4,6 +4,33 @@ Patch's terminal behavior is adapted from
 [`aider/io.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py)
 and intentionally exposed behind terminal-library-neutral TypeScript contracts.
 
+## Input modes
+
+Input sequencing also adapts pinned
+[`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py)
+for asynchronous Node.js streams:
+
+- `patch --message "..."` submits exactly one message and exits.
+- `patch --message-file path` reads the complete UTF-8 file, submits it once,
+  and exits. The two one-shot options are mutually exclusive.
+- With neither option, ordinary terminal input submits non-empty messages
+  serially until EOF or `/exit`; multiline forms are described below.
+- `--multiline` buffers stdin through EOF as one message rather than opening
+  the interactive editor.
+- Watch shares a terminal session; web starts a separate local API instead of
+  terminal input. Neither can be combined with one-shot input, and they cannot
+  be combined with each other. See [watch mode](watch-mode.md) and
+  [the web interface](web-interface.md).
+
+Input acquisition can use an injected message handler for tests and embedding
+hosts. Without one, `createProgram` constructs `ConcreteApplicationService`
+before reading input. A model is mandatory; supported provider credentials are
+resolved from the staged environment, and missing model/credentials fail before
+the input loop. Default Git-enabled startup requires an existing worktree
+unless `--no-git` is supplied. See
+[configuration bootstrap](configuration-bootstrap.md) for precedence and
+[turn lifecycle](turn-lifecycle.md) for approval policy.
+
 ## Completion
 
 `completeInput` supplies deterministic command, repository-file, and source
@@ -18,7 +45,9 @@ The interactive reader connects this to Tab. `TerminalInput` takes a
 contract; the executable reads the session's editable and read-only paths each
 time completion runs, so candidates follow `/add` and `/drop` rather than being
 fixed at startup. Command candidates come from `COMMAND_NAMES`, which a test
-holds level with what `parseCommand` accepts. A reader built without
+holds level with what `parseCommand` accepts. Production supplies command names
+and file paths, not source-identifier candidates; identifier extraction remains
+a helper capability for embedding callers. A reader built without
 `completionSources` leaves input untouched.
 
 ## Persistent history and privacy
