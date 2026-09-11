@@ -54,8 +54,11 @@ This is not yet a usable-release or Aider-parity claim. Repository mutations are
 serialized across every session sharing a worktree, all untrusted terminal
 output passes through one stateful control-sequence sanitizer, and replacement
 preserves the metadata Node can carry portably while refusing a swapped ancestor;
-remaining blockers are model/mode switching, `/paste` submission, provider usage
-normalization, and the documentation truth pass. Hardlinked and non-regular
+`/model` and `/chat-mode` rebuild the whole model profile atomically and
+`/paste` submits clipboard text as a user turn. Remaining blockers are provider
+usage normalization, non-repository startup, interrupted-history reconciliation,
+repository-map failure isolation, watch-failure reporting, and the documentation
+truth pass. Hardlinked and non-regular
 mutation targets are rejected rather than replaced or deleted.
 Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; a move writes and syncs its

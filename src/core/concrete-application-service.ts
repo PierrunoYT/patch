@@ -266,8 +266,18 @@ class ConcreteApplicationSession implements ApplicationSession {
       const effect = parseCommand(message);
       if (options.readOnly === true && effect.type !== "submit")
         throw new Error("Question-only input cannot run slash commands");
-      if (effect.type !== "submit") return this.#dispatch(effect, options);
-      message = effect.message;
+      if (effect.type === "clipboard-paste") {
+        // Clipboard text becomes the user turn verbatim. It is never reparsed as
+        // a command, so clipboard content a user did not write cannot dispatch
+        // `/run`, `/undo`, or any other effect.
+        message = await this.#context.readClipboard();
+        if (message.trim() === "")
+          throw new Error("The clipboard has no text to submit");
+      } else if (effect.type !== "submit") {
+        return this.#dispatch(effect, options);
+      } else {
+        message = effect.message;
+      }
       const changedPaths = new Set<string>();
       const commands: ModelCommandResult[] = [];
       let snapshots: readonly FileSnapshot[] = [];
@@ -503,7 +513,10 @@ class ConcreteApplicationSession implements ApplicationSession {
   }
 
   async #dispatch(
-    effect: Exclude<CommandEffect, { type: "submit" }>,
+    effect: Exclude<
+      CommandEffect,
+      { type: "submit" } | { type: "clipboard-paste" }
+    >,
     options: ApplicationSubmitOptions,
   ): Promise<ApplicationTurnResult> {
     const state = this.#session.snapshot();
@@ -693,8 +706,6 @@ class ConcreteApplicationSession implements ApplicationSession {
         await this.#context.writeClipboard(content);
         return result("Copied the last assistant response");
       }
-      case "clipboard-paste":
-        return result(await this.#context.readClipboard());
       case "exit":
         this.close();
         return result("", { exit: true });

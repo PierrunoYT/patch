@@ -58,7 +58,7 @@ tests are evidence only for the cases they exercise.
 | Models/providers | partial | OpenAI and Anthropic basic streaming routes exist; DeepSeek normalization, usage delivery, metadata, and retry behavior are incomplete. |
 | Git/filesystem | partial with intentional hardening | Literal pathspecs, ignored-context filtering, static containment, staging, and selected commits are strong; move ordering, session-owned undo, cross-session mutation ordering, portable metadata preservation, and ancestor-swap detection are now enforced, with the remaining metadata and race limits documented as intentional. |
 | Repository maps | partial | A five-language production map exists; failure isolation, context mode, budgeting, language breadth, and fixtures are incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch and switching is correct; paste is still incorrect, while rich input and PTY remain helper-only. |
+| Commands/terminal | partial | Sixteen commands dispatch, and switching and paste are correct; rich input and PTY remain helper-only. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE start and now share one worktree mutation lock; URL/voice are helper surfaces, browser GUI/help are absent, and web session policy (expiry, quotas, disconnect cancellation) is unfinished. |
 | Configuration/package/provenance | partial | The supported bootstrap subset is staged; non-repository startup, inert flags, automatic packing, installed docs, and provenance checks remain. |
 
@@ -130,8 +130,12 @@ remains before the release claims can be re-audited.
   Automatic history summarization stays P2. Evidence:
   `tests/application-model-switch.test.ts` and the switch cases in
   `tests/coder-session.test.ts`.
-- [ ] Submit text returned by `/paste` as a user turn instead of displaying and
-  recording it as assistant output.
+- [x] Submit text returned by `/paste` as a user turn instead of displaying and
+  recording it as assistant output. The clipboard text becomes the turn message
+  verbatim and is never reparsed as a command, so clipboard content the user did
+  not write cannot dispatch an effect; an empty clipboard is rejected. Clipboard
+  images remain unread. Evidence: the paste cases in
+  `tests/application-commands.test.ts`.
 - [ ] Normalize DeepSeek endpoint model/output parameters and prefill requests;
   retain final usage events through `CoderSession`.
 - [ ] Make default non-repository startup and a sole directory target explicit

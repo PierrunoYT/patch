@@ -522,9 +522,9 @@ individual edit-strategy suites.
 - [ ] Dispatch explicitly requested interactive commands through optional
   `node-pty`. The provisioned PTY adapter and sanitizer are tested but not wired
   into the executable command path.
-- [ ] Complete shell completions, notification timing/failure handling, and
-  clipboard text semantics. `/paste` currently displays clipboard text instead
-  of submitting it as a user turn.
+- [ ] Complete shell completions and notification timing/failure handling.
+  Clipboard text semantics are settled: `/paste` submits clipboard text as a
+  user turn without reparsing it as a command. Clipboard images remain unread.
 
 **Exit (not met):** provisioned PTY contract tests cover Ctrl-C, EOF, resize,
 cleanup, and hostile child sequences, but terminal-level input-loop coverage and

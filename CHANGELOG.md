@@ -171,6 +171,11 @@ porting plan distinguish composed behavior from library-only adapters.
 
 ### Fixed
 
+- Submitted `/paste` clipboard text as a user turn instead of displaying it as
+  an application response. The text becomes the turn message verbatim and is
+  never reparsed as a command, so clipboard content the user did not write
+  cannot dispatch `/run` or any other effect, and an empty clipboard is rejected
+  rather than submitted as a blank turn.
 - Rebuilt every model-derived input when `/model` or `/chat-mode` switches, and
   installed it as one value. The system prompt, examples, reminder, shell
   policy, fence, and repository-map policy previously kept describing the

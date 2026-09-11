@@ -18,6 +18,12 @@ describe("application slash commands", () => {
           { type: "finish", reason: "stop" },
         ],
       },
+      {
+        actions: [
+          { type: "text-delta", text: "answer about the pasted text" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
     ]);
     let clipboard = "pasted text";
     const service = await ConcreteApplicationService.create({
@@ -62,7 +68,11 @@ describe("application slash commands", () => {
     expect(clipboard).toBe("assistant answer");
     clipboard = "pasted text";
     await expect(submit("/paste")).resolves.toMatchObject({
-      response: "pasted text",
+      response: "answer about the pasted text",
+    });
+    expect(provider.requests[1]?.messages).toContainEqual({
+      role: "user",
+      content: "pasted text",
     });
     await submit("/add two.txt");
     await expect(submit("/ls")).resolves.toMatchObject({
@@ -119,6 +129,55 @@ describe("application slash commands", () => {
     await expect(submit("/run echo denied")).resolves.toMatchObject({
       commands: [{ status: "denied" }],
     });
+  });
+
+  it("submits clipboard text as a user turn without reparsing it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-paste-"));
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "answered" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    let clipboard = "   ";
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: {
+        provider,
+        approveCommand: () => true,
+        readClipboard: async () => clipboard,
+        writeClipboard: async () => undefined,
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "paste",
+    });
+    const submit = (message: string) =>
+      session.submit(message, {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      });
+
+    await expect(submit("/paste")).rejects.toThrow(/clipboard has no text/u);
+
+    // Clipboard content is data, never a command: a crafted clipboard must not
+    // reach the process adapter.
+    clipboard = `/run node -e "require('fs').writeFileSync('pasted.txt','yes')"`;
+    await expect(submit("/paste")).resolves.toMatchObject({
+      response: "answered",
+      commands: [],
+    });
+    expect(provider.requests[0]?.messages).toContainEqual({
+      role: "user",
+      content: clipboard,
+    });
+    await expect(readFile(join(root, "pasted.txt"), "utf8")).rejects.toThrow();
   });
 
   it("queues a command submitted during an active provider turn", async () => {

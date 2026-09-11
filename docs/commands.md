@@ -29,8 +29,10 @@ The advertised command set is not yet a completed parity surface:
   `/chat-mode code` returns to the format of the model that is active now, not
   the startup model. Automatic history summarization is still absent, so an
   incompatible switch drops assistant messages instead of summarizing them.
-- `/paste` reads and displays clipboard text as an application response instead
-  of submitting it as a user turn.
+- `/paste` submits clipboard text as a user turn. The text is used verbatim and
+  is never reparsed as a command, so clipboard content the user did not write
+  cannot dispatch `/run` or any other effect; an empty clipboard is rejected
+  rather than submitted. Clipboard images are still not read.
 - `/undo` reverts only the commit this session created, and only while it is
   still HEAD, still carries the Patch marker, has one parent, touches selected
   paths, and has not reached its upstream branch. A session undoes its latest
