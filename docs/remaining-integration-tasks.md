@@ -229,6 +229,25 @@ work below is what remains before the release claims can be re-audited.
   SSRF/no-subresource policy as an intentional security difference.
 - [ ] Decide explicit dispositions for Aider help, report, settings, browser GUI,
   voice UX, analytics, onboarding/OAuth, and update/release-note families.
+  **This one is an open product decision, not an implementation gap**, and it is
+  deliberately left unchecked until the owner makes the call. Each family below
+  needs one of three dispositions recorded in `PORTING_PLAN.md`: *implement*,
+  *deferred* (wanted, not scheduled), or *non-goal* (documented as intentionally
+  absent, with the reason).
+
+  | Family | Upstream source | What it would cost | Notes for the decision |
+  | --- | --- | --- | --- |
+  | `/help` | `aider/help.py` | Medium: needs an index over the bundled docs | Patch already ships `docs/`; a local search over them needs no network |
+  | `/settings` | `aider/args_formatter.py` | Small: print resolved bootstrap | Bootstrap already resolves and validates every value |
+  | `/report` | `aider/report.py` | Small: build a prefilled issue URL | Opens a browser, so it is a network/privacy surface |
+  | Browser GUI | `aider/gui.py` | Large: a Streamlit-equivalent web UI | Patch already serves an authenticated local HTTP/SSE API |
+  | Voice UX | `aider/io.py` voice loop | Medium: record/transcribe/submit | `src/interfaces/voice.ts` exists as a helper only |
+  | Analytics | `aider/analytics.py` | Small to add, permanent to support | Sends usage data off the machine; weigh against Patch's privacy stance |
+  | Onboarding/OAuth | `aider/onboarding.py` | Medium: OAuth flow plus model defaults | Patch deliberately requires an explicit model today |
+  | Update/release notes | `aider/versioncheck.py` | Small: a version probe on startup | Network call on every start; weigh against startup cost and privacy |
+
+  Nothing else in P2 depends on this decision, so the remaining items proceed
+  without it.
 - [ ] Establish dirty-upstream/blob-hash fixture checks, broader production
   goldens, packed TSX extraction, installed documentation, and exact CI evidence.
 

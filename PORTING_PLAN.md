@@ -81,8 +81,12 @@ edit-format, option, and interface support must be documented explicitly.
   share one worktree mutation lock. URL ingestion, browser GUI, complete voice
   UX, and the remaining web session policy (expiry, quotas, backpressure,
   disconnect cancellation) remain.
-- Analytics, onboarding, update checks, and release-note prompts require an
-  explicit Patch product requirement before implementation.
+- Help, report, settings, browser GUI, voice UX, analytics, onboarding/OAuth,
+  and update/release-note prompts have no recorded disposition yet. Each needs
+  to be marked *implement*, *deferred*, or *non-goal* here before the parity
+  story is complete; the open decision, with the cost and privacy tradeoff for
+  each family, is tabulated in `docs/remaining-integration-tasks.md`. Until then
+  none of them is implemented and none is claimed as an intentional omission.
 
 ### Non-goals
 
