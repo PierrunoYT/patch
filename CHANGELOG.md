@@ -382,6 +382,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Made the suite pass on Windows and stop timing out under load. The worktree
+  serialization test compared a created file against an LF-terminated string,
+  but a new file takes the platform line ending by documented policy, so it
+  asserted the separator rather than the line. Test timeouts are also 30 seconds
+  rather than the default five: these tests drive real Git subprocesses and
+  loopback servers, and the commit-policy lifecycle test takes about three
+  seconds on its own, which left no headroom when the suite ran in parallel.
+
 - Unescaped doubled braces when interpolating the ported strategy prompts. These
   strings come from templates upstream renders with `str.format`, so the
   whole-file example shipped `print(f"Hey {{name}}")` instead of the Python

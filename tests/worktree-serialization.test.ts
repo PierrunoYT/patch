@@ -237,15 +237,14 @@ describe("concurrent application sessions on one worktree", () => {
       await Promise.all([watcher.flush(), web, direct]);
 
       expect(maximum).toBe(1);
-      await expect(readFile(join(root, "terminal.txt"), "utf8")).resolves.toBe(
-        "terminal\n",
-      );
-      await expect(readFile(join(root, "web.txt"), "utf8")).resolves.toBe(
-        "web\n",
-      );
-      await expect(
-        readFile(join(root, "watch-result.txt"), "utf8"),
-      ).resolves.toBe("watched\n");
+      // Each of these files is created by its edit, and a new file takes the
+      // platform line ending by documented policy, so the assertion is about
+      // the line that was written rather than the separator that ends it.
+      const written = async (path: string) =>
+        (await readFile(join(root, path), "utf8")).replaceAll("\r\n", "\n");
+      await expect(written("terminal.txt")).resolves.toBe("terminal\n");
+      await expect(written("web.txt")).resolves.toBe("web\n");
+      await expect(written("watch-result.txt")).resolves.toBe("watched\n");
     } finally {
       watcher.close();
       await server.close();
