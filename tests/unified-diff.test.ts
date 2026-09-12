@@ -62,6 +62,56 @@ describe("UnifiedDiffEditStrategy", () => {
     ]);
   });
 
+  it("deduplicates identical normalized hunks", () => {
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -1 +1 @@",
+        "-old",
+        "+new",
+        "@@ -1 +1 @@",
+        "-old",
+        "+new",
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(batch.edits).toHaveLength(1);
+    expect(
+      resolveEditBatch(batch, [{ path: "src/a.ts", content: "old\n" }])
+        .operations[0],
+    ).toMatchObject({ content: "new\n" });
+  });
+
+  it("normalizes whitespace-only hunk lines before matching", () => {
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -1,3 +1,3 @@",
+        " start",
+        "    ",
+        "-old",
+        "+new",
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(batch.edits[0]).toMatchObject({
+      search: "start\n\nold\n",
+      replacement: "start\n\nnew\n",
+    });
+    expect(
+      resolveEditBatch(batch, [{ path: "src/a.ts", content: "start\n\nold\n" }])
+        .operations[0],
+    ).toMatchObject({ content: "start\n\nnew\n" });
+  });
+
   it("strips git prefixes only when both headers carry them", () => {
     const strategy = new UnifiedDiffEditStrategy();
     const created = strategy.parse(

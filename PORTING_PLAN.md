@@ -653,11 +653,13 @@ require a green matrix on the revision being claimed.
   diff keeps it before the fence; a quadruple-backtick application test proves
   the selected fence reaches the example and reminder. Canonical prompt
   resources and per-attempt fence selection are complete in Phase 1.
-- [ ] Complete unified-diff behavior. File-header transitions are handled, but
-  Aider's indentation, omitted-line, partial-context, and duplicate-hunk
-  recovery stages remain absent. Standard no-newline markers preserve, add, or
-  remove the final newline according to their position; this intentionally
-  fixes pinned aider's marker-tolerance behavior, which loses that meaning.
+- [x] Normalize whitespace-only unified-diff lines and deduplicate identical
+  normalized path/search/replacement hunks before resolution.
+- [ ] Complete unified-diff recovery. File-header transitions are handled, but
+  Aider's indentation, omitted-line, and partial-context stages remain absent.
+  Standard no-newline markers preserve, add, or remove the final newline
+  according to their position; this intentionally fixes pinned aider's marker-
+  tolerance behavior, which loses that meaning.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. The independent pinned format golden covers an exact update;

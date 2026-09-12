@@ -119,9 +119,10 @@ end the content, because that is what the marker asserts. Without the first
 rule a bare `old` would match inside `folder`; without the second it would apply
 to a mid-file line and discard the marker's meaning. Both are reported as an
 ordinary no-match, which a reflection attempt can retry, rather than being
-applied. Aider's indentation, omitted-line,
-partial-context, and duplicate-hunk recovery are not implemented, and identical
-repeated hunks are not deduplicated.
+applied. Whitespace-only old/new/context lines normalize to blank lines before
+matching, and identical normalized path/search/replacement hunks are applied
+once. Aider's indentation, omitted-line, and partial-context recovery remain
+incomplete.
 
 ## Patch actions
 

@@ -382,6 +382,10 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Normalize whitespace-only unified-diff old/new/context lines and discard
+  normalized no-op hunks. Identical normalized path/search/replacement hunks are
+  now applied once instead of failing on their second sequential application.
+
 - Deduplicate identical repository-map definition captures while preserving
   repeated references, matching upstream's set-backed definitions and weighted
   reference counts. A generated pinned fixture now compares final numeric ranks

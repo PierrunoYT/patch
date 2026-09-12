@@ -44,7 +44,8 @@ function beforeAfter(lines: readonly string[]): [string, string] {
       continue;
     }
     const operation = line[0];
-    const content = line.slice(1);
+    const rawContent = line.slice(1);
+    const content = rawContent.trim() === "" ? "" : rawContent;
     if (operation === " " || operation === "-") before.push(`${content}\n`);
     if (operation === " " || operation === "+") after.push(`${content}\n`);
     previousOperation = operation;
@@ -113,6 +114,7 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
   parse(response: string, _context: EditStrategyContext): EditBatch {
     void _context;
     const edits: Edit[] = [];
+    const seen = new Set<string>();
     const blocks = response.matchAll(/```diff\s*\n([\s\S]*?)(?:```|$)/gu);
     let lastPath: string | undefined;
     for (const match of blocks) {
@@ -142,6 +144,10 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
             "Unified diff is missing a file path",
           );
         }
+        if (search === replacement) return;
+        const key = JSON.stringify([path, search, replacement]);
+        if (seen.has(key)) return;
+        seen.add(key);
         edits.push({
           kind: "replace",
           path,

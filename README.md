@@ -260,7 +260,8 @@ language, using the fence selected from current file content. See the
 Fence selection repeats after `/add`, `/drop`, edits, and reflected attempts so
 the prompt, file context, and parser cannot retain a stale delimiter.
 Unified-diff input honors standard `\ No newline at end of file` markers,
-including transitions that add or remove the final newline.
+including transitions that add or remove the final newline. Whitespace-only hunk
+lines normalize to blank lines, and identical normalized hunks apply once.
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 
