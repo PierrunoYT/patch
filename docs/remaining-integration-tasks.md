@@ -66,7 +66,7 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Packed actual-bin one-shot and two-turn fake-wire sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
@@ -583,8 +583,12 @@ strategy prompt, provider lifetime, or interface policy listed below.
 
 **Acceptance:** the installed application service can start from supported
 configuration, select a main provider/model/strategy, compose repository
-context, and complete injected fake-provider turns. Actual-bin provider turns,
-secondary roles, and the remaining items above are not established.
+context, and complete injected fake-provider turns. The actual installed bin
+also completes one-shot and two-turn OpenAI-compatible sessions against a
+preloaded deterministic `fetch` fake, retaining the first exchange, with no
+external network or live credential; malformed SSE fails nonzero without
+leaking the fake's sentinel. Secondary roles and the remaining items above are
+not established.
 
 **Startup evidence:** `tests/application-service.test.ts`,
 `tests/interface-startup.test.ts`, and `scripts/package-smoke.mjs` cover
@@ -958,7 +962,11 @@ cover:
   (`scripts/package-smoke.mjs` invokes the actual installed bin four times,
   checks the safe effective model/mode/encoding, makes no provider turn, and
   rejects leakage of an unrelated environment secret);
-- [ ] actual-bin one-shot and multi-turn deterministic-provider sessions;
+- [x] actual-bin one-shot and multi-turn deterministic-provider sessions
+  (`scripts/package-smoke.mjs` preloads an in-process `fetch` fake into the
+  installed bin, verifies first-exchange retention on the second request, and
+  safely rejects malformed SSE; it uses no socket, external network, or live
+  credential);
 - [ ] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
   commit, lint, approved shell command, test reflection, and owned undo;
 - [ ] exact file and Git state after cancellation or every injected failure;

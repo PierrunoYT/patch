@@ -22,6 +22,15 @@ for asynchronous Node.js streams:
   be combined with each other. See [watch mode](watch-mode.md) and
   [the web interface](web-interface.md).
 
+Package smoke verifies both provider-bearing terminal modes through the actual
+`patch` bin after packing and clean installation. A preloaded deterministic
+`fetch` replacement returns OpenAI-compatible SSE entirely in-process: one run
+uses `--message`, and another sends two lines plus `/exit` and rejects the second
+request unless it contains the first user/assistant exchange. No socket,
+external network, or live credential is used. A malformed SSE run must exit
+nonzero and omit the fake's private sentinel; this is executable-path evidence,
+not a live-provider claim.
+
 Input acquisition can use an injected message handler for tests and embedding
 hosts. Without one, `createProgram` constructs `ConcreteApplicationService`
 before reading input. A model is mandatory; supported provider credentials are

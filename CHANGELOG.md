@@ -96,6 +96,9 @@ dated parity audits for revision-specific evidence.
 - Atomic model/provider/strategy switching with state transfer and removal or
   summarization of history that uses an incompatible edit format.
 - CLI one-shot `--message`, `--message-file`, and serial interactive line input.
+  Packed smoke now drives the actual installed bin through one-shot and two-turn
+  deterministic OpenAI-wire sessions, verifies retained history, and rejects a
+  malformed stream without external network or live credentials.
 - OpenAI-compatible Chat Completions streaming through the official npm client,
   including custom endpoints, usage, finish reasons, and classified failures.
 - Anthropic Messages streaming with system-message separation, ephemeral cache

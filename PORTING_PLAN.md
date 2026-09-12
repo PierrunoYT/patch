@@ -445,7 +445,8 @@ policies remain in R2/R3 of `docs/remaining-integration-tasks.md`.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
 `tests/application-prompt-context.test.ts`, `tests/application-lifecycle.test.ts`,
-and packed `scripts/lifecycle-smoke.mjs`.
+packed `scripts/lifecycle-smoke.mjs`, and the actual installed-bin one-shot and
+two-turn fake-wire sessions in `scripts/package-smoke.mjs`.
 See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers
@@ -470,9 +471,11 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 **Exit (workflow present; live evidence pending):** opt-in provider tests and a
 protected manual workflow exist. Ordinary CI is deterministic and requires no
-network. Authentication, minimal streaming, and usage are covered when each
-credential is supplied; combined live timeout/cancellation and capability
-evidence remains incomplete.
+external network: package smoke now drives one-shot, two-turn history, and
+malformed OpenAI-wire responses through the actual installed bin using a
+preloaded in-process `fetch` fake and no live credential. Authentication,
+minimal streaming, and usage are covered when each live credential is supplied;
+combined live timeout/cancellation and capability evidence remains incomplete.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
 `tests/anthropic-provider.test.ts`; opt-in `tests/live-provider.test.ts` via

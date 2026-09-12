@@ -1,5 +1,11 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -249,6 +255,133 @@ try {
         "Packed CLI startup disclosed an unrelated environment value",
       );
     }
+  }
+
+  // Run real installed-bin provider turns without a socket or live credential.
+  // The preloaded fetch is a deterministic in-process fake at the provider wire
+  // boundary and verifies that the second request contains the first exchange.
+  const fakeProvider = join(temporaryDirectory, "fake-provider.mjs");
+  writeFileSync(
+    fakeProvider,
+    `
+      const secret = 'fake-wire-secret-must-not-render';
+      globalThis.fetch = async (_input, init) => {
+        const body = JSON.parse(String(init?.body));
+        const messages = body.messages;
+        const users = messages.filter(message => message.role === 'user');
+        const last = users.at(-1)?.content;
+        if (typeof last !== 'string') throw new Error('fake provider expected text');
+        if (last.includes('malformed wire')) {
+          return new Response('data: {"choices":[{"delta":{"content":42}}]}\\n\\ndata: [DONE]\\n\\n', {
+            headers: { 'content-type': 'text/event-stream' }
+          });
+        }
+        let text;
+        if (last.includes('one shot')) {
+          text = 'deterministic one-shot answer';
+        } else if (last.includes('first turn')) {
+          text = 'deterministic first answer';
+        } else if (last.includes('second turn')) {
+          const retained = messages.some(message =>
+            message.role === 'assistant' && message.content === 'deterministic first answer'
+          );
+          if (!retained || users.length < 2) {
+            throw new Error('multi-turn history was not retained: ' + secret);
+          }
+          text = 'deterministic second answer with retained history';
+        } else {
+          throw new Error('unexpected fake-provider request: ' + secret);
+        }
+        const chunks = [
+          { choices: [{ delta: { content: text }, finish_reason: null }] },
+          { choices: [{ delta: {}, finish_reason: 'stop' }], usage: {
+            prompt_tokens: 7, completion_tokens: 3
+          } }
+        ];
+        return new Response(
+          chunks.map(chunk => 'data: ' + JSON.stringify(chunk) + '\\n\\n').join('') + 'data: [DONE]\\n\\n',
+          { headers: { 'content-type': 'text/event-stream' } }
+        );
+      };
+    `,
+  );
+  const fakeEnvironment = {
+    ...process.env,
+    HOME: precedenceRoot,
+    USERPROFILE: precedenceRoot,
+    OPENAI_API_KEY: "not-a-credential",
+    NODE_OPTIONS:
+      `${process.env.NODE_OPTIONS ?? ""} --import=${fakeProvider}`.trim(),
+  };
+  const oneShot = execFileSync(
+    executable,
+    [
+      "--no-git",
+      "--model",
+      "4o",
+      "--edit-format",
+      "ask",
+      "--message",
+      "one shot",
+    ],
+    {
+      cwd: precedenceRoot,
+      env: fakeEnvironment,
+      encoding: "utf8",
+      shell: process.platform === "win32",
+      timeout: 15000,
+    },
+  );
+  if (!oneShot.includes("deterministic one-shot answer")) {
+    throw new Error(
+      "Packed actual bin did not complete the fake-provider one-shot",
+    );
+  }
+  const multiTurn = execFileSync(
+    executable,
+    ["--watch-files", "--no-git", "--model", "4o", "--edit-format", "ask"],
+    {
+      cwd: precedenceRoot,
+      env: fakeEnvironment,
+      input: "first turn\nsecond turn\n/exit\n",
+      encoding: "utf8",
+      shell: process.platform === "win32",
+      timeout: 15000,
+    },
+  );
+  if (
+    !multiTurn.includes("deterministic first answer") ||
+    !multiTurn.includes("deterministic second answer with retained history")
+  ) {
+    throw new Error("Packed actual bin did not retain fake-provider history");
+  }
+  const malformed = spawnSync(
+    executable,
+    [
+      "--no-git",
+      "--model",
+      "4o",
+      "--edit-format",
+      "ask",
+      "--message",
+      "malformed wire",
+    ],
+    {
+      cwd: precedenceRoot,
+      env: fakeEnvironment,
+      encoding: "utf8",
+      shell: process.platform === "win32",
+      timeout: 15000,
+    },
+  );
+  if (
+    malformed.status === 0 ||
+    !malformed.stderr.includes("could not read") ||
+    malformed.stderr.includes("fake-wire-secret-must-not-render")
+  ) {
+    throw new Error(
+      "Packed actual bin did not safely reject malformed provider data",
+    );
   }
   const model = execFileSync(
     process.execPath,

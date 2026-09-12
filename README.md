@@ -28,6 +28,9 @@ route normalizes the catalog model name, output limit, and prefill request for
 that endpoint. Packed-install smoke tests invoke the actual installed binary and
 verify YAML, process environment, dotenv, and CLI precedence through `/settings`;
 placeholder credentials never reach a provider or the output.
+The same installed-bin smoke uses an in-process deterministic OpenAI-wire fake
+that replaces `fetch`, so one-shot and two-turn history behavior run with no
+external network or live credential. A malformed fake stream must fail safely.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Unified-diff recovery/no-newline handling, format-specific prompts,
 and broader pinned fixtures remain incomplete; constructed formats are not a
