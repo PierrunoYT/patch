@@ -59,10 +59,11 @@ larger map without letting the map crowd out the conversation. A turn holding
 nothing in the chat gets a wider view only when its model has an input limit:
 the budget times `mulNoFiles` (8), capped at the context window less 4,096 tokens
 of headroom. This follows the upstream helper's default multiplier, not aider's
-CLI default of 2. Token counting is still a character-count estimate and no
-user-facing control exposes the budget. Most bundled models lack input limits
-and therefore use the default map budget; see [model catalog](model-catalog.md).
-Strict prefix fitting is an intentional Patch difference.
+CLI default of 2. Every advertised bundled model now has an input limit, so its
+window determines the base budget. Production fitting still counts one token per
+four characters rather than using the selected model's tokenizer, and no
+user-facing control exposes the budget. Strict prefix fitting is an intentional
+Patch difference.
 
 `RepositoryMap` composes extraction, ranking, and rendering. Its JSON tag cache
 uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.

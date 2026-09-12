@@ -1,13 +1,13 @@
 # Remaining integration tasks
 
-This is the live implementation backlog, not a frozen audit report. The
-historical source audit compared Patch
-`58597efc390e8e138b29024871a25d192fb27462` with aider
-`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The latest
-[dated audit](aider-parity-audit-2026-09-11.md) compares Patch
-`476d1657410bdd47982cc7fddb179ccf83d4a734` with that same aider revision.
-The current matrix and follow-ups below reconcile those findings without
-rewriting either audit's evidence boundary.
+This is the live implementation backlog, not a frozen audit report. The latest
+[dated audit](aider-parity-audit-2026-09-12.md) compares Patch
+`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Earlier audits compared Patch
+`476d1657410bdd47982cc7fddb179ccf83d4a734` and
+`58597efc390e8e138b29024871a25d192fb27462` with that same aider revision. The
+current matrix and follow-ups below reconcile those findings without rewriting
+any dated audit's evidence boundary.
 
 This backlog distinguishes tested components from features that work through
 the installed `patch` executable. Completing an isolated adapter or parser is
@@ -51,35 +51,64 @@ depends on all earlier scope decisions being settled.
 
 ## Pinned Aider parity audits and current status
 
-The 2026-09-10 audit used nine read-only subsystem reviews of the historical
-Patch revision above. Eight read-only reviews on 2026-09-11 audited the newer
-revision; parent review also reproduced the fenced-prompt, unified-diff marker,
-missing model metadata, and cache-cost findings against the existing build.
-Neither audit ran live providers or CI. The dated report records which findings
-were reproduced and which are source-only. Existing tests are evidence only
-for the cases they exercise.
+The 2026-09-10 and 2026-09-11 audits preserve their historical revision
+boundaries. The 2026-09-12 audit rechecked all 78 Phase 0–9 boxes at Patch
+`bda2be474`: 73 were checked and five unchecked at that boundary. It traced
+production reachability and compared the remaining summarization, repository-
+map, unified-diff, and terminal-rendering differences with the pinned aider
+source. No audit ran live providers or remote CI. Existing tests are evidence
+only for the cases they exercise.
 
 ### Current parity matrix
 
-This matrix is live status reconciled with the 2026-09-11 report, not the
-unchanged result of the historical audit.
+This matrix is live status reconciled with the 2026-09-12 report, not the
+unchanged result of any historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps and some recovery evidence remain incomplete. |
+| Core lifecycle | implemented Patch scope; partial aider parity | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps and recovery from arbitrary child/Git side effects remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
 | Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses isolated prompts/history and no map/shell; approved contained image/PDF media is request-only and bounded. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Edit previews are full-content replacement blocks, not computed hunks. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. The library-only voice helper has cancellation-boundary and listener-cleanup tests; GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. Broader release-audit reconciliation remains open. |
+| Configuration/package/provenance | implemented Patch scope with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. This is not aider's full option surface or transitive upstream-resource integrity. |
 
-### Current audit follow-ups — 2026-09-11
+### Current audit follow-ups — 2026-09-12
 
-These are open implementation/evidence tasks, not completed functionality.
-Prioritize existing behavior and its evidence before adding the ancillary commands. See the [dated audit](aider-parity-audit-2026-09-11.md)
-for revision-specific source references and reproduction limits.
+The [current dated audit](aider-parity-audit-2026-09-12.md) found no unchecked
+immediate P0 implementation item. These P1 correctness tasks block broader parity
+claims; the P2 evidence task blocks only the corresponding external-evidence
+claims.
+
+- [ ] **P1 — Bound history summarization and add model fallback.** Cap the
+  selected summary head to the summarizing model's input window with safety
+  headroom, try the weak model and then the main model, retain cancellation and
+  usage accounting, and leave completed history unchanged when both fail.
+- [ ] **P1 — Complete repository-map rendering and fallback evidence.** Finish
+  or explicitly scope generic TreeContext behavior and tokenizer accuracy; add
+  the two upstream fallback map requests plus independent numeric
+  ranking/personalization and lexical-fallback fixtures; exercise broader
+  filtered map context through executable provider turns.
+- [ ] **P1 — Complete unified-diff recovery.** Add or deliberately reject, with
+  independent asymmetric fixtures, indentation, omitted-line, partial-context,
+  and duplicate-hunk cases while retaining exact ambiguity rejection and
+  Patch's standard no-newline-marker behavior.
+- [ ] **P2 — Close current-revision external evidence.** Drive DeepSeek through
+  catalog/factory/session in the protected live contract, obtain a green
+  Linux/macOS/Windows package run for the release revision, and run the
+  provisioned PTY and protected provider jobs before citing those claims.
+- [ ] **Deferred product scope — richer terminal rendering.** Computed edit
+  hunks, Rich-style tables/lists/wrapping and unstable-tail rerendering, and true
+  Vi input remain unscheduled and do not block the documented minimal terminal
+  surface.
+
+### Historical audit follow-ups — 2026-09-11
+
+The items below are completed fixes to findings in the
+[2026-09-11 dated audit](aider-parity-audit-2026-09-11.md). They remain here to
+preserve revision-specific source references and evidence boundaries.
 
 - [x] Compose `.aiderignore` with ordinary global Git exclusions; test both
   policies before selection and provider-context construction. `filterIgnored`
@@ -229,8 +258,8 @@ not a new cross-platform CI or live-provider/device result.
 The original immediate P0 and P1 lists below record completed milestones, not
 all remaining release blockers. P2's ancillary commands are now implemented and
 verified through the packed executable. The audit's direct fixture-import hash
-gap is closed. Current audit follow-ups and unchecked R0–R9 tasks continue to
-control release readiness. Updating documentation does not complete those
+gap is closed. Current audit follow-ups and unchecked Phase 0–9 tasks continue
+to control release readiness. Updating documentation does not complete those
 implementation tasks.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
@@ -590,9 +619,12 @@ Python. The separately provisioned PTY contract remains CI-gated as documented.
 
 ## R1 — Build the real ApplicationService and composition root
 
-**Status:** Partial. `ConcreteApplicationService` is the production composition
-root used by the CLI, but it does not compose every model role, option,
-strategy prompt, provider lifetime, or interface policy listed below.
+**Status:** Complete for the listed Patch composition scope.
+`ConcreteApplicationService` is the production root used by the CLI and composes
+the supported main/weak/editor roles, staged application options, per-attempt
+strategy prompts, provider lifetime, and documented terminal/watch/web policy.
+This does not widen the provider, command, mode, or interface inventory to
+Aider's full surface.
 
 ### Construction and startup
 
@@ -643,14 +675,14 @@ strategy prompt, provider lifetime, or interface policy listed below.
   intentionally keeps English-only replies, unique-match rejection, explicit
   path/command approval, and transactional application.
 
-**Acceptance:** the installed application service can start from supported
-configuration, select a main provider/model/strategy, compose repository
-context, and complete injected fake-provider turns. The actual installed bin
+**Acceptance:** the installed application service starts from supported
+configuration, selects its providers/models/strategies, composes repository
+context, and completes deterministic provider turns. The actual installed bin
 also completes one-shot and two-turn OpenAI-compatible sessions against a
 preloaded deterministic `fetch` fake, retaining the first exchange, with no
 external network or live credential; malformed SSE fails nonzero without
-leaking the fake's sentinel. Secondary roles and the remaining items above are
-not established.
+leaking the fake's sentinel. Advanced role behavior is established separately
+under R6; broader aider inventories are not part of this acceptance.
 
 **Startup evidence:** `tests/application-service.test.ts`,
 `tests/interface-startup.test.ts`, and `scripts/package-smoke.mjs` cover
@@ -662,12 +694,14 @@ verification result.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
-**Status (2026-09-10):** the concrete application now supplies per-attempt
-resolution/application to `CoderSession`'s bounded loop. Installed-service
-acceptance demonstrates normal ordering and exact Git state. The complete
-guarantees below remain unchecked where recovery or interactive policy is not
-implemented. See [turn lifecycle](turn-lifecycle.md) for pinned sources and
-intentional differences.
+**Status:** Complete for every named Patch lifecycle boundary. The concrete
+application supplies per-attempt resolution/application to `CoderSession`'s
+bounded loop; installed-service acceptance demonstrates normal ordering and
+exact Git state, and deterministic real-Git tests inject cancellation before and
+after mutation. The limits below are explicit non-transactional boundaries, not
+unchecked claims of full aider lifecycle equivalence. See
+[turn lifecycle](turn-lifecycle.md) for pinned sources and intentional
+differences.
 
 - [x] Refactor orchestration so every editing attempt executes in this order:
   1. compose current context and stream the provider response;
@@ -716,8 +750,9 @@ intentional differences.
   gating. Watch/web/one-shot and other noninteractive contexts keep denial;
   native PTY approval coverage and broader approval policies remain incomplete.
 
-**Acceptance:** installed-service scenarios prove Patch's selected lifecycle
-and Git outcomes. They do not yet prove pinned Aider lifecycle equivalence.
+**Acceptance:** met for Patch's documented lifecycle and Git outcomes. This is
+not pinned aider lifecycle equivalence or a cross-process/durable rollback
+contract.
 
 **Delivered evidence:** `scripts/lifecycle-smoke.mjs`, run against the clean
 installed tarball by `scripts/package-smoke.mjs`, additionally includes a dry-run
@@ -730,7 +765,7 @@ and exhausted test reflection, live selection changes, and reusable queue
 checks. Command timeout/output limits are shortened through the adapter for
 deterministic tests; actual child execution is retained.
 
-**Precisely remaining unchecked R2 boundaries:**
+**Explicit limits outside R2 acceptance:**
 
 - Standalone-bin approval acceptance is covered for the supported terminal
   policy separately from the installed-service lifecycle smoke. Configured
@@ -818,7 +853,9 @@ scope or aider's wider command breadth.
 - [x] Document API/network variability and distinguish mocked adapter tests from
   live contract evidence.
 - [x] Normalize the advertised DeepSeek catalog model and request fields through
-  the same factory/session path used by the executable and live contract.
+  the factory/session path used by the executable. Deterministic tests cover that
+  path; the protected live case still constructs the adapter directly and is
+  tracked in the current P2 evidence task.
 - [x] Preserve OpenAI-compatible usage events that arrive with or after finish.
   Exposing accurate usage/cost at the application boundary is still P2.
 - [x] Merge executable model metadata into settings and classify transient 5xx/
@@ -831,8 +868,9 @@ scope or aider's wider command breadth.
   This intentionally hardens aider's unbounded blocking sleep while retaining its
   transient categories.
 
-**Acceptance:** Phase 4's exit statement is backed by executable, opt-in tests
-rather than only mocked Fetch responses.
+**Acceptance:** met for the documented OpenAI/Anthropic adapter contracts and
+deterministic executable provider path. Protected live tests still construct
+adapters directly; catalog/factory/session live evidence remains P2.
 
 ## R5 — Add cross-platform CI and package evidence
 
@@ -997,9 +1035,10 @@ item stays unchecked rather than being closed as done.
 
 ## R8 — Expose Phase 9 adapters through ApplicationService
 
-**Problem:** Watch and local HTTP/SSE startup now construct concrete application
-contracts and `/web` ingests one user-typed URL. Complete web operational policy
-remains unfinished; the API is for trusted local clients, not public hosting.
+**Status:** Complete for the documented optional adapters. Watch and local
+HTTP/SSE startup construct concrete application contracts, `/web` ingests one
+user-typed URL, and bounded session/replay/backpressure policy is enforced. The
+API remains for trusted local clients, not public or multi-tenant hosting.
 
 - [x] Feed fetched URL content through bounded application context with explicit
   user intent, source labeling, and token limits; keep Playwright separately
@@ -1050,26 +1089,35 @@ they do not merely compile against an interface that has no implementation.
   accurately and remove or implement the nonexistent saved-response dry-run CLI.
 - [x] Rewrite README status claims that simultaneously call implemented modules
   absent and checked phases complete.
-- [ ] Re-audit every Phase 0–9 checkbox against production wiring and independent
-  evidence; this source comparison found multiple checked helper-only or unsafe
-  paths.
-- [ ] Correct Phase 3/5 lifecycle and usable-release exits after the immediate
-  Git, move, undo, switching, paste, and history blockers are fixed.
-- [ ] Correct Phase 6/7 parity claims after broader independent map/edit
-  fixtures and the Patch/unified-diff targeting fixes exist.
-- [ ] Correct Phase 8/9 checkboxes after terminal sanitization, rich input, web
-  coordination, and interface policy are complete.
-- [ ] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
+- [x] Re-audit every Phase 0–9 checkbox against production wiring and independent
+  evidence. The 2026-09-12 audit checked all 78 boxes at Patch `bda2be474`, found
+  no checked helper-only item, and split broad parity claims into precise open
+  work without promoting Patch to full aider compatibility.
+- [x] Correct Phase 3/5 lifecycle and usable-workflow exits after the immediate
+  Git, move, undo, switching, paste, and history blockers were fixed. Both exits
+  now describe the production-wired Patch contract and its non-transactional
+  limits rather than requiring aider's per-failure prompt.
+- [x] Correct Phase 6/7 parity claims. They remain partial: broader independent
+  map rendering/ranking/fallback evidence and unified-diff recovery are explicit
+  P1 tasks even though advanced application roles are production-wired.
+- [x] Correct Phase 8/9 checkboxes after terminal sanitization, rich input, web
+  coordination, and interface policy completed. Phase 8 is met only for the
+  documented minimal terminal; richer rendering is deferred. Phase 9 is met for
+  trusted local adapters, not browser/public-hosting/CLI-voice parity.
+- [x] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
   “support” and “parity” for safe behavior reachable through a documented
-  interface.
+  interface. The current audit entry records no runtime change and points to the
+  remaining scoped work.
 - [x] Establish a direct-derivation ledger and ensure every identified direct
   Aider source or shipped resource carries the required upstream path, revision,
   modification, and Apache-2.0 provenance. The automated scan rejects marker,
   ledger, per-file, and package drift while leaving generated fixtures on their
   independent blob-hash contract.
 
-**Acceptance:** not met. The table and blockers above are the current
-source-audit result; application fixes and executable evidence remain required.
+**Acceptance:** met for the current-HEAD documentation truth pass. The dated
+audit, live matrix, plan exits, README, changelog, and contributor guidance now
+share one evidence boundary. This closes stale documentation only; the P1 parity
+work and current-revision external evidence above remain open.
 
 ## Continuous integration jobs
 
@@ -1120,9 +1168,13 @@ cover:
   installed bin, verifies first-exchange retention on the second request, and
   safely rejects malformed SSE; it uses no socket, external network, or live
   credential);
-- [ ] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
-  commit, lint, approved shell command, test reflection, and owned undo;
-- [ ] exact file and Git state after cancellation or every injected failure;
+- [x] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
+  commit, lint, approved shell command, test reflection, and owned undo
+  (`scripts/lifecycle-smoke.mjs` exercises the installed service and
+  `tests/terminal-approval.test.ts` separately covers executable TTY approval);
+- [x] exact file and Git state after cancellation or every named injected
+  lifecycle failure (`tests/application-lifecycle.test.ts` and
+  `tests/edit-format-goldens.test.ts`);
 - [x] every advertised slash command through its documented application effect
   (`tests/advertised-commands.test.ts` asserts exact docs/parser inventory
   equality and executes all 20 effects in a real temporary Git repository,
@@ -1132,11 +1184,12 @@ cover:
   (`scripts/package-smoke.mjs`), not every-language provider-context parity;
 - [ ] broader filtered repository-map context through executable provider turns;
 - [ ] live provider contracts through catalog, factory, and session boundaries;
-- [x] green Linux, macOS, and Windows package/platform jobs for this revision.
-  Run [`34618401395`](https://github.com/PierrunoYT/patch/actions/runs/34618401395)
-  on `baebd0e83a1f317b0aba48da174feae04a7b7e61` is green for all three
-  `platform` jobs. Any later claim must cite its own run, not this one and not
-  the workflow name;
+- [ ] green Linux, macOS, and Windows package/platform jobs for the release
+  revision. Run
+  [`34618401395`](https://github.com/PierrunoYT/patch/actions/runs/34618401395)
+  on `baebd0e83a1f317b0aba48da174feae04a7b7e61` is historical green evidence for
+  all three `platform` jobs, not for the current audit revision. Any later claim
+  must cite its own run, not this one and not the workflow name;
 - [x] default packed installation with no native/browser/audio dependency; and
 - [ ] explicitly provisioned PTY and optional-interface suites.
 

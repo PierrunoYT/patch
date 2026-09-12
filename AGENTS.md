@@ -17,15 +17,16 @@
   implementation. Do not turn implemented helpers, exported contracts, or
   isolated tests into broader compatibility claims.
 - Before changing ported behavior, read the latest dated audit in
-  `docs/aider-parity-audit-2026-09-11.md` and the live priority backlog in
+  `docs/aider-parity-audit-2026-09-12.md` and the live priority backlog in
   `docs/remaining-integration-tasks.md`, then read the documentation and upstream
   source for the affected subsystem.
 - The latest source audit compares Patch commit
-  `476d1657410bdd47982cc7fddb179ccf83d4a734` with aider commit
-  `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The historical audit compared
-  Patch `58597efc390e8e138b29024871a25d192fb27462` with the same aider revision.
-  Keep both sides explicit in audit evidence; preserve dated reports as
-  snapshots and reconcile current implementation status in the live backlog.
+  `bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with aider commit
+  `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Earlier audits compared Patch
+  `476d1657410bdd47982cc7fddb179ccf83d4a734` and
+  `58597efc390e8e138b29024871a25d192fb27462` with the same aider revision. Keep
+  both sides explicit in audit evidence; preserve dated reports as snapshots and
+  reconcile current implementation status in the live backlog.
 - Treat every unchecked P0 item in the authoritative integration backlog as a
   release blocker. Do not mark a phase complete because a library helper exists;
   verify the behavior through the executable production path.

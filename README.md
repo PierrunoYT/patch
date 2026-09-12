@@ -90,8 +90,8 @@ and `/attach` media all prompt with the reason. A path you named in the command
 you just typed is not asked about again. Per-failure reflection prompts remain
 unsupported.
 
-This is not yet a usable-release or Aider-parity claim. Repository mutations are
-serialized across every session in this process that shares a worktree — a
+This is not yet a release-readiness or Aider-parity claim. Repository mutations
+are serialized across every session in this process that shares a worktree — a
 second `patch` process is ordered only by Git's own index lock — all untrusted
 terminal output passes through one stateful control-sequence sanitizer, and
 replacement preserves the metadata Node can carry portably while refusing a
@@ -100,10 +100,10 @@ swapped ancestor;
 submits clipboard text as a user turn, and a turn interrupted after its edits
 landed reconciles history and reports surviving work through the terminal.
 Historical checklist completions do not establish release readiness. The latest
-[parity audit](docs/aider-parity-audit-2026-09-11.md) identifies open
-findings at its audited revision. The
+[parity audit](docs/aider-parity-audit-2026-09-12.md) rechecks every Phase 0–9
+item at its audited revision. The
 [live backlog](docs/remaining-integration-tasks.md) reconciles completed fixes,
-remaining integration work, and planned commands.
+remaining integration work, and deferred product scope.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
 with import-derived coverage and status-hidden-change tests. This does not
 establish transitive dependency or resource integrity; see the

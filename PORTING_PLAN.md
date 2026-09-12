@@ -17,8 +17,8 @@ At this baseline, aider contains approximately 20,285 lines in 80 Python
 modules and 36 test modules. Patch began as a greenfield TypeScript port and now
 contains tested configuration, provider, edit, Git, repository-map, application,
 and adapter components. The installed CLI composes the supported core workflow;
-the unchecked phase items below identify behavior that remains helper-only,
-partially integrated, or unsupported.
+the unchecked phase items below identify parity that remains partially
+integrated, unsupported, or deliberately deferred.
 
 The upstream source is Apache-2.0 licensed. Every directly ported file must:
 
@@ -47,11 +47,11 @@ edit-format, option, and interface support must be documented explicitly.
 
 Current implementation priorities live in
 [the integration backlog](docs/remaining-integration-tasks.md). The latest
-[dated audit](docs/aider-parity-audit-2026-09-11.md) compares Patch
-`476d1657410bdd47982cc7fddb179ccf83d4a734` with the pinned aider revision above;
-it supplements the historical audit of Patch
-`58597efc390e8e138b29024871a25d192fb27462`. Dated reports preserve their original
-evidence; this plan and the backlog track current status and open work.
+[dated audit](docs/aider-parity-audit-2026-09-12.md) compares Patch
+`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with the pinned aider revision above;
+it supplements the earlier audits of Patch `476d1657410bdd47982cc7fddb179ccf83d4a734`
+and `58597efc390e8e138b29024871a25d192fb27462`. Dated reports preserve their
+original evidence; this plan and the backlog track current status and open work.
 
 ## Scope decisions
 
@@ -88,9 +88,9 @@ evidence; this plan and the backlog track current status and open work.
   extractor exactly; context mode and broader ranking/personalization fixtures
   remain. Models without input limits use the default map budget.
 - Unified-diff file transitions and standard no-newline markers, plus Patch
-  scopes/repeated actions, are constructed and tested locally. Broader
-  unified-diff recovery, remaining format-specific prompts, and broader pinned
-  goldens remain incomplete.
+  scopes/repeated actions, are constructed and tested locally. All six
+  constructed formats have format-specific prompts and independent pinned
+  goldens; broader unified-diff recovery remains incomplete.
   User-facing schemas contain only the six constructed formats. Architect and
   context retain private orchestration identities; help is a local command.
 - Terminal Markdown, full-content replacement previews, explicit history writes, notifications, and
@@ -404,9 +404,10 @@ invoked the installed `patch --help` entry point without Python.
   root after symlink resolution.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
-- [x] Reject hardlinked/non-regular mutation targets and recheck target identity
-  immediately before replacement or deletion. Portable ancestor-race and full
-  metadata preservation remain open.
+- [x] Reject hardlinked/non-regular mutation targets and recheck target and
+  containing-directory identity immediately before replacement or deletion.
+  Preserve mode bits and, where permitted, owner/group; document ACLs, extended
+  attributes, flags, alternate data streams, and the residual race as unsupported.
 - [x] Complete production prompt resources and per-attempt fence selection.
   All six constructed strategies use format-specific pinned instructions,
   examples, reminders, and shell policy. The application reselects the shared
@@ -425,11 +426,13 @@ invoked the installed `patch --help` entry point without Python.
 - [x] Load and validate model aliases, model settings, and JSON5 metadata from
   packaged resources.
 
-**Exit (partial):** local fixtures cover selected configuration and generic
-chunk/resource behavior, and the packed installed binary proves the implemented
-configuration precedence. Full production prompt composition, broad pinned
-configuration comparison, portable ancestor-race handling, and full metadata
-preservation remain open.
+**Exit (met for the documented Patch scope):** production prompt composition,
+per-attempt fence selection, staged configuration, packaged resources, and the
+safe write boundary run through the concrete application. Packed executable
+runs prove YAML/environment/dotenv/CLI precedence. This is not byte-for-byte
+configuration parity, and Patch guarantees only metadata Node can preserve
+portably; ACLs, extended attributes, flags, and alternate data streams remain
+outside the contract.
 
 ### Phase 2 — Edit engines
 
@@ -472,12 +475,15 @@ or a documented, safer rejection.
   budget is summarized automatically with the weak model before the next turn.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit (partial):** installed-service acceptance covers streamed malformed and
-unresolvable responses, two-file writes, lint reflection, approved commands,
-tests, and undo with exact Git assertions. An interrupted turn whose writes or
-commits survive now reconciles its history and reports a structured partial
-outcome. Exhaustive failure/cancellation coverage and remaining approval
-policies remain in R2/R3 of `docs/remaining-integration-tasks.md`.
+**Exit (met for the documented Patch lifecycle):** installed-service acceptance
+covers streamed malformed and unresolvable responses, two-file writes, lint
+reflection, approved commands, tests, and undo with exact Git assertions. Real-
+Git tests inject cancellation at every named lifecycle boundary and assert
+surviving state and a reusable queue. An interrupted turn whose writes or commits
+survive reconciles its history and reports a structured partial outcome. Patch
+automatically reflects configured failures instead of asking aider's per-failure
+question; arbitrary child-command side effects and interruption inside Git stay
+outside the recovery contract.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
 `tests/application-prompt-context.test.ts`, `tests/application-lifecycle.test.ts`,
@@ -487,11 +493,19 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 ### Phase 4 — Real model providers
 
-- [ ] Complete OpenAI-compatible streaming parity. Streaming, custom
-  constructor options, post-finish usage, DeepSeek normalization, metadata
-  merging, temperature policy, bounded transient retries, and bounded repeated
-  assistant-prefill continuation are wired. Broader provider-wire parity remains
-  incomplete.
+- [x] Complete the documented OpenAI-compatible production route. Streaming,
+  custom constructor options, post-finish usage, DeepSeek normalization,
+  metadata merging, temperature policy, bounded transient retries, and bounded
+  repeated assistant-prefill continuation are wired. Tool execution and aider's
+  broader LiteLLM provider surface are outside Patch's advertised contract.
+- [ ] Bound history-summary input to the summarizing model's window and fall back
+  from the weak model to the main model as pinned aider does. Preserve Patch's
+  cancellation, usage accounting, and unchanged-history behavior when every
+  summarizer fails.
+- [ ] Exercise the advertised DeepSeek catalog model through catalog, factory,
+  and session boundaries in the protected live contract. The current live case
+  constructs the compatible adapter directly; deterministic factory/session
+  coverage remains credential-free.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
@@ -506,15 +520,16 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
-**Exit (workflow present; live execution remains externally variable):**
-separately gated OpenAI and Anthropic contracts cover secret-safe credential
-preflight, minimal streaming, positive usage, natural stop reasons,
+**Exit (met for documented OpenAI/Anthropic routes; provider parity remains
+partial):** separately gated OpenAI and Anthropic contracts cover secret-safe
+credential preflight, minimal streaming, positive usage, natural stop reasons,
 timeout/cancellation, OpenAI image input, and Anthropic cache-control input. A
 protected manual workflow exists; ordinary CI skips all live cases and requires
 no credentials or network. Package smoke also drives one-shot, two-turn history,
 and malformed OpenAI-wire responses through the actual installed bin using a
-preloaded in-process `fetch` fake. Actual live evidence still depends on a
-protected workflow run against configured accounts and models.
+preloaded in-process `fetch` fake. DeepSeek's protected live path and
+summarization fallback/input bounds remain unchecked above; actual live evidence
+still depends on configured accounts and models.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
 `tests/anthropic-provider.test.ts`; opt-in `tests/live-provider.test.ts` via
@@ -545,12 +560,13 @@ protected workflow run against configured accounts and models.
   refuses root, merge, moved-HEAD, and already-pushed commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
-- [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/help`,
-  `/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`,
-  `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
-  `tests/advertised-commands.test.ts` keeps this 19-command documented inventory
-  equal to the parser's source of truth and executes every production effect in
-  one real-Git application scenario, including safe authority/state failures.
+- [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/attach`,
+  `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`,
+  `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
+  `/exit`. `tests/advertised-commands.test.ts` keeps this 20-command documented
+  inventory equal to the parser's source of truth and executes every production
+  effect in one real-Git application scenario, including safe authority/state
+  failures.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation
   in the application contract. Standalone interactive TTY input supplies one
@@ -561,16 +577,17 @@ protected workflow run against configured accounts and models.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
-**Exit — partial usable workflow:** the npm-installed binary composes supported
-providers and edit formats, previews selected-file edits, commits, runs
-configured lint/tests, and dispatches Git commands. A full release exit still
-requires per-failure reflection choice and exhaustive failure/cancellation state tests.
-The packed service acceptance scenario now passes with injected provider and
-approval adapters. `tests/terminal-approval.test.ts` exercises the executable's
-program path with real readline input, fake TTY streams, the concrete service,
-fake provider, and real filesystem/process effects; native terminal platform
-coverage for this approval path is not yet established. The 19-command inventory
-coverage does not imply aider's broader command parity.
+**Exit — met for the supported Patch MVP workflow:** the npm-installed binary
+composes supported providers and edit formats, previews selected-file edits,
+commits, runs configured lint/tests, and dispatches Git commands. The packed
+service scenario covers the full lifecycle with injected provider and approval
+adapters; named failure/cancellation boundaries assert exact state in real Git
+repositories. `tests/terminal-approval.test.ts` separately exercises the
+executable's program path with real readline input, fake TTY streams, the
+concrete service, fake provider, and real filesystem/process effects. Automatic
+bounded reflection is Patch's documented noninteractive-safe policy instead of
+aider's per-failure question. This does not establish aider's broader command,
+option/default, or arbitrary child-side-effect recovery parity.
 
 **Evidence:** `tests/application-lifecycle.test.ts`,
 `tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the
@@ -585,21 +602,24 @@ real-repository `tests/git-*.test.ts` suites.
   version-pinned npm grammar packages; never place them in `assets/`.
 - [x] Build the weighted reference graph and deterministic personalized
   PageRank.
-- [ ] Complete generic TreeContext-equivalent rendering and model-aware token
-  fitting. Current normalized evidence covers one small Python scenario.
+- [ ] Complete generic TreeContext-equivalent rendering. Model-derived map
+  budgets and strict prefix fitting are wired, but the production composition
+  still estimates one token per four characters and current normalized rendering
+  evidence covers one small Python scenario.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
-- [ ] Broaden independent map fixtures beyond one two-file Python example,
-  including personalization, fallback references, important files, TSX packed
-  extraction, and every added language. Tags for all eleven shipped languages,
-  TSX included, and important-root-file selection are now pinned against
-  upstream's own extractor in `tests/upstream-fixtures.test.ts`, and packed
-  extraction for the same set runs from the installed tarball. Personalization
-  and lexical fallback references are still unpinned.
+- [ ] Broaden independent map fixtures and executable evidence beyond one
+  two-file Python rendering example. Tags for all eleven shipped languages, TSX
+  included, and important-root-file selection are pinned against upstream's own
+  extractor, and packed extraction runs for the same set. Numeric
+  ranking/personalization, lexical fallback rendering, fallback map requests,
+  and broader provider-turn context remain unpinned.
 
-**Exit (configured evidence):** representative multi-language fixtures and
-packed-resource tests are in the Linux/macOS/Windows CI matrix. Cross-platform
-evidence is not claimed until that matrix completes on the pushed revision.
+**Exit (partial):** representative multi-language tag fixtures and packed-
+resource tests are in the Linux/macOS/Windows CI matrix. Generic TreeContext
+rendering, fallback requests, personalization/lexical-fallback fixtures, and
+broader executable provider-context evidence remain open. Cross-platform claims
+require a green matrix on the revision being claimed.
 
 **Evidence:** `tests/repo-map-compatibility.test.ts`,
 `tests/repository-map-cache.test.ts`, `scripts/package-smoke.mjs`, and the
@@ -673,9 +693,10 @@ individual edit-strategy suites.
   Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
   draft in the configured editor. Vi modal editing is not implemented, so
   `--vim` is refused by name rather than accepted and ignored.
-- [ ] Complete terminal rendering fidelity. One stateful sanitizer now covers
-  every untrusted output path and strips every claimed hostile control family;
-  tables, lists, wrapping, and unstable-tail rerendering remain out of scope.
+- [ ] Deferred parity: replace the lightweight renderer if product scope later
+  requires Aider-style tables, full lists/wrapping, unstable-tail rerendering, or
+  computed edit-preview hunks. One stateful sanitizer already covers every
+  untrusted output path and strips every claimed hostile control family.
 - [x] Dispatch explicitly requested interactive commands through optional
   `node-pty`. `/run --interactive` is the only caller; the native package loads
   at that point and nowhere else, the line reader is released and restored
@@ -688,13 +709,13 @@ individual edit-strategy suites.
   `/paste` submits clipboard text as a user turn without reparsing it as a
   command. Clipboard images remain unread.
 
-**Exit (partial):** command/file/source-identifier completion, recall, multiline, the
-external editor, explicit PTY dispatch, generated shell completions, and
-provider-turn-only notifications all run through the executable's reader, and
-provisioned PTY contract tests cover Ctrl-C, EOF, resize, cleanup, and hostile
-child sequences. The renderer stays deliberately smaller than Aider's Rich
-renderer: tables, lists, wrapping, and unstable-tail rerendering are out of
-scope.
+**Exit (met for the documented minimal terminal surface):** command/file/source-
+identifier completion, recall, multiline, the external editor, explicit PTY
+dispatch, generated shell completions, and provider-turn-only notifications all
+run through the executable's reader. Provisioned PTY contract tests cover Ctrl-C,
+EOF, resize, cleanup, and hostile child sequences on Linux and Windows. The
+renderer deliberately remains smaller than Aider's Rich renderer; the deferred
+item above is not part of the first-release terminal contract.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,

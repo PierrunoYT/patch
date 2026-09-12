@@ -840,9 +840,15 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Re-audited all Phase 0–9 checkboxes at Patch `bda2be474` against pinned aider
+  `5dc9490b`. The new dated snapshot confirms production wiring for every checked
+  item, corrects stale phase/status/evidence claims, and narrows the remaining
+  release work to summarizer fallback/input bounds, repository-map
+  rendering/evidence, unified-diff recovery, and current-revision external
+  validation. No runtime behavior changed.
 - The documented slash-command inventory is now asserted equal to the parser's
   source of truth, and a real-Git application scenario executes every one of the
-  19 advertised effects. Safe failures cover missing clipboard/undo state,
+  20 advertised effects. Safe failures cover missing clipboard/undo state,
   contained paths, unknown models, refused URL ingestion, denied processes, and
   use after exit; no unsupported advertised command was found.
 - Joint executable acceptance for `/help`, `/settings`, and `/report` now covers
