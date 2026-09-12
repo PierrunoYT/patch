@@ -63,6 +63,126 @@ describe("capability-aware context", () => {
     });
   });
 
+  it("replaces repeated prefill and aggregates usage without duplication", async () => {
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "first " },
+          { type: "usage", inputTokens: 10, outputTokens: 2, cost: 0.1 },
+          { type: "finish", reason: "length" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: " second" },
+          { type: "usage", inputTokens: 12, outputTokens: 3, cost: 0.2 },
+          { type: "finish", reason: "length" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: " third" },
+          { type: "usage", inputTokens: 14, outputTokens: 4, cost: 0.3 },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const session = new CoderSession({
+      config: { root: "/repo", model: model({ assistantPrefill: true }) },
+      provider,
+      strategy: new AskEditStrategy(),
+    });
+
+    const completed = await session.runTurn("answer");
+
+    expect(completed.response).toBe("first second third");
+    expect(completed.usage).toMatchObject({
+      inputTokens: 36,
+      outputTokens: 9,
+      costSource: "provider",
+    });
+    expect(completed.usage?.cost).toBeCloseTo(0.6);
+    expect(
+      completed.events
+        .filter((event) => event.type === "finish")
+        .map((event) => event.reason),
+    ).toEqual(["length", "length", "stop"]);
+    expect(provider.requests[1]?.messages.at(-1)).toEqual({
+      role: "assistant",
+      content: "first",
+    });
+    expect(provider.requests[2]?.messages.at(-1)).toEqual({
+      role: "assistant",
+      content: "first second",
+    });
+    expect(session.snapshot()).toMatchObject({
+      inputTokens: 36,
+      outputTokens: 9,
+      messages: [
+        { role: "user", content: "answer" },
+        { role: "assistant", content: "first second third" },
+      ],
+    });
+  });
+
+  it("stops repeated continuation on provider error or cancellation", async () => {
+    const build = (provider: FakeProvider) =>
+      new CoderSession({
+        config: { root: "/repo", model: model({ assistantPrefill: true }) },
+        provider,
+        strategy: new AskEditStrategy(),
+      });
+    const failedProvider = new FakeProvider([
+      turn("first", "length"),
+      {
+        actions: [
+          {
+            type: "error",
+            kind: "provider",
+            message: "safe failure",
+            retryable: false,
+          },
+        ],
+      },
+    ]);
+    const failed = build(failedProvider);
+    await expect(failed.runTurn("answer")).rejects.toThrow("safe failure");
+    expect(failedProvider.requests[1]?.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "first",
+    });
+    expect(failed.snapshot()).toMatchObject({
+      phase: "interrupted",
+      messages: [],
+    });
+
+    const controller = new AbortController();
+    const cancelledProvider = new FakeProvider([
+      turn("first", "length"),
+      {
+        actions: [
+          { type: "text-delta", text: " second" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const cancelled = build(cancelledProvider);
+    await expect(
+      cancelled.runTurn("answer", {
+        signal: controller.signal,
+        onEvent: (event) => {
+          if (event.type === "text-delta" && event.text === " second")
+            controller.abort();
+        },
+      }),
+    ).rejects.toThrow("cancelled");
+    expect(cancelledProvider.requests).toHaveLength(2);
+    expect(cancelled.snapshot()).toMatchObject({
+      phase: "interrupted",
+      messages: [],
+    });
+  });
+
   it("keeps cache warming bounded and disabled for incapable models", async () => {
     const request = {
       model: "fake",

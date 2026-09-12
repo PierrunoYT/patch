@@ -100,8 +100,8 @@ Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
 through the optional `node-pty` package. `--vim` is refused rather than ignored;
 Vi modal editing is not implemented. Architect/context/media helpers are not
 constructed modes; prompt-cache keepalive is production-wired as an explicit,
-bounded opt-in, and assistant prefill is reached by capable models but is
-incomplete.
+bounded opt-in, and capable models repeat assistant-prefill continuation up to
+three times without duplicating prior output.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
 user-typed page to the chat as bounded, labeled text. Web session expiry,

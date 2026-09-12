@@ -15,6 +15,10 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Repeated assistant-prefill continuation for capable models, bounded to three
+  follow-up requests. Each request replaces the prior trailing prefill, adds only
+  the new suffix, aggregates usage/cost across requests, and preserves final
+  stop, provider-error, and cancellation behavior without duplicate history.
 - Production prompt-cache keepalive behind `--cache-keepalive-pings`,
   `PATCH_CACHE_KEEPALIVE_PINGS`, or `cache-keepalive-pings` YAML. The default is
   zero network requests; opted-in sessions schedule at most ten one-token refreshes

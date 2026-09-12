@@ -66,7 +66,7 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, bounded repeated assistant-prefill continuation, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired. Provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup; editor/media workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
@@ -780,9 +780,13 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   and in-flight requests on replacement, switch, and session/application close.
   Deterministic fake-timer tests prove executable propagation, prefix exclusion,
   bounds, capability/opt-in/marker gating, and cleanup.
-- [ ] Complete repeated assistant-prefill continuation and integrate contained,
-  size-limited image/PDF loading. Bounded continuation and DeepSeek prefix
-  normalization are wired; repeated-prefix accumulation and media loading remain.
+- [x] Complete repeated assistant-prefill continuation. Capable models make at
+  most three follow-up requests, replacing one cumulative trailing prefill rather
+  than appending duplicates. Deterministic core and executable tests prove three
+  fragments assemble once, all usage/cost is aggregated, natural stop completes,
+  and provider error or cancellation exits without committing partial history.
+- [ ] Integrate contained, size-limited image/PDF loading through application
+  interfaces. The media message builder remains helper-only.
 - [ ] Add independent pinned golden fixtures plus asymmetric property tests for
   every advertised edit format, including switching away from incompatible
   protocol history.
