@@ -35,10 +35,11 @@ still identify its repository.
 does not remove the provisional repository from config and dotenv discovery,
 matching aider's startup order.
 
-The production CLI passes the staged subset into
-`ConcreteApplicationService`. Interface controls such as history paths,
-multiline, notifications, watch, and web remain Commander-only and cannot be
-set through YAML or `PATCH_*`; configuration parity is therefore partial.
+The production CLI resolves one staged result before constructing histories,
+terminal input, watch mode, web mode, or `ConcreteApplicationService`. That
+same immutable result is passed into the service rather than resolving a second
+time. Consequently root correction cannot leave the interface using values
+from the provisional repository while the application uses the selected one.
 
 ## Current controls
 
@@ -49,6 +50,23 @@ The executable Commander surface exposes `--no-git`, not a positive `--git`
 flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
 `PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
+
+History and interface controls are also staged: `input-history-file`,
+`chat-history-file`, `multiline`, `notifications`, `notifications-command`,
+`watch-files`, `web`, `web-port`, and `web-token-file`. Their environment names
+use the same `PATCH_` uppercase/underscore convention. Boolean CLI controls
+have explicit `--no-multiline`, `--no-notifications`, `--no-watch-files`, and
+`--no-web` forms so a command line can disable YAML or dotenv values. Interface
+combinations and web token contents are validated before opening the watcher or
+server. One-shot message/editor/color/completion controls remain intentionally
+CLI-only because they govern invocation mechanics, not application
+configuration.
+
+Preserved failure invariants are: malformed booleans and ports fail before any
+interface starts; web still requires a bounded token read from an explicit
+file; web, watch, and one-shot modes remain mutually constrained; root
+correction discards provisional dotenv values; and no configuration path
+bypasses containment, authorization, process bounds, or network isolation.
 
 Commit policy also participates in every bootstrap stage: `git-commit-verify`,
 `generate-commit-messages`, `commit-author-name`, `commit-committer-name`, and

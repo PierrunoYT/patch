@@ -47,6 +47,15 @@ const ConfigurationFileSchema = z
     "lint-cmd": z.string().trim().min(1).optional(),
     "test-cmd": z.string().trim().min(1).optional(),
     "edit-format": ApplicationEditFormatSchema.optional(),
+    "input-history-file": z.string().min(1).optional(),
+    "chat-history-file": z.string().min(1).optional(),
+    multiline: z.boolean().optional(),
+    notifications: z.boolean().optional(),
+    "notifications-command": z.string().trim().min(1).optional(),
+    "watch-files": z.boolean().optional(),
+    web: z.boolean().optional(),
+    "web-port": z.number().int().min(0).max(65_535).optional(),
+    "web-token-file": z.string().min(1).optional(),
     files: z.array(z.string().min(1)).optional(),
     "read-only": z.array(z.string().min(1)).optional(),
   })
@@ -70,6 +79,15 @@ export interface BootstrapArguments {
   readonly lintCommand: string | undefined;
   readonly testCommand: string | undefined;
   readonly editFormat: ApplicationEditFormat | undefined;
+  readonly inputHistoryFile: string | undefined;
+  readonly chatHistoryFile: string | undefined;
+  readonly multiline: boolean;
+  readonly notifications: boolean;
+  readonly notificationsCommand: string | undefined;
+  readonly watchFiles: boolean;
+  readonly web: boolean;
+  readonly webPort: number;
+  readonly webTokenFile: string | undefined;
   readonly files: readonly string[];
   readonly readOnlyFiles: readonly string[];
 }
@@ -108,6 +126,15 @@ interface ParsedCommandLine {
   lintCommand: string | undefined;
   testCommand: string | undefined;
   editFormat: string | undefined;
+  inputHistoryFile: string | undefined;
+  chatHistoryFile: string | undefined;
+  multiline: boolean | undefined;
+  notifications: boolean | undefined;
+  notificationsCommand: string | undefined;
+  watchFiles: boolean | undefined;
+  web: boolean | undefined;
+  webPort: string | undefined;
+  webTokenFile: string | undefined;
   files: string[];
   readOnlyFiles: string[];
 }
@@ -180,6 +207,15 @@ function parseCommandLine(
     lintCommand: undefined,
     testCommand: undefined,
     editFormat: undefined,
+    inputHistoryFile: undefined,
+    chatHistoryFile: undefined,
+    multiline: undefined,
+    notifications: undefined,
+    notificationsCommand: undefined,
+    watchFiles: undefined,
+    web: undefined,
+    webPort: undefined,
+    webTokenFile: undefined,
     files: [],
     readOnlyFiles: [],
   };
@@ -210,6 +246,20 @@ function parseCommandLine(
       argument === "--no-generate-commit-messages"
     ) {
       parsed.generateCommitMessages = argument === "--generate-commit-messages";
+      continue;
+    }
+    const booleanTarget =
+      argument === "--multiline" || argument === "--no-multiline"
+        ? "multiline"
+        : argument === "--notifications" || argument === "--no-notifications"
+          ? "notifications"
+          : argument === "--watch-files" || argument === "--no-watch-files"
+            ? "watchFiles"
+            : argument === "--web" || argument === "--no-web"
+              ? "web"
+              : undefined;
+    if (booleanTarget !== undefined) {
+      parsed[booleanTarget] = !argument?.startsWith("--no-");
       continue;
     }
 
@@ -243,11 +293,21 @@ function parseCommandLine(
                   ? "testCommand"
                   : option === "--edit-format"
                     ? "editFormat"
-                    : option === "--file"
-                      ? "file"
-                      : option === "--read-only"
-                        ? "readOnlyFile"
-                        : undefined;
+                    : option === "--input-history-file"
+                      ? "inputHistoryFile"
+                      : option === "--chat-history-file"
+                        ? "chatHistoryFile"
+                        : option === "--notifications-command"
+                          ? "notificationsCommand"
+                          : option === "--web-port"
+                            ? "webPort"
+                            : option === "--web-token-file"
+                              ? "webTokenFile"
+                              : option === "--file"
+                                ? "file"
+                                : option === "--read-only"
+                                  ? "readOnlyFile"
+                                  : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
@@ -336,6 +396,16 @@ function resolveArguments(
       `Unsupported edit format: ${editFormatValue}`,
     );
   }
+  const webPortValue =
+    commandLine.webPort ??
+    environment.PATCH_WEB_PORT ??
+    configuration["web-port"]?.toString() ??
+    "0";
+  if (!/^\d+$/u.test(webPortValue) || Number(webPortValue) > 65_535) {
+    throw new BootstrapArgumentError(
+      "web-port must be an integer from 0 to 65535",
+    );
+  }
 
   return {
     configFile: commandLine.configFile ?? environment.PATCH_CONFIG,
@@ -393,6 +463,46 @@ function resolveArguments(
       environment.PATCH_TEST_CMD ??
       configuration["test-cmd"],
     editFormat: editFormat?.data,
+    inputHistoryFile:
+      commandLine.inputHistoryFile ??
+      environment.PATCH_INPUT_HISTORY_FILE ??
+      configuration["input-history-file"],
+    chatHistoryFile:
+      commandLine.chatHistoryFile ??
+      environment.PATCH_CHAT_HISTORY_FILE ??
+      configuration["chat-history-file"],
+    multiline:
+      commandLine.multiline ??
+      environmentBoolean(environment.PATCH_MULTILINE, "PATCH_MULTILINE") ??
+      configuration.multiline ??
+      false,
+    notifications:
+      commandLine.notifications ??
+      environmentBoolean(
+        environment.PATCH_NOTIFICATIONS,
+        "PATCH_NOTIFICATIONS",
+      ) ??
+      configuration.notifications ??
+      false,
+    notificationsCommand:
+      commandLine.notificationsCommand ??
+      environment.PATCH_NOTIFICATIONS_COMMAND ??
+      configuration["notifications-command"],
+    watchFiles:
+      commandLine.watchFiles ??
+      environmentBoolean(environment.PATCH_WATCH_FILES, "PATCH_WATCH_FILES") ??
+      configuration["watch-files"] ??
+      false,
+    web:
+      commandLine.web ??
+      environmentBoolean(environment.PATCH_WEB, "PATCH_WEB") ??
+      configuration.web ??
+      false,
+    webPort: Number(webPortValue),
+    webTokenFile:
+      commandLine.webTokenFile ??
+      environment.PATCH_WEB_TOKEN_FILE ??
+      configuration["web-token-file"],
     files:
       commandLine.files.length > 0
         ? [...commandLine.files]

@@ -73,7 +73,7 @@ unchanged result of the historical audit.
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
+| Configuration/package/provenance | partial | Bootstrap now stages all intended application/interface options, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with root-correction and executable interface evidence. Provider-lifetime cleanup and broader attribution/provenance evidence remain open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -533,9 +533,12 @@ strategy prompt, provider lifetime, or interface policy listed below.
 - [x] Add one composition root that runs `bootstrapConfiguration`, loads the
   `ModelCatalog`, resolves the main model, constructs its provider and strategy,
   and opens filesystem/Git adapters.
-- [ ] Route every intended config-aware option through staged bootstrap. Model,
-  file, Git, edit, and check controls are staged; histories, multiline,
-  notifications, watch, and web remain Commander-only.
+- [x] Route every intended config-aware option through staged bootstrap. Model,
+  file, Git, edit, check, history, multiline, notification, watch, and web
+  controls resolve once with YAML/environment/dotenv/CLI precedence. The CLI
+  passes that immutable result to application construction, and root-correction
+  tests prove provisional interface values do not leak. Invocation-only message,
+  editor, color, and completion controls intentionally remain CLI-only.
 - [x] Remove `unavailableProvider` from the production path; fail before input
   starts with a secret-safe, actionable configuration diagnostic.
 - [x] Add supported watcher and web startup around the concrete service.

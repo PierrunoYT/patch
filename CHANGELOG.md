@@ -15,6 +15,11 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Staged YAML, `PATCH_*`, dotenv, and CLI configuration for input/chat
+  histories, multiline input, notifications, watch mode, and the authenticated
+  local web interface, including explicit CLI disable overrides and
+  repository-root correction.
+
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the
