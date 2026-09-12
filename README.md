@@ -79,7 +79,11 @@ One-shot, piped/non-TTY, redirected-output, `--multiline` (EOF input), watch
 (including its terminal session), web, and injected-line sessions do not install
 approvers. Embedding callers must explicitly inject approval callbacks.
 Selected-file edits and configured lint/test commands retain existing behavior.
-File-mention selection and per-failure reflection prompts remain unsupported.
+An interactive session also approves paths: a model editing a file that is not
+selected, a filename the model mentions in prose, a file the context role names,
+and `/attach` media all prompt with the reason. A path you named in the command
+you just typed is not asked about again. Per-failure reflection prompts remain
+unsupported.
 
 This is not yet a usable-release or Aider-parity claim. Repository mutations are
 serialized across every session sharing a worktree, all untrusted terminal

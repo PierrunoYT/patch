@@ -171,8 +171,7 @@ dated parity audits for revision-specific evidence.
   bounded exponential retries, cancellation, context overflow, and truncation.
 - Bounded corrective reflection for malformed edits and library-level injected
   lint/test diagnostics, now also composed with post-write application checks.
-- File-mention detection with an approval hook for new or unselected paths;
-  interactive CLI approval is not composed yet.
+- File-mention detection with an approval hook for new or unselected paths.
 - Atomic model/provider/strategy switching with state transfer and removal or
   summarization of history that uses an incompatible edit format.
 - CLI one-shot `--message`, `--message-file`, and serial interactive line input.
@@ -381,6 +380,14 @@ dated parity audits for revision-specific evidence.
   opening tag is cleaned once it is complete.
 
 ### Fixed
+
+- Supplied the path-approval callback from the terminal, which nothing did. Every
+  approval that gates a path the model chose was therefore dead: an edit to an
+  unselected file was refused outright, a filename mentioned in prose was ignored,
+  and `/attach` could not succeed at all — its approver is required, and there was
+  none, so the documented command always failed. Each prompt now states its
+  reason. `/add` no longer consults the approver: the user named those paths in
+  the command they just typed, and containment and ignore rules still apply.
 
 - Refused an editor edit format the editor role has no prompts for before the
   architect requests a plan, rather than when the editor is constructed — which

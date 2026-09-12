@@ -112,7 +112,7 @@ describe("production context selection", () => {
     ).resolves.toEqual({ paths: ["b.ts"], iterations: 2 });
 
     expect(approvePath).toHaveBeenCalledTimes(1);
-    expect(approvePath).toHaveBeenCalledWith("b.ts");
+    expect(approvePath).toHaveBeenCalledWith("b.ts", "context-selection");
     expect(((await session.snapshot()) as SessionState).editablePaths).toEqual([
       "b.ts",
     ]);
@@ -182,7 +182,7 @@ describe("production context selection", () => {
     // Approval is asked for before a pass may disclose the file, so a run that
     // never converges has still approved what it read. "a.ts" was already in
     // the parent selection, so only "b.ts" is asked about.
-    expect(approvePath.mock.calls).toEqual([["b.ts"]]);
+    expect(approvePath.mock.calls).toEqual([["b.ts", "context-selection"]]);
     expect(((await session.snapshot()) as SessionState).editablePaths).toEqual([
       "a.ts",
     ]);

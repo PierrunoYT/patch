@@ -61,12 +61,16 @@ response or credential is needed.
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather
-than silently dropped.
+than silently dropped. It is not passed through path approval: the user named it
+in the command they just typed, and containment and ignore rules still apply.
 
 `/attach <path...>` is the media-only path command. It requires explicit approval
-for every contained non-ignored file, validates PNG/JPEG/WebP/PDF
-content under fixed count and byte bounds, and rejects media the current model
-cannot accept. Attachments are read-only request context, not chat history;
+for every contained non-ignored file — the terminal supplies that approver, and
+a session with no terminal has no way to answer, so `/attach` is refused there
+rather than proceeding unapproved. Unlike `/add`, whose paths the user has just
+typed, attaching sends the file's own bytes, which is what the prompt is for.
+It validates PNG/JPEG/WebP/PDF content under fixed count and byte bounds, and
+rejects media the current model cannot accept. Attachments are read-only request context, not chat history;
 `/drop <path...>` removes them and `/drop` clears all attachments.
 
 A directory selects the files beneath it and a glob selects the files it

@@ -30,6 +30,7 @@ import type { UsageReport } from "./models/usage.js";
 import { sanitizedWriter } from "./io/sanitize.js";
 import type { EditPreview } from "./edits/write-boundary.js";
 import type { ApplicationSession } from "./core/application-service.js";
+import type { PathApprovalReason } from "./core/coder-session.js";
 import type { AiWatchMode } from "./interfaces/watch-mode.js";
 import type { LocalWebServer } from "./interfaces/web-server.js";
 import { bootstrapConfiguration } from "./config/bootstrap.js";
@@ -91,6 +92,17 @@ function terminalSize(): { columns: number; rows: number } {
 function append(values: string[], option: string, value: string | undefined) {
   if (value !== undefined) values.push(option, value);
 }
+
+/** What each approval is actually asking, so a prompt is answerable. */
+const PATH_APPROVAL_LABELS: Record<PathApprovalReason, string> = {
+  "model-edit":
+    "The model wants to edit a file that is not selected; add it at repository-relative path",
+  "user-mention":
+    "Add the file you mentioned to the chat at repository-relative path",
+  "context-selection":
+    "Context selection wants to read a file at repository-relative path",
+  attach: "Send this file's contents to the model as media at relative path",
+};
 
 function bootstrapArguments(
   options: ProgramOptions,
@@ -434,6 +446,15 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                               terminal.confirm(
                                 "Run shell command at repository root (not sandboxed)",
                                 command,
+                              ),
+                            // Without this the model can never widen its own
+                            // context: an edit to an unselected file is refused
+                            // outright, a filename in prose is ignored, and
+                            // /attach cannot succeed at all.
+                            approvePath: (path, reason) =>
+                              terminal.confirm(
+                                PATH_APPROVAL_LABELS[reason],
+                                path,
                               ),
                             // Only a real terminal can hand over the keyboard, so
                             // only this startup shape offers interactive dispatch.

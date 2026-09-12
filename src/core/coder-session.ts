@@ -73,8 +73,17 @@ export interface CoderSessionOptions {
 
 export interface PathApprovalRequest {
   readonly path: string;
-  readonly reason: "user-mention" | "model-edit";
+  readonly reason: PathApprovalReason;
 }
+
+/**
+ * Why a path is being offered for approval. `model-edit` and `user-mention` come
+ * from a model's own output; `context-selection` is the context role naming a
+ * file; `attach` is media whose bytes would be sent. A path the user named in
+ * the command they just typed is not approved again.
+ */
+export type PathApprovalReason =
+  "user-mention" | "model-edit" | "context-selection" | "attach";
 
 export type PathApproval = (
   request: PathApprovalRequest,

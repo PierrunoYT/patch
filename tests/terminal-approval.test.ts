@@ -136,10 +136,12 @@ async function run(options: {
   response?: string;
   argv?: string[];
   tty?: boolean;
+  prepare?: (root: string) => Promise<void>;
 }) {
   const root = await mkdtemp(join(tmpdir(), "patch-terminal-approval-"));
   roots.push(root);
   await writeFile(join(root, "existing.txt"), "old\n");
+  await options.prepare?.(root);
   const input = Object.assign(new PassThrough(), {
     isTTY: options.tty ?? true,
   });
@@ -256,10 +258,45 @@ describe("executable program approvals with the concrete application", () => {
         createApplication: async (options) => {
           expect(options.dependencies?.authorizeWrite).toBeUndefined();
           expect(options.dependencies?.approveCommand).toBeUndefined();
+          expect(options.dependencies?.approvePath).toBeUndefined();
           throw stopped;
         },
       }).parseAsync(argv, { from: "user" }),
     ).rejects.toBe(stopped);
+  });
+
+  it.each([
+    ["yes", "Attached: pic.png"],
+    ["no", "Attaching path was not approved: pic.png"],
+  ])("gates /attach media with %j", async (answer, expected) => {
+    // A one-pixel PNG: /attach validates the signature before approving.
+    const chunk = (type: string, data: Buffer) => {
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(data.length);
+      return Buffer.concat([length, Buffer.from(type), data, Buffer.alloc(4)]);
+    };
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0])),
+      chunk("IDAT", Buffer.from([0x78, 0x9c, 0x63, 0, 0, 0, 2, 0, 1])),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+
+    const result = await run({
+      answer,
+      message: "/attach pic.png",
+      argv: ["--edit-format", "ask"],
+      prepare: (root) => writeFile(join(root, "pic.png"), png),
+    });
+
+    // A denial is raised rather than printed, so look at both. Without a wired
+    // approver neither outcome was reachable: an absent callback is a denial,
+    // and nothing supplied one, so /attach always failed.
+    const reported = `${result.output}${
+      result.error instanceof Error ? result.error.message : ""
+    }`;
+    expect(reported).toContain(expected);
+    expect(result.error === undefined).toBe(answer === "yes");
   });
 
   it("denies model commands without changing unrelated files", async () => {

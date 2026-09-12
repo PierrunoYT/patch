@@ -83,7 +83,7 @@ import type {
 } from "./application-service.js";
 import { TurnPartiallyAppliedError } from "./application-service.js";
 import { ChatSummary } from "./chat-summary.js";
-import { CoderSession } from "./coder-session.js";
+import { CoderSession, type PathApprovalReason } from "./coder-session.js";
 import { ContextSelectionConvergenceError } from "./context-selection.js";
 import { findFileMentions } from "./file-mentions.js";
 import {
@@ -106,7 +106,10 @@ export interface ConcreteApplicationDependencies {
   readonly catalog?: ModelCatalog;
   readonly provider?: ModelProvider;
   readonly createProvider?: typeof createProvider;
-  readonly approvePath?: (path: string) => boolean | Promise<boolean>;
+  readonly approvePath?: (
+    path: string,
+    reason: PathApprovalReason,
+  ) => boolean | Promise<boolean>;
   readonly authorizeWrite?: (
     request: WriteAuthorizationRequest,
   ) => boolean | Promise<boolean>;
@@ -174,7 +177,10 @@ interface ApplicationContext {
   readonly fence: readonly [string, string];
   /** Shared by every session on this worktree; see `worktree-lock.ts`. */
   readonly worktree: WorktreeMutationLock;
-  readonly approvePath?: (path: string) => boolean | Promise<boolean>;
+  readonly approvePath?: (
+    path: string,
+    reason: PathApprovalReason,
+  ) => boolean | Promise<boolean>;
   readonly authorizeWrite?: (
     request: WriteAuthorizationRequest,
   ) => boolean | Promise<boolean>;
@@ -513,10 +519,10 @@ class ConcreteApplicationSession implements ApplicationSession {
       ...(role?.messages === undefined ? {} : { messages: role.messages }),
       availablePaths: context.availablePaths,
       fence: context.fence,
-      approvePath: async ({ path }) => {
+      approvePath: async ({ path, reason }) => {
         const resolver = await SafePathResolver.create(context.root);
         await resolver.resolve(path);
-        return context.approvePath?.(path) ?? false;
+        return context.approvePath?.(path, reason) ?? false;
       },
       summarizeHistory: (messages, signal) => this.#summarize(messages, signal),
       promptCacheKeepalive: {
@@ -754,7 +760,7 @@ class ConcreteApplicationSession implements ApplicationSession {
             // permission to proceed here exactly as it is for `/add`.
             if (
               this.#context.approvePath !== undefined &&
-              !(await this.#context.approvePath(path))
+              !(await this.#context.approvePath(path, "context-selection"))
             ) {
               throw new Error(`Context selection was not approved: ${path}`);
             }
@@ -1209,16 +1215,12 @@ class ConcreteApplicationSession implements ApplicationSession {
       case "none":
         return result("");
       case "add": {
+        // Not passed through path approval: the user named these paths in the
+        // command they just typed, and containment and ignore rules still
+        // apply. Approval gates paths a model chose, and media whose bytes are
+        // sent, not a path the user is looking at as they type it.
         const paths = await selectable(effect.paths);
         await assertPathsNotIgnored(this.#context.repository, paths);
-        for (const path of paths) {
-          if (
-            !(await this.#context.approvePath?.(path)) &&
-            this.#context.approvePath !== undefined
-          ) {
-            throw new Error(`Adding path was not approved: ${path}`);
-          }
-        }
         this.#session.setSelectedPaths(
           [...new Set([...state.editablePaths, ...paths])],
           state.readOnlyPaths.filter((path) => !paths.includes(path)),
@@ -1251,7 +1253,7 @@ class ConcreteApplicationSession implements ApplicationSession {
             );
           if (
             this.#context.approvePath === undefined ||
-            !(await this.#context.approvePath(path))
+            !(await this.#context.approvePath(path, "attach"))
           ) {
             throw new Error(`Attaching path was not approved: ${path}`);
           }
