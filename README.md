@@ -126,6 +126,12 @@ extraction is verified for every shipped language from the packed tarball. An
 installed copy carries `docs/`, so the linked policies are readable offline.
 There is no published package or stable interface.
 
+Configuration for histories, multiline input, notifications, watch mode, and
+the local web interface follows the same staged YAML, environment/dotenv, and
+CLI precedence as model, Git, file, edit, and check controls. Explicit `--no-*`
+forms disable configured interface booleans, and repository-root correction
+re-resolves all of them without retaining provisional dotenv values.
+
 The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
 includes offline `/help`, which now lists commands and performs bounded search
 over installed Patch documentation without provider or network access, and

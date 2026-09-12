@@ -31,6 +31,7 @@ import type { EditPreview } from "./edits/write-boundary.js";
 import type { ApplicationSession } from "./core/application-service.js";
 import type { AiWatchMode } from "./interfaces/watch-mode.js";
 import type { LocalWebServer } from "./interfaces/web-server.js";
+import { bootstrapConfiguration } from "./config/bootstrap.js";
 
 export type ProgramDependencies = Partial<InputDependencies> & {
   readonly writeOutput?: (text: string) => void;
@@ -89,7 +90,11 @@ function append(values: string[], option: string, value: string | undefined) {
   if (value !== undefined) values.push(option, value);
 }
 
-function bootstrapArguments(options: ProgramOptions, files: readonly string[]) {
+function bootstrapArguments(
+  options: ProgramOptions,
+  files: readonly string[],
+  command: Command,
+) {
   const argv: string[] = [];
   append(argv, "--config", options.config);
   append(argv, "--env-file", options.envFile);
@@ -98,22 +103,36 @@ function bootstrapArguments(options: ProgramOptions, files: readonly string[]) {
   append(argv, "--edit-format", options.editFormat);
   append(argv, "--lint-cmd", options.lintCmd);
   append(argv, "--test-cmd", options.testCmd);
+  append(argv, "--input-history-file", options.inputHistoryFile);
+  append(argv, "--chat-history-file", options.chatHistoryFile);
+  append(argv, "--notifications-command", options.notificationsCommand);
+  append(argv, "--web-port", options.webPort);
+  append(argv, "--web-token-file", options.webTokenFile);
   append(argv, "--commit-author-name", options.commitAuthorName);
   append(argv, "--commit-committer-name", options.commitCommitterName);
   append(argv, "--commit-co-author", options.commitCoAuthor);
-  if (options.gitCommitVerify !== undefined)
+  if (command.getOptionValueSource("gitCommitVerify") === "cli")
     argv.push(
       options.gitCommitVerify
         ? "--git-commit-verify"
         : "--no-git-commit-verify",
     );
-  if (options.generateCommitMessages !== undefined)
+  if (command.getOptionValueSource("generateCommitMessages") === "cli")
     argv.push(
       options.generateCommitMessages
         ? "--generate-commit-messages"
         : "--no-generate-commit-messages",
     );
   if (options.git === false) argv.push("--no-git");
+  for (const [name, enabled, option] of [
+    ["multiline", options.multiline, "--multiline"],
+    ["notifications", options.notifications, "--notifications"],
+    ["watchFiles", options.watchFiles, "--watch-files"],
+    ["web", options.web, "--web"],
+  ] as const) {
+    if (command.getOptionValueSource(name) === "cli")
+      argv.push(enabled === true ? option : `--no-${option.slice(2)}`);
+  }
   for (const path of options.file ?? []) argv.push("--file", path);
   for (const path of options.readOnly ?? []) argv.push("--read-only", path);
   argv.push("--", ...files);
@@ -148,6 +167,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "--multiline",
         "read interactive input through EOF as one message",
       )
+      .option("--no-multiline", "disable configured multiline input")
       // Registered, but hidden from help and completion: it exists only so the
       // flag fails with its reason instead of a bare "unknown option".
       .addOption(
@@ -159,6 +179,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       .option("--editor <command>", "external editor used by Ctrl-X Ctrl-E")
       .option("--no-color", "disable ANSI color and styling")
       .option("--notifications", "notify when a response is ready")
+      .option("--no-notifications", "disable configured notifications")
       .option("--notifications-command <command>", "argv notification command")
       .option("-c, --config <path>", "configuration file")
       .option("--env-file <path>", "dotenv file")
@@ -194,10 +215,12 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       .option("--lint-cmd <command>", "configured lint command")
       .option("--test-cmd <command>", "configured test command")
       .option("--watch-files", "watch AI comments while terminal input is open")
+      .option("--no-watch-files", "disable configured file watching")
       .option(
         "--web",
         "serve the authenticated loopback HTTP/SSE API instead of terminal input",
       )
+      .option("--no-web", "disable the configured HTTP/SSE API")
       .option("--web-port <port>", "HTTP port (default: an available port)")
       .option(
         "--web-token-file <path>",
@@ -249,44 +272,44 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               "--vim is not implemented: Patch's line reader has no modal editing. Remove the flag; Ctrl-X Ctrl-E opens $EDITOR instead.",
             );
           }
+          const bootstrap = await bootstrapConfiguration({
+            argv: bootstrapArguments(options, files, self),
+            ...(dependencies.cwd === undefined
+              ? {}
+              : { cwd: dependencies.cwd }),
+            ...(dependencies.environment === undefined
+              ? {}
+              : { environment: dependencies.environment }),
+          });
+          const configured = bootstrap.arguments;
           if (
-            options.web !== true &&
-            (options.webPort !== undefined ||
-              options.webTokenFile !== undefined)
+            configured.web !== true &&
+            (configured.webPort !== 0 || configured.webTokenFile !== undefined)
           ) {
-            throw new Error("--web-port and --web-token-file require --web");
+            throw new Error("web-port and web-token-file require web");
           }
           if (
-            (options.web === true || options.watchFiles === true) &&
+            (configured.web === true || configured.watchFiles === true) &&
             (options.message !== undefined || options.messageFile !== undefined)
           ) {
             throw new Error(
               "Watcher/web startup cannot be combined with one-shot input",
             );
           }
-          if (options.web === true && options.watchFiles === true) {
-            throw new Error("--web and --watch-files cannot be combined");
+          if (configured.web === true && configured.watchFiles === true) {
+            throw new Error("web and watch-files cannot be combined");
           }
-          const port = Number(options.webPort ?? "0");
-          if (
-            options.webPort !== undefined &&
-            (!/^\d+$/u.test(options.webPort) ||
-              !Number.isInteger(port) ||
-              port < 0 ||
-              port > 65535)
-          ) {
-            throw new Error("--web-port must be an integer from 0 to 65535");
-          }
+          const port = configured.webPort;
           let token: string | undefined;
-          if (options.web === true) {
-            if (options.webTokenFile === undefined)
-              throw new Error("--web requires --web-token-file");
+          if (configured.web === true) {
+            if (configured.webTokenFile === undefined)
+              throw new Error("web requires web-token-file");
             try {
               token = (
                 await readFile(
                   resolve(
                     dependencies.cwd ?? process.cwd(),
-                    options.webTokenFile,
+                    configured.webTokenFile,
                   ),
                   "utf8",
                 )
@@ -300,12 +323,12 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               );
           }
           const history = new TerminalHistory({
-            ...(options.inputHistoryFile === undefined
+            ...(configured.inputHistoryFile === undefined
               ? {}
-              : { input: options.inputHistoryFile }),
-            ...(options.chatHistoryFile === undefined
+              : { input: configured.inputHistoryFile }),
+            ...(configured.chatHistoryFile === undefined
               ? {}
-              : { chat: options.chatHistoryFile }),
+              : { chat: configured.chatHistoryFile }),
           });
           const write =
             dependencies.writeOutput ??
@@ -324,9 +347,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             dependencies.lines === undefined &&
             options.message === undefined &&
             options.messageFile === undefined &&
-            options.multiline !== true &&
-            options.web !== true &&
-            options.watchFiles !== true
+            configured.multiline !== true &&
+            configured.web !== true &&
+            configured.watchFiles !== true
               ? new TerminalInput(
                   input,
                   write,
@@ -357,7 +380,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                     },
                     // Recall is opt-in: without a configured history file there is
                     // nothing to read, and nothing is written either.
-                    ...(options.inputHistoryFile === undefined
+                    ...(configured.inputHistoryFile === undefined
                       ? {}
                       : { history: await history.readInput() }),
                     editor:
@@ -378,7 +401,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                     dependencies.createApplication ??
                     ConcreteApplicationService.create
                   )({
-                    argv: bootstrapArguments(options, files),
+                    bootstrap,
                     ...(dependencies.cwd === undefined
                       ? {}
                       : { cwd: dependencies.cwd }),
@@ -427,7 +450,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   })
                 : undefined;
             signal.throwIfAborted();
-            if (options.web === true) {
+            if (configured.web === true) {
               if (application === undefined || token === undefined)
                 throw new Error("Web startup requires an application service");
               const { LocalWebServer } =
@@ -453,7 +476,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               principal: "terminal",
               sessionId: "terminal",
             });
-            if (options.watchFiles === true) {
+            if (configured.watchFiles === true) {
               if (application === undefined || session === undefined)
                 throw new Error(
                   "Watch startup requires an application session",
@@ -516,124 +539,131 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               });
               await watcher.start();
             }
-            await runInput(options, {
-              signal,
-              handleMessage: async (message) => {
-                const renderOptions = {
-                  ...(options.color === false ? { color: false } : {}),
-                  environment: dependencies.environment ?? process.env,
-                  isTTY: dependencies.outputIsTTY ?? process.stdout.isTTY,
-                };
-                const markdown = new MarkdownStream(write, renderOptions);
-                const response =
-                  dependencies.handleMessage === undefined
-                    ? await session?.submit(message, {
-                        signal,
-                        emit: (event) => {
-                          if (
-                            event.type === "text-delta" &&
-                            typeof event.data === "object" &&
-                            event.data !== null &&
-                            "text" in event.data
-                          ) {
-                            markdown.write(String(event.data.text));
-                          } else if (event.type === "commit-message-usage") {
-                            markdown.end();
-                            write(
-                              `Commit message: ${renderUsage(event.data as UsageReport, undefined, renderOptions)}\n`,
-                            );
-                          } else if (event.type === "edit-preview") {
-                            markdown.end();
-                            write(
-                              `${renderDiff(
-                                renderEditPreview(event.data as EditPreview),
-                                renderOptions,
-                              )}\n`,
-                            );
-                          } else if (
-                            event.type === "command-complete" ||
-                            event.type === "lint-complete" ||
-                            event.type === "test-complete"
-                          ) {
-                            // Approving or configuring a command and then seeing
-                            // nothing hides both its output and its status.
-                            markdown.end();
-                            write(
-                              `${renderCommandResult(
-                                event.data as ModelCommandResult,
-                                renderOptions,
-                              )}\n`,
-                            );
-                          }
-                        },
-                      })
-                    : await dependencies.handleMessage(message);
-                const turn =
-                  typeof response === "object" && response !== null
-                    ? (response as {
-                        usage?: UsageReport;
-                        sessionCost?: number;
-                        kind?: "turn" | "command";
-                      })
-                    : undefined;
-                const turnKind = turn?.kind;
-                if (dependencies.handleMessage === undefined) {
-                  markdown.end();
-                  write("\n");
-                  if (turn?.usage !== undefined) {
-                    write(
-                      `${renderUsage(turn.usage, turn.sessionCost, renderOptions)}\n`,
-                    );
-                  }
-                }
-                // A slash command answers immediately; only a provider turn is
-                // worth interrupting the user for. A notification command that
-                // fails is reported, never allowed to end the input loop.
-                if (options.notifications === true && turnKind !== "command") {
-                  try {
-                    await notifyUser(
-                      options.notificationsCommand === undefined
-                        ? {}
-                        : { command: options.notificationsCommand },
-                      dependencies.writeOutput === undefined
-                        ? {}
-                        : { write: dependencies.writeOutput },
-                    );
-                  } catch (error) {
-                    write(
-                      `Notification failed: ${
-                        error instanceof Error ? error.message : String(error)
-                      }\n`,
-                    );
-                  }
-                }
-                if (typeof response === "string") return response;
-                if (
-                  typeof response === "object" &&
-                  response !== null &&
-                  "response" in response &&
-                  typeof response.response === "string"
-                ) {
-                  return {
-                    response: response.response,
-                    ...("exit" in response && response.exit === true
-                      ? { exit: true }
-                      : {}),
+            await runInput(
+              { ...options, multiline: configured.multiline },
+              {
+                signal,
+                handleMessage: async (message) => {
+                  const renderOptions = {
+                    ...(options.color === false ? { color: false } : {}),
+                    environment: dependencies.environment ?? process.env,
+                    isTTY: dependencies.outputIsTTY ?? process.stdout.isTTY,
                   };
-                }
-                return undefined;
-              },
-              ...(terminal !== undefined
-                ? { lines: terminal }
-                : dependencies.lines === undefined
+                  const markdown = new MarkdownStream(write, renderOptions);
+                  const response =
+                    dependencies.handleMessage === undefined
+                      ? await session?.submit(message, {
+                          signal,
+                          emit: (event) => {
+                            if (
+                              event.type === "text-delta" &&
+                              typeof event.data === "object" &&
+                              event.data !== null &&
+                              "text" in event.data
+                            ) {
+                              markdown.write(String(event.data.text));
+                            } else if (event.type === "commit-message-usage") {
+                              markdown.end();
+                              write(
+                                `Commit message: ${renderUsage(event.data as UsageReport, undefined, renderOptions)}\n`,
+                              );
+                            } else if (event.type === "edit-preview") {
+                              markdown.end();
+                              write(
+                                `${renderDiff(
+                                  renderEditPreview(event.data as EditPreview),
+                                  renderOptions,
+                                )}\n`,
+                              );
+                            } else if (
+                              event.type === "command-complete" ||
+                              event.type === "lint-complete" ||
+                              event.type === "test-complete"
+                            ) {
+                              // Approving or configuring a command and then seeing
+                              // nothing hides both its output and its status.
+                              markdown.end();
+                              write(
+                                `${renderCommandResult(
+                                  event.data as ModelCommandResult,
+                                  renderOptions,
+                                )}\n`,
+                              );
+                            }
+                          },
+                        })
+                      : await dependencies.handleMessage(message);
+                  const turn =
+                    typeof response === "object" && response !== null
+                      ? (response as {
+                          usage?: UsageReport;
+                          sessionCost?: number;
+                          kind?: "turn" | "command";
+                        })
+                      : undefined;
+                  const turnKind = turn?.kind;
+                  if (dependencies.handleMessage === undefined) {
+                    markdown.end();
+                    write("\n");
+                    if (turn?.usage !== undefined) {
+                      write(
+                        `${renderUsage(turn.usage, turn.sessionCost, renderOptions)}\n`,
+                      );
+                    }
+                  }
+                  // A slash command answers immediately; only a provider turn is
+                  // worth interrupting the user for. A notification command that
+                  // fails is reported, never allowed to end the input loop.
+                  if (
+                    configured.notifications === true &&
+                    turnKind !== "command"
+                  ) {
+                    try {
+                      await notifyUser(
+                        configured.notificationsCommand === undefined
+                          ? {}
+                          : { command: configured.notificationsCommand },
+                        dependencies.writeOutput === undefined
+                          ? {}
+                          : { write: dependencies.writeOutput },
+                      );
+                    } catch (error) {
+                      write(
+                        `Notification failed: ${
+                          error instanceof Error ? error.message : String(error)
+                        }\n`,
+                      );
+                    }
+                  }
+                  if (typeof response === "string") return response;
+                  if (
+                    typeof response === "object" &&
+                    response !== null &&
+                    "response" in response &&
+                    typeof response.response === "string"
+                  ) {
+                    return {
+                      response: response.response,
+                      ...("exit" in response && response.exit === true
+                        ? { exit: true }
+                        : {}),
+                    };
+                  }
+                  return undefined;
+                },
+                ...(terminal !== undefined
+                  ? { lines: terminal }
+                  : dependencies.lines === undefined
+                    ? {}
+                    : { lines: dependencies.lines }),
+                ...(dependencies.readMessageFile === undefined
                   ? {}
-                  : { lines: dependencies.lines }),
-              ...(dependencies.readMessageFile === undefined
-                ? {}
-                : { readMessageFile: dependencies.readMessageFile }),
-              recordInput: (message) => history.appendInput(message),
-              recordChat: (role, message) => history.appendChat(role, message),
-            });
+                  : { readMessageFile: dependencies.readMessageFile }),
+                recordInput: (message) => history.appendInput(message),
+                recordChat: (role, message) =>
+                  history.appendChat(role, message),
+              },
+            );
           } catch (error) {
             if (!signal.aborted) throw error;
           } finally {

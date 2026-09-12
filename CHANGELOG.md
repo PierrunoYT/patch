@@ -38,6 +38,10 @@ dated parity audits for revision-specific evidence.
 - A machine-readable ledger for all identified direct Aider source/resource
   derivations, with a full-suite drift check for local/upstream paths, the pinned
   revision, modification notices, Apache-2.0 evidence, and packed documentation.
+- Staged YAML, `PATCH_*`, dotenv, and CLI configuration for input/chat
+  histories, multiline input, notifications, watch mode, and the authenticated
+  local web interface, including explicit CLI disable overrides and
+  repository-root correction.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

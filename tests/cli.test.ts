@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -43,6 +43,28 @@ describe("CLI", () => {
     expect(await readFile(chat, "utf8")).toBe(
       "## User\n\nhello\n\n## Assistant\n\nreply to hello\n\n",
     );
+  });
+
+  it("uses staged YAML history and notification settings in the executable path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-cli-configured-"));
+    const input = join(root, "input.jsonl");
+    const chat = join(root, "chat.md");
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      `input-history-file: ${input}\nchat-history-file: ${chat}\nnotifications: true\n`,
+    );
+    let output = "";
+
+    await createProgram({
+      cwd: root,
+      environment: {},
+      handleMessage: (message) => `reply to ${message}`,
+      writeOutput: (text) => (output += text),
+    }).parseAsync(["--message", "configured"], { from: "user" });
+
+    expect(await readFile(input, "utf8")).toBe('"configured"\n');
+    expect(await readFile(chat, "utf8")).toContain("reply to configured");
+    expect(output).toBe("\u0007");
   });
 
   it("runs one-shot text and message-file input exactly once", async () => {

@@ -183,6 +183,83 @@ describe("bootstrapConfiguration", () => {
     expect(commandLine.arguments.model).toBe("cli-model");
   });
 
+  it("stages history, multiline, notification, watch, and web options with explicit disable overrides", async () => {
+    const root = await temporaryDirectory();
+    await initializeRepository(root);
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      [
+        "input-history-file: yaml-input.jsonl",
+        "chat-history-file: yaml-chat.md",
+        "multiline: true",
+        "notifications: true",
+        "notifications-command: yaml-notify",
+        "watch-files: true",
+        "web: true",
+        "web-port: 8123",
+        "web-token-file: yaml-token",
+      ].join("\n"),
+    );
+    await writeFile(
+      join(root, ".env"),
+      [
+        "PATCH_INPUT_HISTORY_FILE=dotenv-input.jsonl",
+        "PATCH_MULTILINE=false",
+        "PATCH_NOTIFICATIONS_COMMAND=dotenv-notify",
+        "PATCH_WATCH_FILES=false",
+        "PATCH_WEB_PORT=9123",
+      ].join("\n"),
+    );
+
+    const result = await bootstrapConfiguration({
+      cwd: root,
+      home: root,
+      environment: {
+        PATCH_CHAT_HISTORY_FILE: "environment-chat.md",
+        PATCH_NOTIFICATIONS: "false",
+      },
+      argv: [
+        "--input-history-file",
+        "cli-input.jsonl",
+        "--multiline",
+        "--notifications",
+        "--no-watch-files",
+        "--no-web",
+      ],
+    });
+
+    expect(result.arguments).toMatchObject({
+      inputHistoryFile: "cli-input.jsonl",
+      chatHistoryFile: "environment-chat.md",
+      multiline: true,
+      notifications: true,
+      notificationsCommand: "dotenv-notify",
+      watchFiles: false,
+      web: false,
+      webPort: 9123,
+      webTokenFile: "yaml-token",
+    });
+  });
+
+  it("rejects malformed interface environment values without opening an interface", async () => {
+    const root = await temporaryDirectory();
+    await initializeRepository(root);
+    await expect(
+      bootstrapConfiguration({
+        cwd: root,
+        home: root,
+        environment: { PATCH_WEB_PORT: "-1" },
+      }),
+    ).rejects.toThrow("web-port must be an integer from 0 to 65535");
+    await expect(
+      bootstrapConfiguration({
+        cwd: root,
+        home: root,
+        environment: { PATCH_WATCH_FILES: "sometimes" },
+      }),
+    ).rejects.toThrow("PATCH_WATCH_FILES must be");
+  });
+
   it("resolves explicit lint and test commands without adding defaults", async () => {
     const parent = await temporaryDirectory();
     const home = join(parent, "home");
@@ -249,9 +326,12 @@ describe("bootstrapConfiguration", () => {
     );
     await writeFile(
       join(selectedRepository, ".env"),
-      "PATCH_MODEL=selected-model\n",
+      "PATCH_MODEL=selected-model\nPATCH_MULTILINE=true\n",
     );
-    await writeFile(join(selectedRepository, ".patch.conf.yml"), "model: x\n");
+    await writeFile(
+      join(selectedRepository, ".patch.conf.yml"),
+      "model: x\nnotifications: true\ninput-history-file: selected.jsonl\n",
+    );
 
     const result = await bootstrapConfiguration({
       argv: ["--file", selectedFile],
@@ -268,6 +348,9 @@ describe("bootstrapConfiguration", () => {
       dotenvFiles: [join(selectedRepository, ".env")],
       arguments: {
         model: "selected-model",
+        multiline: true,
+        notifications: true,
+        inputHistoryFile: "selected.jsonl",
         files: [selectedFile],
       },
     });

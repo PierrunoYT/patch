@@ -112,6 +112,8 @@ export interface ConcreteApplicationDependencies {
 }
 
 export interface ConcreteApplicationOptions extends BootstrapOptions {
+  /** A staged result owned by the interface, avoiding a second divergent pass. */
+  readonly bootstrap?: ConfigurationBootstrap;
   readonly dependencies?: ConcreteApplicationDependencies;
 }
 
@@ -1414,7 +1416,8 @@ export class ConcreteApplicationService implements ApplicationService {
   static async create(
     options: ConcreteApplicationOptions = {},
   ): Promise<ConcreteApplicationService> {
-    const bootstrap = await bootstrapConfiguration(options);
+    const bootstrap =
+      options.bootstrap ?? (await bootstrapConfiguration(options));
     if (bootstrap.arguments.model === undefined) {
       throw new Error(
         "No model is configured. Pass --model, set PATCH_MODEL, or add model to .patch.conf.yml.",

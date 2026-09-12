@@ -73,7 +73,7 @@ unchanged result of the historical audit.
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial with direct-port evidence | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. A machine-readable ledger plus CI drift scan verifies every identified direct Aider source/resource path, revision, modification statement, and Apache line; packed-package evidence includes the ledger. Config-aware option breadth and provider-lifetime cleanup remain open. |
+| Configuration/package/provenance | partial with direct-port evidence | Bootstrap now stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, and a machine-readable direct-derivation ledger with CI drift scanning are wired. Provider-lifetime cleanup remains open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -550,9 +550,12 @@ strategy prompt, provider lifetime, or interface policy listed below.
 - [x] Add one composition root that runs `bootstrapConfiguration`, loads the
   `ModelCatalog`, resolves the main model, constructs its provider and strategy,
   and opens filesystem/Git adapters.
-- [ ] Route every intended config-aware option through staged bootstrap. Model,
-  file, Git, edit, and check controls are staged; histories, multiline,
-  notifications, watch, and web remain Commander-only.
+- [x] Route every intended config-aware option through staged bootstrap. Model,
+  file, Git, edit, check, history, multiline, notification, watch, and web
+  controls resolve once with YAML/environment/dotenv/CLI precedence. The CLI
+  passes that immutable result to application construction, and root-correction
+  tests prove provisional interface values do not leak. Invocation-only message,
+  editor, color, and completion controls intentionally remain CLI-only.
 - [x] Remove `unavailableProvider` from the production path; fail before input
   starts with a secret-safe, actionable configuration diagnostic.
 - [x] Add supported watcher and web startup around the concrete service.

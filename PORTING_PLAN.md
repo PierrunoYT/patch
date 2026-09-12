@@ -325,6 +325,12 @@ before adding it; the table records candidates, not pre-approved dependencies.
 | Cache | mtime-keyed files first | Avoid `better-sqlite3` packaging until persistent-cache demands justify it. |
 | Browser later | Fastify, SSE/WebSocket, Playwright | Do not port Streamlit mechanics. |
 
+The staged parser now owns every intended application/interface configuration
+control, including histories, multiline input, notifications, watch, and web.
+The executable resolves one immutable bootstrap result before opening an
+interface and shares it with the application composition root; invocation-only
+message/editor/color/completion controls remain CLI-only.
+
 Resolve packaged resources with `import.meta.url`, never `process.cwd()`. Build
 ESM, emit declarations and source maps, expose a `bin` entry, and verify the
 packed tarball from a clean temporary project.
