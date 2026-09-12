@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AskEditStrategy,
@@ -22,6 +22,8 @@ const turn = (text: string, reason: "stop" | "length" = "stop") => ({
     { type: "finish" as const, reason },
   ],
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("capability-aware context", () => {
   it("adds prompt-cache boundaries only when the model supports them", () => {
@@ -80,6 +82,120 @@ describe("capability-aware context", () => {
       keepPromptCacheAlive(provider, model(), request, 2),
     ).resolves.toBe(0);
     expect(provider.requests).toHaveLength(2);
+  });
+
+  it("schedules only the marked prefix and cleans up with the session", async () => {
+    vi.useFakeTimers();
+    const provider = new FakeProvider([turn("answer"), turn(""), turn("")]);
+    const session = new CoderSession({
+      config: { root: "/repo", model: model({ promptCaching: true }) },
+      provider,
+      strategy: new AskEditStrategy(),
+      promptCacheKeepalive: { pings: 2, intervalMs: 1_000 },
+    });
+    await session.runTurn("private current turn", {
+      prompt: {
+        system: [{ role: "system", content: "stable prefix" }],
+        reminder: [{ role: "system", content: "private reminder" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(provider.requests[1]).toMatchObject({
+      maxOutputTokens: 1,
+      messages: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "text",
+              text: "stable prefix",
+              cacheControl: { type: "ephemeral" },
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(provider.requests[1])).not.toContain(
+      "private current turn",
+    );
+    expect(JSON.stringify(provider.requests[1])).not.toContain(
+      "private reminder",
+    );
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(provider.requests).toHaveLength(3);
+    session.close();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(provider.requests).toHaveLength(3);
+  });
+
+  it("does not schedule without capability, opt-in pings, or a cache boundary", async () => {
+    vi.useFakeTimers();
+    const cases = [
+      { capabilities: {}, pings: 1, prompt: { system: [] } },
+      {
+        capabilities: { promptCaching: true },
+        pings: 0,
+        prompt: { system: [{ role: "system" as const, content: "stable" }] },
+      },
+      {
+        capabilities: { promptCaching: true },
+        pings: 1,
+        prompt: { system: [] },
+      },
+    ];
+    for (const item of cases) {
+      const provider = new FakeProvider([turn("answer")]);
+      const session = new CoderSession({
+        config: { root: "/repo", model: model(item.capabilities) },
+        provider,
+        strategy: new AskEditStrategy(),
+        promptCacheKeepalive: { pings: item.pings, intervalMs: 1_000 },
+      });
+      await session.runTurn("current", { prompt: item.prompt });
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(provider.requests).toHaveLength(1);
+      session.close();
+    }
+  });
+
+  it("isolates scheduled provider failures and remains bounded", async () => {
+    vi.useFakeTimers();
+    const provider = new FakeProvider([
+      turn("answer"),
+      {
+        actions: [
+          {
+            type: "error",
+            kind: "provider",
+            message: "private provider detail",
+            retryable: false,
+          },
+        ],
+      },
+      turn(""),
+    ]);
+    const session = new CoderSession({
+      config: { root: "/repo", model: model({ promptCaching: true }) },
+      provider,
+      strategy: new AskEditStrategy(),
+      promptCacheKeepalive: { pings: 2, intervalMs: 1_000 },
+    });
+
+    await expect(
+      session.runTurn("current", {
+        prompt: { system: [{ role: "system", content: "stable" }] },
+      }),
+    ).resolves.toMatchObject({ response: "answer" });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(provider.requests).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(provider.requests).toHaveLength(3);
+    expect(session.snapshot().messages).not.toContainEqual(
+      expect.objectContaining({ content: expect.stringContaining("private") }),
+    );
+    session.close();
   });
 
   it("stops cache warming on cancellation and surfaces provider failures", async () => {

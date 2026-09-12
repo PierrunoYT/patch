@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired. Provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired. Provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup; editor/media workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
@@ -772,9 +772,14 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
 - [ ] Integrate context convergence with forced repository-map refresh, expanded
   initial map budget, complete replacement of selected files, and relevant
   identifier hints.
-- [ ] Schedule prompt-cache keepalive using only the cacheable prefix and
-  verify retry/cancellation behavior. Cache-boundary markers are already wired;
-  the keepalive helper is not.
+- [x] Schedule prompt-cache keepalive using only the cacheable prefix and
+  verify failure/cancellation behavior. CLI, environment, and YAML expose a
+  zero-through-ten ping opt-in defaulting to zero. Capable sessions replace the
+  schedule on each accepted prompt, wait 295 seconds between one-token requests,
+  stop at the final marker, swallow safe background failures, and abort timers
+  and in-flight requests on replacement, switch, and session/application close.
+  Deterministic fake-timer tests prove executable propagation, prefix exclusion,
+  bounds, capability/opt-in/marker gating, and cleanup.
 - [ ] Complete repeated assistant-prefill continuation and integrate contained,
   size-limited image/PDF loading. Bounded continuation and DeepSeek prefix
   normalization are wired; repeated-prefix accumulation and media loading remain.

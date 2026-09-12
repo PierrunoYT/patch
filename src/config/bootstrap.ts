@@ -40,6 +40,7 @@ const ConfigurationFileSchema = z
     git: z.boolean().optional(),
     "git-commit-verify": z.boolean().optional(),
     "generate-commit-messages": z.boolean().optional(),
+    "cache-keepalive-pings": z.number().int().min(0).max(10).optional(),
     "commit-author-name": CommitIdentitySchema.optional(),
     "commit-committer-name": CommitIdentitySchema.optional(),
     "commit-co-author": CommitIdentitySchema.optional(),
@@ -63,6 +64,7 @@ export interface BootstrapArguments {
   readonly git: boolean;
   readonly gitCommitVerify: boolean;
   readonly generateCommitMessages: boolean;
+  readonly cacheKeepalivePings: number;
   readonly commitAuthorName: string | undefined;
   readonly commitCommitterName: string | undefined;
   readonly commitCoAuthor: string | undefined;
@@ -101,6 +103,7 @@ interface ParsedCommandLine {
   git: boolean | undefined;
   gitCommitVerify: boolean | undefined;
   generateCommitMessages: boolean | undefined;
+  cacheKeepalivePings: string | undefined;
   commitAuthorName: string | undefined;
   commitCommitterName: string | undefined;
   commitCoAuthor: string | undefined;
@@ -173,6 +176,7 @@ function parseCommandLine(
     git: undefined,
     gitCommitVerify: undefined,
     generateCommitMessages: undefined,
+    cacheKeepalivePings: undefined,
     commitAuthorName: undefined,
     commitCommitterName: undefined,
     commitCoAuthor: undefined,
@@ -237,17 +241,19 @@ function parseCommandLine(
             ? "encoding"
             : option === "--model"
               ? "model"
-              : option === "--lint-cmd"
-                ? "lintCommand"
-                : option === "--test-cmd"
-                  ? "testCommand"
-                  : option === "--edit-format"
-                    ? "editFormat"
-                    : option === "--file"
-                      ? "file"
-                      : option === "--read-only"
-                        ? "readOnlyFile"
-                        : undefined;
+              : option === "--cache-keepalive-pings"
+                ? "cacheKeepalivePings"
+                : option === "--lint-cmd"
+                  ? "lintCommand"
+                  : option === "--test-cmd"
+                    ? "testCommand"
+                    : option === "--edit-format"
+                      ? "editFormat"
+                      : option === "--file"
+                        ? "file"
+                        : option === "--read-only"
+                          ? "readOnlyFile"
+                          : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
@@ -336,6 +342,21 @@ function resolveArguments(
       `Unsupported edit format: ${editFormatValue}`,
     );
   }
+  const cacheKeepaliveValue =
+    commandLine.cacheKeepalivePings ??
+    environment.PATCH_CACHE_KEEPALIVE_PINGS ??
+    configuration["cache-keepalive-pings"] ??
+    0;
+  const cacheKeepalivePings = Number(cacheKeepaliveValue);
+  if (
+    !Number.isInteger(cacheKeepalivePings) ||
+    cacheKeepalivePings < 0 ||
+    cacheKeepalivePings > 10
+  ) {
+    throw new BootstrapArgumentError(
+      "cache-keepalive-pings must be an integer from 0 through 10",
+    );
+  }
 
   return {
     configFile: commandLine.configFile ?? environment.PATCH_CONFIG,
@@ -365,6 +386,7 @@ function resolveArguments(
       ) ??
       configuration["generate-commit-messages"] ??
       false,
+    cacheKeepalivePings,
     commitAuthorName: identity(
       commandLine.commitAuthorName ??
         environment.PATCH_COMMIT_AUTHOR_NAME ??

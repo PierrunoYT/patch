@@ -576,10 +576,12 @@ evidence is not claimed until that matrix completes on the pushed revision.
   library helper exists but is not constructed by `ApplicationService`.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
-- [ ] Complete cache/continuation/media integration. Prompt-cache boundaries
-  and bounded prefill are wired, including DeepSeek prefix normalization, but
-  keepalive is unscheduled and repeated truncations accumulate duplicate
-  prefixes. Media remains a helper-only context shape.
+- [ ] Complete continuation/media integration. Prompt-cache boundaries and
+  opt-in keepalive are production-wired: only the marked prefix is refreshed at
+  295-second intervals, pings cap at ten, and session shutdown cancels timers and
+  in-flight refreshes. Bounded prefill, including DeepSeek prefix normalization,
+  remains incomplete because repeated truncations accumulate duplicate prefixes.
+  Media remains a helper-only context shape.
 
 **Exit (not met):** advanced helpers are not advertised as CLI modes. The six
 constructed formats still need independent pinned golden/property evidence and
