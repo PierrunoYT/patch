@@ -238,8 +238,10 @@ clients, not public or multi-tenant hosting.
 
 The internal editor role is production-wired for architect handoff: it uses the
 configured editor model/parser with editor-only prompts, no repository map, no
-shell commands, and fresh history. Architect acceptance/handoff and context
-convergence remain library-level contracts, not constructed CLI modes.
+shell commands, and fresh history. `ApplicationSession.runArchitect` now obtains
+a read-only proposal, requires an explicit acceptance callback, then performs
+that handoff and reconciles cost, commit, selected paths, and final architect
+history. Context convergence remains unintegrated.
 Assistant-prefill continuation is reached inside production `CoderSession` for
 capable models but is not wire-compatible for all advertised routes.
 `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore not

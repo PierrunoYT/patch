@@ -56,8 +56,9 @@ controls. The concrete application constructs the main provider/session and
 resolves the active main model's weak model when compacting long history, so a
 model switch also changes subsequent summarization. The internal editor path now
 constructs the selected editor provider and parser on demand with fresh history,
-current selected paths, and the editor model's capabilities; full architect
-handoff remains separate. Generated commit-message role selection is unchanged.
+current selected paths, and the editor model's capabilities. Architect handoff
+uses that path only after explicit acceptance and transfers usage/commit state
+back to the main session. Generated commit-message role selection is unchanged.
 
 ## Token counting
 

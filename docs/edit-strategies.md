@@ -27,6 +27,12 @@ the selected editor model/capabilities, no repository map or prior history, and
 an enforced no-shell policy. Parsing, unique-match resolution, authorization,
 and transactional writes remain the same production path as an ordinary turn.
 
+The architect remains a private read-only strategy with the pinned architect
+system prompt. `ApplicationSession.runArchitect` supplies current history,
+selected files, and repository context, requires explicit acceptance of its
+proposal, and only then invokes the fresh editor. No architect output is parsed
+as edits or shell commands.
+
 ## Ask
 
 `AskEditStrategy` ports aider's

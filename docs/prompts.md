@@ -30,6 +30,11 @@ with the terse edit-only role and remove shell, rename, and conversational
 go-ahead guidance. Production additionally rejects any parsed editor shell
 block rather than relying on prompting alone.
 
+The private architect resource ports `architect_prompts.py`: it asks for a
+concise, complete, unambiguous plan for an editor and forbids whole updated
+functions/files. It has no edit reminder or shell policy, and production always
+runs it read-only before presenting the proposal for acceptance.
+
 ## Fence selection
 
 `selectFence()` ports the ordered candidates and line-prefix collision check

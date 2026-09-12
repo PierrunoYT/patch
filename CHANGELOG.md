@@ -54,6 +54,10 @@ dated parity audits for revision-specific evidence.
   histories, multiline input, notifications, watch mode, and the authenticated
   local web interface, including explicit CLI disable overrides and
   repository-root correction.
+- Application-level architect proposal and editor handoff with explicit user
+  acceptance. The architect is read-only, denial never constructs an editor,
+  accepted edits use a fresh editor, and selected paths, usage cost, commit
+  ownership, cancellation, and final architect history return to the parent.
 - A production internal editor role using pinned editor-specific whole-file,
   SEARCH/REPLACE, or fenced SEARCH/REPLACE prompts. Each invocation constructs
   fresh history with the configured editor model/capabilities, current approved

@@ -15,6 +15,8 @@
   editFormat: diff
   editorModel: test/editor-model
   editorEditFormat: diff
+  inputCostPerMillion: 1
+  outputCostPerMillion: 1
   useRepoMap: true
   capabilities:
     streaming: true
@@ -25,6 +27,8 @@
   provider: openai
   editFormat: diff
   useRepoMap: true
+  inputCostPerMillion: 1
+  outputCostPerMillion: 1
   capabilities:
     streaming: true
     systemRole: true
