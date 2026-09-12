@@ -45,11 +45,18 @@ from the provisional repository while the application uses the selected one.
 
 The bootstrap parser recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 `--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
-repeated `--file`, repeated `--read-only`, and positional editable paths.
+`--cache-keepalive-pings`, repeated `--file`, repeated `--read-only`, and
+positional editable paths.
 The executable Commander surface exposes `--no-git`, not a positive `--git`
 flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
-`PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, and `PATCH_TEST_CMD`.
+`PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, `PATCH_TEST_CMD`, and
+`PATCH_CACHE_KEEPALIVE_PINGS`.
+
+Prompt-cache keepalive is an explicit cost-bearing opt-in. The CLI/YAML key is
+`cache-keepalive-pings`; values are integers from zero through ten and default
+to zero. Models/providers without prompt-cache capability ignore a positive
+value. See [provider cache lifecycle](providers.md#capability-aware-context-and-continuation).
 
 History and interface controls are also staged: `input-history-file`,
 `chat-history-file`, `multiline`, `notifications`, `notifications-command`,

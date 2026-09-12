@@ -31,6 +31,7 @@ import {
 } from "../providers/events.js";
 import { ChatChunks } from "./chat-chunks.js";
 import { findFileMentions } from "./file-mentions.js";
+import { cacheablePrefix, keepPromptCacheAlive } from "./prompt-cache.js";
 import { ReasoningTagSplitter, removeReasoningContent } from "./reasoning.js";
 import {
   ChatMessageSchema,
@@ -64,6 +65,10 @@ export interface CoderSessionOptions {
     messages: readonly ChatMessage[],
     signal?: AbortSignal,
   ) => readonly ChatMessage[] | Promise<readonly ChatMessage[]>;
+  readonly promptCacheKeepalive?: {
+    readonly pings: number;
+    readonly intervalMs?: number;
+  };
 }
 
 export interface PathApprovalRequest {
@@ -326,6 +331,10 @@ export class CoderSession {
   readonly #approvePath: PathApproval | undefined;
   readonly #tokenCounter: MessageTokenCounter;
   readonly #summarizeHistory: CoderSessionOptions["summarizeHistory"];
+  readonly #promptCachePings: number;
+  readonly #promptCacheIntervalMs: number;
+  #promptCacheTimer: ReturnType<typeof setTimeout> | undefined;
+  #promptCacheAbort: AbortController | undefined;
   #state: SessionState;
   #nextTurnId = 1;
   #activeTurn: PreparedTurn | undefined;
@@ -365,6 +374,21 @@ export class CoderSession {
       options.tokenCounter ??
       ((messages, model) => countMessageTokens(messages, model).tokens);
     this.#summarizeHistory = options.summarizeHistory;
+    this.#promptCachePings = options.promptCacheKeepalive?.pings ?? 0;
+    this.#promptCacheIntervalMs =
+      options.promptCacheKeepalive?.intervalMs ?? 295_000;
+    if (
+      !Number.isInteger(this.#promptCachePings) ||
+      this.#promptCachePings < 0 ||
+      this.#promptCachePings > 10 ||
+      !Number.isInteger(this.#promptCacheIntervalMs) ||
+      this.#promptCacheIntervalMs < 1_000 ||
+      this.#promptCacheIntervalMs > 3_600_000
+    ) {
+      throw new RangeError(
+        "Prompt cache keepalive configuration is out of bounds",
+      );
+    }
     this.#state = SessionStateSchema.parse({
       config: this.config,
       phase: "waiting",
@@ -436,6 +460,7 @@ export class CoderSession {
     });
     const fence: readonly [string, string] =
       options.fence === undefined ? this.#fence : [...options.fence];
+    this.#cancelPromptCache();
     this.#config = config;
     this.#provider = options.provider;
     this.#strategy = options.strategy;
@@ -751,6 +776,7 @@ export class CoderSession {
       options.signal?.throwIfAborted();
     }
     const turn = this.prepareTurn(userInput, context?.prompt ?? options.prompt);
+    this.#schedulePromptCache(turn.request);
     const events: CompletionEvent[] = [];
     const reflectedMessages: ChatMessage[] = [];
     let request = turn.request;
@@ -1042,6 +1068,7 @@ export class CoderSession {
         const maximum = this.#config.model.maxInputTokens;
         if (maximum !== undefined && tokens > maximum)
           throw new TokenBudgetExceededError(tokens, maximum);
+        this.#schedulePromptCache(request);
         this.#state = SessionStateSchema.parse({
           ...this.#state,
           phase: "streaming",
@@ -1077,5 +1104,67 @@ export class CoderSession {
       });
       throw error;
     }
+  }
+
+  close(): void {
+    this.#cancelPromptCache();
+  }
+
+  #cancelPromptCache(): void {
+    if (this.#promptCacheTimer !== undefined)
+      clearTimeout(this.#promptCacheTimer);
+    this.#promptCacheTimer = undefined;
+    this.#promptCacheAbort?.abort();
+    this.#promptCacheAbort = undefined;
+  }
+
+  #schedulePromptCache(request: CompletionRequest): void {
+    this.#cancelPromptCache();
+    if (
+      this.#promptCachePings === 0 ||
+      !this.#config.model.capabilities.promptCaching
+    )
+      return;
+    const provider = this.#provider;
+    const model = this.#config.model;
+    const prefix = cacheablePrefix(request);
+    if (prefix === undefined) return;
+    const controller = new AbortController();
+    this.#promptCacheAbort = controller;
+    let remaining = this.#promptCachePings;
+    const ping = async () => {
+      this.#promptCacheTimer = undefined;
+      if (controller.signal.aborted) return;
+      remaining -= 1;
+      try {
+        await keepPromptCacheAlive(
+          provider,
+          model,
+          prefix,
+          1,
+          controller.signal,
+        );
+      } catch {
+        // A keepalive is an optimization. Foreground turns and diagnostics must
+        // not fail or retain provider details when a background refresh fails.
+      }
+      if (!controller.signal.aborted && remaining > 0) {
+        this.#promptCacheTimer = setTimeout(
+          () => void ping(),
+          this.#promptCacheIntervalMs,
+        );
+        this.#unrefPromptCacheTimer();
+      }
+    };
+    this.#promptCacheTimer = setTimeout(
+      () => void ping(),
+      this.#promptCacheIntervalMs,
+    );
+    this.#unrefPromptCacheTimer();
+  }
+
+  #unrefPromptCacheTimer(): void {
+    const timer = this.#promptCacheTimer;
+    if (typeof timer === "object" && "unref" in timer) timer.unref();
   }
 }

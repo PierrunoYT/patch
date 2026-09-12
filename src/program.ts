@@ -64,6 +64,7 @@ interface ProgramOptions {
   readonly git?: boolean;
   readonly gitCommitVerify?: boolean;
   readonly generateCommitMessages?: boolean;
+  readonly cacheKeepalivePings?: string;
   readonly commitAuthorName?: string;
   readonly commitCommitterName?: string;
   readonly commitCoAuthor?: string;
@@ -101,6 +102,7 @@ function bootstrapArguments(
   append(argv, "--env-file", options.envFile);
   append(argv, "--encoding", options.encoding);
   append(argv, "--model", options.model);
+  append(argv, "--cache-keepalive-pings", options.cacheKeepalivePings);
   append(argv, "--edit-format", options.editFormat);
   append(argv, "--lint-cmd", options.lintCmd);
   append(argv, "--test-cmd", options.testCmd);
@@ -212,6 +214,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "co-author trailer for Patch-authored edits",
       )
       .option("--model <name>", "model name")
+      .option(
+        "--cache-keepalive-pings <count>",
+        "refresh a supported prompt cache up to 10 times (default: 0)",
+      )
       .option("--edit-format <format>", "edit strategy")
       .option("--lint-cmd <command>", "configured lint command")
       .option("--test-cmd <command>", "configured test command")

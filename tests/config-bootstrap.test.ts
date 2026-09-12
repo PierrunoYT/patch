@@ -37,6 +37,29 @@ afterEach(async () => {
 });
 
 describe("bootstrapConfiguration", () => {
+  it("merges bounded cache keepalive opt-in with CLI precedence", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "cache-keepalive-pings: 2\n",
+    );
+    const load = (argv: string[] = [], environment = {}) =>
+      bootstrapConfiguration({ cwd: root, home: root, argv, environment });
+
+    expect((await load()).arguments.cacheKeepalivePings).toBe(2);
+    expect(
+      (await load([], { PATCH_CACHE_KEEPALIVE_PINGS: "3" })).arguments
+        .cacheKeepalivePings,
+    ).toBe(3);
+    expect(
+      (await load(["--cache-keepalive-pings", "4"])).arguments
+        .cacheKeepalivePings,
+    ).toBe(4);
+    await expect(
+      load([], { PATCH_CACHE_KEEPALIVE_PINGS: "11-private" }),
+    ).rejects.toThrow("integer from 0 through 10");
+  });
+
   it("resolves commit policy through YAML, environment, dotenv, and explicit CLI overrides", async () => {
     const root = await temporaryDirectory();
     await initializeRepository(root);

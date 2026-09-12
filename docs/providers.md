@@ -164,7 +164,17 @@ callers; the executable bootstrap does not expose them.
 ## Capability-aware context and continuation
 
 `CoderSession` adds ephemeral prompt-cache boundaries only for models declaring
-`promptCaching`. `keepPromptCacheAlive` is a caller-scheduled library helper.
+`promptCaching`. A positive `--cache-keepalive-pings` (or matching environment/
+YAML setting) arms production keepalive; zero is the default, so startup adds no
+background network requests. Each accepted foreground prompt replaces the prior
+schedule, waits 295 seconds, and makes at most ten one-token refresh requests at
+that interval. Every refresh ends at the last explicit cache marker: current
+conversation and reminder content after the marker are never sent. No marker,
+capability, or opt-in means no schedule. Background failures are ignored because
+warming is an optimization, and replacement, model switch, or session/application
+close clears the timer and aborts an in-flight refresh. Timers are unreferenced so
+they cannot keep Node alive. This keeps aider's pinned cache-prefix and 295-second
+cadence while adding explicit bounds and deterministic lifecycle cleanup.
 Models declaring `assistantPrefill` enter a bounded continuation path in
 production. DeepSeek receives `prefix: true` on the trailing assistant message
 and uses the `/beta` endpoint, as described above; the OpenAI dialect sends an

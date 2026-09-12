@@ -8,9 +8,9 @@ export async function keepPromptCacheAlive(
   pings: number,
   signal?: AbortSignal,
 ): Promise<number> {
-  if (!Number.isInteger(pings) || pings < 0) {
+  if (!Number.isInteger(pings) || pings < 0 || pings > 10) {
     throw new RangeError(
-      "Prompt cache keepalive pings must be a nonnegative integer",
+      "Prompt cache keepalive pings must be an integer from 0 through 10",
     );
   }
   if (!model.capabilities.promptCaching || pings <= 0) return 0;
@@ -29,4 +29,21 @@ export async function keepPromptCacheAlive(
     completed += 1;
   }
   return completed;
+}
+
+export function cacheablePrefix(
+  request: CompletionRequest,
+): CompletionRequest | undefined {
+  const lastBoundary = request.messages.findLastIndex(
+    (message) =>
+      Array.isArray(message.content) &&
+      message.content.some(
+        (part) => part.type === "text" && part.cacheControl !== undefined,
+      ),
+  );
+  if (lastBoundary < 0) return undefined;
+  return {
+    ...request,
+    messages: request.messages.slice(0, lastBoundary + 1),
+  };
 }

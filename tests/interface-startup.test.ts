@@ -26,6 +26,7 @@ afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
   );
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 function turn(text: string) {
@@ -782,5 +783,44 @@ describe("application interface startup", () => {
       response: "Added: pkg/new.txt",
     });
     await service.close();
+  });
+
+  it("production-wires opt-in prompt cache keepalive and cleans it up", async () => {
+    const root = await fixture();
+    const provider = new FakeProvider([turn("answer"), turn("")]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--no-git",
+        "--model",
+        "sonnet",
+        "--edit-format",
+        "ask",
+        "--cache-keepalive-pings",
+        "1",
+      ],
+      dependencies: { provider },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "cache-keepalive",
+    });
+    vi.useFakeTimers();
+    await session.submit("private user turn", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+    await vi.advanceTimersByTimeAsync(295_000);
+    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests[1]?.maxOutputTokens).toBe(1);
+    expect(JSON.stringify(provider.requests[1])).not.toContain(
+      "private user turn",
+    );
+    await service.close();
+    await vi.advanceTimersByTimeAsync(295_000);
+    expect(provider.requests).toHaveLength(2);
+    vi.useRealTimers();
   });
 });

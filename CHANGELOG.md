@@ -76,6 +76,11 @@ dated parity audits for revision-specific evidence.
   current files before every initial and reflected provider attempt. Patch
   retains stricter ambiguity rejection, path approval, transactional writes,
   and explicit command approval.
+- Production prompt-cache keepalive behind `--cache-keepalive-pings`,
+  `PATCH_CACHE_KEEPALIVE_PINGS`, or `cache-keepalive-pings` YAML. The default is
+  zero network requests; opted-in sessions schedule at most ten one-token refreshes
+  295 seconds apart, send only through the last cache marker, ignore background
+  failures, and cancel timers/in-flight requests on replacement or shutdown.
 - Separately gated live OpenAI and Anthropic contract suites for secret-safe
   credential preflight, minimal streaming, usage, stop reasons,
   timeout/cancellation, OpenAI image input, and Anthropic cache-control input.

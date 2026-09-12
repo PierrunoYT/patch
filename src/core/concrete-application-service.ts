@@ -504,6 +504,9 @@ class ConcreteApplicationSession implements ApplicationSession {
         return context.approvePath?.(path) ?? false;
       },
       summarizeHistory: (messages, signal) => this.#summarize(messages, signal),
+      promptCacheKeepalive: {
+        pings: context.bootstrap.arguments.cacheKeepalivePings,
+      },
     });
   }
 
@@ -1089,6 +1092,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     if (this.#closing !== undefined) return this.#closing;
     this.#closed = true;
     this.#lifecycle.abort(new Error("Application session closed"));
+    this.#session.close();
     this.#closing = (async () => {
       await this.queue.idle();
       const providers = [...this.#ownedProviders];
