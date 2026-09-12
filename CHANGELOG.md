@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Stop already-cancelled library voice capture before recording and reject late
+  transcripts after cancellation instead of forwarding them to a session. Abort
+  checks also guard the capture-to-submit handoff, and capture setup is inside
+  listener cleanup. Fake-adapter tests cover all active stages and successful,
+  failed, and cancelled cleanup; no CLI voice or real-device support is claimed.
+
 - Stop the process-wide worktree registry from retaining every lock forever.
   Weak references allow unreachable locks to be collected; guarded finalizers
   remove their root entries without deleting newer replacements. Live sessions

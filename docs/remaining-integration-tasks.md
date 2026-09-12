@@ -72,7 +72,7 @@ unchanged result of the historical audit.
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
-| Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
+| Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. The library-only voice helper has cancellation-boundary and listener-cleanup tests; GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. Broader release-audit reconciliation remains open. |
 
 ### Current audit follow-ups — 2026-09-11
@@ -202,7 +202,12 @@ for revision-specific source references and reproduction limits.
   Deterministic finalizer-order tests and live serialization tests cover this
   Patch-specific policy, compared with pinned `aider/gui.py:70–89` and
   `aider/commands.py:560–644` rather than claiming an upstream lock equivalent.
-- [ ] Cover `captureAndSubmit` cancellation and abort-listener cleanup.
+- [x] Cover `captureAndSubmit` cancellation and abort-listener cleanup. Fake
+  adapter/session tests establish forwarding during all three stages and cleanup
+  on success/failure/cancellation. Regressions exposed pre-aborted recording and
+  late-transcript submission; boundary checks now refuse both. This remains
+  library-only evidence, compared with pinned `aider/voice.py:106–180`; real
+  devices, ffmpeg cancellation, live transcription, and CLI UX are not covered.
 - [ ] Describe full-content edit previews accurately; real hunk diffs remain separate work.
 
 ### Historical immediate P0 checklist

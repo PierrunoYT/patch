@@ -74,15 +74,19 @@ export class VoiceInput {
     const abort = () => controller.abort(options.signal?.reason);
     options.signal?.addEventListener("abort", abort, { once: true });
     if (options.signal?.aborted) abort();
-    const directory = await mkdtemp(join(tmpdir(), "patch-voice-"));
-    const path = join(directory, "recording.wav");
+    let directory: string | undefined;
     try {
+      controller.signal.throwIfAborted();
+      directory = await mkdtemp(join(tmpdir(), "patch-voice-"));
+      const path = join(directory, "recording.wav");
+      controller.signal.throwIfAborted();
       await this.#options.recorder.record(path, {
         durationMs,
         signal: controller.signal,
       });
       if (controller.signal.aborted) throw controller.signal.reason;
       const size = (await stat(path)).size;
+      controller.signal.throwIfAborted();
       if (size < 1)
         throw new VoiceInputError("Voice recorder produced no audio");
       if (size > (this.#options.maxAudioBytes ?? 25 * 1024 * 1024)) {
@@ -98,6 +102,7 @@ export class VoiceInput {
           signal: controller.signal,
         })
       ).trim();
+      controller.signal.throwIfAborted();
       if (transcript === "")
         throw new VoiceInputError("Transcription produced no text");
       if (
@@ -117,7 +122,8 @@ export class VoiceInput {
       throw error;
     } finally {
       options.signal?.removeEventListener("abort", abort);
-      await rm(directory, { recursive: true, force: true });
+      if (directory !== undefined)
+        await rm(directory, { recursive: true, force: true });
     }
   }
 
@@ -144,6 +150,7 @@ export class VoiceInput {
           : { language: options.language }),
         signal: controller.signal,
       });
+      controller.signal.throwIfAborted();
       return await session.submit(transcript, {
         signal: controller.signal,
         emit: options.emit ?? (() => undefined),

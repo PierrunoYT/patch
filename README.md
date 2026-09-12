@@ -201,7 +201,9 @@ Authenticated HTTP partial-turn failures expose bounded changed paths, validated
 commit metadata, and command outcomes without internal errors or command output.
 Bounded [voice recording and transcription](docs/voice-input.md)
 is available through an optional package subpath and can submit to an explicit
-application session without native default dependencies.
+application session without native default dependencies. Cancellation checks
+refuse pre-aborted recording and late transcripts; deterministic helper tests
+cover forwarding and listener cleanup, not real devices or a CLI voice UX.
 
 Read [AGENTS.md](AGENTS.md) for repository guidance, including the requirement to
 create or update relevant documentation after every task or code change.
