@@ -697,6 +697,10 @@ class ConcreteApplicationSession implements ApplicationSession {
       });
       let selected = [...parent.editablePaths];
       let charged = false;
+      const resolver = await SafePathResolver.create(this.#context.root);
+      // Approval is per path, not per pass: a path the caller has already
+      // approved is not asked about again on a later iteration.
+      const approved = new Set(parent.editablePaths);
       try {
         for (let iteration = 1; iteration <= maximum; iteration += 1) {
           options.signal.throwIfAborted();
@@ -708,19 +712,26 @@ class ConcreteApplicationSession implements ApplicationSession {
           const converged =
             next.length === selected.length &&
             next.every((path) => selected.includes(path));
-          if (converged) {
-            const resolver = await SafePathResolver.create(this.#context.root);
-            await assertPathsNotIgnored(this.#context.repository, next);
-            for (const path of next) {
-              await resolver.resolve(path);
-              if (
-                !parent.editablePaths.includes(path) &&
-                !(await this.#context.approvePath?.(path))
-              ) {
-                throw new Error(`Context selection was not approved: ${path}`);
-              }
+          // Checked on every pass, not only on convergence: the next iteration
+          // sends the contents of these files to the provider, so containment,
+          // ignore rules, and approval have to hold before that disclosure and
+          // not after the loop happens to settle.
+          await assertPathsNotIgnored(this.#context.repository, next);
+          for (const path of next) {
+            await resolver.resolve(path);
+            if (approved.has(path)) continue;
+            // An embedding without an approver has no way to answer, which is
+            // permission to proceed here exactly as it is for `/add`.
+            if (
+              this.#context.approvePath !== undefined &&
+              !(await this.#context.approvePath(path))
+            ) {
+              throw new Error(`Context selection was not approved: ${path}`);
             }
-            options.signal.throwIfAborted();
+            approved.add(path);
+          }
+          options.signal.throwIfAborted();
+          if (converged) {
             this.#session.setSelectedPaths(next, parent.readOnlyPaths);
             this.#session.recordAuxiliaryCost(
               context.#session.snapshot().totalCost,

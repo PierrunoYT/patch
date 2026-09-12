@@ -168,8 +168,15 @@ empty-file multiplier. Map ranking keeps path and identifier hints from the
 original request even when later turns use the fixed retry instruction.
 
 Convergence compares complete sets without order sensitivity. Only a stable set
-can reach the parent, where every newly selected file is rechecked for root
-containment and ignore policy and requires the existing path-approval callback.
-All approvals complete before one `setSelectedPaths` call, so rejection,
-cancellation, or typed bounded non-convergence cannot partially alter the
-parent. Read-only paths are retained and excluded from editable candidates.
+can reach the parent, and all approvals complete before one `setSelectedPaths`
+call, so rejection, cancellation, or typed bounded non-convergence cannot
+partially alter the parent. Read-only paths are retained and excluded from
+editable candidates.
+
+Those checks run on every pass, not only on the one that converges. A pass names
+files, and the pass after it sends their contents to the provider, so root
+containment, ignore policy, and the path-approval callback are applied to each
+newly named file before that happens; checking only at convergence meant a
+denied file had already been disclosed. A path is asked about once per
+selection, and an embedding that supplies no approver may proceed, matching
+`/add` rather than treating a missing callback as refusal.

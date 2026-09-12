@@ -839,8 +839,10 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   identifier hints. `ApplicationSession.selectContext` uses the current main
   model/history and pinned context prompt, refreshes every pass with hints from
   the original request, and compares complete order-independent sets. It stages
-  containment/ignore checks and approvals before atomically replacing editable
-  paths while retaining read-only paths. Cancellation, denial, and a typed
+  containment/ignore checks and approvals before every pass that would disclose
+  a newly named file, not only before atomically replacing editable paths while
+  retaining read-only paths; a path is asked about once, and an embedding with
+  no approver is permitted to proceed, as it is for `/add`. Cancellation, denial, and a typed
   bounded non-convergence failure leave the parent selection unchanged.
   Production tests inspect both provider requests and map requests/budgets.
 - [x] Schedule prompt-cache keepalive using only the cacheable prefix and

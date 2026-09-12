@@ -380,6 +380,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Approved context-selection paths before disclosing them. Containment, ignore,
+  and approval checks ran only on the pass that converged, but each pass sends
+  the contents of the files the previous pass named: a file the caller went on to
+  deny had already been read and sent to the provider. They now run on every
+  pass, once per path. A missing approver is also treated as permission rather
+  than refusal, matching `/add`, so an embedding without one can use the feature
+  at all.
+
 - Stopped a staged `web-port` or `web-token-file` from failing every terminal
   run. The guard that refuses the pair without `web` was reading the merged
   configuration, so a `web-port:` in `.patch.conf.yml` or `PATCH_WEB_PORT` in the

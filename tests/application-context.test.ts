@@ -145,10 +145,8 @@ describe("production context selection", () => {
   it("keeps the parent selection atomic when a newly selected path is denied", async () => {
     vi.spyOn(RepositoryMap.prototype, "getMap").mockResolvedValue("map");
     const approvePath = vi.fn(() => false);
-    const session = await application(
-      new FakeProvider([response("b.ts"), response("b.ts")]),
-      approvePath,
-    );
+    const provider = new FakeProvider([response("b.ts"), response("b.ts")]);
+    const session = await application(provider, approvePath);
 
     await expect(
       session.selectContext?.("Update RequestWidget", {
@@ -159,6 +157,11 @@ describe("production context selection", () => {
     expect(((await session.snapshot()) as SessionState).editablePaths).toEqual([
       "a.ts",
     ]);
+    // The denial lands before the pass that would have sent the file, so its
+    // contents never reach the provider.
+    expect(JSON.stringify(provider.requests)).not.toContain(
+      "export class RequestWidget",
+    );
   });
 
   it("fails deterministically without changing the parent when the set does not converge", async () => {
@@ -176,7 +179,10 @@ describe("production context selection", () => {
         maxIterations: 2,
       }),
     ).rejects.toBeInstanceOf(ContextSelectionConvergenceError);
-    expect(approvePath).not.toHaveBeenCalled();
+    // Approval is asked for before a pass may disclose the file, so a run that
+    // never converges has still approved what it read. "a.ts" was already in
+    // the parent selection, so only "b.ts" is asked about.
+    expect(approvePath.mock.calls).toEqual([["b.ts"]]);
     expect(((await session.snapshot()) as SessionState).editablePaths).toEqual([
       "a.ts",
     ]);
