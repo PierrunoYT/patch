@@ -11,7 +11,34 @@ import JSON5 from "json5";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
-import { ModelSettingsSchema, type ModelSettings } from "./settings.js";
+import {
+  ModelCapabilitiesSchema,
+  ModelSettingsSchema,
+  type ModelSettings,
+} from "./settings.js";
+
+/**
+ * The capability fields, each optional and without a default. Metadata states
+ * overrides, so a field the file does not mention must stay absent: parsing
+ * this block with `ModelCapabilitiesSchema`'s defaults turned every unstated
+ * capability into an explicit `false` that then overrode the settings being
+ * merged into. The keys are derived rather than restated so the two lists
+ * cannot drift apart.
+ */
+const MetadataCapabilitiesSchema = z
+  .object(
+    Object.fromEntries(
+      Object.keys(ModelCapabilitiesSchema.shape).map((capability) => [
+        capability,
+        z.boolean().optional(),
+      ]),
+    ) as {
+      [
+        Capability in keyof typeof ModelCapabilitiesSchema.shape
+      ]: z.ZodOptional<z.ZodBoolean>;
+    },
+  )
+  .strict();
 
 const ModelAliasesSchema = z.record(z.string().min(1), z.string().min(1));
 const ModelSettingsFileSchema = z.array(ModelSettingsSchema);
@@ -24,18 +51,7 @@ export const ModelMetadataSchema = z
     outputCostPerMillion: z.number().nonnegative().optional(),
     cachedInputCostPerMillion: z.number().nonnegative().optional(),
     cacheWriteCostPerMillion: z.number().nonnegative().optional(),
-    capabilities: z
-      .object({
-        streaming: z.boolean().optional(),
-        systemRole: z.boolean().optional(),
-        tools: z.boolean().optional(),
-        images: z.boolean().optional(),
-        documents: z.boolean().optional(),
-        promptCaching: z.boolean().optional(),
-        assistantPrefill: z.boolean().optional(),
-      })
-      .strict()
-      .optional(),
+    capabilities: MetadataCapabilitiesSchema.optional(),
   })
   .strict();
 const ModelMetadataFileSchema = z.record(

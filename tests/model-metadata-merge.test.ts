@@ -37,6 +37,30 @@ async function catalogWith(
 }
 
 describe("catalog metadata merging", () => {
+  it("leaves capabilities a metadata entry does not mention alone", async () => {
+    // Metadata states overrides. Parsing its capabilities block with the
+    // settings schema's defaults turned every unmentioned capability into an
+    // explicit false, which then overrode the settings being merged into.
+    const catalog = await catalogWith(
+      `- name: test/capable
+  provider: deepseek
+  editFormat: whole
+  capabilities:
+    assistantPrefill: true
+    streaming: true
+`,
+      `{ "test/capable": { provider: "deepseek", capabilities: { promptCaching: true } } }`,
+    );
+
+    expect(catalog.resolve("test/capable").settings.capabilities).toMatchObject(
+      {
+        promptCaching: true,
+        assistantPrefill: true,
+        streaming: true,
+      },
+    );
+  });
+
   it("folds limits, prices, and capabilities into the resolved settings", async () => {
     const catalog = await catalogWith(
       `- name: test/merged

@@ -80,6 +80,9 @@ Capabilities merge key by key, so an entry need only state what it changes, and
 `resolve()` still returns the raw `metadata` alongside the merged settings.
 Metadata capability parsing has no defaults: omitted keys cannot overwrite a
 setting's explicit image, document, tool, or streaming capability with `false`.
+Its accepted keys are derived from the capability schema rather than restated,
+so a capability added to model settings is settable in metadata the same day and
+the two lists cannot fall out of step.
 The bundled GPT-4o entries declare their documented image capability; PDF input
 remains disabled for OpenAI Chat Completions.
 Bundled metadata prices therefore reach executable cost reports. A final
