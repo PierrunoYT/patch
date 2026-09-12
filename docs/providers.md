@@ -167,8 +167,13 @@ callers; the executable bootstrap does not expose them.
 `promptCaching`. A positive `--cache-keepalive-pings` (or matching environment/
 YAML setting) arms production keepalive; zero is the default, so startup adds no
 background network requests. Each accepted foreground prompt replaces the prior
-schedule, waits 295 seconds, and makes at most ten one-token refresh requests at
-that interval. Every refresh ends at the last explicit cache marker: current
+schedule, waits 295 seconds, and makes at most `--cache-keepalive-pings`
+one-token refresh requests at that interval, ten being the largest value the
+option accepts. The bound is per schedule, not per turn: replacing the schedule
+restarts the count, so a turn that reflects several times arms a fresh run of
+pings each time, exactly as pinned aider's `warm_cache` resets
+`warming_pings_left` on every send. Only one schedule is ever live, and it is
+idle whenever a foreground turn is not waiting. Every refresh ends at the last explicit cache marker: current
 conversation and reminder content after the marker are never sent. No marker,
 capability, or opt-in means no schedule. Background failures are ignored because
 warming is an optimization, and replacement, model switch, or session/application

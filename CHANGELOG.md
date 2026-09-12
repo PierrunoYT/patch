@@ -85,9 +85,11 @@ dated parity audits for revision-specific evidence.
   merging were corrected so omitted metadata no longer disables configured media.
 - Production prompt-cache keepalive behind `--cache-keepalive-pings`,
   `PATCH_CACHE_KEEPALIVE_PINGS`, or `cache-keepalive-pings` YAML. The default is
-  zero network requests; opted-in sessions schedule at most ten one-token refreshes
-  295 seconds apart, send only through the last cache marker, ignore background
-  failures, and cancel timers/in-flight requests on replacement or shutdown.
+  zero network requests; opted-in sessions schedule at most ten one-token
+  refreshes per schedule, the schedule being replaced and its count restarted on
+  each accepted prompt as pinned aider does, 295 seconds apart, send only through
+  the last cache marker, ignore background failures, and cancel timers/in-flight
+  requests on replacement or shutdown.
 - Repeated assistant-prefill continuation for capable models, bounded to three
   follow-up requests. Each request replaces the prior trailing prefill, adds only
   the new suffix, aggregates usage/cost across requests, and preserves final
