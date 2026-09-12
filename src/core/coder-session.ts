@@ -259,6 +259,38 @@ function immutableContext(context: AttemptContext): AttemptContext {
   return deepFreeze(structuredClone(context));
 }
 
+function combineUsage(
+  total: UsageReport | undefined,
+  current: UsageReport,
+): UsageReport {
+  if (total === undefined) return current;
+  const cost =
+    total.cost === null || current.cost === null
+      ? null
+      : total.cost + current.cost;
+  return {
+    inputTokens: total.inputTokens + current.inputTokens,
+    outputTokens: total.outputTokens + current.outputTokens,
+    ...(total.cachedInputTokens === undefined &&
+    current.cachedInputTokens === undefined
+      ? {}
+      : {
+          cachedInputTokens:
+            (total.cachedInputTokens ?? 0) + (current.cachedInputTokens ?? 0),
+        }),
+    ...(total.cacheWriteTokens === undefined &&
+    current.cacheWriteTokens === undefined
+      ? {}
+      : {
+          cacheWriteTokens:
+            (total.cacheWriteTokens ?? 0) + (current.cacheWriteTokens ?? 0),
+        }),
+    cost,
+    costSource:
+      total.costSource === current.costSource ? total.costSource : "unknown",
+  };
+}
+
 function defaultSleep(
   milliseconds: number,
   signal?: AbortSignal,
@@ -782,6 +814,7 @@ export class CoderSession {
     let request = turn.request;
     let usage: UsageReport | undefined;
     let responsePrefix = "";
+    let reasoningPrefix = "";
     let continuationCount = 0;
     let lastResponse = "";
     let lastReasoning = "";
@@ -802,8 +835,9 @@ export class CoderSession {
           let retry = false;
           let finished = false;
           let accountedAttemptCost = 0;
+          let attemptUsage: UsageReport | undefined;
           response = responsePrefix;
-          reasoning = "";
+          reasoning = reasoningPrefix;
           const reasoningTag = this.#config.model.reasoningTag;
           const splitter =
             reasoningTag === undefined
@@ -856,8 +890,8 @@ export class CoderSession {
                 reasoning += event.text;
                 break;
               case "usage": {
-                usage = reportUsage(this.#config.model, event);
-                const reportedCost = usage.cost ?? 0;
+                attemptUsage = reportUsage(this.#config.model, event);
+                const reportedCost = attemptUsage.cost ?? 0;
                 this.#state = SessionStateSchema.parse({
                   ...this.#state,
                   inputTokens: event.inputTokens,
@@ -865,7 +899,7 @@ export class CoderSession {
                   totalCost:
                     this.#state.totalCost +
                     Math.max(0, reportedCost - accountedAttemptCost),
-                  lastUsage: usage,
+                  lastUsage: attemptUsage,
                 });
                 accountedAttemptCost = reportedCost;
                 break;
@@ -939,6 +973,15 @@ export class CoderSession {
               "The provider stream ended without a finish event",
             );
           }
+          if (attemptUsage !== undefined) {
+            usage = combineUsage(usage, attemptUsage);
+            this.#state = SessionStateSchema.parse({
+              ...this.#state,
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              lastUsage: usage,
+            });
+          }
           break;
         }
 
@@ -947,11 +990,17 @@ export class CoderSession {
 
         if (continueOutput) {
           continuationCount += 1;
+          response = response.trimEnd();
           responsePrefix = response;
+          reasoningPrefix = reasoning;
+          const previousMessages =
+            request.messages.at(-1)?.role === "assistant"
+              ? request.messages.slice(0, -1)
+              : request.messages;
           request = CompletionRequestSchema.parse({
             ...request,
             messages: [
-              ...request.messages,
+              ...previousMessages,
               { role: "assistant", content: response },
             ],
           });
@@ -1035,6 +1084,7 @@ export class CoderSession {
         options.lifecycle?.boundary?.("reflection");
         options.signal?.throwIfAborted();
         responsePrefix = "";
+        reasoningPrefix = "";
         continuationCount = 0;
         context =
           options.lifecycle === undefined

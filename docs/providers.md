@@ -178,8 +178,16 @@ cadence while adding explicit bounds and deterministic lifecycle cleanup.
 Models declaring `assistantPrefill` enter a bounded continuation path in
 production. DeepSeek receives `prefix: true` on the trailing assistant message
 and uses the `/beta` endpoint, as described above; the OpenAI dialect sends an
-ordinary assistant message. Repeated truncations still accumulate duplicate
-prefixes, so continuation is not complete provider-wire parity.
+ordinary assistant message. On each `length` stop, Patch trims only the current
+fragment's trailing whitespace, replaces the single trailing assistant message
+with the cumulative output, and treats the next provider response as a new suffix.
+At most three follow-up requests are made. Usage and cost are aggregated across
+all completed requests, while provider errors and cancellation stop immediately;
+the final response enters history once. This matches the pinned aider replacement
+flow while adding a finite bound. Anthropic documents trailing-assistant input as
+an immediate continuation whose response is only the suffix; ordinary OpenAI Chat
+Completions does not promise that contract, so Patch gates the behavior on model
+capability rather than enabling it for every OpenAI-compatible endpoint.
 
 `buildReadOnlyMediaMessage` labels image and PDF references and includes only
 parts supported by the selected model. PDFs are always context-only and remain

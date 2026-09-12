@@ -29,11 +29,11 @@ afterEach(async () => {
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
-function turn(text: string) {
+function turn(text: string, reason: "stop" | "length" = "stop") {
   return {
     actions: [
       { type: "text-delta", text },
-      { type: "finish", reason: "stop" },
+      { type: "finish", reason },
     ],
   };
 }
@@ -822,5 +822,47 @@ describe("application interface startup", () => {
     await vi.advanceTimersByTimeAsync(295_000);
     expect(provider.requests).toHaveLength(2);
     vi.useRealTimers();
+  });
+
+  it("continues repeated assistant prefill through the executable session", async () => {
+    const root = await fixture();
+    const provider = new FakeProvider([
+      turn("first", "length"),
+      turn(" second", "length"),
+      turn(" third"),
+    ]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--no-git",
+        "--model",
+        "deepseek/deepseek-chat",
+        "--edit-format",
+        "ask",
+      ],
+      dependencies: { provider },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "continuation",
+    });
+
+    const completed = await session.submit("answer", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+
+    expect(completed).toMatchObject({ response: "first second third" });
+    expect(provider.requests[1]?.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "first",
+    });
+    expect(provider.requests[2]?.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "first second",
+    });
+    await service.close();
   });
 });

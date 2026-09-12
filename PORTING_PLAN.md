@@ -622,16 +622,16 @@ evidence is not claimed until that matrix completes on the pushed revision.
   request's identifier hints and the complete provisional file set. A stable set
   atomically replaces editable paths after approval; cancellation, rejection,
   and deterministic non-convergence leave the parent selection unchanged.
-- [ ] Complete continuation/media integration. Prompt-cache boundaries and
+- [ ] Complete media integration. Prompt-cache boundaries and
   opt-in keepalive are production-wired: only the marked prefix is refreshed at
   295-second intervals, pings cap at ten, and session shutdown cancels timers and
-  in-flight refreshes. Bounded prefill, including DeepSeek prefix normalization,
-  remains incomplete because repeated truncations accumulate duplicate prefixes.
+  in-flight refreshes. Bounded repeated prefill, including DeepSeek prefix
+  normalization, replaces the prior cumulative prefix and aggregates usage.
   Media remains a helper-only context shape.
 
 **Exit (not met):** advanced workflows are deliberately not advertised as CLI
 modes. The six constructed formats have independent pinned golden/property
-evidence; media/continuation integration remains incomplete.
+evidence; media integration remains incomplete.
 
 **Production evidence:** `tests/application-architect.test.ts`,
 `tests/application-editor.test.ts`, and `tests/application-context.test.ts`.

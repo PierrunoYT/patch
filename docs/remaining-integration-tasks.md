@@ -66,7 +66,7 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, repeated continuation, and some recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps and some recovery evidence remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
 | Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics; media remains unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
@@ -850,9 +850,13 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   and in-flight requests on replacement, switch, and session/application close.
   Deterministic fake-timer tests prove executable propagation, prefix exclusion,
   bounds, capability/opt-in/marker gating, and cleanup.
-- [ ] Complete repeated assistant-prefill continuation and integrate contained,
-  size-limited image/PDF loading. Bounded continuation and DeepSeek prefix
-  normalization are wired; repeated-prefix accumulation and media loading remain.
+- [x] Complete repeated assistant-prefill continuation. Capable models make at
+  most three follow-up requests, replacing one cumulative trailing prefill rather
+  than appending duplicates. Deterministic core and executable tests prove three
+  fragments assemble once, all usage/cost is aggregated, natural stop completes,
+  and provider error or cancellation exits without committing partial history.
+- [ ] Integrate contained, size-limited image/PDF loading through application
+  interfaces. The media message builder remains helper-only.
 - [x] Add independent pinned golden fixtures plus asymmetric property tests for
   every advertised edit format, including switching away from incompatible
   protocol history. `tests/fixtures/edit-format-goldens.json` records one
