@@ -744,6 +744,60 @@ describe("CoderSession", () => {
     });
   });
 
+  it("records a reflected answer once when a later round never answers", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "first attempt" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+        // The second round fails before it produces anything.
+        {
+          actions: [
+            {
+              type: "error",
+              kind: "provider",
+              retryable: false,
+              message: "provider gave up",
+            },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+
+    let attempts = 0;
+    await expect(
+      session.runTurn("change it", {
+        lifecycle: {
+          context: async () => ({ prompt: {}, snapshots: [] }),
+          apply: async () => {
+            attempts += 1;
+            session.recordTurnMutation();
+            return attempts === 1
+              ? { source: "lint" as const, diagnostic: "lint said no" }
+              : undefined;
+          },
+        },
+      }),
+    ).rejects.toThrow();
+
+    // "first attempt" belongs to the round that produced it and is already in
+    // the reflection pair. Carrying it forward as the failed round's answer too
+    // recorded it twice.
+    const { messages } = session.snapshot() as {
+      messages: readonly { role: string; content: string }[];
+    };
+    expect(
+      messages.filter(({ content }) => content === "first attempt"),
+    ).toHaveLength(1);
+    expect(messages.at(-1)?.role).toBe("assistant");
+  });
+
   it("retains a usage event delivered after the finish event", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({

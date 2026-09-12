@@ -1096,6 +1096,10 @@ export class CoderSession {
         options.signal?.throwIfAborted();
         responsePrefix = "";
         reasoningPrefix = "";
+        // This round's answer is now in `reflectedMessages`; the next round has
+        // not produced one yet.
+        lastResponse = "";
+        lastReasoning = "";
         continuationCount = 0;
         context =
           options.lifecycle === undefined
@@ -1148,18 +1152,30 @@ export class CoderSession {
       // Edits that reached the worktree survive the failure, so the turn that
       // produced them stays in history. Discarding it would leave the next turn
       // describing files as unchanged when they are not.
-      const reconciled =
-        this.#turnMutated && lastResponse !== ""
-          ? [
-              ...this.#state.messages,
-              turn.userMessage,
-              ...reflectedMessages,
+      // `lastResponse` belongs to the round that produced it, and a later round
+      // that fails before answering leaves it untouched. Appending it
+      // unconditionally recorded that round's answer a second time, after the
+      // copy `reflectedMessages` already holds.
+      const trailing =
+        lastResponse === ""
+          ? []
+          : [
               ChatMessageSchema.parse({
                 role: "assistant",
                 content: lastResponse,
                 ...(lastReasoning === "" ? {} : { reasoning: lastReasoning }),
               }),
-            ]
+            ];
+      // Reflection rounds are recorded in (assistant, diagnostic) pairs, so
+      // without a trailing answer the last diagnostic is dropped and history
+      // still ends on an assistant message.
+      const rounds =
+        trailing.length > 0
+          ? reflectedMessages
+          : reflectedMessages.slice(0, -1);
+      const reconciled =
+        this.#turnMutated && (rounds.length > 0 || trailing.length > 0)
+          ? [...this.#state.messages, turn.userMessage, ...rounds, ...trailing]
           : this.#state.messages;
       this.#state = SessionStateSchema.parse({
         ...this.#state,

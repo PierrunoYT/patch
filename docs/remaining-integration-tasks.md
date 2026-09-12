@@ -693,7 +693,10 @@ deterministic tests; actual child execution is retained.
   choice to leave the immutable attempt sequence half-entered. The successful
   path finalizes history, usage, changed paths, and latest commit correctly, and
   an interrupted turn whose edits survive reconciles history and reports a
-  structured partial outcome.
+  structured partial outcome. Each reflection round contributes its own answer
+  exactly once: a round that fails before answering adds nothing, and the
+  diagnostic it would have answered is dropped so history still ends on an
+  assistant message.
 - Unrelated-work preservation covers normal checkpoint, commit, failed
   hooks/checks, sampled cancellation, and undo with exact index/worktree
   assertions. Failure between undo's two Git commands, external processes, and

@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Recorded a reflected answer once when a later round fails before answering.
+  The reconciled history of an interrupted turn appended the last response it
+  had seen, but a reflection round's answer is already stored with its
+  diagnostic, so the round's text appeared twice. The unanswered diagnostic is
+  dropped too, keeping history ending on an assistant message.
+
 - Isolated repository-map read failures during rendering, not only during
   tagging. The map is rendered repeatedly while it is fitted to its budget, so a
   path deleted after it was tagged threw out of `getMap` and failed a turn that
