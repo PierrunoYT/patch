@@ -381,6 +381,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Stopped one stray C1 byte from discarding the rest of a model response. The
+  terminal sanitizer treated every byte in `0x98`-`0x9F` as a string introducer,
+  but `0x9C` is ST, a terminator, and `0x99`/`0x9A` open nothing. Because a
+  stream keeps one sanitizer for its lifetime, a single such byte — trivially
+  produced by Latin-1 mojibake — swallowed everything after it. Only DCS, SOS,
+  OSC, PM, and APC open a string now.
+
 - Supplied the path-approval callback from the terminal, which nothing did. Every
   approval that gates a path the model chose was therefore dead: an edit to an
   unselected file was refused outright, a filename mentioned in prose was ignored,

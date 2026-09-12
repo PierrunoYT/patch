@@ -131,7 +131,10 @@ Untrusted text passes through one shared sanitizer, `ControlSequenceSanitizer`
 in `src/io/sanitize.ts`. It removes C0 controls other than tab, newline, and
 carriage return; DEL; the C1 range; 7-bit and 8-bit CSI; OSC, DCS, SOS, PM, and
 APC strings with either terminator; single shifts; and escapes carrying
-intermediate bytes. `MarkdownStream` holds one sanitizer for the life of a
+intermediate bytes. Only the five C1 bytes that actually open a string are
+treated as introducers; ST and the rest are dropped as ordinary controls, since
+treating a terminator as an introducer would discard the remainder of a stream
+that a single mojibake byte had wandered into. `MarkdownStream` holds one sanitizer for the life of a
 stream, so a sequence split across provider deltas cannot rejoin; `stripAnsi`
 sanitizes one self-contained string for the diff and preview renderers; both
 Commander streams and the executable's failure messages are sanitized as well.

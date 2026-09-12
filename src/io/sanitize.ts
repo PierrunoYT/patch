@@ -37,9 +37,18 @@ export class ControlSequenceSanitizer {
       switch (this.#state) {
         case "text":
           if (character === ESCAPE) this.#state = "escape";
-          // 8-bit C1 introducers open the same sequences as their escape forms.
+          // 8-bit C1 introducers open the same sequences as their escape forms:
+          // DCS, SOS, OSC, PM, APC, matching the "]PX^_" set below. The rest of
+          // the range opens nothing — 0x9C is ST, a *terminator*, and 0x99/0x9A
+          // introduce no string — so treating them as introducers swallowed
+          // everything after a stray byte, and the stream keeps one sanitizer,
+          // so a single mojibake character discarded the rest of a response.
           else if (code === 0x9b) this.#state = "csi";
-          else if (code === 0x90 || (code >= 0x98 && code <= 0x9f))
+          else if (
+            code === 0x90 ||
+            code === 0x98 ||
+            (code >= 0x9d && code <= 0x9f)
+          )
             this.#state = "string";
           else if (
             character === "\n" ||

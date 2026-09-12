@@ -39,6 +39,12 @@ describe("control sequence sanitizer", () => {
     ["bare C0 controls", `a${NUL} ${BELL}b`, "a b"],
     ["DEL", `a${DEL}b`, "ab"],
     ["bare C1 controls", `a${C1}b`, "ab"],
+    // ST is a terminator and 0x99/0x9A introduce no string, so a stray one is
+    // dropped like any other C1 byte. Treating them as string introducers
+    // discarded everything that followed.
+    ["a stray ST without swallowing the rest", `a${ST8}b rest`, "ab rest"],
+    ["a stray 0x99 without swallowing the rest", `ab`, "ab"],
+    ["a stray 0x9a without swallowing the rest", `ab`, "ab"],
   ])("removes %s", (_name, hostile, expected) => {
     expect(sanitizeTerminalText(hostile)).toBe(expected);
   });
