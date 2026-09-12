@@ -558,9 +558,19 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   }
                 },
                 selectedPaths: () => {
+                  // Every file in the chat, not only the editable ones: a
+                  // question written in a read-only file is still a question
+                  // the sweep is supposed to collect.
                   const state = session?.snapshot() as
-                    { editablePaths?: readonly string[] } | undefined;
-                  return state?.editablePaths ?? [];
+                    | {
+                        editablePaths?: readonly string[];
+                        readOnlyPaths?: readonly string[];
+                      }
+                    | undefined;
+                  return [
+                    ...(state?.editablePaths ?? []),
+                    ...(state?.readOnlyPaths ?? []),
+                  ];
                 },
                 onError: (error, source) => {
                   markdown.end();

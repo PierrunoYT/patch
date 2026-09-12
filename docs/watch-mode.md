@@ -20,8 +20,10 @@ below.
 A changed file carrying an actionable marker triggers the turn, and the turn
 then refreshes AI comments from every selected file, as Aider does: a comment
 written earlier in another file already in the chat rides along instead of being
-dropped because only one file changed. A selected file with no comment and a
-commented file nobody selected both stay out. Unlike Aider, a changed file is
+dropped because only one file changed. Selected means the whole chat, read-only
+files included: a question written in one of those is still a question. A
+selected file with no comment and a commented file nobody selected both stay
+out. Unlike Aider, a changed file is
 not added to the chat by the trigger.
 
 Failures are reported rather than discarded. `onError` receives submission

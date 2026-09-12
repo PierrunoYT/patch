@@ -382,6 +382,10 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Swept read-only files for AI comments too. The watcher refreshes comments from
+  "every selected file", but the executable handed it only the editable ones, so
+  a question written in a read-only file was dropped.
+
 - Recorded a reflected answer once when a later round fails before answering.
   The reconciled history of an interrupted turn appended the last response it
   had seen, but a reflection round's answer is already stored with its
