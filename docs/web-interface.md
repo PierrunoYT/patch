@@ -69,14 +69,27 @@ cannot cross the HTTP boundary. Unexpected errors remain `{ "error": "Request
 failed" }`. SSE may already contain progress events; inspect the reported paths
 and repository before retrying.
 
-Use only with trusted local clients for short-lived sessions. Idle expiry,
-session/connection quotas, SSE replay and bounded backpressure policy remain R8
-work: a slow SSE consumer can accumulate buffered output, and the concrete
-service retains session objects until shutdown (DELETE closes access and cancels
-work but does not release that retained state). Do not expose this server through a public
+Use only with trusted local clients. A session expires after 30 idle minutes;
+active message work is not reclaimed, and completion resets its deadline.
+Reclamation closes its SSE clients and application session. Defaults allow 32
+sessions total, eight per principal, four pending message requests and four SSE
+clients per session. The server retains at most 256 events and 256 KiB per
+session for `Last-Event-ID` replay, and at most 128 KiB queued behind each slow
+client; a client exceeding that bound is disconnected and can reconnect from
+its last event ID. If that cursor has been evicted, replay returns 409 instead
+of silently skipping events. These library options are configurable only by an
+embedding; the CLI intentionally uses the safe defaults. Do not expose this server through a public
 proxy or use it as multi-tenant hosting. Tokens grant access to the configured
 repository and model budget. Library callers may map distinct tokens to
 principals, but that isolates session ownership, not repository files.
+
+Session creation and snapshots return `status: "active"` and an epoch-millisecond
+`expiresAt`. Stable JSON errors are `session_expired` (410, only to its owner),
+`event_history_unavailable` (409), `session_quota_exceeded`,
+`message_quota_exceeded`, and `event_client_quota_exceeded` (429), and
+`invalid_last_event_id` (400). A different principal receives 404 for another
+principal's active or expired session. Explicit DELETE returns `{ "closed":
+true }`; it is not reported later as expiry. Authentication remains 401.
 
 This intentionally replaces the pinned upstream
 [`aider/gui.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/gui.py)

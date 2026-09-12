@@ -72,7 +72,7 @@ unchanged result of the historical audit.
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
-| Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
+| Watch/URL/web/voice/help | partial | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Simultaneous-interface and disconnect evidence remains under R8. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
 ### Current audit follow-ups — 2026-09-11
@@ -878,9 +878,12 @@ remains unfinished; the API is for trusted local clients, not public hosting.
   exposing internal causes or command output. Concrete post-write failure tests
   verify that the response matches surviving disk state.
 - [x] Define startup-failure and service-shutdown cleanup for HTTP/SSE sessions.
-- [ ] Define expiry, backpressure, bounded event buffering, quotas, session
-  reclamation, and complete disconnect policy. Per-POST response-disconnect
-  cancellation is wired; targeted runtime verification remains open.
+- [x] Define expiry, backpressure, bounded event buffering, quotas, and session
+  reclamation. Defaults are 30-minute idle expiry, 32 total sessions, eight per
+  principal, four pending messages and four SSE clients per session, a 256-event/
+  256-KiB replay ring, and 128 KiB per slow client. Owners receive stable 410,
+  409, or 429 codes; foreign principals still receive 404. Evidence:
+  `tests/web-server.test.ts`.
 - [x] Expose voice transcription as explicit input to an application session
   without importing voice code from the root/CLI path or requiring ffmpeg at
   install time.

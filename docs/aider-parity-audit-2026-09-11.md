@@ -296,3 +296,10 @@ and extract identifiers only from current selected source. This is narrower than
 a broad repository token scan and preserves Patch containment. Evidence is in
 `tests/interface-startup.test.ts` and `tests/input-editing.test.ts`; it does not
 change the audit's original revision or broader terminal-parity findings.
+
+The same branch later adds Patch-specific local HTTP lifecycle policy absent
+from the pinned Streamlit GUI: authenticated idle expiry/reclamation, finite
+session/message/SSE quotas, a bounded replay ring, and bounded per-client
+backpressure. `tests/web-server.test.ts` verifies the stable status contracts.
+This closes the operational-policy gap recorded by the audit, not GUI parity or
+multi-tenant support.

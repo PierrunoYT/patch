@@ -5,6 +5,7 @@ import {
   TurnPartiallyAppliedError,
   type ApplicationService,
   type ApplicationSession,
+  type LocalWebServerOptions,
 } from "../src/index.js";
 
 const servers: LocalWebServer[] = [];
@@ -29,8 +30,12 @@ function service(): ApplicationService {
   };
 }
 
-async function fixture(applicationService = service()) {
+async function fixture(
+  applicationService = service(),
+  options: Partial<LocalWebServerOptions> = {},
+) {
   const server = new LocalWebServer({
+    ...options,
     service: applicationService,
     tokens: { aliceToken: "alice", bobToken: "bob" },
   });
@@ -58,6 +63,174 @@ async function request(
 }
 
 describe("LocalWebServer", () => {
+  it("expires and reclaims sessions while enforcing principal and total quotas", async () => {
+    let now = 1_000;
+    let closed = 0;
+    const applicationService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async () => ({}),
+        close: () => {
+          closed += 1;
+        },
+      }),
+    };
+    const { base } = await fixture(applicationService, {
+      now: () => now,
+      sessionTtlMs: 10,
+      maxSessions: 1,
+      maxSessionsPerPrincipal: 1,
+      reclamationIntervalMs: 60_000,
+    });
+    const created = await request(base, "/sessions", "aliceToken", {
+      method: "POST",
+    });
+    const first = (await created.json()) as {
+      sessionId: string;
+      status: string;
+      expiresAt: number;
+    };
+    expect(first).toMatchObject({ status: "active", expiresAt: 1_010 });
+    const quota = await request(base, "/sessions", "bobToken", {
+      method: "POST",
+    });
+    expect(quota.status).toBe(429);
+    expect(await quota.json()).toEqual({
+      error: "Session quota exceeded",
+      code: "session_quota_exceeded",
+    });
+
+    now = 1_011;
+    const expired = await request(
+      base,
+      `/sessions/${first.sessionId}`,
+      "aliceToken",
+    );
+    expect(expired.status).toBe(410);
+    expect(await expired.json()).toEqual({
+      error: "Session expired",
+      code: "session_expired",
+    });
+    expect(
+      (await request(base, `/sessions/${first.sessionId}`, "bobToken")).status,
+    ).toBe(404);
+    expect(closed).toBe(1);
+    expect(
+      (await request(base, "/sessions", "bobToken", { method: "POST" })).status,
+    ).toBe(201);
+  });
+
+  it("bounds queued messages and SSE clients with stable quota errors", async () => {
+    let release!: () => void;
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => (entered = resolve));
+    const blocked = new Promise<void>((resolve) => (release = resolve));
+    const applicationService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async () => {
+          entered();
+          await blocked;
+          return {};
+        },
+      }),
+    };
+    const { base } = await fixture(applicationService, {
+      maxPendingMessagesPerSession: 1,
+      maxEventClientsPerSession: 1,
+    });
+    const { sessionId } = (await (
+      await request(base, "/sessions", "aliceToken", { method: "POST" })
+    ).json()) as { sessionId: string };
+    const firstMessage = request(
+      base,
+      `/sessions/${sessionId}/messages`,
+      "aliceToken",
+      { method: "POST", body: JSON.stringify({ message: "first" }) },
+    );
+    await started;
+    const secondMessage = await request(
+      base,
+      `/sessions/${sessionId}/messages`,
+      "aliceToken",
+      { method: "POST", body: JSON.stringify({ message: "second" }) },
+    );
+    expect(secondMessage.status).toBe(429);
+    expect(await secondMessage.json()).toMatchObject({
+      code: "message_quota_exceeded",
+    });
+    release();
+    expect((await firstMessage).status).toBe(200);
+
+    const firstEvents = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+    );
+    const secondEvents = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+    );
+    expect(secondEvents.status).toBe(429);
+    expect(await secondEvents.json()).toMatchObject({
+      code: "event_client_quota_exceeded",
+    });
+    await firstEvents.body?.cancel();
+  });
+
+  it("replays a bounded event ring and reports an evicted replay cursor", async () => {
+    const applicationService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async (_message, { emit }) => {
+          emit({ type: "text", data: "one" });
+          emit({ type: "text", data: "two" });
+          emit({ type: "text", data: "three" });
+          return { done: true };
+        },
+      }),
+    };
+    const { base } = await fixture(applicationService, {
+      maxBufferedEvents: 2,
+    });
+    const { sessionId } = (await (
+      await request(base, "/sessions", "aliceToken", { method: "POST" })
+    ).json()) as { sessionId: string };
+    await request(base, `/sessions/${sessionId}/messages`, "aliceToken", {
+      method: "POST",
+      body: JSON.stringify({ message: "go" }),
+    });
+    const evicted = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+      { headers: { "last-event-id": "0" } },
+    );
+    expect(evicted.status).toBe(409);
+    expect(await evicted.json()).toMatchObject({
+      code: "event_history_unavailable",
+    });
+
+    const replay = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+      { headers: { "last-event-id": "2" } },
+    );
+    const reader = replay.body?.getReader();
+    let text = "";
+    while (!text.includes("id: 4")) {
+      const chunk = await reader?.read();
+      text += new TextDecoder().decode(chunk?.value);
+    }
+    expect(text).toContain("id: 3");
+    expect(text).toContain("three");
+    expect(text).toContain("id: 4");
+    expect(text).not.toContain('data: "one"');
+    await reader?.cancel();
+  });
+
   it("requires bearer authentication and binds only to loopback", async () => {
     const { base } = await fixture();
     expect(

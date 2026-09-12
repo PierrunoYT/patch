@@ -657,17 +657,19 @@ because the provisioned native package fails its spawn contract there.
   the real `ApplicationService`. Partial post-write failures return bounded
   changed paths, a validated commit ID, and command outcomes without raw causes,
   commands, or output.
-- [ ] Define session expiry, quotas, bounded event/backpressure policy, and
-  disconnect cancellation. Cross-session repository mutation coordination is
-  done: every session on one worktree shares a re-entrant mutation lock.
+- [x] Define session expiry, quotas, bounded event/backpressure policy, and
+  reclamation. Sessions expire after bounded idle time; total, per-principal,
+  message, and SSE-client quotas reject excess work; event replay and each slow
+  client's pending bytes are bounded. Direct disconnect-cancellation evidence
+  remains part of the next interface-evidence task.
 - [x] Add voice recording/transcription as an optional package subpath and
   embedding adapter without changing the default install footprint. No CLI
   `/voice` or device/recording UX is claimed.
 
-**Exit (default footprint met; adapter exposure partial):** package smoke tests
+**Exit (default footprint and local API policy met; adapter evidence partial):** package smoke tests
 assert that optional native/browser/audio dependencies do not enter a normal
-install. Watch, local API startup, and `/web` ingestion work; web operational
-policy remains incomplete. Interface flags are CLI-only and web
+install. Watch, local API startup, and `/web` ingestion work; broader
+simultaneous-interface evidence remains incomplete. Interface flags are CLI-only and web
 cannot run alongside terminal/watch input in the same executable instance.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,

@@ -23,6 +23,10 @@ dated parity audits for revision-specific evidence.
   current selected non-ignored source. Available filenames are also refreshed;
   source contents remain behind the application boundary and ignored or
   out-of-root identifiers are never exposed.
+- Authenticated local HTTP session policy with 30-minute idle expiry and
+  reclamation; total, per-principal, pending-message, and SSE-client quotas;
+  bounded SSE replay and slow-client queues; and stable expiry/quota/replay
+  status codes.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the
