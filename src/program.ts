@@ -9,6 +9,7 @@ import {
 } from "./core/concrete-application-service.js";
 import { runInput, TerminalInput, type InputDependencies } from "./input.js";
 import { COMMAND_NAMES } from "./commands/parse.js";
+import { ApplicationEditFormatSchema } from "./edits/types.js";
 import { discoverEditor } from "./io/editor.js";
 import { TerminalHistory } from "./io/history.js";
 import { runInteractiveCommand } from "./process/interactive-command.js";
@@ -368,6 +369,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                       const approved = await session?.completionCandidates?.();
                       return {
                         commands: COMMAND_NAMES,
+                        modes: ["code", ...ApplicationEditFormatSchema.options],
                         files: [
                           ...new Set([
                             ...(approved?.files ?? []),

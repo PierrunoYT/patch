@@ -29,9 +29,16 @@ its Patch-specific normalization.
 `ModelCatalog.load()` validates all three resource kinds before exposing them:
 
 - aliases are non-empty name mappings and alias cycles are rejected;
-- YAML settings use the strict `ModelSettingsSchema` contract; and
+- YAML settings use the strict `ModelSettingsSchema` contract, whose
+  `editFormat` and `editorEditFormat` fields accept only `ask`, `whole`, `diff`,
+  `diff-fenced`, `udiff`, or `patch`; and
 - commented JSON5 metadata has validated token limits, costs, provider, and
   capability fields.
+
+Bundled editor roles record the parser they actually use (`diff`), not aider's
+internal `editor-diff` coder name. Distinct editor prompting and lifecycle are
+construction policy, not a seventh public format. Helper-only names therefore
+fail catalog loading before provider construction.
 
 Additional resource files can be supplied to `load`; they are applied after
 the bundled files and replace entries with the same alias or model name. Invalid

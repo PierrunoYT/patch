@@ -49,7 +49,7 @@ describe("ModelCatalog", () => {
       settings: {
         provider: "openai",
         editFormat: "diff",
-        editorEditFormat: "editor-diff",
+        editorEditFormat: "diff",
       },
     });
     expect(catalog.resolve("deepseek")).toMatchObject({

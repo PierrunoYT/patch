@@ -2,29 +2,18 @@ import { z } from "zod";
 
 export const EditFormatSchema = z.enum([
   "ask",
-  "help",
   "whole",
   "diff",
   "diff-fenced",
-  "editor-whole",
-  "editor-diff",
-  "editor-diff-fenced",
   "udiff",
-  "udiff-simple",
   "patch",
-  "architect",
-  "context",
 ]);
 
 /** Formats with complete construction and prompt behavior in ApplicationService. */
-export const ApplicationEditFormatSchema = z.enum([
-  "ask",
-  "whole",
-  "diff",
-  "diff-fenced",
-  "udiff",
-  "patch",
-]);
+export const ApplicationEditFormatSchema = EditFormatSchema;
+
+/** Internal read-only orchestration strategies; never accepted as user modes. */
+export const OrchestrationFormatSchema = z.enum(["architect", "context"]);
 
 const RelativePathSchema = z.string().min(1);
 
@@ -92,5 +81,7 @@ export const EditBatchSchema = z
 
 export type EditFormat = z.infer<typeof EditFormatSchema>;
 export type ApplicationEditFormat = z.infer<typeof ApplicationEditFormatSchema>;
+export type StrategyFormat =
+  EditFormat | z.infer<typeof OrchestrationFormatSchema>;
 export type Edit = z.infer<typeof EditSchema>;
 export type EditBatch = z.infer<typeof EditBatchSchema>;

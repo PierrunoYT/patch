@@ -54,6 +54,10 @@ dated parity audits for revision-specific evidence.
   histories, multiline input, notifications, watch mode, and the authenticated
   local web interface, including explicit CLI disable overrides and
   repository-root correction.
+- One six-value production edit-format schema shared by CLI/YAML/environment
+  configuration, model settings, slash-command parsing, and terminal mode
+  completion. Helper-only format names are no longer accepted by public model
+  contracts and are rejected before provider construction.
 - Canonical pinned strategy prompts, examples, reminders, and shell policy for
   all six production formats, with prompt/context/parser fences reselected from
   current files before every initial and reflected provider attempt. Patch

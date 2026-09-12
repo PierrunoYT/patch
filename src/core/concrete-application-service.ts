@@ -398,7 +398,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     };
     this.#profile = {
       main: context.models.main.settings,
-      codeFormat: context.definition.strategy.format,
+      codeFormat: context.definition.format,
       definition: context.definition,
       fence: context.fence,
       ...(context.repositoryMap === undefined
@@ -517,7 +517,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           ),
         ).fence;
         const definition = createStrategy(
-          this.#profile.definition.strategy.format,
+          this.#profile.definition.format,
           fence,
         );
         this.#session.setAttemptFence(fence);

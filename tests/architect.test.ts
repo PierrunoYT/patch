@@ -8,9 +8,9 @@ import {
   SearchReplaceEditStrategy,
 } from "../src/index.js";
 
-const config = (editFormat: "architect" | "diff") => ({
+const config = (_editFormat: "architect" | "diff") => ({
   root: "/repo",
-  model: { name: "fake", provider: "fake", editFormat },
+  model: { name: "fake", provider: "fake", editFormat: "ask" as const },
 });
 const finish = (text: string) => [
   {

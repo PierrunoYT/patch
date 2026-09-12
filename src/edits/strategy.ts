@@ -1,4 +1,4 @@
-import type { EditBatch, EditFormat } from "./types.js";
+import type { EditBatch, StrategyFormat } from "./types.js";
 import type { FileSnapshot } from "./resolve.js";
 
 export interface EditStrategyContext {
@@ -8,6 +8,6 @@ export interface EditStrategyContext {
 }
 
 export interface EditStrategy {
-  readonly format: EditFormat;
+  readonly format: StrategyFormat;
   parse(response: string, context: EditStrategyContext): EditBatch;
 }

@@ -5,7 +5,7 @@
 - name: gpt-4o
   provider: openai
   editFormat: diff
-  editorEditFormat: editor-diff
+  editorEditFormat: diff
   weakModel: gpt-4o-mini
   useRepoMap: true
   capabilities:
@@ -25,7 +25,7 @@
 - name: claude-sonnet-4-6
   provider: anthropic
   editFormat: diff
-  editorEditFormat: editor-diff
+  editorEditFormat: diff
   weakModel: claude-haiku-4-5
   editorModel: claude-sonnet-4-6
   useRepoMap: true
@@ -52,7 +52,7 @@
 - name: deepseek/deepseek-chat
   provider: deepseek
   editFormat: diff
-  editorEditFormat: editor-diff
+  editorEditFormat: diff
   useRepoMap: true
   maxOutputTokens: 8192
   capabilities:
@@ -66,7 +66,7 @@
 - name: deepseek/deepseek-reasoner
   provider: deepseek
   editFormat: diff
-  editorEditFormat: editor-diff
+  editorEditFormat: diff
   useRepoMap: true
   maxOutputTokens: 8192
   reasoningTag: think

@@ -18,6 +18,7 @@ export interface CompletionSources {
   readonly commands: readonly string[];
   readonly files: readonly string[];
   readonly identifiers?: readonly string[];
+  readonly modes?: readonly string[];
 }
 
 const FILE_COMMANDS = new Set(["/add", "/drop", "/read-only"]);
@@ -115,6 +116,10 @@ export function completeInput(
 
   if (FILE_COMMANDS.has(words[0] ?? "")) {
     return candidates(sources.files, word, "file", start);
+  }
+
+  if (words[0] === "/chat-mode") {
+    return candidates(sources.modes ?? [], word, "command", start);
   }
 
   if (word.length < 3) return [];

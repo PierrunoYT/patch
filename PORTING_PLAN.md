@@ -83,7 +83,8 @@ evidence; this plan and the backlog track current status and open work.
   scopes/repeated actions, are constructed and tested locally. Broader
   unified-diff recovery, remaining format-specific prompts, and broader pinned
   goldens remain incomplete.
-  Architect/editor, context, help, and other advanced formats are unconstructed.
+  User-facing schemas contain only the six constructed formats. Architect and
+  context retain private orchestration identities; help is a local command.
 - Terminal Markdown, diff previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
   multiline, the external editor, and explicitly requested PTY dispatch are
@@ -588,6 +589,9 @@ evidence is not claimed until that matrix completes on the pushed revision.
 
 ### Phase 7 — Advanced edit and orchestration modes
 
+- [x] Align public format schemas, configuration, bundled model settings,
+  `/chat-mode`, and completion with the six constructed modes. Helper-only
+  names are private identities and are rejected before provider creation.
 - [x] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
   concrete provider request puts the path inside the active fence while ordinary
   diff keeps it before the fence; a quadruple-backtick application test proves

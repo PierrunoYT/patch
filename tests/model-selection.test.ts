@@ -11,7 +11,7 @@ describe("selectModels", () => {
     expect(selected.main.canonicalName).toBe("claude-sonnet-4-6");
     expect(selected.weak.canonicalName).toBe("claude-haiku-4-5");
     expect(selected.editor).toBe(selected.main);
-    expect(selected.editorEditFormat).toBe("editor-diff");
+    expect(selected.editorEditFormat).toBe("diff");
   });
 
   it("supports disabled roles and explicit overrides without recursion", async () => {

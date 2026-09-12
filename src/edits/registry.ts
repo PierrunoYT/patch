@@ -5,7 +5,10 @@ import {
   SearchReplaceEditStrategy,
 } from "./search-replace.js";
 import type { EditStrategy } from "./strategy.js";
-import { ApplicationEditFormatSchema, type EditFormat } from "./types.js";
+import {
+  ApplicationEditFormatSchema,
+  type ApplicationEditFormat,
+} from "./types.js";
 import { UnifiedDiffEditStrategy } from "./unified-diff.js";
 import { WholeFileEditStrategy } from "./whole-file.js";
 import type { Fence } from "../core/fences.js";
@@ -13,6 +16,7 @@ import type { ChatMessage } from "../core/messages.js";
 import { strategyPrompt } from "../resources/strategy-prompts.js";
 
 export interface StrategyDefinition {
+  readonly format: ApplicationEditFormat;
   readonly strategy: EditStrategy;
   readonly systemPrompt: string;
   readonly examples: readonly ChatMessage[];
@@ -23,7 +27,7 @@ export interface StrategyDefinition {
 export class UnsupportedEditFormatError extends Error {
   override readonly name = "UnsupportedEditFormatError";
 
-  constructor(format: EditFormat) {
+  constructor(format: unknown) {
     super(`Edit format is not available through the application: ${format}`);
   }
 }
@@ -31,14 +35,14 @@ export class UnsupportedEditFormatError extends Error {
 const DEFAULT_FENCE: Fence = ["```", "```"];
 
 export function createStrategy(
-  format: EditFormat,
+  format: unknown,
   fence: Fence = DEFAULT_FENCE,
 ): StrategyDefinition {
   const supported = ApplicationEditFormatSchema.safeParse(format);
   if (!supported.success) throw new UnsupportedEditFormatError(format);
   const prompts = strategyPrompt(supported.data, fence);
   let strategy: EditStrategy;
-  switch (format) {
+  switch (supported.data) {
     case "ask":
       strategy = new AskEditStrategy();
       break;
@@ -60,5 +64,5 @@ export function createStrategy(
     default:
       throw new UnsupportedEditFormatError(format);
   }
-  return { strategy, ...prompts };
+  return { format: supported.data, strategy, ...prompts };
 }

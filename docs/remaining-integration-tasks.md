@@ -66,14 +66,14 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Packed actual-bin one-shot and two-turn fake-wire sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, and in-process worktree serialization. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, repeated continuation, and some recovery evidence remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata/pricing, cache-aware cost, temperature policy, and bounded retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial with direct-port evidence | Bootstrap now stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, and a machine-readable direct-derivation ledger with CI drift scanning are wired. Provider-lifetime cleanup remains open. |
+| Configuration/package/provenance | partial with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. Broader release-audit reconciliation remains open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -791,9 +791,14 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
 
 ## R6 — Wire and verify advanced strategies
 
-- [ ] Keep user-facing mode schemas/settings aligned with the six constructed
-  formats. Helper-only `help`, `udiff-simple`, `architect`, `editor-*`, and
-  `context` values still exist in broader schemas or model data.
+- [x] Keep user-facing mode schemas/settings aligned with the six constructed
+  formats. `EditFormatSchema` is the one contract used by model settings,
+  staged configuration, `/chat-mode`, and completion. Bundled editor settings
+  name their actual parser (`diff`) rather than a helper-only alias. `help`,
+  `udiff-simple`, `architect`, `editor-*`, and `context` fail at schema/parser
+  boundaries before provider construction; architect/context identities remain
+  private to read-only orchestration helpers. The pinned upstream format list is
+  retained as evidence of Patch's intentionally narrower advertised subset.
 - [ ] Port distinct editor prompts and enforce editor-specific no-shell,
   no-repo-map, and fresh-history behavior where required by pinned Aider.
   The selected local `/help` command is tracked separately; it does not require
