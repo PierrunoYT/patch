@@ -118,6 +118,76 @@ describe("worktree mutation lock", () => {
     );
   });
 
+  it("retains a live root's lock across failure, cancellation, and idle periods", async () => {
+    const root = "/tmp/live-worktree-lock";
+    const lock = worktreeMutationLock(root);
+    await expect(
+      lock.run(async () => {
+        throw new Error("failed");
+      }),
+    ).rejects.toThrow("failed");
+    await expect(
+      lock.run(
+        async () => undefined,
+        AbortSignal.abort(new Error("cancelled")),
+      ),
+    ).rejects.toThrow("cancelled");
+    await lock.idle();
+    expect(worktreeMutationLock(root)).toBe(lock);
+    await lock.run(async () => {
+      expect(worktreeMutationLock(root)).toBe(lock);
+      await worktreeMutationLock(root).run(async () => undefined);
+    });
+  });
+
+  it("registers weak locks for cleanup without letting stale finalizers remove replacements", async () => {
+    type Entry = { root: string; reference: WeakRef<WorktreeMutationLock> };
+    const entries: Entry[] = [];
+    let cleanup!: (entry: Entry) => void;
+    vi.stubGlobal(
+      "FinalizationRegistry",
+      class {
+        constructor(callback: (entry: Entry) => void) {
+          cleanup = callback;
+        }
+        register(_target: object, entry: Entry) {
+          entries.push(entry);
+        }
+      },
+    );
+    vi.resetModules();
+    try {
+      const { worktreeMutationLock: lookup } =
+        await import("../src/core/worktree-lock.js");
+      const root = "/tmp/collected-worktree-lock";
+      const first = lookup(root);
+      expect(entries).toHaveLength(1);
+      const entry = entries[0];
+      if (entry === undefined)
+        throw new Error("Missing finalizer registration");
+      expect(entry.reference).toBeInstanceOf(WeakRef);
+      expect(entry.reference.deref()).toBe(first);
+      expect(lookup(root)).toBe(first);
+      vi.spyOn(entry.reference, "deref").mockReturnValue(undefined);
+      const replacement = lookup(root);
+      expect(replacement).not.toBe(first);
+      const deletion = vi.spyOn(Map.prototype, "delete");
+      cleanup(entry);
+      expect(deletion).not.toHaveBeenCalledWith(root);
+      expect(lookup(root)).toBe(replacement);
+      const replacementEntry = entries[1];
+      if (replacementEntry === undefined)
+        throw new Error("Missing replacement registration");
+      vi.spyOn(replacementEntry.reference, "deref").mockReturnValue(undefined);
+      cleanup(replacementEntry);
+      expect(deletion).toHaveBeenCalledWith(root);
+      expect(lookup(root)).not.toBe(replacement);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+
   it("runs regions one at a time in acquisition order", async () => {
     const lock = new WorktreeMutationLock();
     const log: string[] = [];

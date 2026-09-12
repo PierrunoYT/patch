@@ -43,16 +43,24 @@ export class WorktreeMutationLock {
   }
 }
 
-const locks = new Map<string, WorktreeMutationLock>();
+const locks = new Map<string, WeakRef<WorktreeMutationLock>>();
+const collectedLocks = new FinalizationRegistry<{
+  root: string;
+  reference: WeakRef<WorktreeMutationLock>;
+}>(({ root, reference }) => {
+  if (locks.get(root) === reference) locks.delete(root);
+});
 
 /**
  * The process-wide lock for `root`, which must already be a resolved real path
  * so two services opened through different symlinks share one lock.
  */
 export function worktreeMutationLock(root: string): WorktreeMutationLock {
-  const existing = locks.get(root);
+  const existing = locks.get(root)?.deref();
   if (existing !== undefined) return existing;
   const created = new WorktreeMutationLock();
-  locks.set(root, created);
+  const reference = new WeakRef(created);
+  locks.set(root, reference);
+  collectedLocks.register(created, { root, reference });
   return created;
 }

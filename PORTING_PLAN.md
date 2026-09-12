@@ -111,7 +111,9 @@ evidence; this plan and the backlog track current status and open work.
   history compaction are wired. The private editor role, bounded prompt-cache
   keepalive opt-in, and approved ephemeral image/PDF context are production-wired.
 - Watch and a local authenticated HTTP/SSE API start through the application and
-  share one worktree mutation lock, and `/web` ingests one user-typed URL as
+  share one worktree mutation lock. The root registry uses weak references and
+  guarded finalizers to reclaim unreachable locks without evicting live idle
+  sessions; reclamation timing depends on GC. `/web` ingests one user-typed URL as
   bounded, labeled text. GUI and CLI voice UX are deferred. Loopback production
   tests cover HTTP disconnect cancellation, principal/session isolation,
   structured partial-turn recovery, expiry, quotas, bounded replay/backpressure,

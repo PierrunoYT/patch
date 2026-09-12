@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Stop the process-wide worktree registry from retaining every lock forever.
+  Weak references allow unreachable locks to be collected; guarded finalizers
+  remove their root entries without deleting newer replacements. Live sessions
+  retain one shared lock across idle periods. Cleanup timing remains GC-dependent;
+  deterministic tests model collection and stale-finalizer ordering.
+
 - Pass leading-colon filenames literally to Git ignore checks instead of
   failing with unsupported pathspec-magic errors. Prefixing stdin paths with
   `./` retains both ordinary and aider ignore exclusions; other Git failures

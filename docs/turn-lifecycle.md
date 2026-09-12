@@ -109,7 +109,18 @@ Failures without surviving writes or a turn-owned commit are rethrown unchanged
 and remain generic at the HTTP boundary.
 
 Sessions sharing a resolved worktree serialize mutation phases through one
-in-process lock. There is no cross-process Patch lock, durable recovery journal,
+in-process lock. The root registry holds weak references: sessions and queued or
+active regions retain their lock, but unreachable locks can be garbage-collected
+and their registry entries finalized. A delayed finalizer deletes only its own
+entry, never a replacement for the same root. Idle alone does not evict a lock:
+a session may still reuse it, and creating a second lock would break exclusion.
+Cleanup timing is GC-dependent, not a bounded idle-expiry guarantee.
+`tests/worktree-serialization.test.ts` models collection/finalizer ordering
+without relying on GC timing and tests live reuse after failure/cancellation,
+plus concurrent terminal/watch/web mutation ordering. This registry is Patch's
+Node-specific lifecycle policy, not a port of the pinned Streamlit coder setup
+in `aider/gui.py:70–89` or undo flow in `aider/commands.py:560–644`.
+There is no cross-process Patch lock, durable recovery journal,
 atomic cross-file Git/filesystem transaction, or rollback of completed writes.
 Interruption between undo's two Git commands needs further recovery evidence.
 Approved/configured

@@ -140,7 +140,9 @@ authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
 user-typed page to the chat as bounded, labeled text. Web session expiry,
 quotas, bounded SSE replay/backpressure, reclamation, and structured errors are
 enforced. Worktree mutations are serialized in-process, not across separate
-Patch processes. Deterministic loopback tests exercise principal/session event
+Patch processes. The process-wide lock registry uses weak references so unused
+locks can be garbage-collected; idle sessions keep sharing their existing lock.
+Deterministic loopback tests exercise principal/session event
 isolation, HTTP disconnect cancellation, SSE overflow/replay, concrete
 post-write recovery, and simultaneous terminal/watch/web mutations. See the unchecked items in
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
