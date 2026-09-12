@@ -18,6 +18,7 @@ import {
   WriteAuthorizationError,
   WriteTextOptionsSchema,
   type ConcreteApplicationDependencies,
+  type LifecycleBoundary,
 } from "../src/index.js";
 
 const executeFile = promisify(execFile);
@@ -674,6 +675,208 @@ describe("application edit lifecycle", () => {
             message.content.includes(content),
         ),
       ).toBe(true);
+    },
+  );
+
+  it.each<{
+    boundary: LifecycleBoundary;
+    response: (root: string) => string;
+    dependencies?: ConcreteApplicationDependencies;
+  }>([
+    { boundary: "context", response: () => "answer" },
+    { boundary: "provider", response: () => "answer" },
+    { boundary: "parse", response: () => "answer" },
+    { boundary: "finalize", response: () => "answer" },
+    {
+      boundary: "resolution",
+      response: () => edit("selected.txt", "base", "edited"),
+    },
+    {
+      boundary: "preview",
+      response: () => edit("selected.txt", "base", "edited"),
+    },
+    {
+      boundary: "authorization",
+      response: () => edit("new.txt", "", "new"),
+      dependencies: { authorizeWrite: () => true },
+    },
+  ])(
+    "cancels without mutation and reuses the queue at $boundary",
+    async ({ boundary, response: firstResponse, dependencies = {} }) => {
+      const root = await repository();
+      const before = await state(root);
+      const controller = new AbortController();
+      const reached: LifecycleBoundary[] = [];
+      const provider = new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: firstResponse(root) },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+        {
+          actions: [
+            { type: "text-delta", text: "recovered" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]);
+      const session = await application(root, provider, {
+        ...dependencies,
+        onLifecycleBoundary: (current) => {
+          reached.push(current);
+          if (current === boundary && !controller.signal.aborted)
+            controller.abort(new Error(`cancel at ${boundary}`));
+        },
+      });
+
+      await expect(
+        session.submit("first", {
+          ...submitOptions(),
+          signal: controller.signal,
+        }),
+      ).rejects.toThrow(`cancel at ${boundary}`);
+      expect(reached).toContain(boundary);
+      expect(await state(root)).toEqual(before);
+      await expect(readFile(join(root, "new.txt"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      expect(await session.snapshot()).toMatchObject({
+        phase: boundary === "context" ? "waiting" : "interrupted",
+        pendingEdits: [],
+      });
+      await expect(
+        session.submit("retry", submitOptions()),
+      ).resolves.toMatchObject({
+        response:
+          boundary === "context" || boundary === "provider"
+            ? firstResponse(root)
+            : "recovered",
+        changedPaths: [],
+      });
+      expect(await state(root)).toEqual(before);
+    },
+  );
+
+  it.each<{
+    boundary: LifecycleBoundary;
+    response: string;
+    argv?: string[];
+    dependencies?: ConcreteApplicationDependencies;
+    expectedChanged: readonly string[];
+  }>([
+    {
+      boundary: "checkpoint",
+      response: edit("selected.txt", "dirty", "edited"),
+      expectedChanged: [],
+    },
+    {
+      boundary: "write",
+      response: edit("selected.txt", "dirty", "edited"),
+      expectedChanged: ["selected.txt"],
+    },
+    {
+      boundary: "commit",
+      response: edit("selected.txt", "dirty", "edited"),
+      expectedChanged: ["selected.txt"],
+    },
+    {
+      boundary: "lint",
+      response: edit("selected.txt", "dirty", "edited"),
+      argv: ["--lint-cmd", 'node -e "process.exit(0)"'],
+      expectedChanged: ["selected.txt"],
+    },
+    {
+      boundary: "command",
+      response: `${edit("selected.txt", "dirty", "edited")}\n\`\`\`sh\nnode -e "process.exit(0)"\n\`\`\``,
+      dependencies: { approveCommand: () => true },
+      expectedChanged: ["selected.txt"],
+    },
+    {
+      boundary: "test",
+      response: edit("selected.txt", "dirty", "edited"),
+      argv: ["--test-cmd", 'node -e "process.exit(0)"'],
+      expectedChanged: ["selected.txt"],
+    },
+    {
+      boundary: "reflection",
+      response: edit("selected.txt", "dirty", "edited"),
+      argv: ["--lint-cmd", 'node -e "process.exit(1)"'],
+      expectedChanged: ["selected.txt"],
+    },
+  ])(
+    "reports exact surviving work and reuses the queue at $boundary",
+    async ({
+      boundary,
+      response: text,
+      argv = [],
+      dependencies = {},
+      expectedChanged,
+    }) => {
+      const root = await dirtyRepository();
+      const before = await state(root);
+      const controller = new AbortController();
+      const provider = new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+        {
+          actions: [
+            { type: "text-delta", text: "recovered" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]);
+      const session = await application(
+        root,
+        provider,
+        {
+          ...dependencies,
+          onLifecycleBoundary: (current) => {
+            if (current === boundary && !controller.signal.aborted)
+              controller.abort(new Error(`cancel at ${boundary}`));
+          },
+        },
+        argv,
+      );
+
+      let failure: unknown;
+      try {
+        await session.submit("first", {
+          ...submitOptions(),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        failure = error;
+      }
+      expect(failure).toBeInstanceOf(TurnPartiallyAppliedError);
+      const partial = failure as TurnPartiallyAppliedError;
+      expect(partial).toMatchObject({
+        changedPaths: expectedChanged,
+        commit: expect.stringMatching(/^[0-9a-f]{40}$/u),
+      });
+      expect(partial.commit).toBe(
+        (await git(root, "rev-parse", "HEAD")).trim(),
+      );
+      expect(partial.message).toContain(`cancel at ${boundary}`);
+      expect(await git(root, "diff", "--cached")).toBe(before.index);
+      expect(await readFile(join(root, "unrelated.txt"), "utf8")).toBe(
+        before.unrelated,
+      );
+      expect(await readFile(join(root, "selected.txt"), "utf8")).toBe(
+        boundary === "checkpoint" ? "dirty\n" : "edited\n",
+      );
+      expect(await session.snapshot()).toMatchObject({
+        phase: "interrupted",
+        pendingEdits: [],
+        messages: expect.arrayContaining([{ role: "user", content: "first" }]),
+      });
+      await expect(
+        session.submit("retry", submitOptions()),
+      ).resolves.toMatchObject({ response: "recovered", changedPaths: [] });
     },
   );
 

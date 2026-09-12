@@ -78,7 +78,10 @@ export class EditTransaction {
   }
 
   /** Call only after the staged operations have received user authorization. */
-  async commit(signal?: AbortSignal): Promise<void> {
+  async commit(
+    signal?: AbortSignal,
+    didApply?: (path: string) => void,
+  ): Promise<void> {
     if (this.#committed) {
       throw new EditTransactionStateError("An edit transaction commits once");
     }
@@ -93,6 +96,7 @@ export class EditTransaction {
       if (operation.kind === "delete") continue;
       signal?.throwIfAborted();
       await this.#files.writeText(operation.path, operation.content);
+      didApply?.(operation.path);
     }
     for (const operation of this.operations) {
       if (operation.kind !== "delete") continue;
@@ -101,6 +105,7 @@ export class EditTransaction {
       // filesystem, so confirm the source still holds its resolved content.
       await validateSnapshot(this.#files, operation);
       await this.#files.deleteFile(operation.path);
+      didApply?.(operation.path);
     }
     this.#committed = true;
   }

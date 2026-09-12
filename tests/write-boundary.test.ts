@@ -57,12 +57,15 @@ describe("applyAuthorizedEdits", () => {
         events.push(`checkpoint:${paths.join(",")}`);
         return "checkpoint-sha";
       },
+      didApply: (path) => events.push(`write:${path}`),
     });
 
     expect(events).toEqual([
       "preview:existing.ts,new.ts",
       "authorize:new-file:new.ts",
       "checkpoint:existing.ts",
+      "write:existing.ts",
+      "write:new.ts",
     ]);
     expect(result).toEqual({
       changedPaths: ["existing.ts", "new.ts"],

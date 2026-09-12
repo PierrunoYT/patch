@@ -722,6 +722,8 @@ Capture at least:
 - staged plus unstaged Git diffs and dirty checkpoints;
 - exact selected-index restoration after failed commits without touching
   unrelated staged or unstaged work;
+- deterministic cancellation at every production lifecycle boundary, including
+  exact partial-write and checkpoint evidence plus reusable queue state;
 - command effects and state transfer; and
 - later, repository-map tags, ranks, and rendered context.
 

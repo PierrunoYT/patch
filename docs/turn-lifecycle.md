@@ -81,6 +81,14 @@ failure and their identifiers remain in session state. Cross-file writes have
 file changed and later files untouched. Inspect the working tree before retrying.
 The queue remains reusable and the next turn reads actual disk contents.
 
+The production lifecycle exposes synchronous instrumentation at context,
+provider, parse, resolution, preview, authorization, checkpoint, each atomic
+write/delete, edit commit, lint, model command, test, reflection, and finalization
+boundaries. Every callback is followed by an abort check. Deterministic real-Git
+tests inject cancellation at each boundary and assert exact files, HEAD, index,
+pending edits, partial-result fields, and a successful queued retry. This is a
+test/embedding fault-injection seam, not a user option and not a rollback log.
+
 Interrupted turns clear pending edits and retain usage and the last completed
 commit. History finalization is mutation-aware: when a write reaches the
 worktree or a checkpoint/apply commit is created, the application calls
@@ -89,21 +97,22 @@ the user message, every reflection exchange, and the model response that
 produced the surviving work. A turn that changed nothing still leaves no trace,
 so history never claims edits that do not exist.
 
-The service exposes `TurnPartiallyAppliedError` for failed turns with recorded
-changed paths, carrying `changedPaths`, `commit`, and `commands` and naming the
-surviving work in its message. The terminal displays that diagnostic. The HTTP
+The service records each completed atomic replacement or deletion before
+cancellation can escape. It exposes `TurnPartiallyAppliedError` for failed turns
+with recorded changed paths, carrying `changedPaths`, `commit`, and `commands`
+and naming the surviving work in its message. A checkpoint-only cancellation
+therefore reports an empty changed-path list and its surviving commit. The terminal displays that diagnostic. The HTTP
 boundary returns an allowlisted structured 500 with bounded safe relative paths,
 a validated commit ID, and command status metadata. It omits the cause, message,
 command text, and output; some progress may also already have reached SSE.
-Checkpoint-only failures can retain a commit in session state without producing
-that structured error. Failures without a structured partial result are rethrown
-unchanged and remain generic at the HTTP boundary.
+Failures without surviving writes or a turn-owned commit are rethrown unchanged
+and remain generic at the HTTP boundary.
 
 Sessions sharing a resolved worktree serialize mutation phases through one
 in-process lock. There is no cross-process Patch lock, durable recovery journal,
-per-file partial-write result, atomic Git/filesystem transaction, or exhaustive
-cancellation guarantee. Interruption between undo's two Git commands needs
-further recovery evidence. Approved/configured
+atomic cross-file Git/filesystem transaction, or rollback of completed writes.
+Interruption between undo's two Git commands needs further recovery evidence.
+Approved/configured
 child commands are not sandboxed: they can change unrelated files or Git themselves, and Patch
 cannot promise to preserve that work against arbitrary command side effects.
 

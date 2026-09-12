@@ -100,6 +100,9 @@ upstream branch already contains.
 Failed checkpoint/edit/check commits likewise restore selected paths to their
 prior index entries, including partial staging, while retaining working-file
 content and unrelated staged/unstaged changes.
+Cancellation is checked at every editing lifecycle boundary. Completed atomic
+file replacements and Patch commits remain valid and are reported explicitly;
+pending edits are cleared and the same session queue can accept a fresh retry.
 Interactive terminal input is connected: Tab completes commands and the files
 available right now plus identifiers read only from currently selected,
 non-ignored source. Candidates are refreshed on each Tab press;

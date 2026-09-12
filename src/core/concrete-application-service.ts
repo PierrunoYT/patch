@@ -109,7 +109,25 @@ export interface ConcreteApplicationDependencies {
   readonly writeClipboard?: (text: string) => Promise<void>;
   /** Test/embedder override; production resolves only the report allowlist. */
   readonly reportMetadata?: (signal?: AbortSignal) => Promise<ReportMetadata>;
+  /** Synchronous lifecycle instrumentation, also used for deterministic faults. */
+  readonly onLifecycleBoundary?: (boundary: LifecycleBoundary) => void;
 }
+
+export type LifecycleBoundary =
+  | "context"
+  | "provider"
+  | "parse"
+  | "resolution"
+  | "preview"
+  | "authorization"
+  | "checkpoint"
+  | "write"
+  | "commit"
+  | "lint"
+  | "command"
+  | "test"
+  | "reflection"
+  | "finalize";
 
 export interface ConcreteApplicationOptions extends BootstrapOptions {
   /** A staged result owned by the interface, avoiding a second divergent pass. */
@@ -150,6 +168,7 @@ interface ApplicationContext {
   readonly readClipboard: () => Promise<string>;
   readonly writeClipboard: (text: string) => Promise<void>;
   readonly reportMetadata: (signal?: AbortSignal) => Promise<ReportMetadata>;
+  readonly onLifecycleBoundary?: (boundary: LifecycleBoundary) => void;
 }
 
 /**
@@ -442,6 +461,11 @@ class ConcreteApplicationSession implements ApplicationSession {
     };
   }
 
+  #boundary(boundary: LifecycleBoundary, signal: AbortSignal): void {
+    this.#context.onLifecycleBoundary?.(boundary);
+    signal.throwIfAborted();
+  }
+
   submit(
     message: string,
     options: ApplicationSubmitOptions,
@@ -469,6 +493,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       }
       const changedPaths = new Set<string>();
       const commands: ModelCommandResult[] = [];
+      const initialCommit = this.#session.snapshot().lastPatchCommit;
       const context = async () => {
         const state = this.#session.snapshot();
         const editablePaths = [
@@ -551,6 +576,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           onEvent: (event) => options.emit({ type: event.type, data: event }),
           lifecycle: {
             context,
+            boundary: (boundary) => this.#boundary(boundary, options.signal),
             // The mutation phase runs under the worktree lock so a second
             // session on this checkout cannot interleave its checkpoint,
             // apply, commit, or checks with this one. Streaming stays outside
@@ -607,6 +633,7 @@ class ConcreteApplicationSession implements ApplicationSession {
                     diagnostic: `${error.message}: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}`,
                   };
                 }
+                this.#boundary("resolution", options.signal);
                 if (
                   resolved.operations.length === 0 &&
                   resolved.shellCommands.length === 0
@@ -623,17 +650,32 @@ class ConcreteApplicationSession implements ApplicationSession {
                   transaction,
                   attempt.editablePaths ?? [],
                   {
-                    presentPreview: (preview) =>
-                      options.emit({ type: "edit-preview", data: preview }),
-                    authorize: (request) =>
-                      this.#context.authorizeWrite?.(request) ?? false,
+                    presentPreview: (preview) => {
+                      options.emit({ type: "edit-preview", data: preview });
+                      this.#boundary("preview", options.signal);
+                    },
+                    authorize: async (request) => {
+                      const authorized =
+                        (await this.#context.authorizeWrite?.(request)) ??
+                        false;
+                      this.#boundary("authorization", options.signal);
+                      return authorized;
+                    },
                     isDirty: (path) => repository?.isDirty(path) ?? false,
-                    checkpointDirty: async (paths) =>
-                      (await this.#commit(
+                    checkpointDirty: async (paths) => {
+                      const commit = await this.#commit(
                         paths,
                         "Checkpoint before Patch edits",
                         options,
-                      )) ?? undefined,
+                      );
+                      this.#boundary("checkpoint", options.signal);
+                      return commit ?? undefined;
+                    },
+                    didApply: (path) => {
+                      changedPaths.add(path);
+                      this.#session.recordTurnMutation();
+                      this.#boundary("write", options.signal);
+                    },
                   },
                   options.signal,
                 );
@@ -647,6 +689,7 @@ class ConcreteApplicationSession implements ApplicationSession {
                   options,
                   true,
                 );
+                this.#boundary("commit", options.signal);
                 const signal = options.signal;
                 signal.throwIfAborted();
                 const lint = checkDiagnostic(
@@ -661,6 +704,8 @@ class ConcreteApplicationSession implements ApplicationSession {
                 );
                 if (lint !== undefined)
                   return { source: "lint" as const, diagnostic: lint };
+                if (resolved.shellCommands.length > 0)
+                  this.#boundary("command", signal);
                 commands.push(
                   ...(await executeModelCommands(
                     resolved.shellCommands,
@@ -709,7 +754,10 @@ class ConcreteApplicationSession implements ApplicationSession {
         })
         .catch((error: unknown) => {
           const state = this.#session.snapshot();
-          const commit = changedPaths.size === 0 ? null : state.lastPatchCommit;
+          const commit =
+            state.lastPatchCommit === initialCommit
+              ? null
+              : state.lastPatchCommit;
           if (changedPaths.size === 0 && commit === null) throw error;
           throw new TurnPartiallyAppliedError(error, {
             kind: "turn",
@@ -1427,6 +1475,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     // A configured check observes and can rewrite the working tree, so it runs
     // under the same worktree lock as the edits it checks.
     return this.#context.worktree.run(async () => {
+      this.#boundary(label, signal);
       options.emit({ type: `${label}-start`, data: { command } });
       const result = await executeModelCommand(
         command,
@@ -1571,6 +1620,9 @@ export class ConcreteApplicationService implements ApplicationService {
       ...(options.dependencies?.fetchUrl === undefined
         ? {}
         : { fetchUrl: options.dependencies.fetchUrl }),
+      ...(options.dependencies?.onLifecycleBoundary === undefined
+        ? {}
+        : { onLifecycleBoundary: options.dependencies.onLifecycleBoundary }),
     });
   }
 

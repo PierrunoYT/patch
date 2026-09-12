@@ -117,6 +117,7 @@ export interface RunTurnOptions {
   /** Application-owned resolution, authorization, writes and post-write checks. */
   readonly lifecycle?: {
     readonly context: () => Promise<AttemptContext>;
+    readonly boundary?: (boundary: CoderLifecycleBoundary) => void;
     readonly apply: (candidate: ReflectionCandidate) => Promise<
       | {
           source: "malformed" | "lint" | "test";
@@ -126,6 +127,9 @@ export interface RunTurnOptions {
     >;
   };
 }
+
+export type CoderLifecycleBoundary =
+  "context" | "provider" | "parse" | "reflection" | "finalize";
 
 export interface AttemptContext {
   readonly prompt: TurnPrompt;
@@ -704,6 +708,10 @@ export class CoderSession {
       options.lifecycle === undefined
         ? undefined
         : immutableContext(await options.lifecycle.context());
+    if (context !== undefined) {
+      options.lifecycle?.boundary?.("context");
+      options.signal?.throwIfAborted();
+    }
     const turn = this.prepareTurn(userInput, context?.prompt ?? options.prompt);
     const events: CompletionEvent[] = [];
     const reflectedMessages: ChatMessage[] = [];
@@ -736,6 +744,9 @@ export class CoderSession {
             reasoningTag === undefined
               ? undefined
               : new ReasoningTagSplitter(reasoningTag);
+
+          options.lifecycle?.boundary?.("provider");
+          options.signal?.throwIfAborted();
 
           for await (const rawEvent of this.provider.stream(
             request,
@@ -874,6 +885,8 @@ export class CoderSession {
           continue;
         }
 
+        options.lifecycle?.boundary?.("parse");
+        options.signal?.throwIfAborted();
         let edits: EditBatch | undefined;
         let source: "malformed" | "lint" | "test" | undefined;
         let diagnostic: string | undefined;
@@ -911,6 +924,7 @@ export class CoderSession {
           }
         }
         if (diagnostic === undefined || source === undefined) {
+          options.lifecycle?.boundary?.("finalize");
           options.signal?.throwIfAborted();
           const finalized = this.finalizeTurn(
             turn,
@@ -945,6 +959,8 @@ export class CoderSession {
           content: diagnosticMessage(source, diagnostic),
         });
         reflectedMessages.push(assistant, reflection);
+        options.lifecycle?.boundary?.("reflection");
+        options.signal?.throwIfAborted();
         responsePrefix = "";
         continuationCount = 0;
         context =

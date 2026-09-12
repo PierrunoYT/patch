@@ -211,4 +211,29 @@ describe("EditTransaction", () => {
     );
     expect(await readFile(join(root, "first.ts"), "utf8")).toBe("first\n");
   });
+
+  it("records a completed deletion before a later cancellation can escape", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(join(root, "remove.ts"), "remove\n");
+    const files = await FileSystemAdapter.create(root);
+    const transaction = await EditTransaction.stage(files, {
+      operations: [{ kind: "delete", path: "remove.ts", before: "remove\n" }],
+      shellCommands: [],
+    });
+    const applied: string[] = [];
+    const controller = new AbortController();
+
+    await expect(
+      transaction.commit(controller.signal, (path) => {
+        applied.push(path);
+        controller.abort(new Error("cancel after delete"));
+        controller.signal.throwIfAborted();
+      }),
+    ).rejects.toThrow("cancel after delete");
+
+    expect(applied).toEqual(["remove.ts"]);
+    await expect(readFile(join(root, "remove.ts"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
 });
