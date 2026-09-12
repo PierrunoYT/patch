@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Correct edit-preview documentation: the renderer emits full-content before/
+  after replacement blocks, including unchanged lines, not computed diff hunks
+  or applicable unified patches. A characterization test pins that limitation;
+  no diff algorithm or large-file output reduction is claimed.
+
 - Stop already-cancelled library voice capture before recording and reject late
   transcripts after cancellation instead of forwarding them to a session. Abort
   checks also guard the capture-to-submit handoff, and capture setup is inside

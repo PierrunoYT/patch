@@ -49,7 +49,9 @@ Git selection treats leading-colon pathspec syntax as literal filenames during
 ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
 platform filename restrictions still apply.
 Selected-file edits are dry-run resolved, previewed, written, optionally
-committed, and followed by explicitly configured lint/test commands. Parse,
+committed, and followed by explicitly configured lint/test commands. Edit
+previews show complete before/after content, not computed diff hunks; large
+updates print both versions, including unchanged lines. Parse,
 resolution, and post-write check failures share a three-reflection budget with
 fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for

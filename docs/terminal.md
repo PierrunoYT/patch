@@ -121,11 +121,26 @@ deliberately out of scope, so passing the flag fails startup and names
 Ctrl-X Ctrl-E as what Patch offers instead. The option is hidden from `--help`
 and from shell completion, because a flag that always fails is not a feature.
 
-## Markdown, syntax, and diffs
+## Markdown, syntax, and edit previews
 
-`MarkdownStream` buffers incomplete lines and applies lightweight ANSI styling;
-`renderDiff` styles diff structure. The executable uses both for provider text
+`MarkdownStream` buffers incomplete lines and applies lightweight ANSI styling.
+`renderDiff` colors lines that already carry diff-style prefixes; it does not
+compute differences. The executable uses these renderers for provider text
 and edit previews and honors TTY, `--no-color`, and `NO_COLOR`.
+
+`renderEditPreview` produces a **full-content replacement preview**, not a
+computed hunk diff: every old line is prefixed with `-` and every new line with
+`+`, including unchanged lines. Creation shows only the new side and deletion
+only the old side, with `/dev/null` for the missing side. The synthetic
+`@@ proposed edit @@` header has no line ranges; this output is not an applicable
+unified patch. A small edit to a large file therefore prints both complete
+versions. There is no LCS, unchanged-context elision, or no-final-newline marker.
+`tests/render.test.ts` pins this current limitation, not a new diff capability.
+
+Compared with pinned `aider/diffs.py:43–96`, called from
+`aider/coders/wholefile_coder.py:136–140`, Patch does not use the upstream
+`difflib.unified_diff(..., n=5)` rendering path. Real hunk generation remains
+future work; Git-backed `/diff` is a separate operation.
 
 Untrusted text passes through one shared sanitizer, `ControlSequenceSanitizer`
 in `src/io/sanitize.ts`. It removes C0 controls other than tab, newline, and

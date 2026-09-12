@@ -93,12 +93,14 @@ evidence; this plan and the backlog track current status and open work.
   goldens remain incomplete.
   User-facing schemas contain only the six constructed formats. Architect and
   context retain private orchestration identities; help is a local command.
-- Terminal Markdown, diff previews, explicit history writes, notifications, and
+- Terminal Markdown, full-content replacement previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
   multiline, the external editor, and explicitly requested PTY dispatch are
   connected to the reader, shell completion is generated from the parser's own
   options, and notifications fire for provider turns only; Vi modal editing is
   refused rather than implemented, and renderer fidelity stays out of scope.
+  Edit previews print both complete versions, including unchanged lines; unlike
+  pinned `aider/diffs.py`, no computed hunks or unchanged-context elision exist.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
   ignore filtering to actual patterns. Git ignore checks prefix exact paths

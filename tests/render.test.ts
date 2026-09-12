@@ -51,7 +51,7 @@ describe("terminal rendering", () => {
     ).toBe(diff);
   });
 
-  it("turns resolved operations into a reviewable diff preview", () => {
+  it("turns resolved operations into a full-content replacement preview", () => {
     expect(
       renderEditPreview({
         changedPaths: ["src/example.ts"],
@@ -67,6 +67,34 @@ describe("terminal rendering", () => {
     ).toBe(
       "--- a/src/example.ts\n+++ b/src/example.ts\n@@ proposed edit @@\n-const oldValue = 1;\n+const newValue = 2;",
     );
+  });
+
+  it("prints unchanged lines on both sides rather than computing diff hunks", () => {
+    const preview = renderEditPreview({
+      changedPaths: ["file.txt"],
+      operations: [
+        {
+          kind: "update",
+          path: "file.txt",
+          before: "unchanged first\nold\nunchanged last\n",
+          content: "unchanged first\nnew\nunchanged last\n",
+        },
+      ],
+    });
+    expect(preview).toBe(
+      [
+        "--- a/file.txt",
+        "+++ b/file.txt",
+        "@@ proposed edit @@",
+        "-unchanged first",
+        "-old",
+        "-unchanged last",
+        "+unchanged first",
+        "+new",
+        "+unchanged last",
+      ].join("\n"),
+    );
+    expect(renderDiff(preview, { color: false })).toBe(preview);
   });
 
   it("shows no phantom line for a create, a delete, or a trailing newline", () => {
