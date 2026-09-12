@@ -20,11 +20,32 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  */
 let duringOpen: (() => Promise<void>) | undefined;
 
+/**
+ * The delete path opens nothing, so its window is entered from the target's own
+ * `stat` instead. That call sits after the parent identity has been recorded
+ * and before it is compared, so a swap here is exactly what the recheck exists
+ * to catch — and is missed entirely if the identity is only read at comparison
+ * time.
+ */
+let duringStat: { path: string; run: () => Promise<void> } | undefined;
+
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
   return {
     ...actual,
     default: actual,
+    stat: async (...args: Parameters<typeof actual.stat>) => {
+      const information = await actual.stat(...args);
+      if (
+        duringStat !== undefined &&
+        String(args[0]).endsWith(duringStat.path)
+      ) {
+        const hook = duringStat.run;
+        duringStat = undefined;
+        await hook();
+      }
+      return information;
+    },
     open: async (...args: Parameters<typeof actual.open>) => {
       const handle = await actual.open(...args);
       const hook = duringOpen;
@@ -61,6 +82,7 @@ const directories: string[] = [];
 
 afterEach(async () => {
   duringOpen = undefined;
+  duringStat = undefined;
   await Promise.all(
     directories
       .splice(0)
@@ -110,6 +132,40 @@ describe("ancestor identity", () => {
       expect.stringMatching(/^\.file\.txt\.patch-[0-9a-f-]+\.tmp$/u),
       "file.txt",
     ]);
+  });
+
+  it("refuses a delete whose containing directory was swapped", async () => {
+    const root = await repository();
+    const files = await FileSystemAdapter.create(root);
+    duringStat = { path: join("pkg", "file.txt"), run: () => swapParent(root) };
+
+    await expect(files.deleteFile("pkg/file.txt")).rejects.toBeInstanceOf(
+      AncestorChangedDuringWriteError,
+    );
+
+    // Specifically the ancestor error. Reading the parent identity only at
+    // comparison time left that guard inert on this path: the swap was still
+    // refused, but by the target's own file identity, which is a different
+    // check that a swapped-in directory could in principle satisfy.
+    //
+    // The decoy that was moved into place keeps its file: the delete was
+    // authorized for a different directory that no longer lives at that path.
+    expect(await readFile(join(root, "pkg", "file.txt"), "utf8")).toBe(
+      "decoy\n",
+    );
+    expect(await readFile(join(root, "moved", "file.txt"), "utf8")).toBe(
+      "original\n",
+    );
+  });
+
+  it("still deletes a file when its directory is untouched", async () => {
+    const root = await repository();
+    const files = await FileSystemAdapter.create(root);
+
+    await expect(files.deleteFile("pkg/file.txt")).resolves.toMatchObject({
+      dryRun: false,
+    });
+    expect(await readdir(join(root, "pkg"))).toEqual([]);
   });
 
   it("still replaces a file when its directory is untouched", async () => {

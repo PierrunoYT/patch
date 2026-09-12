@@ -387,6 +387,12 @@ export class FileSystemAdapter {
   ): Promise<DeleteFileResult> {
     const { dryRun } = WriteTextOptionsSchema.parse(options);
     const initialPath = await this.#paths.resolve(target);
+    // Recorded before the target is inspected, so the recheck below covers the
+    // whole span from authorization to the unlink. Reading it as the argument
+    // to that recheck compared the directory against itself one statement
+    // later, which could detect nothing; the write path captures its baseline
+    // before preparing the temporary file for the same reason.
+    const parentIdentity = await this.#directoryIdentity(dirname(initialPath));
     const information = await stat(initialPath);
     validateMutationTarget(target, information);
     const identity = fileIdentity(information);
@@ -395,12 +401,7 @@ export class FileSystemAdapter {
       if (path !== initialPath) {
         throw new PathChangedDuringWriteError(target);
       }
-      await this.#assertStableTarget(
-        target,
-        path,
-        identity,
-        await this.#directoryIdentity(dirname(path)),
-      );
+      await this.#assertStableTarget(target, path, identity, parentIdentity);
       await unlink(path);
     }
     return { path: initialPath, dryRun };

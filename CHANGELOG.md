@@ -381,6 +381,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Captured the parent-directory identity for a delete when the mutation is
+  prepared, not as the argument to the check that compares it. Read at
+  comparison time it was two reads one statement apart, so the ancestor guard on
+  that path could detect nothing. Such a swap was still refused — by the target's
+  own file identity — so this restores a layer rather than closing a hole, and
+  the delete path now has the coverage the write path had.
+
 - Took the approval prompt for a captured `/run` outside the worktree lock, as
   interactive `/run` already did. Holding the lock across a question nobody has
   answered yet blocked every other session sharing the worktree for as long as

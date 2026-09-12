@@ -91,9 +91,11 @@ extended attributes needs a platform adapter Patch does not yet have.
 Mutations are authorized against a resolved path and its containing directory.
 Node exposes no `openat`/`renameat`, so the directory cannot be pinned by
 descriptor for the syscall itself. Instead the containing directory's device and
-inode are captured when the mutation is prepared and rechecked immediately
-before the rename or unlink: a directory swapped for a different directory at
-the same path is detected and refused with `AncestorChangedDuringWriteError`,
+inode are captured when the mutation is prepared — before the write path builds
+its temporary file, and before the delete path even inspects its target — and
+rechecked immediately before the rename or unlink: a directory swapped for a
+different directory at the same path is detected and refused with
+`AncestorChangedDuringWriteError`,
 even though the path still resolves. The residual window between that recheck
 and the syscall cannot be closed portably, so this is detection, not prevention;
 an untrusted local process with write access to an ancestor is still outside
