@@ -6,6 +6,7 @@ import {
   CompletionEventSchema,
   CompletionRequestSchema,
   EditBatchSchema,
+  EditFormatSchema,
   EditSchema,
   ModelSettingsSchema,
   RepositoryStatusSchema,
@@ -141,6 +142,29 @@ describe("domain schemas", () => {
       },
       extraParameters: {},
     });
+  });
+
+  it("exposes exactly the six production edit formats", () => {
+    expect(EditFormatSchema.options).toEqual([
+      "ask",
+      "whole",
+      "diff",
+      "diff-fenced",
+      "udiff",
+      "patch",
+    ]);
+    for (const helper of [
+      "help",
+      "udiff-simple",
+      "architect",
+      "context",
+      "editor-diff",
+    ]) {
+      expect(EditFormatSchema.safeParse(helper).success).toBe(false);
+      expect(() =>
+        ModelSettingsSchema.parse({ ...model, editFormat: helper }),
+      ).toThrow();
+    }
   });
 
   it("rejects contradictory session state", () => {

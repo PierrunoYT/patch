@@ -165,7 +165,10 @@ checked before glob interpretation, so glob metacharacters in a filename remain
 literal. External read-only files are not supported.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
-accepted. Ordinary `diff` places each filename before its edit fence;
+accepted. This same six-value set drives configuration, model settings,
+`/chat-mode` parsing, and terminal completion; helper-only names cannot reach
+provider construction. Ordinary `diff` places each filename before its edit
+fence;
 `diff-fenced` places it inside, immediately after the opening fence and
 language, using the fence selected from current file content. See the
 [provider documentation](docs/providers.md) and
@@ -196,9 +199,9 @@ Architect/editor handoff, context convergence, cache keepalive, and media
 utilities are currently library-level contracts, not constructed CLI modes.
 Assistant-prefill continuation is reached inside production `CoderSession` for
 capable models but is not wire-compatible for all advertised routes.
-`help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore
-rejected by `--edit-format` and `/chat-mode` until their complete application
-behavior and independent evidence exist.
+`help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore not
+edit-format schema values. The local `/help` command is separate; architect and
+context use private orchestration identities only inside their helpers.
 
 ## Technology direction and references
 

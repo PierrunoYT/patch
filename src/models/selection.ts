@@ -23,13 +23,6 @@ export interface ModelSelection {
   readonly editorEditFormat: EditFormat;
 }
 
-function editorFormat(format: EditFormat): EditFormat {
-  if (format === "diff" || format === "whole" || format === "diff-fenced") {
-    return `editor-${format}`;
-  }
-  return format;
-}
-
 function secondary(
   catalog: ModelCatalog,
   main: ResolvedModel,
@@ -61,6 +54,6 @@ export function selectModels(
     editorEditFormat:
       options.editorEditFormat ??
       main.settings.editorEditFormat ??
-      editorFormat(editor.settings.editFormat),
+      editor.settings.editFormat,
   };
 }

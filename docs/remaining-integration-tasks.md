@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, metadata/pricing, and bounded retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
@@ -749,9 +749,14 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
 
 ## R6 — Wire and verify advanced strategies
 
-- [ ] Keep user-facing mode schemas/settings aligned with the six constructed
-  formats. Helper-only `help`, `udiff-simple`, `architect`, `editor-*`, and
-  `context` values still exist in broader schemas or model data.
+- [x] Keep user-facing mode schemas/settings aligned with the six constructed
+  formats. `EditFormatSchema` is the one contract used by model settings,
+  staged configuration, `/chat-mode`, and completion. Bundled editor settings
+  name their actual parser (`diff`) rather than a helper-only alias. `help`,
+  `udiff-simple`, `architect`, `editor-*`, and `context` fail at schema/parser
+  boundaries before provider construction; architect/context identities remain
+  private to read-only orchestration helpers. The pinned upstream format list is
+  retained as evidence of Patch's intentionally narrower advertised subset.
 - [ ] Port distinct editor prompts and enforce editor-specific no-shell,
   no-repo-map, and fresh-history behavior where required by pinned Aider.
   The selected local `/help` command is tracked separately; it does not require

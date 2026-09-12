@@ -12,6 +12,13 @@ actions are implemented as described below; broader unified-diff recovery and
 pinned golden coverage remain incomplete. Constructing a format is not a
 release-readiness or full parity claim.
 
+`EditFormatSchema` intentionally contains only those six names and is shared by
+model settings, startup configuration, slash-command parsing, and completion.
+Pinned aider also registers helper/advanced names; Patch does not advertise
+them as parsers. Architect and context keep private read-only strategy
+identities for orchestration, while the local `/help` command is unrelated to
+an edit strategy.
+
 ## Ask
 
 `AskEditStrategy` ports aider's

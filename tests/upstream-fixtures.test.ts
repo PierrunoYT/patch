@@ -260,7 +260,18 @@ describe("upstream compatibility fixtures", () => {
       "cur",
       "reminder",
     ]);
-    expect([...EditFormatSchema.options].sort()).toEqual(fixture.editFormats);
+    expect(EditFormatSchema.options).toEqual([
+      "ask",
+      "whole",
+      "diff",
+      "diff-fenced",
+      "udiff",
+      "patch",
+    ]);
+    expect(fixture.editFormats).toEqual(
+      expect.arrayContaining([...EditFormatSchema.options]),
+    );
+    expect(fixture.editFormats).toContain("architect");
     expect(fixture.searchReplace.parsed).toHaveLength(2);
     expect(fixture.searchReplace.replacements.exact).toContain("new value");
     expect(fixture.gitDiff).toContain("staged change");

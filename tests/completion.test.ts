@@ -6,6 +6,7 @@ const sources = {
   commands: ["add", "drop", "read-only", "run"],
   files: ["src/apple.ts", "src/apricot.ts", "tests/apple.test.ts"],
   identifiers: ["AppleService", "applyPatch", "banana"],
+  modes: ["code", "ask", "whole", "diff", "diff-fenced", "udiff", "patch"],
 };
 
 describe("terminal completion", () => {
@@ -33,6 +34,14 @@ describe("terminal completion", () => {
       { value: "src/apricot.ts", kind: "file" },
     ]);
     expect(result[0]?.replaceFrom).toBe(5);
+  });
+
+  it("completes only constructed chat modes", () => {
+    expect(
+      completeInput("/chat-mode d", 12, sources).map(({ value }) => value),
+    ).toEqual(["diff", "diff-fenced"]);
+    expect(completeInput("/chat-mode a", 12, sources)[0]?.value).toBe("ask");
+    expect(sources.modes).not.toContain("architect");
   });
 
   it("requires three characters for general file and identifier completion", () => {

@@ -10,7 +10,7 @@ import {
 
 const config = {
   root: "/repo",
-  model: { name: "fake", provider: "fake", editFormat: "context" as const },
+  model: { name: "fake", provider: "fake", editFormat: "ask" as const },
 };
 const turn = (text: string) => ({
   actions: [
