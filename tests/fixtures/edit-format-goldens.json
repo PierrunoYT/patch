@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "upstreamRevision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+  "cases": [
+    {
+      "format": "ask",
+      "upstreamPath": "aider/coders/ask_coder.py",
+      "classification": "upstream-compatible no-op edit contract",
+      "snapshots": [{ "path": "alpha.txt", "content": "left\nold\nright\n" }],
+      "response": "alpha.txt\n```text\nleft\nnew\nright\n```",
+      "operations": []
+    },
+    {
+      "format": "whole",
+      "upstreamPath": "aider/coders/wholefile_coder.py",
+      "classification": "upstream-compatible explicit filename block",
+      "snapshots": [{ "path": "alpha.txt", "content": "left\nold\nright\n" }],
+      "response": "alpha.txt\n```text\nleft\nnew\nright\n```",
+      "operations": [{ "kind": "update", "path": "alpha.txt", "before": "left\nold\nright\n", "content": "left\nnew\nright\n" }]
+    },
+    {
+      "format": "diff",
+      "upstreamPath": "aider/coders/editblock_coder.py",
+      "classification": "upstream-compatible exact SEARCH/REPLACE",
+      "snapshots": [{ "path": "alpha.txt", "content": "left\nold\nright\n" }],
+      "response": "alpha.txt\n```text\n<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE\n```",
+      "operations": [{ "kind": "update", "path": "alpha.txt", "before": "left\nold\nright\n", "content": "left\nnew\nright\n" }]
+    },
+    {
+      "format": "diff-fenced",
+      "upstreamPath": "aider/coders/editblock_fenced_coder.py",
+      "classification": "upstream-compatible filename-inside-fence layout",
+      "snapshots": [{ "path": "alpha.txt", "content": "left\nold\nright\n" }],
+      "response": "```text\nalpha.txt\n<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE\n```",
+      "operations": [{ "kind": "update", "path": "alpha.txt", "before": "left\nold\nright\n", "content": "left\nnew\nright\n" }]
+    },
+    {
+      "format": "udiff",
+      "upstreamPath": "aider/coders/udiff_coder.py",
+      "classification": "upstream-compatible exact hunk without recovery",
+      "snapshots": [{ "path": "alpha.txt", "content": "left\nold\nright\n" }],
+      "response": "```diff\n--- a/alpha.txt\n+++ b/alpha.txt\n@@ -1,3 +1,3 @@\n left\n-old\n+new\n right\n```",
+      "operations": [{ "kind": "update", "path": "alpha.txt", "before": "left\nold\nright\n", "content": "left\nnew\nright\n" }]
+    },
+    {
+      "format": "patch",
+      "upstreamPath": "aider/coders/patch_coder.py",
+      "classification": "upstream-compatible exact Update File action",
+      "snapshots": [{ "path": "alpha.txt", "content": "left\nold\nright\n" }],
+      "response": "*** Begin Patch\n*** Update File: alpha.txt\n@@\n left\n-old\n+new\n right\n*** End Patch",
+      "operations": [{ "kind": "update", "path": "alpha.txt", "before": "left\nold\nright\n", "content": "left\nnew\nright\n" }]
+    }
+  ]
+}

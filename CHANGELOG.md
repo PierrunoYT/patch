@@ -27,6 +27,10 @@ dated parity audits for revision-specific evidence.
   active HTTP disconnect cancellation, forced slow-client overflow and replay
   recovery, concrete post-write error consistency, and simultaneous terminal,
   watch, and web mutations serialized by the shared worktree lock.
+- An independently authored fixture pinned to aider `5dc9490b` for each of the
+  six constructed edit formats, plus asymmetric properties and per-format
+  malformed/ambiguous or conflicting, second-write failure, and between-write
+  cancellation evidence. Generated upstream fixtures remain separately labeled.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

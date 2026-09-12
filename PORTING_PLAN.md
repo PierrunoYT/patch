@@ -569,7 +569,8 @@ evidence is not claimed until that matrix completes on the pushed revision.
   fixes pinned aider's marker-tolerance behavior, which loses that meaning.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
-  are rejected. Independent pinned goldens for the format remain in R6.
+  are rejected. The independent pinned format golden covers an exact update;
+  broader upstream Patch behavior is not implied.
 - [ ] Integrate architect/editor handoff with explicit user acceptance. A
   library helper exists but is not constructed by `ApplicationService`.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
@@ -580,8 +581,8 @@ evidence is not claimed until that matrix completes on the pushed revision.
   prefixes. Media remains a helper-only context shape.
 
 **Exit (not met):** advanced helpers are not advertised as CLI modes. The six
-constructed formats still need independent pinned golden/property evidence and
-the advanced orchestration paths remain unintegrated.
+constructed formats have independent pinned golden/property evidence, but the
+advanced orchestration paths remain unintegrated.
 
 **Component evidence only:** `tests/architect.test.ts`,
 `tests/context-selection.test.ts`, `tests/capability-context.test.ts`, and the

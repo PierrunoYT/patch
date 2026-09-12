@@ -311,3 +311,11 @@ paths match disk. A combined concrete test runs direct terminal-style, actual
 watch-mode, and loopback HTTP turns simultaneously and observes no overlapping
 authorization region under the shared worktree lock. These tests establish only
 the exercised single-process cases.
+
+The branch also adds a manually authored golden, pinned source path, and
+asymmetric property coverage for each constructed edit format. Failure and
+cancellation injection verifies exact partial-write state for all five mutating
+formats, while malformed and ambiguity/conflict cases verify no unintended
+target. The generated upstream fixture remains separately identified; Patch
+hardening cases are not presented as upstream parity, and broader unified-diff
+recovery remains open.
