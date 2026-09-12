@@ -215,6 +215,15 @@ for revision-specific source references and reproduction limits.
 - [ ] Implement computed edit-preview hunks and unchanged-context elision if
   scheduled; current large updates still print both full versions.
 
+Validation for these review follow-ups: on Windows, Patch `edb2cd1c3` passed
+`npm run check` (659 tests passed, nine skipped; format, lint, typecheck,
+63-derivation provenance check, build, and packed-install smoke passed) and
+`npm start -- --help`. The new colon-filename application test is skipped on
+Windows; the leading-magic ignore adapter regression ran and passed. Upstream
+comparison used the clean external checkout at
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. This is local Windows evidence,
+not a new cross-platform CI or live-provider/device result.
+
 ### Historical immediate P0 checklist
 
 The original immediate P0 and P1 lists below record completed milestones, not
