@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Removed bidirectional overrides and isolates from untrusted terminal output.
+  They are format characters rather than controls, so they passed the sanitizer
+  and could make a suggested command or a path read as something other than what
+  it is. Zero-width joiners and other ordinary format characters are kept.
+
 - Dropped post-`finish` events before displaying them, not after. Draining the
   stream for a trailing usage chunk forwarded every other late event to the
   terminal first and excluded it from the response only afterwards, so a

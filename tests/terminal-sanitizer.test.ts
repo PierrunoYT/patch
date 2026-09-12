@@ -39,6 +39,10 @@ describe("control sequence sanitizer", () => {
     ["bare C0 controls", `a${NUL} ${BELL}b`, "a b"],
     ["DEL", `a${DEL}b`, "ab"],
     ["bare C1 controls", `a${C1}b`, "ab"],
+    // These reverse how a run of text reads without changing its bytes, so a
+    // command or path can be displayed as something other than what it is.
+    ["a bidirectional override", `rm -rf \u202Ecod.txt`, "rm -rf cod.txt"],
+    ["a bidirectional isolate", `a\u2066b\u2069c`, "abc"],
     // ST is a terminator and 0x99/0x9A introduce no string, so a stray one is
     // dropped like any other C1 byte. Treating them as string introducers
     // discarded everything that followed.
@@ -50,7 +54,10 @@ describe("control sequence sanitizer", () => {
   });
 
   it("keeps text, layout whitespace, and non-ASCII content", () => {
-    const text = "line one\n\tindented\r\nkeep é 漢字 \u{1f642}\n";
+    // A zero-width joiner builds ordinary glyphs and is not a disguise, so it
+    // survives even though it is a format character like the bidi controls.
+    const text =
+      "line one\n\tindented\r\nkeep é 漢字 \u{1f642} \u{1f469}\u200d\u{1f4bb}\n";
     expect(sanitizeTerminalText(text)).toBe(text);
   });
 

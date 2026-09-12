@@ -11,6 +11,17 @@ const ESCAPE = "\u001b";
 const BELL = "\u0007";
 
 /**
+ * LRE/RLE/PDF/LRO/RLO and the four isolate controls. These reverse or nest the
+ * display order of a run of text, so a path or a command can be shown reading
+ * as something other than what it is.
+ */
+function isBidiControl(code: number): boolean {
+  return (
+    (code >= 0x202a && code <= 0x202e) || (code >= 0x2066 && code <= 0x2069)
+  );
+}
+
+/**
  * Removes every terminal control sequence from text that Patch did not
  * generate. The sanitizer is stateful, so a sequence split across chunks - an
  * escape at the end of one provider delta and its final byte in the next -
@@ -19,7 +30,10 @@ const BELL = "\u0007";
  * Removed families: C0 controls other than tab, newline, and carriage return;
  * 7-bit and 8-bit CSI; OSC, DCS, SOS, PM, and APC strings with either
  * terminator; two-character escapes including single shifts; escapes carrying
- * intermediate bytes, such as charset selection; DEL; and the C1 range.
+ * intermediate bytes, such as charset selection; DEL; the C1 range; and the
+ * bidirectional embeddings, overrides, and isolates, which reorder how a line
+ * reads without changing a byte of it. Other format characters are kept: a
+ * zero-width joiner is part of ordinary text, not a way to disguise it.
  */
 export class ControlSequenceSanitizer {
   #state:
@@ -56,11 +70,13 @@ export class ControlSequenceSanitizer {
             character === "\t"
           )
             safe += character;
-          // Drop the remaining C0 controls, DEL, and the rest of the C1 range.
+          // Drop the remaining C0 controls, DEL, the rest of the C1 range, and
+          // the bidirectional controls.
           else if (
             code >= 0x20 &&
             code !== 0x7f &&
-            (code < 0x80 || code > 0x9f)
+            (code < 0x80 || code > 0x9f) &&
+            !isBidiControl(code)
           )
             safe += character;
           break;

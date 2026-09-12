@@ -134,7 +134,10 @@ APC strings with either terminator; single shifts; and escapes carrying
 intermediate bytes. Only the five C1 bytes that actually open a string are
 treated as introducers; ST and the rest are dropped as ordinary controls, since
 treating a terminator as an introducer would discard the remainder of a stream
-that a single mojibake byte had wandered into. `MarkdownStream` holds one sanitizer for the life of a
+that a single mojibake byte had wandered into. The bidirectional embeddings,
+overrides, and isolates are removed as well: they reorder how a command or path
+reads without changing a byte of it. Other format characters stay, because a
+zero-width joiner builds ordinary glyphs rather than disguising them. `MarkdownStream` holds one sanitizer for the life of a
 stream, so a sequence split across provider deltas cannot rejoin; `stripAnsi`
 sanitizes one self-contained string for the diff and preview renderers; both
 Commander streams and the executable's failure messages are sanitized as well,
