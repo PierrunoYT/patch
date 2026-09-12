@@ -8,7 +8,7 @@ import {
   SearchReplaceEditStrategy,
 } from "../src/index.js";
 
-const config = (_editFormat: "architect" | "diff") => ({
+const config = () => ({
   root: "/repo",
   model: { name: "fake", provider: "fake", editFormat: "ask" as const },
 });
@@ -31,12 +31,12 @@ describe("ArchitectOrchestrator", () => {
     );
     const orchestrator = new ArchitectOrchestrator(
       new CoderSession({
-        config: config("architect"),
+        config: config(),
         provider: architectProvider,
         strategy: new ArchitectEditStrategy(),
       }),
       new CoderSession({
-        config: config("diff"),
+        config: config(),
         provider: editorProvider,
         strategy: new SearchReplaceEditStrategy(),
         editablePaths: ["a.txt"],
@@ -57,12 +57,12 @@ describe("ArchitectOrchestrator", () => {
     const editorProvider = new FakeProvider(finish("unused"));
     const orchestrator = new ArchitectOrchestrator(
       new CoderSession({
-        config: config("architect"),
+        config: config(),
         provider: new FakeProvider(finish("plan")),
         strategy: new ArchitectEditStrategy(),
       }),
       new CoderSession({
-        config: config("diff"),
+        config: config(),
         provider: editorProvider,
         strategy: new SearchReplaceEditStrategy(),
       }),

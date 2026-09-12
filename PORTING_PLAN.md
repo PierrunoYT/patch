@@ -581,9 +581,11 @@ evidence is not claimed until that matrix completes on the pushed revision.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. Independent pinned goldens for the format remain in R6.
-- [ ] Integrate architect/editor handoff with explicit user acceptance. The
-  production editor role is ready, but architect proposal/acceptance and state
-  transfer are not yet connected.
+- [x] Integrate architect/editor handoff with explicit user acceptance. The
+  application runs a read-only architect over current history/context, records
+  its proposal even when denied, constructs a fresh editor only after approval,
+  and transfers selected paths, cost, commit ownership, cancellation, and the
+  final architect acknowledgement back to the parent session.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
 - [ ] Complete cache/continuation/media integration. Prompt-cache boundaries

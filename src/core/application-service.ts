@@ -12,6 +12,16 @@ export interface ApplicationSubmitOptions {
   readonly readOnly?: boolean;
 }
 
+export interface ApplicationArchitectOptions extends ApplicationSubmitOptions {
+  readonly accept: (plan: string) => boolean | Promise<boolean>;
+}
+
+export interface ApplicationArchitectResult {
+  readonly plan: unknown;
+  readonly accepted: boolean;
+  readonly editor?: unknown;
+}
+
 export interface ApplicationSession {
   /** The sole mutation queue shared by every adapter using this session. */
   readonly queue?: import("./serial-queue.js").SerialTaskQueue;
@@ -22,6 +32,10 @@ export interface ApplicationSession {
     instructions: string,
     options: ApplicationSubmitOptions,
   ): Promise<unknown>;
+  runArchitect?(
+    request: string,
+    options: ApplicationArchitectOptions,
+  ): Promise<ApplicationArchitectResult>;
   close?(): void | Promise<void>;
 }
 

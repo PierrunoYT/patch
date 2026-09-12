@@ -131,19 +131,19 @@ production-wired path.
 
 ## Architect/editor handoff
 
-`ArchitectOrchestrator` runs a read-only architect session first and exposes its
-complete plan to an injected acceptance callback. Only explicit acceptance can
-start the separate editor session, whose model and edit protocol are
-independently configured. Denial or an empty plan cannot consume an editor
-turn, and a shared abort signal prevents the editor from starting after
-cancellation.
+`ApplicationSession.runArchitect` constructs a read-only architect session over
+the current main model, selected context, repository map, and completed history.
+It records the complete proposal, then exposes it to an injected acceptance
+callback. Only explicit acceptance can call `runEditor`; denial, an empty plan,
+or cancellation makes no editor provider request.
 
-`ConcreteApplicationService.runEditor` now supplies the production editor half:
-it creates a fresh session using the selected editor model/protocol, current
-authorized paths, distinct editor prompts, no repository map, and no shell
-execution. It shares cancellation and cleans up after failures without changing
-the parent history. Architect proposal/acceptance and commit/cost/final-history
-transfer remain unintegrated at this stage.
+The accepted editor is fresh and uses the selected editor model/protocol,
+current authorized paths, distinct editor prompts, no repository map, and no
+shell execution. Its newly approved/changed paths, cost, and commit ownership
+are transferred to the parent. The parent then appends pinned aider's final “I
+made those changes to the files.”/“Ok.” pair after the architect exchange.
+Provider or cancellation failures preserve already-surviving application state
+under the ordinary partial-turn rules.
 
 ## Context selection
 

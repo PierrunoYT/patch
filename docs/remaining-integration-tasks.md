@@ -66,7 +66,7 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, and in-process worktree serialization are wired. Context mode, summarizer fallback/input caps, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
 | Models/providers | partial | Public mode surfaces expose exactly six constructed formats. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`. Media/cache-keepalive remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
@@ -767,8 +767,16 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   provider failure cleanup, unchanged files, and parent-session reuse.
   The selected local `/help` command is tracked separately; it does not require
   constructing Aider's model-backed help coder.
-- [ ] Integrate architect acceptance, fresh editor construction, state/cost/
+- [x] Integrate architect acceptance, fresh editor construction, state/cost/
   commit transfer, and final architect history through `ApplicationService`.
+  `runArchitect` gives the current main model a read-only architect strategy and
+  current history/context, records the completed proposal, and calls the
+  acceptance callback before editor construction. Acceptance cancellation and
+  denial make zero editor calls. A successful fresh editor transfers approved
+  paths, both auxiliary costs, the editor commit, and pinned aider's final
+  “I made those changes”/“Ok.” history pair. Real-Git production tests assert
+  file/HEAD state, exact final messages, model requests, cost, denial, and
+  cancellation.
 - [ ] Integrate context convergence with forced repository-map refresh, expanded
   initial map budget, complete replacement of selected files, and relevant
   identifier hints.

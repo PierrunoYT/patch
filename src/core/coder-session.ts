@@ -413,6 +413,20 @@ export class CoderSession {
     });
   }
 
+  addEditablePaths(paths: readonly string[]): void {
+    const editable = new Set(this.#state.editablePaths);
+    for (const path of paths) {
+      if (this.#state.readOnlyPaths.includes(path)) {
+        throw new Error(`Cannot make a read-only path editable: ${path}`);
+      }
+      editable.add(path);
+    }
+    this.#state = SessionStateSchema.parse({
+      ...this.#state,
+      editablePaths: [...editable],
+    });
+  }
+
   /** Account for application-owned provider requests without replacing turn usage. */
   recordAuxiliaryCost(cost: number): void {
     this.#state = SessionStateSchema.parse({

@@ -1,4 +1,4 @@
-import { AskEditStrategy } from "./ask.js";
+import { ArchitectEditStrategy, AskEditStrategy } from "./ask.js";
 import { PatchEditStrategy } from "./patch.js";
 import {
   FencedSearchReplaceEditStrategy,
@@ -15,6 +15,7 @@ import type { Fence } from "../core/fences.js";
 import type { ChatMessage } from "../core/messages.js";
 import {
   editorStrategyPrompt,
+  ARCHITECT_SYSTEM_PROMPT,
   strategyPrompt,
 } from "../resources/strategy-prompts.js";
 
@@ -79,4 +80,15 @@ export function createEditorStrategy(
   }
   const definition = createStrategy(format, fence);
   return { ...definition, ...editorStrategyPrompt(format, fence) };
+}
+
+export function createArchitectStrategy(): StrategyDefinition {
+  return {
+    format: "ask",
+    strategy: new ArchitectEditStrategy(),
+    systemPrompt: ARCHITECT_SYSTEM_PROMPT,
+    examples: [],
+    reminder: "",
+    allowShellCommands: false,
+  };
 }
