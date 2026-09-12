@@ -380,6 +380,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Stopped a failed provider close from undoing a `/model` switch that had
+  already happened. Retiring the replaced provider ran inside the switch's own
+  `try`, so a rejection there took the catch path and closed the newly installed,
+  now-active provider, reported the switch as failed, and left the closed
+  provider in the owned set to be closed again at session close. Retirement is
+  now cleanup after the switch is committed.
+
 - Took every bundled model limit from the row for the transport Patch uses.
   `claude-sonnet-4-6` carried the one-million-token window of the `openrouter/`
   row while addressing Anthropic directly, where the limit is 200k and the wider

@@ -52,6 +52,59 @@ describe("application slash commands", () => {
     expect(closed[0]).toHaveBeenCalledOnce();
   });
 
+  it("keeps a completed /model switch when retiring the replaced provider fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-provider-retire-"));
+    // The startup provider belongs to the service, so the switch that retires an
+    // owned provider is the second one.
+    const closed = [
+      vi.fn(),
+      vi.fn(() => Promise.reject(new Error("socket already gone"))),
+      vi.fn(),
+    ];
+    let created = 0;
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o"],
+      dependencies: {
+        createProvider: () => {
+          const provider = new FakeProvider([]);
+          return {
+            stream: provider.stream.bind(provider),
+            close: closed[created++]!,
+          };
+        },
+      },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "provider-retire",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+
+    await session.submit("/model gpt-4o-mini", options);
+    // The session has already accepted the new provider by the time the old one
+    // is retired, so a rejection there is not a failed switch.
+    await expect(
+      session.submit("/model sonnet", options),
+    ).resolves.toMatchObject({ response: "Model: claude-sonnet-4-6" });
+    expect(closed[1]).toHaveBeenCalledOnce();
+    expect(closed[2]).not.toHaveBeenCalled();
+
+    // The provider the switch installed is still the live one, and it is torn
+    // down exactly once, at close.
+    await session.close?.();
+    expect(closed[2]).toHaveBeenCalledOnce();
+    await service.close();
+    // The provider whose close rejected is not closed a second time.
+    expect(closed[1]).toHaveBeenCalledOnce();
+    expect(closed[0]).toHaveBeenCalledOnce();
+  });
+
   it("does not construct a provider before fallible startup validation finishes", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-provider-startup-"));
     await writeFile(join(root, "same.txt"), "same\n");

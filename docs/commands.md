@@ -152,6 +152,9 @@ surface:
   parser, system prompt, examples, reminder, shell policy, fence, and
   repository-map policy — and install it only after the session accepts the
   switch, so a rejected or failed switch leaves the previous model active.
+  Once the session has accepted the switch it is final: retiring the replaced
+  provider happens afterwards, and a failure to close it is not reported as a
+  failed switch and never tears down the provider now in use.
   `/chat-mode code` returns to the format of the model that is active now, not
   the startup model. Switch-time history summarization is not supplied, so an
   incompatible switch drops assistant messages instead of summarizing them.

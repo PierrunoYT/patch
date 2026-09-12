@@ -1555,6 +1555,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     const model = { ...main, editFormat: format };
     const provider = this.#context.makeProvider(model);
     const previous = this.#session.provider;
+    let installed = false;
     try {
       const state = this.#session.snapshot();
       const contents = await Promise.all(
@@ -1573,10 +1574,11 @@ class ConcreteApplicationSession implements ApplicationSession {
         strategy: definition.strategy,
         fence,
       });
+      // Past this point the session is running on the new provider, so nothing
+      // below may report the switch as failed or discard it.
+      installed = true;
       if (provider !== this.#context.provider)
         this.#ownedProviders.add(provider);
-      if (provider !== previous && this.#ownedProviders.delete(previous))
-        await previous.close?.();
       this.#profile = {
         main,
         codeFormat,
@@ -1586,9 +1588,21 @@ class ConcreteApplicationSession implements ApplicationSession {
         ...(repositoryMap === undefined ? {} : { repositoryMap }),
       };
     } catch (error) {
-      if (provider !== previous && provider !== this.#context.provider)
+      if (
+        !installed &&
+        provider !== previous &&
+        provider !== this.#context.provider
+      )
         await provider.close?.();
       throw error;
+    }
+    if (provider !== previous && this.#ownedProviders.delete(previous)) {
+      // Retiring the replaced provider is cleanup of a switch that already
+      // happened. It is dropped from the owned set first, so a rejection here
+      // cannot leave a closed provider to be closed again at session close, and
+      // the rejection is not raised: the switch succeeded, and the previous
+      // provider is unreachable either way.
+      await Promise.resolve(previous.close?.()).catch(() => undefined);
     }
   }
 
