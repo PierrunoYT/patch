@@ -15,6 +15,9 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Deterministic cancellation boundaries across context, provider, parsing,
+  resolution, authorization, writes, Git, checks/reflection, and finalization,
+  with exact partial-write/checkpoint evidence and reusable session queues.
 - Exact selected-index restoration after failed Git commits, preserving partial
   staging, untracked status, and unrelated staged/unstaged work across
   checkpoint, edit, and configured-check paths.

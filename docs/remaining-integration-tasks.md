@@ -622,8 +622,12 @@ intentional differences.
   untracked selected files, cancellation, and session-owned undo. Failed commit
   staging restores only saved selected index entries; arbitrary hook/command
   side effects and exotic index flags remain outside the guarantee.
-- [ ] Make cancellation at every boundary leave valid files, Git state, queue
-  state, and reusable session state.
+- [x] Make cancellation at every boundary leave valid files, Git state, queue
+  state, and reusable session state. A synchronous injected-boundary matrix
+  covers context, provider, parse, resolution, preview, authorization,
+  checkpoint, each atomic write/delete, edit commit, lint, model commands, test,
+  reflection, and finalization against real temporary repositories. Completed
+  writes and commits are retained and reported rather than rolled back.
 - [x] Add one asymmetric end-to-end test that streams a malformed response,
   reflects, edits multiple files, commits, fails lint once, executes an approved
   command, passes tests, and undoes only the Patch commit.
@@ -665,13 +669,12 @@ deterministic tests; actual child execution is retained.
   assertions. Failure between undo's two Git commands, external processes, and
   arbitrary side effects of approved/configured commands remain outside the
   preservation guarantee.
-- Cancellation at *every* boundary: signals are checked before mutation phases
-  and between file writes; running Git/replacement operations finish. Tests
-  cover stream, preview, authorization, post-checkpoint, between-write,
-  pre-lint/test, and command-approval cancellation. There is no cross-file
-  rollback, durable journal, per-file partial-write result, or exhaustive
-  fault-injection matrix. A partial write leaves completed files changed,
-  preserves the checkpoint, and releases the queue for a fresh-context retry.
+- Cancellation at every named production boundary has deterministic injected
+  coverage. Running Git/replacement operations finish; a partial write leaves
+  completed files changed, reports each completed path and the latest turn-owned
+  commit, preserves unrelated work, and releases the queue for a fresh-context
+  retry. There is no cross-file rollback or durable journal. Arbitrary command
+  side effects and interruption inside external Git remain outside this matrix.
 
 ## R3 — Dispatch every advertised slash command
 

@@ -21,6 +21,8 @@ export interface WriteBoundaryDependencies {
   readonly checkpointDirty: (
     paths: readonly string[],
   ) => string | undefined | Promise<string | undefined>;
+  /** Records each atomic replacement/deletion before cancellation can escape. */
+  readonly didApply?: (path: string) => void;
 }
 
 export interface WriteResult {
@@ -93,6 +95,6 @@ export async function applyAuthorizedEdits(
       ? undefined
       : await dependencies.checkpointDirty(dirtyPaths);
   signal?.throwIfAborted();
-  await transaction.commit(signal);
+  await transaction.commit(signal, dependencies.didApply);
   return { changedPaths, checkpoint: checkpoint ?? null };
 }
