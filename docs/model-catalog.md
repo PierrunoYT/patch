@@ -100,12 +100,20 @@ revision resolves them from. They are a snapshot of vendor pricing at that
 version rather than a live quote, and a deployment that needs current prices
 supplies its own metadata file.
 
+Each value is taken from the row for the transport Patch actually uses. That is
+not always the largest row in the table: `claude-sonnet-4-6` appears with a
+one-million-token window under `openrouter/`, while every direct, Bedrock, and
+Vertex row is 200k, because the larger window is a beta that has to be requested
+with a header this client does not send. Budgeting against the 1M figure would
+pass a 300k prompt locally and have the API refuse it, and would price it with
+flat rates that ignore Anthropic's long-context tier.
+
 The limits are load-bearing, not decoration: a prompt over the model's
 `maxInputTokens` is refused before the provider call, and the repository-map
 budget is sized from the same number. `tests/interface-startup.test.ts` sends an
 oversized selection through `gpt-4o` and the same selection through
-`claude-sonnet-4-6`, which has a one-million-token window, and asserts the first
-never reaches the provider.
+`claude-sonnet-4-6`, whose window is larger, and asserts the first never reaches
+the provider.
 
 Cache pricing is modeled. `cachedInputCostPerMillion` and
 `cacheWriteCostPerMillion` price the two subsets of the input count separately,

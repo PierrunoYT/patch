@@ -380,6 +380,16 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Took every bundled model limit from the row for the transport Patch uses.
+  `claude-sonnet-4-6` carried the one-million-token window of the `openrouter/`
+  row while addressing Anthropic directly, where the limit is 200k and the wider
+  window is a beta this client never requests: a 300k prompt passed local
+  budgeting and was refused by the API, and would have been priced without
+  Anthropic's long-context tier. The DeepSeek entries were rounded off the same
+  table (131072 and 65536, not 128000 and 64000), and `deepseek-reasoner` priced
+  cache writes at zero where upstream leaves them unpriced, so a cache miss now
+  falls back to the ordinary input price it is really billed at.
+
 - Made `htmlToReadableText` linear, as its documentation already claimed. It
   rescanned all of the text produced so far on every block tag, so `/web` on an
   ordinary large page blocked the session for minutes: 1.4 MB took 136 seconds

@@ -124,7 +124,7 @@ describe("catalog metadata merging", () => {
     expect(catalog.resolve("deepseek").settings).toMatchObject({
       inputCostPerMillion: 0.28,
       outputCostPerMillion: 0.42,
-      maxInputTokens: 128000,
+      maxInputTokens: 131072,
     });
   });
 
@@ -168,7 +168,10 @@ describe("catalog metadata merging", () => {
       outputCostPerMillion: 10,
     });
     expect(catalog.resolve("sonnet").settings).toMatchObject({
-      maxInputTokens: 1000000,
+      // The direct Anthropic transport, not the 1M openrouter row: the larger
+      // window is a beta this client never requests, so budgeting against it
+      // would let a prompt through here and have the API refuse it.
+      maxInputTokens: 200000,
       inputCostPerMillion: 3,
       outputCostPerMillion: 15,
       // A cache hit is a tenth of an ordinary input token and a cache write

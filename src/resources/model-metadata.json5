@@ -33,7 +33,10 @@
   },
   "claude-sonnet-4-6": {
     provider: "anthropic",
-    maxInputTokens: 1000000,
+    // 200k, not the 1M the openrouter/anthropic/claude-sonnet-4.6 row carries:
+    // the 1M window is a beta this transport does not request, and above 200k
+    // Anthropic bills a long-context tier these flat prices do not model.
+    maxInputTokens: 200000,
     maxOutputTokens: 64000,
     inputCostPerMillion: 3,
     outputCostPerMillion: 15,
@@ -57,7 +60,7 @@
   },
   "deepseek/deepseek-chat": {
     provider: "deepseek",
-    maxInputTokens: 128000,
+    maxInputTokens: 131072,
     maxOutputTokens: 8192,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
@@ -70,12 +73,14 @@
   },
   "deepseek/deepseek-reasoner": {
     provider: "deepseek",
-    maxInputTokens: 128000,
-    maxOutputTokens: 64000,
+    maxInputTokens: 131072,
+    maxOutputTokens: 65536,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
     cachedInputCostPerMillion: 0.028,
-    cacheWriteCostPerMillion: 0,
+    // Deliberately unpriced, as upstream leaves it: a cache miss bills at the
+    // ordinary input price, which is what an absent entry falls back to. A 0
+    // here would charge nothing for tokens DeepSeek does charge for.
     capabilities: {
       assistantPrefill: true,
       promptCaching: true,

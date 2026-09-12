@@ -55,7 +55,7 @@ describe("ModelCatalog", () => {
     expect(catalog.resolve("deepseek")).toMatchObject({
       canonicalName: "deepseek/deepseek-chat",
       metadata: {
-        maxInputTokens: 128_000,
+        maxInputTokens: 131_072,
         inputCostPerMillion: 0.28,
         capabilities: { promptCaching: true },
       },
