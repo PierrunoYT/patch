@@ -38,6 +38,9 @@ dated parity audits for revision-specific evidence.
 - A machine-readable ledger for all identified direct Aider source/resource
   derivations, with a full-suite drift check for local/upstream paths, the pinned
   revision, modification notices, Apache-2.0 evidence, and packed documentation.
+- Exact selected-index restoration after failed Git commits, preserving partial
+  staging, untracked status, and unrelated staged/unstaged work across
+  checkpoint, edit, and configured-check paths.
 - An immutable per-attempt lifecycle context that binds provider-visible file
   snapshots and authorization sets to parsing, resolution, writes, configured
   checks/reflection, commits, and final accounting.

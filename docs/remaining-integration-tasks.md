@@ -636,8 +636,13 @@ intentional differences.
 - [x] Decide and document rollback behavior for a filesystem failure between
   multi-file writes; either implement checkpoint-backed restoration or correct
   the plan's unsupported atomic-rollback claim.
-- [ ] Preserve unrelated staged/unstaged changes through checkpoint, commit,
-  failed check, cancellation, and undo paths.
+- [x] Preserve unrelated staged/unstaged changes through checkpoint, commit,
+  failed check, cancellation, and undo paths. Real temporary repositories cover
+  successful checkpoint/edit/check commits, failed hooks before and after a
+  write, partial selected staging, unrelated staged plus unstaged content,
+  untracked selected files, cancellation, and session-owned undo. Failed commit
+  staging restores only saved selected index entries; arbitrary hook/command
+  side effects and exotic index flags remain outside the guarantee.
 - [ ] Make cancellation at every boundary leave valid files, Git state, queue
   state, and reusable session state.
 - [x] Add one asymmetric end-to-end test that streams a malformed response,
@@ -676,11 +681,11 @@ deterministic tests; actual child execution is retained.
   path finalizes history, usage, changed paths, and latest commit correctly, and
   an interrupted turn whose edits survive reconciles history and reports a
   structured partial outcome.
-- Unrelated-work preservation across *all* failures: normal checkpoint,
-  commit, failed checks, sampled cancellation, and undo preserve the unrelated
-  index/worktree in tests. Git failures after staging, failure between undo's
-  two Git commands, concurrent writers/sessions, and arbitrary side effects of
-  approved/configured commands are not covered by a preservation guarantee.
+- Unrelated-work preservation covers normal checkpoint, commit, failed
+  hooks/checks, sampled cancellation, and undo with exact index/worktree
+  assertions. Failure between undo's two Git commands, external processes, and
+  arbitrary side effects of approved/configured commands remain outside the
+  preservation guarantee.
 - Cancellation at *every* boundary: signals are checked before mutation phases
   and between file writes; running Git/replacement operations finish. Tests
   cover stream, preview, authorization, post-checkpoint, between-write,

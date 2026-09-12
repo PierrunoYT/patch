@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -206,7 +213,18 @@ describe("GitRepository commits", () => {
 
   it("honors hook verification and permits an explicit no-verify commit", async () => {
     const { root, git } = await fixture();
-    await writeFile(join(root, "selected.txt"), "changed\n");
+    await writeFile(join(root, "selected.txt"), "staged selected\n");
+    await executeFile("git", ["-C", root, "add", "selected.txt"]);
+    await writeFile(join(root, "selected.txt"), "unstaged selected\n");
+    await writeFile(join(root, "unrelated.txt"), "staged unrelated\n");
+    await executeFile("git", ["-C", root, "add", "unrelated.txt"]);
+    await writeFile(join(root, "unrelated.txt"), "unstaged unrelated\n");
+    const indexBefore = (
+      await executeFile("git", ["-C", root, "diff", "--cached", "--binary"])
+    ).stdout;
+    const worktreeBefore = (
+      await executeFile("git", ["-C", root, "diff", "--binary"])
+    ).stdout;
     const hook = join(root, ".git", "hooks", "pre-commit");
     await mkdir(join(root, ".git", "hooks"), { recursive: true });
     await executeFile("git", [
@@ -226,9 +244,46 @@ describe("GitRepository commits", () => {
         verify: true,
       }),
     ).rejects.toBeInstanceOf(GitRepositoryError);
+    expect(
+      (await executeFile("git", ["-C", root, "diff", "--cached", "--binary"]))
+        .stdout,
+    ).toBe(indexBefore);
+    expect(
+      (await executeFile("git", ["-C", root, "diff", "--binary"])).stdout,
+    ).toBe(worktreeBefore);
     await expect(
       git.commit({ paths: ["selected.txt"], message: "skip", verify: false }),
     ).resolves.toMatchObject({ message: "skip" });
+    expect((await git.status()).stagedPaths).toEqual(["unrelated.txt"]);
+  });
+
+  it("restores an untracked selected path to untracked after commit failure", async () => {
+    const { root, git } = await fixture();
+    await writeFile(join(root, "new.txt"), "new work\n");
+    const hook = join(root, ".git", "hooks", "pre-commit");
+    await writeFile(hook, "#!/bin/sh\nexit 1\n");
+    await chmod(hook, 0o755);
+    await executeFile("git", [
+      "-C",
+      root,
+      "config",
+      "core.hooksPath",
+      ".git/hooks",
+    ]);
+
+    await expect(
+      git.commit({
+        paths: ["new.txt"],
+        message: "must fail",
+        verify: true,
+      }),
+    ).rejects.toBeInstanceOf(GitRepositoryError);
+
+    expect(await git.status()).toMatchObject({
+      stagedPaths: [],
+      untrackedPaths: ["new.txt"],
+    });
+    expect(await readFile(join(root, "new.txt"), "utf8")).toBe("new work\n");
   });
 
   it("commits an untracked selected path", async () => {

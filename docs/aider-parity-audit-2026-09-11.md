@@ -37,8 +37,8 @@ important correctness, integration, and evidence gaps remain.
 - Model/mode switching and weak-model history summarization.
 - Six constructed edit formats: `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
   and `patch`.
-- Literal Git pathspecs, containment checks, session-owned undo, and worktree
-  locking.
+- Literal Git pathspecs, containment checks, failed-commit index restoration,
+  session-owned undo, and worktree locking.
 - Repository maps with eleven-language **sample-level** tag parity.
 - Terminal completion, multiline input, external editor, and explicit PTY
   dispatch.

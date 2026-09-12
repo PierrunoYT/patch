@@ -720,6 +720,8 @@ Capture at least:
 - prompt chunk order and fence selection;
 - whole-file and SEARCH/REPLACE success/failure cases;
 - staged plus unstaged Git diffs and dirty checkpoints;
+- exact selected-index restoration after failed commits without touching
+  unrelated staged or unstaged work;
 - command effects and state transfer; and
 - later, repository-map tags, ranks, and rendered context.
 
