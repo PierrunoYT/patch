@@ -57,6 +57,7 @@ import { htmlToReadableText } from "../interfaces/html-text.js";
 import type { FetchedUrl } from "../interfaces/url-fetcher.js";
 import { GitRepository } from "../repository/git.js";
 import { COMMON_PROMPTS } from "../resources/prompts.js";
+import { extractIdentifiers } from "../io/completion.js";
 import type {
   ApplicationService,
   ApplicationSession,
@@ -398,6 +399,35 @@ class ConcreteApplicationSession implements ApplicationSession {
 
   snapshot() {
     return this.#session.snapshot();
+  }
+
+  async completionCandidates() {
+    const state = this.#session.snapshot();
+    const selected = [
+      ...new Set([...state.editablePaths, ...state.readOnlyPaths]),
+    ];
+    const repository = this.#context.repository;
+    const approvedSelected =
+      repository === undefined
+        ? selected
+        : await repository.filterIgnored(selected);
+    const contents = (
+      await Promise.all(
+        approvedSelected.map(async (path) => {
+          try {
+            return (await snapshot(this.#context.files, path)).content;
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((content): content is string => content !== null);
+    return {
+      files: [
+        ...new Set([...approvedSelected, ...(await this.#availablePaths())]),
+      ],
+      identifiers: extractIdentifiers(contents),
+    };
   }
 
   submit(

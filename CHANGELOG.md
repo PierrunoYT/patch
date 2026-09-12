@@ -15,6 +15,10 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Executable source-identifier completion, refreshed on every Tab press from
+  current selected non-ignored source. Available filenames are also refreshed;
+  source contents remain behind the application boundary and ignored or
+  out-of-root identifiers are never exposed.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

@@ -16,6 +16,14 @@ export interface ApplicationSession {
   /** The sole mutation queue shared by every adapter using this session. */
   readonly queue?: import("./serial-queue.js").SerialTaskQueue;
   snapshot(): unknown | Promise<unknown>;
+  /**
+   * Safe, current terminal-completion candidates. Implementations expose names,
+   * never source contents; omitted when an embedding has no completion policy.
+   */
+  completionCandidates?(): Promise<{
+    readonly files: readonly string[];
+    readonly identifiers: readonly string[];
+  }>;
   submit(message: string, options: ApplicationSubmitOptions): Promise<unknown>;
   close?(): void | Promise<void>;
 }

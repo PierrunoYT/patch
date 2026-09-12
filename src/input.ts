@@ -24,7 +24,8 @@ export interface TerminalInputOptions {
    * Read when the user asks for completion, so the candidates reflect the files
    * selected right now rather than those selected at startup.
    */
-  readonly completionSources?: () => CompletionSources;
+  readonly completionSources?: () =>
+    CompletionSources | Promise<CompletionSources>;
   /** Earlier inputs, oldest first, made recallable with the arrow keys. */
   readonly history?: readonly string[];
   /**
@@ -48,7 +49,8 @@ export class TerminalInput implements AsyncIterable<string> {
   readonly #signal: AbortSignal;
   readonly #interrupt: () => void;
   readonly #write: (text: string) => void;
-  readonly #completionSources: (() => CompletionSources) | undefined;
+  readonly #completionSources:
+    (() => CompletionSources | Promise<CompletionSources>) | undefined;
   readonly #editor: string | undefined;
   /** Lines held by Alt-Enter until Enter submits the whole message. */
   #continued: string[] = [];
@@ -99,7 +101,20 @@ export class TerminalInput implements AsyncIterable<string> {
       signal: this.#signal,
       ...(this.#completionSources === undefined
         ? {}
-        : { completer: (line: string) => this.complete(line) }),
+        : {
+            // The promise readline declarations omit Node's supported callback
+            // completer overload, although the runtime delegates to the same
+            // Interface implementation as node:readline.
+            completer: ((
+              line: string,
+              done: (error: Error | null, result?: [string[], string]) => void,
+            ) => {
+              void this.complete(line).then(
+                (result) => done(null, result),
+                () => done(null, [[], line]),
+              );
+            }) as unknown as (line: string) => [string[], string],
+          }),
       ...(history === undefined ? {} : { history: [...history] }),
     });
     reader.on("SIGINT", () => {
@@ -264,8 +279,8 @@ export class TerminalInput implements AsyncIterable<string> {
    * Readline's completer contract: the candidate values, and the substring they
    * replace. An empty list with the whole line leaves the input untouched.
    */
-  complete(line: string): [string[], string] {
-    const sources = this.#completionSources?.();
+  async complete(line: string): Promise<[string[], string]> {
+    const sources = await this.#completionSources?.();
     if (sources === undefined) return [[], line];
     const found = completeInput(line, line.length, sources);
     const replaceFrom = found[0]?.replaceFrom;

@@ -286,3 +286,13 @@ Prioritize **ignore-policy composition, model metadata/accounting, fixture hash
 coverage, and the concrete edit/selection defects before `/help`**. Those affect
 existing behavior and confidence in its evidence, rather than adding another
 command.
+
+## Post-audit current evidence
+
+This dated audit remains a snapshot of Patch `476d1657`. Later implementation
+on `workstream/interfaces-provenance` connects source-identifier completion to
+the executable: application sessions refresh non-ignored available filenames
+and extract identifiers only from current selected source. This is narrower than
+a broad repository token scan and preserves Patch containment. Evidence is in
+`tests/interface-startup.test.ts` and `tests/input-editing.test.ts`; it does not
+change the audit's original revision or broader terminal-parity findings.
