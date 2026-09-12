@@ -224,7 +224,7 @@ describe("application slash commands", () => {
     await expect(readFile(join(root, "pasted.txt"), "utf8")).rejects.toThrow();
   });
 
-  it("queues a command submitted during an active provider turn", async () => {
+  it("queues ancillary commands behind a provider turn and cancels a queued draft", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-command-queue-"));
     const provider = new FakeProvider([
       {
@@ -240,7 +240,17 @@ describe("application slash commands", () => {
       home: root,
       environment: {},
       argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
-      dependencies: { provider },
+      dependencies: {
+        provider,
+        reportMetadata: async () => ({
+          patchVersion: "0.0.0",
+          nodeVersion: "22.1.0",
+          platform: "linux",
+          release: "6.1.0",
+          architecture: "x64",
+          gitVersion: "2.51.0",
+        }),
+      },
     });
     const session = await service.createSession({
       principal: "test",
@@ -254,12 +264,88 @@ describe("application slash commands", () => {
     const turn = session
       .submit("question", options)
       .then(() => order.push("turn"));
-    const command = session
-      .submit("/ls", options)
-      .then(() => order.push("command"));
+    const help = session
+      .submit("/help", options)
+      .then(() => order.push("help"));
+    const settings = session
+      .submit("/settings", options)
+      .then(() => order.push("settings"));
+    const report = session
+      .submit("/report queued", options)
+      .then(() => order.push("report"));
+    const cancelledController = new AbortController();
+    const cancelled = session.submit("/report cancelled", {
+      signal: cancelledController.signal,
+      emit: () => undefined,
+    });
+    cancelledController.abort(new Error("cancel queued report"));
 
-    await Promise.all([turn, command]);
-    expect(order).toEqual(["turn", "command"]);
+    await Promise.all([turn, help, settings, report]);
+    await expect(cancelled).rejects.toThrow(/cancel queued report/u);
+    expect(order).toEqual(["turn", "help", "settings", "report"]);
+  });
+
+  it("dispatches all ancillary commands through the terminal without approvals or controls", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-ancillary-cli-"));
+    const escape = "\u001b";
+    const provider = new FakeProvider([]);
+    let output = "";
+    let approvalCalls = 0;
+    const lines = async function* () {
+      yield "/help command";
+      yield "/settings";
+      yield "/report Terminal review";
+      yield "/exit";
+    };
+
+    await createProgram({
+      cwd: root,
+      environment: {},
+      lines: lines(),
+      outputIsTTY: false,
+      writeOutput: (text) => {
+        output += text;
+      },
+      createApplication: (options) =>
+        ConcreteApplicationService.create({
+          ...options,
+          home: root,
+          dependencies: {
+            provider,
+            approvePath: () => {
+              approvalCalls += 1;
+              return false;
+            },
+            approveCommand: () => {
+              approvalCalls += 1;
+              return false;
+            },
+            authorizeWrite: () => {
+              approvalCalls += 1;
+              return false;
+            },
+            reportMetadata: async () => ({
+              patchVersion: `0.0.0${escape}[2J`,
+              nodeVersion: "22.1.0",
+              platform: "linux",
+              release: "6.1.0",
+              architecture: "x64",
+            }),
+          },
+        }),
+    }).parseAsync(["--no-git", "--model", "4o", "--edit-format", "ask"], {
+      from: "user",
+    });
+
+    expect(output).toContain("commands.md:");
+    expect(output).toContain("Effective startup settings:");
+    expect(output).toContain(
+      'User-supplied title (review carefully): "Terminal review"',
+    );
+    expect(output).toContain("- Patch: unavailable");
+    expect(output).not.toContain(escape);
+    expect(approvalCalls).toBe(0);
+    expect(provider.requests).toHaveLength(0);
   });
 
   it("serves local help without calling the provider or changing history", async () => {

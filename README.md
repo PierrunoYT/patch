@@ -119,7 +119,9 @@ raw configuration or credentials. `/report [title]` prints a bounded local issue
 draft containing only allowlisted Patch, Node.js, OS, architecture, and Git
 versions. The optional title is visibly identified as user-supplied; no paths,
 chat, source, environment, diagnostics, browser, upload, provider, or network are
-involved.
+involved. All three ancillary commands are exercised through the installed
+packed executable; they share the session queue and cancellation behavior and
+do not bypass file-write or process approvals.
 Browser GUI and CLI voice UX are deferred. Built-in analytics, automatic
 provider/model onboarding and OAuth, and update checks/release-note prompts are
 non-goals: configuration stays explicit, updates stay user-managed, and release

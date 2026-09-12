@@ -517,6 +517,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Joint executable acceptance for `/help`, `/settings`, and `/report` now covers
+  serialized queue order, active and queued cancellation, hostile terminal
+  metadata, unchanged write/path/process approvals, and dispatch from the actual
+  binary installed from a packed tarball.
 - Gave `diff-fenced` its distinct pinned filename-inside-fence protocol instead
   of sending the same prompt and example as ordinary `diff`. Strategy examples
   and the fenced reminder now interpolate the fence selected from file content,

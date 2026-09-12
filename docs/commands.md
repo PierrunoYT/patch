@@ -44,6 +44,14 @@ chat, source, environment, credentials, and raw errors are not inputs to the
 renderer. Unlike pinned aider's `report.py`, Patch never opens a browser or
 constructs an upload or issue URL, and it makes no provider or network request.
 
+The three ancillary commands use the same serialized application queue as turns
+and other commands. Tests cover an active turn followed by `/help`, `/settings`,
+and `/report` in exact order, cancellation both while report metadata is being
+resolved and while a report waits in the queue, terminal sanitization, and no
+calls to path, write, or process approval hooks. Package smoke dispatches all
+three through the actual `patch` bin installed from `npm pack`; no fake provider
+response or credential is needed.
+
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather

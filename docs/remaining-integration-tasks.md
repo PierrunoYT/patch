@@ -71,7 +71,7 @@ unchanged result of the historical audit.
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | Nineteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, command outcomes, local help, safe settings, and a bounded local report draft are wired. Combined ancillary packed-executable evidence and exhaustive advertised-command effects remain open. |
+| Commands/terminal | partial | Nineteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, command outcomes, local help, safe settings, and a bounded local report draft are wired. The three ancillary commands have combined queue/cancellation/sanitization/approval and packed-bin evidence; exhaustive advertised-command effects remain open. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
@@ -479,10 +479,19 @@ decision or one command does not establish release readiness.
   unchanged chat history. Unlike pinned `aider/report.py`, no browser, issue URL,
   upload, provider, or network path exists. Combined packed execution remains
   the next unchecked item.
-- [ ] Verify all three through executable dispatch and packed installation,
+- [x] Verify all three through executable dispatch and packed installation,
   including queued commands, cancellation, and terminal sanitization, without
   weakening write/process approval. Update command completion, README, parity
   evidence, and help together; until then none is advertised as available.
+  `tests/application-commands.test.ts` submits all three behind an active
+  provider turn, cancels an additional queued report before metadata collection,
+  checks active report cancellation, replaces hostile metadata with
+  `unavailable` before terminal output, and proves none invokes path, write, or
+  process approval hooks. `scripts/package-smoke.mjs` dispatches `/help`,
+  `/settings`, `/report`, and `/exit` through the actual installed bin. The
+  parser-owned command inventory supplies completion, so `/report` is included
+  without a parallel advertising list. No provider credentials or network are
+  used.
 
 The R0–R9 sections below retain dependency context. Where a checked component
 conflicts with this re-audit, the unchecked blocker above controls release
