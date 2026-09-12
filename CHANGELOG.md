@@ -382,6 +382,15 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Deduplicate identical repository-map definition captures while preserving
+  repeated references, matching upstream's set-backed definitions and weighted
+  reference counts. A generated pinned fixture now compares final numeric ranks
+  under asymmetric chat/path/identifier personalization.
+- Extend packed-bin smoke through a real filtered repository-map provider turn:
+  the installed executable must send a ranked target file and must not expose a
+  tracked `.aiderignore` match. A separate lexical-reference rendering fixture
+  covers unparsed text ranking a parsed definition.
+
 - Port the pinned repository-map `TreeContext` configuration across shipped
   grammars: generic syntax-parent scopes, shortest headers capped at ten lines,
   top-scope omission, and deterministic elisions without child/margin/final-line

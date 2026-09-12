@@ -23,7 +23,8 @@ The exporter currently captures:
   and the paths upstream targets;
 - staged and unstaged Git diff behavior;
 - a small Python repository map, including normalized tags, definition rank
-  order, and rendered context;
+  order, rendered context, and an asymmetric personalized scenario with the
+  complete tag multiset and final numeric definition ranks;
 - one tagged sample per language Patch ships a grammar for — JavaScript,
   TypeScript, TSX, Python, Go, Rust, Bash, C/C++, C#, Java, and Ruby — each
   stored with the source it was tagged from; and

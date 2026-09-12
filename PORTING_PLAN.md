@@ -617,19 +617,22 @@ real-repository `tests/git-*.test.ts` suites.
 - [x] Add production fallback map requests. An empty selected-file map retries
   globally with the same filename/identifier hints, then globally without hints,
   stopping at the first result and reusing the filtered tracked inventory.
-- [ ] Broaden independent map fixtures and executable evidence beyond one
-  two-file Python rendering example. Tags for all eleven shipped languages, TSX
-  included, and important-root-file selection are pinned against upstream's own
-  extractor, and packed extraction runs for the same set. Numeric
-  ranking/personalization, lexical fallback rendering, and broader provider-turn
-  context remain unpinned.
+- [x] Broaden independent map fixtures and executable evidence. Tags for all
+  eleven shipped languages and important-root-file selection are pinned against
+  upstream; an asymmetric personalized scenario pins the complete tag multiset
+  and final numeric definition ranks; exact Python/TypeScript rendering and a
+  Patch-specific lexical-reference case are checked. Packed extraction covers
+  every language, and an actual-bin provider turn requires filtered ranked map
+  context while rejecting an ignored tracked path.
 
-**Exit (partial):** representative multi-language tag fixtures and packed-
-resource tests are in the Linux/macOS/Windows CI matrix. Production fallback
-requests cover selected, hinted-global, and unhinted-global maps; shipped
-languages share the pinned generic parent-header renderer; and fitting uses the
-selected tokenizer where reliable. Personalization/lexical-fallback fixtures and
-broader executable provider-context evidence remain open. Cross-platform claims
+**Exit (met for documented repository-map scope):** representative multi-
+language tag fixtures and packed-resource tests are in the cross-platform CI
+matrix. Production fallbacks cover selected, hinted-global, and unhinted-global
+maps; shipped languages share the pinned parent-header renderer; fitting uses
+the selected tokenizer where reliable; an asymmetric fixture matches upstream
+numeric personalization; and packed-bin smoke proves one filtered provider-
+visible map. This does not establish arbitrary-program/every-language ranking
+parity or expose aider's full map-control surface. Cross-platform release claims
 require a green matrix on the revision being claimed.
 
 **Evidence:** `tests/repo-map-compatibility.test.ts`,

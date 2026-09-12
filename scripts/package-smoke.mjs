@@ -301,7 +301,16 @@ try {
           });
         }
         let text;
-        if (last.includes('one shot')) {
+        if (last.includes('repository map turn')) {
+          const context = JSON.stringify(messages);
+          if (!context.includes('target.ts') || !context.includes('uncommonTarget')) {
+            throw new Error('repository map context was absent: ' + secret);
+          }
+          if (context.includes('hidden.ts') || context.includes('hiddenSecret')) {
+            throw new Error('ignored repository context leaked: ' + secret);
+          }
+          text = 'deterministic repository-map answer';
+        } else if (last.includes('one shot')) {
           text = 'deterministic one-shot answer';
         } else if (last.includes('first turn')) {
           text = 'deterministic first answer';
@@ -385,6 +394,61 @@ try {
     !multiTurn.includes("deterministic second answer with retained history")
   ) {
     throw new Error("Packed actual bin did not retain fake-provider history");
+  }
+  const providerMapRoot = join(consumerDirectory, "provider-map");
+  mkdirSync(providerMapRoot);
+  writeFileSync(
+    join(providerMapRoot, "chat.ts"),
+    "export const requested = uncommonTarget;\n",
+  );
+  writeFileSync(
+    join(providerMapRoot, "target.ts"),
+    "export function uncommonTarget(): number { return 1; }\n",
+  );
+  writeFileSync(
+    join(providerMapRoot, "hidden.ts"),
+    "export const hiddenSecret = 'must-not-reach-provider';\n",
+  );
+  writeFileSync(join(providerMapRoot, ".aiderignore"), "hidden.ts\n");
+  execFileSync("git", ["init", "--quiet", providerMapRoot]);
+  for (const [key, value] of [
+    ["user.name", "Patch Package Smoke"],
+    ["user.email", "patch-package-smoke@test.invalid"],
+    ["commit.gpgsign", "false"],
+  ]) {
+    execFileSync("git", ["-C", providerMapRoot, "config", key, value]);
+  }
+  execFileSync("git", ["-C", providerMapRoot, "add", "."]);
+  execFileSync("git", [
+    "-C",
+    providerMapRoot,
+    "commit",
+    "--quiet",
+    "-m",
+    "base",
+  ]);
+  const repositoryMap = execFileSync(
+    executable,
+    shellArguments([
+      "--model",
+      "4o",
+      "--edit-format",
+      "ask",
+      "--file",
+      "chat.ts",
+      "--message",
+      "repository map turn",
+    ]),
+    {
+      cwd: providerMapRoot,
+      env: fakeEnvironment,
+      encoding: "utf8",
+      shell: useShell,
+      timeout: 15000,
+    },
+  );
+  if (!repositoryMap.includes("deterministic repository-map answer")) {
+    throw new Error("Packed actual bin did not send repository-map context");
   }
   const malformed = spawnSync(
     executable,

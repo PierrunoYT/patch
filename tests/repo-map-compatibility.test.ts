@@ -82,4 +82,31 @@ describe("pinned upstream repository-map compatibility", () => {
     );
     expect(Math.ceil(rendered.length / 4)).toBeLessThanOrEqual(512);
   });
+
+  it("renders a definition ranked by a lexical fallback reference", async () => {
+    const root = await fixture();
+    await writeFile(
+      join(root, "target.ts"),
+      "export function uncommonTarget(): number { return 1; }\n",
+    );
+    await writeFile(
+      join(root, "notes.md"),
+      "The uncommonTarget implementation needs review.\n",
+    );
+    const map = await RepositoryMap.create({
+      root,
+      maxTokens: 512,
+      countTokens: (text) => Math.ceil(text.length / 4),
+      refresh: "always",
+    });
+
+    const rendered = await map.getMap({
+      chatPaths: ["notes.md"],
+      otherPaths: ["target.ts"],
+    });
+
+    expect(rendered).toContain("target.ts:");
+    expect(rendered).toContain("uncommonTarget");
+    expect(rendered).not.toContain("notes.md");
+  });
 });

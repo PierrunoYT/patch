@@ -149,7 +149,12 @@ export function rankRepoMapTags(
   for (const tag of tags) {
     if (tag.kind === "definition") {
       const entries = definitions.get(tag.name) ?? [];
-      entries.push(tag);
+      if (
+        !entries.some(
+          (entry) => entry.path === tag.path && entry.line === tag.line,
+        )
+      )
+        entries.push(tag);
       definitions.set(tag.name, entries);
     } else {
       const entries = references.get(tag.name) ?? [];

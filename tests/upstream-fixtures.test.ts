@@ -13,10 +13,12 @@ import {
   COMMON_PROMPTS,
   EditFormatSchema,
   filterImportantFiles,
+  rankRepoMapTags,
   selectFence,
   TagExtractor,
   UnifiedDiffEditStrategy,
   type ChatMessage,
+  type RepoMapTag,
 } from "../src/index.js";
 
 interface FenceResult {
@@ -60,10 +62,17 @@ interface UpstreamFixture {
   searchReplace: { parsed: unknown[]; replacements: Record<string, string> };
   gitDiff: string;
   repoMap: {
-    tags: unknown[];
+    tags: RepoMapTag[];
     rankOrder: string[];
     rendered: string;
     normalizedMap: string[];
+    personalizedRanking: {
+      chatPaths: string[];
+      mentionedPaths: string[];
+      mentionedIdentifiers: string[];
+      tags: RepoMapTag[];
+      ranks: { path: string; name: string; line: number; rank: number }[];
+    };
   };
 }
 
@@ -106,7 +115,7 @@ function unpinnedImports(source: string, paths: string[]): string[] {
 
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
-    expect(fixture.schemaVersion).toBe(5);
+    expect(fixture.schemaVersion).toBe(6);
     expect(fixture.upstream).toEqual({
       repository: upstream.repository,
       commit: upstream.commit,
@@ -324,6 +333,28 @@ describe("upstream compatibility fixtures", () => {
     expect(filterImportantFiles(fixture.importantFiles.candidates)).toEqual(
       fixture.importantFiles.important,
     );
+  });
+
+  it("matches upstream personalized definition ranks", () => {
+    const expected = fixture.repoMap.personalizedRanking;
+    const ranked = rankRepoMapTags(expected.tags, {
+      chatPaths: new Set(expected.chatPaths),
+      mentionedPaths: new Set(expected.mentionedPaths),
+      mentionedIdentifiers: new Set(expected.mentionedIdentifiers),
+    });
+
+    expect(
+      ranked.map(({ tag }) => ({
+        path: tag.path,
+        name: tag.name,
+        line: tag.line,
+      })),
+    ).toEqual(
+      expected.ranks.map(({ path, name, line }) => ({ path, name, line })),
+    );
+    for (const [index, value] of expected.ranks.entries()) {
+      expect(ranked[index]?.rank).toBeCloseTo(value.rank, 5);
+    }
   });
 
   it("extracts the same tags upstream does for every shipped language", async () => {

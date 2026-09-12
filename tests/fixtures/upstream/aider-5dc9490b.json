@@ -260,6 +260,129 @@
       "def farewell(name):",
       "usage.py"
     ],
+    "personalizedRanking": {
+      "chatPaths": [
+        "usage.py"
+      ],
+      "mentionedIdentifiers": [
+        "farewell"
+      ],
+      "mentionedPaths": [
+        "definitions.py"
+      ],
+      "ranks": [
+        {
+          "line": 3,
+          "name": "farewell",
+          "path": "definitions.py",
+          "rank": 0.9090909090909092
+        },
+        {
+          "line": 0,
+          "name": "greet",
+          "path": "definitions.py",
+          "rank": 0.09090909090909091
+        }
+      ],
+      "tags": [
+        {
+          "kind": "definition",
+          "line": 0,
+          "name": "greet",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "definition",
+          "line": 3,
+          "name": "farewell",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "definition",
+          "line": 3,
+          "name": "farewell",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
+          "name": "greet",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
+          "name": "name",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
+          "name": "name",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
+          "name": "farewell",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
+          "name": "name",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
+          "name": "name",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": 2,
+          "name": "print",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 2,
+          "name": "greet",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 3,
+          "name": "print",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 4,
+          "name": "print",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 3,
+          "name": "greet",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 4,
+          "name": "farewell",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 4,
+          "name": "farewell",
+          "path": "usage.py"
+        }
+      ]
+    },
     "rankOrder": [
       "definitions.py:greet:0",
       "definitions.py:farewell:3"
@@ -503,7 +626,7 @@
       ]
     }
   },
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "searchReplace": {
     "missingFilenameError": "<<<<<<< SEARCH\n\n^^^ Bad/missing filename. The filename must be alone on the line before the opening fence ```",
     "parsed": [

@@ -109,13 +109,18 @@ containment checks, or strict prefix fitting.
 
 The pinned exporter compares raw tags, definition order, and normalized
 rendering for one two-file Python scenario. It also captures important-root-file
-selection and one source-backed tag sample for every shipped language entry.
-These samples do not establish full language, numeric rank, personalization,
-cache, token-fitting, generic tree-context, or production-request parity. The
-Python map fixture removes line-`-1` lexical fallback tags and deduplicates before
-storage, so it does not pin Patch's own lexical fallback, which reports first-line
-positions instead. That fallback remains covered by Patch's local tests.
+selection, one source-backed tag sample for every shipped language entry, and an
+asymmetric personalized ranking with the complete tag multiset and final numeric
+definition scores from aider's graph. The numeric case includes upstream's
+line-`-1` lexical fallback references and exposed a duplicate-definition bug in
+Patch while preserving reference multiplicity. Exact Python/TypeScript renderer
+fixtures and a Patch-specific Markdown lexical-reference rendering case complete
+the scoped evidence. These samples still do not establish arbitrary-program,
+cache, or every-language ranking equivalence.
 
 The package smoke installs the tarball and exercises tag extraction for all
-eleven shipped language entries, including TSX. This is installed-extractor
-coverage, not complete installed-map ranking/rendering parity.
+eleven shipped language entries, including TSX. It also runs the actual packed
+`patch` binary through a deterministic provider turn and requires filtered map
+context to contain a ranked target file while excluding a tracked path matched
+by `.aiderignore`. This is one executable ranking/rendering scenario, not
+complete installed-map parity.

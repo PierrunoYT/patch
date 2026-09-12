@@ -265,6 +265,55 @@ def export_repo_map(InputOutput, Model, RepoMap):
                 if tag.line >= 0
             )
         tags = [dict(items) for items in sorted({tuple(sorted(tag.items())) for tag in tags})]
+
+        ranking_tags = []
+        for file in files:
+            ranking_tags.extend(
+                normalize_tag(tag)
+                for tag in repository_map.get_tags(file, Path(file).name)
+            )
+
+        import networkx as nx
+
+        original_graph = nx.MultiDiGraph
+        graphs = []
+
+        def capture_graph(*args, **kwargs):
+            graph = original_graph(*args, **kwargs)
+            graphs.append(graph)
+            return graph
+
+        nx.MultiDiGraph = capture_graph
+        try:
+            personalized = repository_map.get_ranked_tags(
+                [str(usage)],
+                [str(definitions)],
+                {"definitions.py"},
+                {"farewell"},
+            )
+        finally:
+            nx.MultiDiGraph = original_graph
+        definition_ranks = {}
+        for _source, destination, data in graphs[0].edges(data=True):
+            key = (destination, data["ident"])
+            definition_ranks[key] = definition_ranks.get(key, 0) + data["rank"]
+        personalized_ranking = {
+            "chatPaths": ["usage.py"],
+            "mentionedPaths": ["definitions.py"],
+            "mentionedIdentifiers": ["farewell"],
+            "tags": ranking_tags,
+            "ranks": [
+                {
+                    "path": tag.rel_fname.replace(os.sep, "/"),
+                    "name": tag.name,
+                    "line": tag.line,
+                    "rank": definition_ranks[(tag.rel_fname, tag.name)],
+                }
+                for tag in personalized
+                if hasattr(tag, "kind")
+            ],
+        }
+
         ranked = repository_map.get_ranked_tags([], files, set(), set())
         rank_order = [
             f"{tag.rel_fname.replace(os.sep, '/')}:{tag.name}:{tag.line}"
@@ -283,6 +332,7 @@ def export_repo_map(InputOutput, Model, RepoMap):
         return {
             "tags": tags,
             "rankOrder": rank_order,
+            "personalizedRanking": personalized_ranking,
             "rendered": rendered,
             "normalizedMap": normalized,
         }
@@ -447,7 +497,7 @@ def main():
     from aider.special import filter_important_files
 
     fixture = {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "upstream": {"repository": remote, "commit": commit},
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",
