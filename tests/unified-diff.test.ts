@@ -239,6 +239,73 @@ describe("UnifiedDiffEditStrategy", () => {
     ).toThrow(UnifiedDiffParseError);
   });
 
+  it("recovers non-uniform relative indentation", () => {
+    expect(
+      applyUnifiedDiff(
+        "if ready:\n    old()\n",
+        "if ready:\nold()\n",
+        "if ready:\nnew()\n",
+        "a.py",
+      ),
+    ).toBe("if ready:\n    new()\n");
+  });
+
+  it("rejects ambiguous relative-indentation recovery", () => {
+    expect(() =>
+      applyUnifiedDiff(
+        "if first:\n    old()\nif second:\n    old()\n",
+        "if value:\nold()\n",
+        "if value:\nnew()\n",
+        "a.py",
+      ),
+    ).toThrow(UnifiedDiffNoMatchError);
+    expect(() =>
+      applyUnifiedDiff(
+        "if ready:\n    old()\nif ready:\n    old()\n",
+        "if ready:\nold()\n",
+        "if ready:\nnew()\n",
+        "a.py",
+      ),
+    ).toThrow(UnifiedDiffNotUniqueError);
+  });
+
+  it("recovers omitted unchanged lines", () => {
+    expect(
+      applyUnifiedDiff(
+        "start\nkeep omitted\nold\nend\n",
+        "start\nold\nend\n",
+        "start\nnew\nend\n",
+        "a.ts",
+      ),
+    ).toBe("start\nkeep omitted\nnew\nend\n");
+  });
+
+  it("rejects ambiguous omitted-line recovery", () => {
+    expect(() =>
+      applyUnifiedDiff(
+        "start\none\nold\nend\nstart\ntwo\nold\nend\n",
+        "start\nold\nend\n",
+        "start\nnew\nend\n",
+        "a.ts",
+      ),
+    ).toThrow(UnifiedDiffNotUniqueError);
+  });
+
+  it("bounds omitted-line recovery", () => {
+    const omitted = Array.from(
+      { length: 21 },
+      (_unused, index) => `omitted ${String(index)}\n`,
+    ).join("");
+    expect(() =>
+      applyUnifiedDiff(
+        `start\n${omitted}old\nend\n`,
+        "start\nold\nend\n",
+        "start\nnew\nend\n",
+        "a.ts",
+      ),
+    ).toThrow(UnifiedDiffNoMatchError);
+  });
+
   it("distinguishes absent context from non-unique context", () => {
     expect(() =>
       applyUnifiedDiff("actual\n", "missing\n", "new\n", "a.ts"),

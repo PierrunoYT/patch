@@ -655,11 +655,13 @@ require a green matrix on the revision being claimed.
   resources and per-attempt fence selection are complete in Phase 1.
 - [x] Normalize whitespace-only unified-diff lines and deduplicate identical
   normalized path/search/replacement hunks before resolution.
-- [ ] Complete unified-diff recovery. File-header transitions are handled, but
-  Aider's indentation, omitted-line, and partial-context stages remain absent.
-  Standard no-newline markers preserve, add, or remove the final newline
-  according to their position; this intentionally fixes pinned aider's marker-
-  tolerance behavior, which loses that meaning.
+- [x] Add indentation and omitted-line unified-diff recovery. Each stage requires
+  one unique match; omitted-line search caps hunks at 100 lines, permits at most
+  20 omitted lines, and stops after 10,000 comparisons.
+- [ ] Complete partial-context unified-diff recovery. Standard no-newline markers
+  preserve, add, or remove the final newline according to their position; this
+  intentionally fixes pinned aider's marker-tolerance behavior, which loses that
+  meaning.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. The independent pinned format golden covers an exact update;

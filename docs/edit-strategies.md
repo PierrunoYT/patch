@@ -121,8 +121,12 @@ to a mid-file line and discard the marker's meaning. Both are reported as an
 ordinary no-match, which a reflection attempt can retry, rather than being
 applied. Whitespace-only old/new/context lines normalize to blank lines before
 matching, and identical normalized path/search/replacement hunks are applied
-once. Aider's indentation, omitted-line, and partial-context recovery remain
-incomplete.
+once. Recovery then accepts one unique indentation-normalized line window and
+reindents replacement lines from the changed anchor. If exact and indentation
+matching fail, a unique ordered-subsequence match may preserve up to 20 omitted
+unchanged lines; recovery is disabled above 100 hunk lines or 10,000 comparisons.
+Ambiguity at either stage is rejected. Aider's progressively reduced partial-
+context recovery remains incomplete.
 
 ## Patch actions
 

@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Recover unified-diff hunks against one unique indentation-normalized window or
+  one unique bounded ordered subsequence when unchanged lines were omitted.
+  Ambiguous recovery fails closed; omitted-line matching caps hunks at 100 lines,
+  permits at most 20 omitted lines, and stops after 10,000 comparisons.
+
 - Normalize whitespace-only unified-diff old/new/context lines and discard
   normalized no-op hunks. Identical normalized path/search/replacement hunks are
   now applied once instead of failing on their second sequential application.
