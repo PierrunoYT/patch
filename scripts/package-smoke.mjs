@@ -61,6 +61,8 @@ try {
     "docs/url-fetching.md",
     "docs/turn-lifecycle.md",
     "docs/configuration-bootstrap.md",
+    "docs/direct-derivations.json",
+    "docs/upstream-attribution.md",
   ]) {
     if (!packed.has(document)) {
       throw new Error(`The packed tarball is missing ${document}`);

@@ -73,7 +73,7 @@ unchanged result of the historical audit.
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
+| Configuration/package/provenance | partial with direct-port evidence | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. A machine-readable ledger plus CI drift scan verifies every identified direct Aider source/resource path, revision, modification statement, and Apache line; packed-package evidence includes the ledger. Config-aware option breadth and provider-lifetime cleanup remain open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -927,9 +927,11 @@ they do not merely compile against an interface that has no implementation.
 - [ ] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
   “support” and “parity” for safe behavior reachable through a documented
   interface.
-- [ ] Establish a direct-derivation ledger and ensure every listed source or
-  shipped resource carries the required upstream path, revision, modification,
-  and Apache-2.0 provenance.
+- [x] Establish a direct-derivation ledger and ensure every identified direct
+  Aider source or shipped resource carries the required upstream path, revision,
+  modification, and Apache-2.0 provenance. The automated scan rejects marker,
+  ledger, per-file, and package drift while leaving generated fixtures on their
+  independent blob-hash contract.
 
 **Acceptance:** not met. The table and blockers above are the current
 source-audit result; application fixes and executable evidence remain required.

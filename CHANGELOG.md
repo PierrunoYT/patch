@@ -35,6 +35,9 @@ dated parity audits for revision-specific evidence.
   six constructed edit formats, plus asymmetric properties and per-format
   malformed/ambiguous or conflicting, second-write failure, and between-write
   cancellation evidence. Generated upstream fixtures remain separately labeled.
+- A machine-readable ledger for all identified direct Aider source/resource
+  derivations, with a full-suite drift check for local/upstream paths, the pinned
+  revision, modification notices, Apache-2.0 evidence, and packed documentation.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

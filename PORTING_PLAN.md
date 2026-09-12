@@ -338,6 +338,9 @@ packed tarball from a clean temporary project.
 - [x] Add the Apache-2.0 `LICENSE`, upstream attribution in `NOTICE`, and a
   standard header/template for directly ported files.
 - [x] Record the pinned upstream commit in a machine-readable file.
+- [x] Record every identified direct Aider source/resource derivation in a
+  machine-readable ledger and check per-file path, revision, modification, and
+  Apache evidence for drift; keep generated fixture provenance separate.
 - [x] Add CI for typecheck, lint, tests, build, and `npm pack` smoke testing.
 - [x] Build an upstream fixture exporter outside the shipped package. Capture
   normalized outputs from pinned aider for config precedence, prompt chunks,

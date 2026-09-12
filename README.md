@@ -224,9 +224,12 @@ See the [Aider-to-Patch porting plan](PORTING_PLAN.md) for the pinned upstream
 baseline, target architecture, implementation phases, and verification criteria.
 
 Directly adapted files and resources are required to identify their Aider source
-revision, modification, and license. The parity re-audit found that this is not
-yet mechanically complete; provenance ledger/header work remains in the
-authoritative backlog. Reference checkouts remain outside this repository.
+revision, modification, and license. The machine-readable
+[direct-derivation ledger](docs/direct-derivations.json) records that evidence
+for every identified direct port, and `npm run provenance:check` detects ledger
+or per-file attribution drift. Generated compatibility fixtures use their
+separate pinned blob-hash boundary. Reference checkouts remain outside this
+repository.
 
 ## Community
 

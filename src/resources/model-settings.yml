@@ -1,6 +1,7 @@
 # Adapted from aider/resources/model-settings.yml at revision
 # 5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Field names and capabilities were
-# normalized for Patch's provider-neutral model contract.
+# normalized and modified for Patch's provider-neutral model contract.
+# Licensed under the Apache License, Version 2.0.
 - name: gpt-4o
   provider: openai
   editFormat: diff

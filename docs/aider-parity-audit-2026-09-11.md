@@ -313,9 +313,17 @@ authorization region under the shared worktree lock. These tests establish only
 the exercised single-process cases.
 
 The branch also adds a manually authored golden, pinned source path, and
-asymmetric property coverage for each constructed edit format. Failure and
-cancellation injection verifies exact partial-write state for all five mutating
-formats, while malformed and ambiguity/conflict cases verify no unintended
-target. The generated upstream fixture remains separately identified; Patch
-hardening cases are not presented as upstream parity, and broader unified-diff
-recovery remains open.
+classification for every advertised constructed edit format. Asymmetric
+properties cover each parser, while malformed/ambiguous input, second-write
+failure, and between-write cancellation distinguish executable Patch hardening
+from generated upstream fixture compatibility; broader unified-diff recovery
+remains open.
+
+Finally, the branch establishes a machine-readable ledger for all 61 identified
+direct Aider source/resource derivations. A check included in the full suite
+cross-checks the pinned revision and license metadata, discovers unlisted
+derivation markers, validates every upstream path and per-file modification and
+Apache notice, and rejects stale entries. Packed-package smoke verifies that the
+ledger and attribution policy ship. This evidence does not classify original
+Patch code or third-party MIT resources as Aider-derived, and generated fixtures
+retain their separate blob-hash provenance boundary.
