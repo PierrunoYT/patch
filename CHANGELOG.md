@@ -381,6 +381,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Charged history summarization to the session. The summarizer consumed only
+  text and error events and discarded usage, so the weak-model call every
+  compacting turn pays for was invisible in the reported cost — the
+  commit-message path already accounts for its own. It also now sends the weak
+  model's temperature policy, as every other request does.
+
 - Sanitized the three terminal status lines that interpolated untrusted text
   directly: the fetched URL, a watch-mode failure, and a failed notification
   command. Only the Commander streams and the executable's own failure path were

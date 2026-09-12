@@ -1677,10 +1677,16 @@ class ConcreteApplicationSession implements ApplicationSession {
       countTokens: (values) => countMessageTokens(values, weak).tokens,
       send: async (request, abort) => {
         let text = "";
+        // Summarization is a real provider call on the weak model. Dropping its
+        // usage made every turn that compacted history under-report what the
+        // session had spent, the same way the commit-message path would if it
+        // did not record its own.
+        let accounted = 0;
         for await (const event of provider.stream(
           CompletionRequestSchema.parse({
             model: weak.name,
             messages: request,
+            temperature: requestTemperature(weak),
             extraParameters: weak.extraParameters,
             ...(weak.maxOutputTokens === undefined
               ? {}
@@ -1689,6 +1695,13 @@ class ConcreteApplicationSession implements ApplicationSession {
           abort,
         )) {
           if (event.type === "text-delta") text += event.text;
+          if (event.type === "usage") {
+            const usage = reportUsage(weak, event);
+            this.#session.recordAuxiliaryCost(
+              Math.max(0, (usage.cost ?? 0) - accounted),
+            );
+            accounted = usage.cost ?? 0;
+          }
           if (event.type === "error") throw new Error(event.message);
         }
         return text;

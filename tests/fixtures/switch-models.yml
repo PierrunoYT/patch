@@ -41,14 +41,19 @@
   useRepoMap: false
   maxChatHistoryTokens: 5
   weakModel: test/weak-model
+  inputCostPerMillion: 1
+  outputCostPerMillion: 1
   capabilities:
     streaming: true
     systemRole: true
 
+# Priced so a test can see whether summarization's own tokens are accounted for.
 - name: test/weak-model
   provider: openai
   editFormat: whole
   useRepoMap: false
+  inputCostPerMillion: 1
+  outputCostPerMillion: 1
   capabilities:
     streaming: true
     systemRole: true

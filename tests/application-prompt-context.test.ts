@@ -54,6 +54,7 @@ function answering(turns: number): FakeProvider {
     Array.from({ length: turns }, () => ({
       actions: [
         { type: "text-delta", text: "assistant answer" },
+        { type: "usage", inputTokens: 10, outputTokens: 5 },
         { type: "finish", reason: "stop" },
       ],
     })),
@@ -64,6 +65,7 @@ interface Harness {
   readonly provider: FakeProvider;
   readonly submit: (message: string) => Promise<unknown>;
   readonly sent: (index: number) => string;
+  readonly totalCost: () => Promise<number>;
 }
 
 async function harness(options: {
@@ -102,6 +104,8 @@ async function harness(options: {
         emit: () => undefined,
       }),
     sent: (index) => JSON.stringify(provider.requests[index]?.messages ?? []),
+    totalCost: async () =>
+      ((await session.snapshot()) as { totalCost: number }).totalCost,
   };
 }
 
@@ -211,6 +215,32 @@ describe("long completed history", () => {
     expect(sent(1)).toContain("# ASSISTANT");
     // The real turn then carries the summary instead of the raw exchange.
     expect(sent(2)).toContain("I spoke to you previously about a number of");
+  });
+
+  it("charges the session for the summarization it paid for", async () => {
+    const root = await temporaryDirectory("patch-summary-cost-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    const { submit, provider, totalCost } = await harness({
+      root,
+      turns: 3,
+      argv: [
+        "--no-git",
+        "--model",
+        "test/summarizing-model",
+        "--file",
+        "one.txt",
+      ],
+    });
+
+    await submit("first question");
+    const afterOne = await totalCost();
+    await submit("second question");
+
+    // Three provider requests were made and three were billed: the two turns
+    // and the weak-model summarization between them. Dropping the summarizer's
+    // usage events made the reported total stop at the two turns.
+    expect(provider.requests).toHaveLength(3);
+    expect(await totalCost()).toBeCloseTo(afterOne * 3, 10);
   });
 });
 

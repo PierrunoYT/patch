@@ -78,7 +78,10 @@ assistant message so the next turn's user message is not the second in a row.
 The concrete application summarizes with the active model's weak model, resolved
 at call time so `/model` changes it too. A summarizer that fails leaves history
 untouched and the turn proceeds — losing a summary is recoverable, and an
-oversized prompt still fails on the explicit token-budget check.
+oversized prompt still fails on the explicit token-budget check. Its tokens are
+charged to the session like any other provider call, so the per-turn cost line
+covers the compaction the turn paid for rather than only the turn itself, and it
+uses the weak model's own temperature policy.
 
 A model whose settings carry a `reasoningTag` reasons inside the ordinary
 content stream instead of a separate one. `ReasoningTagSplitter` divides those
