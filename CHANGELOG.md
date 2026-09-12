@@ -380,6 +380,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Serialized `runEditor` on the session queue. It was the only public turn entry
+  point that did not take the queue, so a caller invoking it directly ran a
+  second turn against the same worktree concurrently with `submit`, mutating
+  parent state off-queue. The architect calls the unqueued body, since it holds
+  the queue already.
+
 - Approved context-selection paths before disclosing them. Containment, ignore,
   and approval checks ran only on the pass that converged, but each pass sends
   the contents of the files the previous pass named: a file the caller went on to

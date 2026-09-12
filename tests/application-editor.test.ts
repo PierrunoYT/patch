@@ -159,4 +159,60 @@ describe("production editor role", () => {
     ).resolves.toMatchObject({ response: "parent still works" });
     expect(await readFile(join(directory, "value.txt"), "utf8")).toBe("old\n");
   });
+
+  it("serializes a direct runEditor call against an ordinary turn", async () => {
+    const directory = await root();
+    let active = 0;
+    let overlapped = false;
+    const hold = async () => {
+      active += 1;
+      overlapped ||= active > 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      active -= 1;
+    };
+    const editorProvider = new FakeProvider([
+      response(
+        "value.txt\n<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE\n",
+      ),
+    ]);
+    const mainProvider = new FakeProvider([response("answer")]);
+    const watch = (provider: FakeProvider) => ({
+      stream: async function* (
+        ...args: Parameters<FakeProvider["stream"]>
+      ): ReturnType<FakeProvider["stream"]> {
+        await hold();
+        yield* provider.stream(...args);
+      },
+    });
+    const service = await ConcreteApplicationService.create({
+      cwd: directory,
+      home: directory,
+      environment: {},
+      argv: ["--no-git", "--model", "test/diff-model", "--file", "value.txt"],
+      dependencies: {
+        catalog: await catalog,
+        createProvider: (model: ModelSettings) =>
+          watch(
+            model.name === "test/editor-model" ? editorProvider : mainProvider,
+          ),
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "editor-serialized",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+
+    // The public entry point is reachable without the architect holding the
+    // queue, so it has to take the queue itself like every other turn.
+    await Promise.all([
+      session.runEditor?.("plan", options),
+      session.submit("question", options),
+    ]);
+    expect(overlapped).toBe(false);
+    expect(await readFile(join(directory, "value.txt"), "utf8")).toBe("new\n");
+  });
 });

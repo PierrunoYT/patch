@@ -818,6 +818,9 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   no-repo-map, and fresh-history behavior where required by pinned Aider.
   `runEditor` constructs a new application session with the selected editor
   model/capabilities and current authorized paths, but no prior messages or map.
+  It is serialized on the session queue like every other turn entry point; the
+  architect already holds the queue when it hands work over, so it calls the
+  unqueued body directly rather than taking the queue twice.
   Editor whole/diff/fenced-diff prompts remove shell/rename/go-ahead guidance;
   shell output is rejected through the production reflection path. Tests prove
   model routing, prompt/context shape, correction, cancellation-before-call,

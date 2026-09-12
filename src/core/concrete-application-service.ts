@@ -557,7 +557,12 @@ class ConcreteApplicationSession implements ApplicationSession {
     signal.throwIfAborted();
   }
 
-  async runEditor(
+  /**
+   * Serialized like every other turn entry point. The architect already holds
+   * the queue when it hands work over, so the body lives in `#runEditor` and is
+   * called directly there; taking the queue again would deadlock.
+   */
+  runEditor(
     instructions: string,
     options: ApplicationSubmitOptions,
   ): Promise<ApplicationTurnResult> {
@@ -565,6 +570,16 @@ class ConcreteApplicationSession implements ApplicationSession {
       ...options,
       signal: AbortSignal.any([options.signal, this.#lifecycle.signal]),
     };
+    return this.queue.run(
+      () => this.#runEditor(instructions, options),
+      options.signal,
+    );
+  }
+
+  async #runEditor(
+    instructions: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<ApplicationTurnResult> {
     const state = this.#session.snapshot();
     const contents = await Promise.all(
       [...state.editablePaths, ...state.readOnlyPaths].map((path) =>
@@ -648,7 +663,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         return { plan, accepted: false };
       }
       options.signal.throwIfAborted();
-      const editor = await this.runEditor(plan.response, {
+      const editor = await this.#runEditor(plan.response, {
         signal: options.signal,
         emit: options.emit,
       });
