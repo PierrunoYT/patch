@@ -159,3 +159,13 @@ commits an upstream branch already contains are refused as well. The ownership
 check and the reset run under the worktree mutation lock, so no session can
 commit between them. A failure between undo's two Git commands is still not
 covered by a preservation guarantee.
+
+Publication checks use the configured upstream's local tracking ref; they do
+not fetch or prove the state of a remote server. No configured upstream (or a
+detached HEAD) remains eligible for undo. A configured but missing ref, or any
+unexpected lookup/ancestry failure, refuses undo before HEAD or index mutation.
+Only `merge-base --is-ancestor` exit 1 means the upstream does not contain the
+commit; exit 0 refuses undo as published. This is intentionally stricter than
+pinned `aider/commands.py:607–621`, which compares HEAD with `origin/<branch>`
+and treats lookup errors as no origin. Real-Git tests cover missing refs,
+non-commit upstream objects, unpublished commits, and detached HEAD.

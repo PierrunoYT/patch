@@ -442,22 +442,59 @@ export class GitRepository {
     return { commit: current.commit, paths: current.paths };
   }
 
+  async #gitOrExitOne(
+    arguments_: readonly string[],
+  ): Promise<string | undefined> {
+    try {
+      return await this.#git(arguments_);
+    } catch (error) {
+      const cause =
+        error instanceof GitRepositoryError ? error.cause : undefined;
+      if (
+        typeof cause === "object" &&
+        cause !== null &&
+        "code" in cause &&
+        cause.code === 1
+      )
+        return undefined;
+      throw error;
+    }
+  }
+
   async #isPublished(commit: string): Promise<boolean> {
-    const upstream = await this.#tryGit([
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      "@{upstream}",
-    ]);
-    if (upstream === undefined) return false;
-    return (
-      (await this.#tryGit([
-        "merge-base",
-        "--is-ancestor",
-        commit,
-        upstream.trim(),
-      ])) !== undefined
-    );
+    try {
+      const branch = await this.#gitOrExitOne([
+        "symbolic-ref",
+        "--quiet",
+        "HEAD",
+      ]);
+      if (branch === undefined) return false;
+      const upstream = (
+        await this.#git([
+          "for-each-ref",
+          "--format=%(upstream)",
+          "--",
+          branch.trim(),
+        ])
+      ).trim();
+      if (upstream === "") return false;
+      const target = (
+        await this.#git(["rev-parse", "--verify", upstream])
+      ).trim();
+      return (
+        (await this.#gitOrExitOne([
+          "merge-base",
+          "--is-ancestor",
+          commit,
+          target,
+        ])) !== undefined
+      );
+    } catch (error) {
+      throw new UndoNotAllowedError(
+        `Unable to determine whether ${commit} has been published`,
+        { cause: error },
+      );
+    }
   }
 
   async lastPatchCommit(): Promise<LastPatchCommit> {

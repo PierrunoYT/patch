@@ -111,7 +111,8 @@ destination before removing its source, so an interrupted move keeps both paths.
 `/undo` retains working files and unrelated staged changes, reverts only the
 commit the current session created (also mandatory for callers of the Git undo
 adapter), and refuses a moved HEAD or a commit its
-upstream branch already contains.
+upstream branch already contains. Publication-check failures also refuse undo;
+this uses local tracking refs, not a fresh remote fetch.
 Failed checkpoint/edit/check commits likewise restore selected paths to their
 prior index entries, including partial staging, while retaining working-file
 content and unrelated staged/unstaged changes.

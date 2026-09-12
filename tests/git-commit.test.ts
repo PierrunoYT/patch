@@ -217,6 +217,105 @@ describe("GitRepository commits", () => {
     ).toBe(owned?.commit);
   });
 
+  it("allows an owned detached-HEAD commit without an upstream", async () => {
+    const { root, git } = await fixture();
+    await executeFile("git", ["-C", root, "switch", "--detach", "--quiet"]);
+    await writeFile(join(root, "selected.txt"), "detached\n");
+    const owned = await git.commit({
+      paths: ["selected.txt"],
+      message: "detached change",
+      verify: false,
+    });
+    await expect(
+      git.undoLastPatchCommit(owned?.commit ?? ""),
+    ).resolves.toMatchObject({ commit: owned?.commit });
+    expect((await git.status()).branch).toBeNull();
+    expect(await readFile(join(root, "selected.txt"), "utf8")).toBe(
+      "detached\n",
+    );
+  });
+
+  it.each(["missing", "blob", "unpublished"])(
+    "checks publication without treating %s upstream as a negative result",
+    async (upstream) => {
+      const { root, git } = await fixture();
+      const branch = (
+        await executeFile("git", ["-C", root, "branch", "--show-current"])
+      ).stdout.trim();
+      const base = (await git.status()).head ?? "";
+      await executeFile("git", ["-C", root, "remote", "add", "origin", root]);
+      await executeFile("git", [
+        "-C",
+        root,
+        "config",
+        `branch.${branch}.remote`,
+        "origin",
+      ]);
+      await executeFile("git", [
+        "-C",
+        root,
+        "config",
+        `branch.${branch}.merge`,
+        "refs/heads/published",
+      ]);
+      if (upstream !== "missing") {
+        const target =
+          upstream === "blob"
+            ? (
+                await executeFile("git", [
+                  "-C",
+                  root,
+                  "rev-parse",
+                  "HEAD:selected.txt",
+                ])
+              ).stdout.trim()
+            : base;
+        await executeFile("git", [
+          "-C",
+          root,
+          "update-ref",
+          "refs/remotes/origin/published",
+          target,
+        ]);
+      }
+      await writeFile(join(root, "selected.txt"), "selected\n");
+      const owned = await git.commit({
+        paths: ["selected.txt"],
+        message: "Patch change",
+        verify: false,
+      });
+      await writeFile(join(root, "unrelated.txt"), "staged\n");
+      await executeFile("git", ["-C", root, "add", "unrelated.txt"]);
+      const before = await git.status();
+      const index = (
+        await executeFile("git", ["-C", root, "ls-files", "--stage"])
+      ).stdout;
+
+      if (upstream === "unpublished") {
+        await expect(
+          git.undoLastPatchCommit(owned?.commit ?? ""),
+        ).resolves.toMatchObject({ commit: owned?.commit });
+        expect((await git.status()).head).toBe(base);
+        expect((await git.status()).stagedPaths).toEqual(["unrelated.txt"]);
+      } else {
+        await expect(
+          git.undoLastPatchCommit(owned?.commit ?? ""),
+        ).rejects.toThrow(/Unable to determine whether .* has been published/);
+        expect(await git.status()).toEqual(before);
+        expect(
+          (await executeFile("git", ["-C", root, "ls-files", "--stage"]))
+            .stdout,
+        ).toBe(index);
+      }
+      expect(await readFile(join(root, "selected.txt"), "utf8")).toBe(
+        "selected\n",
+      );
+      expect(await readFile(join(root, "unrelated.txt"), "utf8")).toBe(
+        "staged\n",
+      );
+    },
+  );
+
   it("treats selected paths containing pathspec syntax literally", async () => {
     const { root, git } = await fixture();
     await writeFile(join(root, "[ab].txt"), "literal base\n");

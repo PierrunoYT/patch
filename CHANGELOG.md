@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Refuse undo when a configured upstream cannot be resolved or Git's ancestry
+  check fails unexpectedly. Real-Git missing-ref and non-commit-ref regressions
+  previously allowed undo; they now preserve HEAD, index, and working files.
+  No-upstream, detached-HEAD, and genuinely unpublished undo remain available.
+
 - Require an exact expected commit in the Git undo adapter, rejecting omitted
   arguments at runtime as well as in TypeScript. The executable already passed
   its session-owned commit; this removes the library API's optional bypass.
