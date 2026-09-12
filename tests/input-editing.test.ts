@@ -1,6 +1,7 @@
-import { appendFile, mkdtemp, readdir, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { appendFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
@@ -319,18 +320,26 @@ describe("terminal completion and recall", () => {
   });
 
   it("removes the editor's temporary file even when the editor fails", async () => {
-    const before = (await readdir(tmpdir())).filter((entry) =>
-      entry.startsWith("patch-editor-"),
+    // The editor is handed the temporary file as its last argument, so it can
+    // record which one this call made. Comparing listings of the system
+    // temporary directory instead made the test fail whenever another test
+    // happened to be running an editor at the same moment.
+    const record = join(
+      await mkdtemp(join(tmpdir(), "patch-editor-record-")),
+      "path.txt",
     );
+    const script = `require("fs").writeFileSync(${JSON.stringify(record)}, process.argv[1]); process.exit(3)`;
+
     await expect(
       editInExternalEditor("draft", {
-        editor: `${JSON.stringify(process.execPath)} -e ${JSON.stringify("process.exit(3)")}`,
+        editor: `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`,
       }),
     ).rejects.toThrow(/status 3/u);
-    const after = (await readdir(tmpdir())).filter((entry) =>
-      entry.startsWith("patch-editor-"),
-    );
-    expect(after).toEqual(before);
+
+    const used = await readFile(record, "utf8");
+    expect(used).toContain("patch-editor-");
+    expect(existsSync(used)).toBe(false);
+    expect(existsSync(dirname(used))).toBe(false);
   });
 
   it("names every command the parser accepts", () => {

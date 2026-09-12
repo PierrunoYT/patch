@@ -382,6 +382,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Refused an editor edit format the editor role has no prompts for before the
+  architect requests a plan, rather than when the editor is constructed — which
+  is after the plan has been paid for and accepted. The check stays out of
+  startup, since a session that never uses the architect is unaffected.
+- Stopped comparing listings of the system temporary directory to prove the
+  external editor cleans up. The editor now records the file it was given, so
+  another test running an editor at the same moment no longer fails this one.
+
 - Built the URL fetcher once per session instead of once per `/web`, which is
   what the documentation described, and printed the URL being fetched in the
   terminal. The start and completion events existed but nothing rendered them,

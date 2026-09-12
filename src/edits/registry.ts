@@ -73,11 +73,25 @@ export function createStrategy(
   return { format: supported.data, strategy, ...prompts };
 }
 
+/**
+ * The formats an editor role can be given. Upstream ports editor prompts for
+ * these three only; the set is exported so a configuration naming another one
+ * is refused while models are being resolved rather than after an architect
+ * plan has been paid for and accepted.
+ */
+export const EDITOR_EDIT_FORMATS = ["whole", "diff", "diff-fenced"] as const;
+
+export function isEditorEditFormat(
+  format: unknown,
+): format is (typeof EDITOR_EDIT_FORMATS)[number] {
+  return (EDITOR_EDIT_FORMATS as readonly unknown[]).includes(format);
+}
+
 export function createEditorStrategy(
   format: unknown,
   fence: Fence = DEFAULT_FENCE,
 ): StrategyDefinition {
-  if (format !== "whole" && format !== "diff" && format !== "diff-fenced") {
+  if (!isEditorEditFormat(format)) {
     throw new UnsupportedEditFormatError(format);
   }
   const definition = createStrategy(format, fence);

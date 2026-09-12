@@ -52,3 +52,15 @@
   capabilities:
     streaming: true
     systemRole: true
+
+# An editor edit format the editor role has no prompts for, so the architect can
+# be shown refusing it before it requests a plan.
+- name: test/unsupported-editor-model
+  provider: openai
+  editFormat: diff
+  editorModel: test/editor-model
+  editorEditFormat: udiff
+  useRepoMap: false
+  capabilities:
+    streaming: true
+    systemRole: true

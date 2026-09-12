@@ -34,8 +34,9 @@ checkpoints dirty selected files, applies and commits only selected paths, runs
 configured lint against edited disk content, approves suggested commands one
 at a time, then runs configured tests. Ordinary literal selected-path
 commits exclude unrelated work, and Git path arguments are literal so wildcard
-or bracket names cannot expand at that boundary. Commit-failure index
-restoration remains unresolved. A successful application records the final
+or bracket names cannot expand at that boundary. A failed commit restores the
+index entries it staged, so a rejecting hook leaves the index as it found it;
+see [Git repository](git-repository.md). A successful application records the final
 marker-bearing commit and returns the session to `waiting`.
 
 For composed turns, `CoderSession` deep-clones and freezes the application
@@ -142,7 +143,11 @@ production-wired path.
 the current main model, selected context, repository map, and completed history.
 It records the complete proposal, then exposes it to an injected acceptance
 callback. Only explicit acceptance can call `runEditor`; denial, an empty plan,
-or cancellation makes no editor provider request.
+or cancellation makes no editor provider request. The editor edit format is
+checked before the plan is requested, because the editor role has prompts for
+`whole`, `diff`, and `diff-fenced` only, and discovering that after a plan has
+been paid for and accepted wastes the turn. Startup is unaffected: a session
+that never runs the architect never needs an editor format.
 
 The accepted editor is fresh and uses the selected editor model/protocol,
 current authorized paths, distinct editor prompts, no repository map, and no

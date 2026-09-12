@@ -164,4 +164,35 @@ describe("production architect handoff", () => {
     expect(editor.requests).toHaveLength(0);
     expect(await readFile(join(root, "value.txt"), "utf8")).toBe("old\n");
   });
+
+  it("refuses an editor format it has no prompts for before planning", async () => {
+    const root = await repository();
+    const main = new FakeProvider([response("proposal")]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      // The editor role has prompts for whole, diff, and diff-fenced only.
+      argv: ["--model", "test/unsupported-editor-model", "--file", "value.txt"],
+      dependencies: { catalog: await catalog, provider: main },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "architect-format",
+    });
+    const accept = vi.fn(() => true);
+
+    await expect(
+      session.runArchitect?.("request", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+        accept,
+      }),
+    ).rejects.toThrow(/udiff/u);
+    // Refused before the plan is requested, so nothing was paid for and the
+    // caller was never asked to accept a plan that could not be carried out.
+    expect(main.requests).toHaveLength(0);
+    expect(accept).not.toHaveBeenCalled();
+    await service.close();
+  });
 });

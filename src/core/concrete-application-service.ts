@@ -29,7 +29,9 @@ import {
   createContextStrategy,
   createEditorStrategy,
   createStrategy,
+  isEditorEditFormat,
   type StrategyDefinition,
+  UnsupportedEditFormatError,
 } from "../edits/registry.js";
 import {
   resolveEditBatch,
@@ -635,6 +637,15 @@ class ConcreteApplicationSession implements ApplicationSession {
     };
     return this.queue.run(async () => {
       options.signal.throwIfAborted();
+      // Checked before the plan is requested rather than when the editor is
+      // constructed: the editor only has prompts for three formats, and
+      // discovering that after a plan has been paid for and accepted wastes the
+      // turn and reports the failure at the least useful moment.
+      if (!isEditorEditFormat(this.#context.models.editorEditFormat)) {
+        throw new UnsupportedEditFormatError(
+          this.#context.models.editorEditFormat,
+        );
+      }
       const state = this.#session.snapshot();
       const architect = new ConcreteApplicationSession(this.#context, {
         main: this.#profile.main,
