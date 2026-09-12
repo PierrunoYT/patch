@@ -409,9 +409,9 @@ export class GitRepository {
    * pass the commit this session created so an unrelated Patch commit from
    * another session or an earlier run is never reset.
    */
-  async undoLastPatchCommit(expected?: string): Promise<UndoResult> {
+  async undoLastPatchCommit(expected: string): Promise<UndoResult> {
     const current = await this.lastPatchCommit();
-    if (expected !== undefined && expected !== current.commit) {
+    if (expected !== current.commit) {
       throw new UndoNotAllowedError(
         `HEAD is ${current.commit}, not the expected commit ${expected}`,
       );

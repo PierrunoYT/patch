@@ -146,7 +146,14 @@ unchanged as a historical snapshot.
 
 Undo keeps working-file content and unrelated index entries, an intentional
 Patch safety difference. It reverts only the commit the current session recorded
-and moves HEAD through a compare-and-swap `update-ref`, so a commit created by
+and requires that exact commit ID at the adapter boundary as well as in the
+application. `undoLastPatchCommit(expected)` has no optional ownership bypass;
+untyped callers omitting the argument are rejected before mutation. Tests in
+`tests/git-commit.test.ts` cover missing/invalid ownership and a later
+marker-bearing HEAD, retaining HEAD, index entries, and working content on refusal.
+This follows pinned `aider/commands.py:570–579`'s session-ownership requirement;
+Patch still preserves working content rather than checking it out from the parent.
+Undo moves HEAD through a compare-and-swap `update-ref`, so a commit created by
 another session or by the user is refused; root commits, merge commits, and
 commits an upstream branch already contains are refused as well. The ownership
 check and the reset run under the worktree mutation lock, so no session can

@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Require an exact expected commit in the Git undo adapter, rejecting omitted
+  arguments at runtime as well as in TypeScript. The executable already passed
+  its session-owned commit; this removes the library API's optional bypass.
+  Real-Git tests retain HEAD, index, and files when ownership is absent or wrong.
+
 - Kept the running session cost visible on a turn whose own cost is unknown. An
   unpriced model hid the total for the rest of the session, including money
   already spent on priced turns.

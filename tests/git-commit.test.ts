@@ -99,15 +99,54 @@ describe("GitRepository commits", () => {
     ).toBe("selected.txt");
     expect((await git.status()).stagedPaths).toEqual(["unrelated.txt"]);
 
-    await expect(git.undoLastPatchCommit()).resolves.toMatchObject({
+    await expect(
+      git.undoLastPatchCommit(result?.commit ?? ""),
+    ).resolves.toMatchObject({
       commit: result?.commit,
       paths: ["selected.txt"],
     });
     expect((await git.status()).modifiedPaths).toContain("selected.txt");
-    await expect(git.undoLastPatchCommit()).rejects.toBeInstanceOf(
-      UndoNotAllowedError,
-    );
+    await expect(
+      git.undoLastPatchCommit(result?.commit ?? ""),
+    ).rejects.toBeInstanceOf(UndoNotAllowedError);
   });
+
+  it.each([undefined, null, "", "HEAD"])(
+    "refuses undo without an explicit matching commit: %s",
+    async (expected) => {
+      const { root, git } = await fixture();
+      await writeFile(join(root, "selected.txt"), "selected\n");
+      await git.commit({
+        paths: ["selected.txt"],
+        message: "Patch change",
+        verify: false,
+      });
+      await writeFile(join(root, "unrelated.txt"), "staged\n");
+      await executeFile("git", ["-C", root, "add", "unrelated.txt"]);
+      const before = await git.status();
+      const index = (
+        await executeFile("git", ["-C", root, "ls-files", "--stage"])
+      ).stdout;
+
+      await expect(
+        Reflect.apply(
+          git.undoLastPatchCommit,
+          git,
+          expected === undefined ? [] : [expected],
+        ),
+      ).rejects.toBeInstanceOf(UndoNotAllowedError);
+      expect(await git.status()).toEqual(before);
+      expect(
+        (await executeFile("git", ["-C", root, "ls-files", "--stage"])).stdout,
+      ).toBe(index);
+      expect(await readFile(join(root, "selected.txt"), "utf8")).toBe(
+        "selected\n",
+      );
+      expect(await readFile(join(root, "unrelated.txt"), "utf8")).toBe(
+        "staged\n",
+      );
+    },
+  );
 
   it("refuses to undo when HEAD is no longer the expected commit", async () => {
     const { root, git } = await fixture();
@@ -119,14 +158,21 @@ describe("GitRepository commits", () => {
     });
     await writeFile(join(root, "unrelated.txt"), "later\n");
     await executeFile("git", ["-C", root, "add", "unrelated.txt"]);
-    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "later"]);
+    await executeFile("git", [
+      "-C",
+      root,
+      "commit",
+      "--quiet",
+      "-m",
+      "later\n\nPatch-Commit: true",
+    ]);
     const head = (
       await executeFile("git", ["-C", root, "rev-parse", "HEAD"])
     ).stdout.trim();
 
-    await expect(git.undoLastPatchCommit(owned?.commit)).rejects.toBeInstanceOf(
-      UndoNotAllowedError,
-    );
+    await expect(
+      git.undoLastPatchCommit(owned?.commit ?? ""),
+    ).rejects.toBeInstanceOf(UndoNotAllowedError);
     expect(
       (
         await executeFile("git", ["-C", root, "rev-parse", "HEAD"])
@@ -161,7 +207,7 @@ describe("GitRepository commits", () => {
     });
     await executeFile("git", ["-C", root, "push", "--quiet"]);
 
-    await expect(git.undoLastPatchCommit(owned?.commit)).rejects.toThrow(
+    await expect(git.undoLastPatchCommit(owned?.commit ?? "")).rejects.toThrow(
       /already been pushed/,
     );
     expect(

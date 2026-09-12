@@ -73,6 +73,11 @@ evidence; this plan and the backlog track current status and open work.
 
 ### Current staged parity
 
+- Git undo requires the exact session-owned commit ID at both application and
+  adapter boundaries; omitted library arguments fail closed. This matches the
+  ownership intent of pinned `aider/commands.py:570–579` while preserving Patch's
+  working-file retention and compare-and-swap HEAD policy.
+
 - Repository maps are production-wired for JavaScript, TypeScript/TSX, Python,
   Go, Rust, Bash, C/C++, C#, Java, and Ruby, sized to the model's context
   window, and files no grammar covers contribute lexical references. Every

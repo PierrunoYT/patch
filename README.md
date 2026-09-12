@@ -109,7 +109,8 @@ Failure/cancellation coverage is not exhaustive. Multi-file failures retain
 completed writes rather than rolling back; a move writes and syncs its
 destination before removing its source, so an interrupted move keeps both paths.
 `/undo` retains working files and unrelated staged changes, reverts only the
-commit the current session created, and refuses a moved HEAD or a commit its
+commit the current session created (also mandatory for callers of the Git undo
+adapter), and refuses a moved HEAD or a commit its
 upstream branch already contains.
 Failed checkpoint/edit/check commits likewise restore selected paths to their
 prior index entries, including partial staging, while retaining working-file
