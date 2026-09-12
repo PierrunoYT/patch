@@ -431,7 +431,6 @@ class ConcreteApplicationSession implements ApplicationSession {
       }
       const changedPaths = new Set<string>();
       const commands: ModelCommandResult[] = [];
-      let snapshots: readonly FileSnapshot[] = [];
       const context = async () => {
         const state = this.#session.snapshot();
         const editablePaths = [
@@ -458,7 +457,7 @@ class ConcreteApplicationSession implements ApplicationSession {
             .filter((path) => !selectedPaths.has(path))
             .map((path) => snapshot(this.#context.files, path)),
         );
-        snapshots = [...editable, ...readOnly, ...unselected];
+        const snapshots = [...editable, ...readOnly, ...unselected];
         const repositoryContent = await this.#repositoryContext(message);
         const prompt = {
           system: [
@@ -501,7 +500,12 @@ class ConcreteApplicationSession implements ApplicationSession {
             },
           ],
         };
-        return { prompt, snapshots };
+        return {
+          prompt,
+          snapshots,
+          editablePaths,
+          readOnlyPaths: [...state.readOnlyPaths],
+        };
       };
       const completed = await this.#session
         .runTurn(message, {
@@ -523,6 +527,9 @@ class ConcreteApplicationSession implements ApplicationSession {
                     ? [edit.fromPath, edit.path]
                     : [edit.path],
                 );
+                const attempt = candidate.context;
+                if (attempt === undefined)
+                  throw new Error("Editing attempt has no immutable context");
                 const resolver = await SafePathResolver.create(
                   this.#context.root,
                 );
@@ -533,9 +540,7 @@ class ConcreteApplicationSession implements ApplicationSession {
                     await resolver.resolve(path),
                   );
                   canonicalEditPaths.push(canonical);
-                  if (
-                    this.#session.snapshot().readOnlyPaths.includes(canonical)
-                  ) {
+                  if (attempt.readOnlyPaths?.includes(canonical)) {
                     throw new Error("Cannot edit a read-only path");
                   }
                 }
@@ -543,7 +548,7 @@ class ConcreteApplicationSession implements ApplicationSession {
                   this.#context.repository,
                   canonicalEditPaths,
                 );
-                const expandedSnapshots = [...snapshots];
+                const expandedSnapshots = [...attempt.snapshots];
                 for (const path of editPaths) {
                   if (!expandedSnapshots.some((file) => file.path === path)) {
                     expandedSnapshots.push(
@@ -578,7 +583,7 @@ class ConcreteApplicationSession implements ApplicationSession {
                 const repository = this.#context.repository;
                 const write = await applyAuthorizedEdits(
                   transaction,
-                  this.#session.snapshot().editablePaths,
+                  attempt.editablePaths ?? [],
                   {
                     presentPreview: (preview) =>
                       options.emit({ type: "edit-preview", data: preview }),

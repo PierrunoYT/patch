@@ -15,6 +15,10 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- An immutable per-attempt lifecycle context that binds provider-visible file
+  snapshots and authorization sets to parsing, resolution, writes, configured
+  checks/reflection, commits, and final accounting.
+
 - Explicit cleanup ownership across startup and switched providers, temporary
   weak-model streams, watchers, subprocesses, history writes, HTTP sessions,
   SSE clients, and server sockets on normal exit, failure, and cancellation.

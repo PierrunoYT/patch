@@ -122,6 +122,11 @@ providers created by model switches, awaits watcher and web session work, and
 finishes each history append without retaining file descriptors. Startup
 failures use the same ownership path and do not leave a constructed provider.
 
+Each editing attempt uses one immutable provider-visible snapshot and selection
+context through parsing, dry-run resolution, authorization, writes, configured
+checks/reflection, commits, and final history/result accounting. A reflected
+attempt captures fresh disk context before its next provider request.
+
 The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
 includes offline `/help`, which now lists commands and performs bounded search
 over installed Patch documentation without provider or network access, and

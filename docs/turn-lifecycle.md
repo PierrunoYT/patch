@@ -1,14 +1,25 @@
 # Turn lifecycle and recovery
 
 The concrete application runs each attempt through `CoderSession`'s shared
-three-reflection budget: compose current disk context, stream, parse, resolve
-the whole batch without writes, stage, preview/authorize, checkpoint dirty
-edited paths, apply, auto-commit, lint, approve/run suggested commands, and test.
+three-reflection budget. It deep-clones and freezes one attempt context — prompt,
+file snapshots, and editable/read-only authorization sets — before the provider
+request. The exact context travels with the response through parse, full-batch
+resolution, staging, preview/authorization, dirty checkpoint, writes,
+auto-commit, lint and linter commit, approved suggested commands, and tests.
 Malformed syntax and resolution diagnostics retry before writes. Lint/test
 failures retry after writes and commits; each retry reads fresh file snapshots
 and rechecks the prompt budget. Linter changes to paths edited in this turn are
 committed before reflection. Final results collect changed paths and command
 results across attempts and report the latest commit, including check changes.
+
+This is the authoritative production order. A model-selected path absent from
+the pre-request inventory receives one contained `null`/content snapshot after
+parsing and before resolution; it still passes ignore checks, read-only checks,
+dry-run staging, preview, and explicit new/out-of-chat authorization. No live
+session selection is consulted after the attempt context is captured. Patch
+automatically reflects configured lint/test failures within the shared bound,
+rather than adding pinned Aider's per-failure confirmation prompt; this remains
+an intentional noninteractive-safe policy difference.
 
 All commit phases share the configured
 [commit policy](git-repository.md#production-commit-policy): hook verification,

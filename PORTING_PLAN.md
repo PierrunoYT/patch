@@ -302,6 +302,10 @@ Cleanup follows the same ownership graph: sessions abort and drain before their
 switched providers close; the service then closes its startup provider; watch
 and web adapters await all owned submissions/sessions and socket resources;
 history appends and child processes close at their operation boundaries.
+Each editing attempt also owns one deep-frozen prompt/snapshot/selection
+context from request composition through parse, resolution, authorization,
+writes, checks/reflection, commits, and final state; reflection alone captures a
+fresh context.
 Provider adapters should emit normalized events for text, reasoning, tool-call
 fragments, usage, finish reasons, and errors. Preserve raw provider metadata on
 events so future adapters do not require changes to the session core.

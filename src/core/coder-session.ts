@@ -116,10 +116,7 @@ export interface RunTurnOptions {
   readonly checks?: ReflectionChecks;
   /** Application-owned resolution, authorization, writes and post-write checks. */
   readonly lifecycle?: {
-    readonly context: () => Promise<{
-      prompt: TurnPrompt;
-      snapshots: readonly FileSnapshot[];
-    }>;
+    readonly context: () => Promise<AttemptContext>;
     readonly apply: (candidate: ReflectionCandidate) => Promise<
       | {
           source: "malformed" | "lint" | "test";
@@ -128,6 +125,13 @@ export interface RunTurnOptions {
       | undefined
     >;
   };
+}
+
+export interface AttemptContext {
+  readonly prompt: TurnPrompt;
+  readonly snapshots: readonly FileSnapshot[];
+  readonly editablePaths?: readonly string[];
+  readonly readOnlyPaths?: readonly string[];
 }
 
 export interface CompletedTurn {
@@ -142,6 +146,8 @@ export interface ReflectionCandidate {
   readonly response: string;
   readonly reasoning: string;
   readonly edits: EditBatch;
+  /** Exact immutable context used to request and parse this attempt. */
+  readonly context?: AttemptContext;
 }
 
 export type ReflectionCheck = (
@@ -229,6 +235,18 @@ function diagnosticMessage(
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+  }
+  return value;
+}
+
+function immutableContext(context: AttemptContext): AttemptContext {
+  return deepFreeze(structuredClone(context));
 }
 
 function defaultSleep(
@@ -682,7 +700,10 @@ export class CoderSession {
     options.signal?.throwIfAborted();
     await this.#approveMentionedPaths(userInput);
     await this.#summarizeLongHistory(options.signal);
-    let context = await options.lifecycle?.context();
+    let context =
+      options.lifecycle === undefined
+        ? undefined
+        : immutableContext(await options.lifecycle.context());
     const turn = this.prepareTurn(userInput, context?.prompt ?? options.prompt);
     const events: CompletionEvent[] = [];
     const reflectedMessages: ChatMessage[] = [];
@@ -867,7 +888,12 @@ export class CoderSession {
         }
         if (edits !== undefined) {
           options.signal?.throwIfAborted();
-          const candidate = { response, reasoning, edits };
+          const candidate = {
+            response,
+            reasoning,
+            edits,
+            ...(context === undefined ? {} : { context }),
+          };
           if (options.lifecycle !== undefined) {
             const failure = await options.lifecycle.apply(candidate);
             diagnostic = failure?.diagnostic;
@@ -921,7 +947,10 @@ export class CoderSession {
         reflectedMessages.push(assistant, reflection);
         responsePrefix = "";
         continuationCount = 0;
-        context = await options.lifecycle?.context();
+        context =
+          options.lifecycle === undefined
+            ? undefined
+            : immutableContext(await options.lifecycle.context());
         const prompt = context?.prompt;
         let chunks =
           prompt === undefined

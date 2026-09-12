@@ -468,6 +468,55 @@ describe("CoderSession", () => {
     expect(session.snapshot().reflectionCount).toBe(2);
   });
 
+  it("carries one immutable attempt context from provider request through apply", async () => {
+    const root = await temporaryDirectory();
+    const source = {
+      prompt: {
+        editableFiles: [{ role: "user" as const, content: "before" }],
+      },
+      snapshots: [{ path: "file.ts", content: "before\n" }],
+      editablePaths: ["file.ts"],
+      readOnlyPaths: ["reference.ts"],
+    };
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "answer" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+    let seen: unknown;
+
+    await session.runTurn("question", {
+      lifecycle: {
+        context: async () => source,
+        apply: async (candidate) => {
+          seen = candidate.context;
+          expect(Object.isFrozen(candidate.context)).toBe(true);
+          expect(Object.isFrozen(candidate.context?.snapshots)).toBe(true);
+          expect(Object.isFrozen(candidate.context?.snapshots[0])).toBe(true);
+          expect(() =>
+            (candidate.context?.editablePaths as string[]).push("late.ts"),
+          ).toThrow();
+          return undefined;
+        },
+      },
+    });
+
+    source.snapshots[0]!.content = "mutated after the attempt\n";
+    source.editablePaths.push("late.ts");
+    expect(seen).toMatchObject({
+      snapshots: [{ path: "file.ts", content: "before\n" }],
+      editablePaths: ["file.ts"],
+      readOnlyPaths: ["reference.ts"],
+    });
+  });
+
   it("stops after the configured reflection limit", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({
