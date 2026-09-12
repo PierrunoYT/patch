@@ -52,5 +52,10 @@ Git ignores, shared history, question-only write suppression, selected-file edit
 denied out-of-chat edits, and cleanup. `tests/watch-mode.test.ts` covers bounded
 reads, malformed/escaping paths, debounce, and cancellation. The packed startup
 path and default dependency footprint are exercised by `scripts/package-smoke.mjs`.
+`tests/worktree-serialization.test.ts` additionally drives actual watch-mode,
+direct terminal-style, and loopback HTTP submissions at once through one
+concrete service; its yielding authorization regions never overlap and all
+three writes survive. This proves in-process lock composition, not coordination
+between separate Patch processes.
 The pinned source is
 [`aider/watch.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/watch.py).

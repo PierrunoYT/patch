@@ -23,6 +23,10 @@ dated parity audits for revision-specific evidence.
   reclamation; total, per-principal, pending-message, and SSE-client quotas;
   bounded SSE replay and slow-client queues; and stable expiry/quota/replay
   status codes.
+- Production-route interface evidence for principal/session SSE isolation,
+  active HTTP disconnect cancellation, forced slow-client overflow and replay
+  recovery, concrete post-write error consistency, and simultaneous terminal,
+  watch, and web mutations serialized by the shared worktree lock.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

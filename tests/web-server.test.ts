@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { ServerResponse } from "node:http";
+
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   LocalWebServer,
@@ -63,6 +65,99 @@ async function request(
 }
 
 describe("LocalWebServer", () => {
+  it("cancels an active POST when the HTTP client disconnects", async () => {
+    let entered!: () => void;
+    let cancelled!: () => void;
+    const started = new Promise<void>((resolve) => (entered = resolve));
+    const aborted = new Promise<void>((resolve) => (cancelled = resolve));
+    const applicationService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async (_message, { signal }) => {
+          entered();
+          await new Promise<void>((_resolve, reject) =>
+            signal.addEventListener(
+              "abort",
+              () => {
+                cancelled();
+                reject(signal.reason);
+              },
+              { once: true },
+            ),
+          );
+        },
+      }),
+    };
+    const { base } = await fixture(applicationService);
+    const { sessionId } = (await (
+      await request(base, "/sessions", "aliceToken", { method: "POST" })
+    ).json()) as { sessionId: string };
+    const controller = new AbortController();
+    const pending = request(
+      base,
+      `/sessions/${sessionId}/messages`,
+      "aliceToken",
+      {
+        method: "POST",
+        body: JSON.stringify({ message: "wait" }),
+        signal: controller.signal,
+      },
+    ).catch(() => undefined);
+    await started;
+    controller.abort();
+    await aborted;
+    await pending;
+  });
+
+  it("disconnects an overflowing SSE client while retaining bounded replay", async () => {
+    const applicationService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async (_message, { emit }) => {
+          for (let index = 0; index < 8; index += 1)
+            emit({ type: "text", data: `${index}:${"x".repeat(256)}` });
+          return {};
+        },
+      }),
+    };
+    const { base } = await fixture(applicationService, {
+      maxBufferedEvents: 2,
+      maxClientQueueBytes: 64,
+    });
+    const { sessionId } = (await (
+      await request(base, "/sessions", "aliceToken", { method: "POST" })
+    ).json()) as { sessionId: string };
+    const originalWrite = ServerResponse.prototype.write;
+    const pressure = vi
+      .spyOn(ServerResponse.prototype, "write")
+      .mockImplementation(function (this: ServerResponse, chunk, ...args) {
+        originalWrite.call(this, chunk, ...args);
+        return false;
+      });
+    const events = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+    );
+    await request(base, `/sessions/${sessionId}/messages`, "aliceToken", {
+      method: "POST",
+      body: JSON.stringify({ message: "overflow" }),
+    });
+    await expect(events.text()).resolves.toContain(": connected");
+    pressure.mockRestore();
+
+    const replay = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+      { headers: { "last-event-id": "0" } },
+    );
+    expect(replay.status).toBe(409);
+    expect(await replay.json()).toMatchObject({
+      code: "event_history_unavailable",
+    });
+  });
+
   it("expires and reclaims sessions while enforcing principal and total quotas", async () => {
     let now = 1_000;
     let closed = 0;

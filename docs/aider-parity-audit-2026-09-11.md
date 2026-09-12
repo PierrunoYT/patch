@@ -303,3 +303,11 @@ session/message/SSE quotas, a bounded replay ring, and bounded per-client
 backpressure. `tests/web-server.test.ts` verifies the stable status contracts.
 This closes the operational-policy gap recorded by the audit, not GUI parity or
 multi-tenant support.
+
+Production-route evidence on that branch then covers owner-obscuring 404s,
+session-only SSE events, HTTP disconnect cancellation, forced SSE backpressure
+overflow with bounded replay, and a concrete post-write failure whose reported
+paths match disk. A combined concrete test runs direct terminal-style, actual
+watch-mode, and loopback HTTP turns simultaneously and observes no overlapping
+authorization region under the shared worktree lock. These tests establish only
+the exercised single-process cases.

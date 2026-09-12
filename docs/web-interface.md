@@ -95,7 +95,11 @@ This intentionally replaces the pinned upstream
 [`aider/gui.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/gui.py)
 Streamlit GUI with a small authenticated API. Evidence:
 `tests/interface-startup.test.ts` (concrete startup, malformed input, bind failure,
-active-turn shutdown, post-write recovery), `tests/web-server.test.ts`
-(principal isolation, SSE, body limits, partial-result redaction), and
+active-turn shutdown, post-write recovery matching disk), `tests/web-server.test.ts`
+(principal/session isolation, SSE replay, forced transport backpressure,
+disconnect cancellation, quotas, expiry, body limits, and partial-result
+redaction), `tests/worktree-serialization.test.ts` (simultaneous direct terminal,
+actual watch-mode, and loopback HTTP writes with no overlapping authorization
+region), and
 `scripts/package-smoke.mjs` (packed startup and absence of
 optional browser/native/audio dependencies).
