@@ -87,8 +87,11 @@ production CLI exposes no refresh controls and does not couple prompt caching to
 stable `files` refresh. The tracked inventory is re-read from Git each turn
 rather than frozen at startup, so a file added, removed, or renamed mid-session
 reaches both file context and the map; a transient Git failure falls back to the
-startup inventory instead of failing the turn. Aider's broader fallback map
-requests are still absent.
+startup inventory instead of failing the turn. Each production turn first asks
+for a map relative to selected files and current filename/identifier hints. An
+empty result retries globally with the same hints, then globally without hints,
+stopping at the first non-empty result. Every request reuses the already filtered
+tracked inventory, so fallback cannot disclose ignored or untracked paths.
 
 The private production context workflow is the one deliberate refresh override.
 It creates a dedicated `always` map, multiplies the model-derived base budget by

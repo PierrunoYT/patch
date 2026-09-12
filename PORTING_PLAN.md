@@ -612,18 +612,22 @@ real-repository `tests/git-*.test.ts` suites.
   evidence covers one small Python scenario.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
+- [x] Add production fallback map requests. An empty selected-file map retries
+  globally with the same filename/identifier hints, then globally without hints,
+  stopping at the first result and reusing the filtered tracked inventory.
 - [ ] Broaden independent map fixtures and executable evidence beyond one
   two-file Python rendering example. Tags for all eleven shipped languages, TSX
   included, and important-root-file selection are pinned against upstream's own
   extractor, and packed extraction runs for the same set. Numeric
-  ranking/personalization, lexical fallback rendering, fallback map requests,
-  and broader provider-turn context remain unpinned.
+  ranking/personalization, lexical fallback rendering, and broader provider-turn
+  context remain unpinned.
 
 **Exit (partial):** representative multi-language tag fixtures and packed-
-resource tests are in the Linux/macOS/Windows CI matrix. Generic TreeContext
-rendering, fallback requests, personalization/lexical-fallback fixtures, and
-broader executable provider-context evidence remain open. Cross-platform claims
-require a green matrix on the revision being claimed.
+resource tests are in the Linux/macOS/Windows CI matrix, and production fallback
+requests cover selected, hinted-global, and unhinted-global maps. Generic
+TreeContext rendering, personalization/lexical-fallback fixtures, and broader
+executable provider-context evidence remain open. Cross-platform claims require
+a green matrix on the revision being claimed.
 
 **Evidence:** `tests/repo-map-compatibility.test.ts`,
 `tests/repository-map-cache.test.ts`, `scripts/package-smoke.mjs`, and the

@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Retry an empty selected-file repository map globally with the same filename and
+  identifier hints, then globally without hints, stopping after the first
+  non-empty result. All three production requests reuse the filtered tracked
+  inventory, so fallback cannot widen context to ignored paths.
+
 - Fall back from the weak model to the main model when history summarization
   fails. Every attempted request contributes usage, temporary providers close
   per attempt, cancellation prevents fallback, and failure of both models leaves

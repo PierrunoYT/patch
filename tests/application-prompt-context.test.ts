@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ConcreteApplicationService,
@@ -12,6 +12,8 @@ import {
   ModelCatalog,
   type ModelProvider,
   type ModelSettings,
+  RepositoryMap,
+  type RepositoryMapRequest,
 } from "../src/index.js";
 
 const executeFile = promisify(execFile);
@@ -155,6 +157,81 @@ describe("editable-file prompt pair", () => {
     expect(sent(0)).not.toContain(
       "I am not sharing any files that you can edit",
     );
+  });
+});
+
+describe("repository-map fallback requests", () => {
+  it.each([
+    {
+      name: "the selected-file map",
+      results: ["selected map"],
+      expectedCalls: 1,
+      expectedMap: "selected map",
+    },
+    {
+      name: "the hinted global map",
+      results: ["", "hinted global map"],
+      expectedCalls: 2,
+      expectedMap: "hinted global map",
+    },
+    {
+      name: "the unhinted global map",
+      results: ["", "", "unhinted global map"],
+      expectedCalls: 3,
+      expectedMap: "unhinted global map",
+    },
+  ])("stops after $name succeeds", async (scenario) => {
+    const root = await temporaryRepository("patch-map-fallback-");
+    await writeFile(join(root, "chat.ts"), "export const chatValue = 1;\n");
+    await writeFile(
+      join(root, "mapped.ts"),
+      "export function mappedHelper(): number { return 2; }\n",
+    );
+    await executeFile("git", ["-C", root, "add", "."]);
+    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "base"]);
+    const requests: RepositoryMapRequest[] = [];
+    const results = [...scenario.results];
+    const map = vi
+      .spyOn(RepositoryMap.prototype, "getMap")
+      .mockImplementation((request) => {
+        requests.push(request);
+        return Promise.resolve(results.shift() ?? "");
+      });
+    const application = await harness({
+      root,
+      turns: 1,
+      argv: ["--model", "test/diff-model", "--file", "chat.ts"],
+    });
+
+    try {
+      await application.submit("inspect mapped.ts and mappedHelper");
+
+      expect(requests).toHaveLength(scenario.expectedCalls);
+      expect(requests[0]).toMatchObject({
+        chatPaths: ["chat.ts"],
+        otherPaths: ["mapped.ts"],
+        mentionedPaths: ["mapped.ts"],
+        mentionedIdentifiers: expect.arrayContaining(["mappedHelper"]),
+      });
+      if (scenario.expectedCalls >= 2) {
+        expect(requests[1]).toMatchObject({
+          chatPaths: [],
+          otherPaths: expect.arrayContaining(["chat.ts", "mapped.ts"]),
+          mentionedPaths: ["mapped.ts"],
+          mentionedIdentifiers: expect.arrayContaining(["mappedHelper"]),
+        });
+      }
+      if (scenario.expectedCalls === 3) {
+        expect(requests[2]).toEqual({
+          chatPaths: [],
+          otherPaths: ["chat.ts", "mapped.ts"],
+        });
+      }
+      expect(application.sent(0)).toContain(scenario.expectedMap);
+    } finally {
+      await application.close();
+      map.mockRestore();
+    }
   });
 });
 

@@ -23,7 +23,11 @@ import {
   type ReportMetadata,
 } from "../commands/report.js";
 import { renderSettings } from "../commands/settings.js";
-import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
+import {
+  RepositoryMap,
+  repoMapTokens,
+  type RepositoryMapRequest,
+} from "../context/repository-map.js";
 import {
   createArchitectStrategy,
   createContextStrategy,
@@ -1814,13 +1818,28 @@ class ConcreteApplicationSession implements ApplicationSession {
     const mentionedPaths = availablePaths.filter((path) =>
       source.includes(path),
     );
-    return map.getMap({
-      chatPaths: [...selected],
-      otherPaths: availablePaths.filter((path) => !selected.has(path)),
-      mentionedPaths,
-      mentionedIdentifiers: identifierHints(source),
-      ...(this.#profile.role === "context" ? { forceRefresh: true } : {}),
-    });
+    const mentionedIdentifiers = identifierHints(source);
+    const requests: RepositoryMapRequest[] = [
+      {
+        chatPaths: [...selected],
+        otherPaths: availablePaths.filter((path) => !selected.has(path)),
+        mentionedPaths,
+        mentionedIdentifiers,
+        ...(this.#profile.role === "context" ? { forceRefresh: true } : {}),
+      },
+      {
+        chatPaths: [],
+        otherPaths: availablePaths,
+        mentionedPaths,
+        mentionedIdentifiers,
+      },
+      { chatPaths: [], otherPaths: availablePaths },
+    ];
+    for (const request of requests) {
+      const context = await map.getMap(request);
+      if (context !== "") return context;
+    }
+    return "";
   }
 
   async #commit(

@@ -70,7 +70,7 @@ unchanged result of any historical audit.
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
 | Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses isolated prompts/history and no map/shell; approved contained image/PDF media is request-only and bounded. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
-| Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
+| Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Edit previews are full-content replacement blocks, not computed hunks. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. The library-only voice helper has cancellation-boundary and listener-cleanup tests; GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | implemented Patch scope with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. This is not aider's full option surface or transitive upstream-resource integrity. |
@@ -93,11 +93,15 @@ claims.
   temporary providers per attempt, prevents fallback after cancellation, and
   leaves completed history unchanged when both fail. Evidence:
   `tests/application-prompt-context.test.ts`.
-- [ ] **P1 — Complete repository-map rendering and fallback evidence.** Finish
-  or explicitly scope generic TreeContext behavior and tokenizer accuracy; add
-  the two upstream fallback map requests plus independent numeric
-  ranking/personalization and lexical-fallback fixtures; exercise broader
-  filtered map context through executable provider turns.
+- [x] **Add production fallback map requests.** An empty selected-file map
+  retries globally with the same filename/identifier hints, then globally
+  without hints, stopping at the first result. Every request reuses the current
+  filtered tracked inventory. Evidence: the concrete request-sequence cases in
+  `tests/application-prompt-context.test.ts`.
+- [ ] **P1 — Complete repository-map rendering and evidence.** Finish or
+  explicitly scope generic TreeContext behavior and tokenizer accuracy; add
+  independent numeric ranking/personalization and lexical-fallback fixtures;
+  exercise broader filtered map context through executable provider turns.
 - [ ] **P1 — Complete unified-diff recovery.** Add or deliberately reject, with
   independent asymmetric fixtures, indentation, omitted-line, partial-context,
   and duplicate-hunk cases while retaining exact ambiguity rejection and
@@ -435,10 +439,11 @@ implementation tasks.
   when nothing is in the chat; the tracked inventory is re-read per turn; the tag
   cache carries an extractor/query/grammar fingerprint; and Bash, C/C++, C#,
   Java, and Ruby were added with their upstream queries, bringing the production
-  map to eleven languages. Context mode and Aider's fallback map requests stay
-  out of scope. Evidence: `tests/repo-map-renderer.test.ts`,
-  `tests/tag-extractor.test.ts`, `tests/repository-map-cache.test.ts`, and the
-  inventory case in `tests/application-prompt-context.test.ts`.
+  map to eleven languages. Context mode is implemented under R6, and ordinary
+  turns now retry empty maps globally with and then without hints. Evidence:
+  `tests/repo-map-renderer.test.ts`, `tests/tag-extractor.test.ts`,
+  `tests/repository-map-cache.test.ts`, and the inventory/fallback cases in
+  `tests/application-prompt-context.test.ts`.
 - [x] Connect completion, opted-in history navigation, Emacs/Vi bindings,
   external editor, true multi-turn multiline input, and explicit PTY dispatch.
   Tab completes commands and the files selected at that keystroke;

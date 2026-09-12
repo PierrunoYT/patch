@@ -159,8 +159,10 @@ fake-provider tests, [safe filesystem behavior](docs/filesystem-safety.md),
 staged [configuration bootstrap](docs/configuration-bootstrap.md), a packaged
 [model catalog](docs/model-catalog.md), real Git adapters, and a packaged
 eleven-language [repository-map engine](docs/repository-maps.md) whose
-extraction is verified for every shipped language from the packed tarball. An
-installed copy carries `docs/`, so the linked policies are readable offline.
+extraction is verified for every shipped language from the packed tarball. Empty
+selected-file maps retry globally with and then without current hints while
+retaining the same filtered tracked inventory. An installed copy carries
+`docs/`, so the linked policies are readable offline.
 There is no published package or stable interface.
 
 Configuration for histories, multiline input, notifications, watch mode, and
