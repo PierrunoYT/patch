@@ -137,6 +137,21 @@ describe("terminal rendering", () => {
         { color: false },
       ),
     ).toBe("tokens: 12 sent, 4 received");
+
+    // An unpriced turn does not hide what the session has already spent: the
+    // running total used to vanish for the rest of the session after one.
+    expect(
+      renderUsage(
+        {
+          inputTokens: 12,
+          outputTokens: 4,
+          cost: null,
+          costSource: "unknown",
+        },
+        0.25,
+        { color: false },
+      ),
+    ).toBe("tokens: 12 sent, 4 received · $0.25 session");
   });
 
   it("shows both command streams, the status, and truncation", () => {

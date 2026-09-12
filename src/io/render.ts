@@ -176,12 +176,18 @@ export function renderUsage(
       : [`${tokenCount(usage.cacheWriteTokens)} cache write`]),
     `${tokenCount(usage.outputTokens)} received`,
   ];
-  const cost =
-    usage.cost === null
+  // A turn whose cost is unknown still belongs to a session that may have spent
+  // money on earlier turns, so the running total is reported either way rather
+  // than disappearing for the rest of the session after one unpriced model.
+  const turnCost = usage.cost === null ? "" : `${money(usage.cost)} turn`;
+  const total =
+    sessionCost === undefined || sessionCost === 0
       ? ""
-      : ` · ${money(usage.cost)} turn${
-          sessionCost === undefined ? "" : `, ${money(sessionCost)} session`
-        }`;
+      : `${money(sessionCost)} session`;
+  const cost =
+    turnCost === "" && total === ""
+      ? ""
+      : ` · ${[turnCost, total].filter((part) => part !== "").join(", ")}`;
   return paint(
     `tokens: ${parts.join(", ")}${cost}`,
     ANSI.dim,

@@ -382,6 +382,17 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Kept the running session cost visible on a turn whose own cost is unknown. An
+  unpriced model hid the total for the rest of the session, including money
+  already spent on priced turns.
+- Rendered watch-mode output with the same colour decision as interactive
+  output. It hardcoded plain text, so `NO_COLOR`, `--no-color`, and TTY
+  detection applied to one path and not the other.
+- Compared the advertised command list against the parser's own switch in both
+  directions. The previous check only parsed each listed name, so a command
+  added to the parser and not the list — the drift the list exists to prevent —
+  still passed.
+
 - Removed bidirectional overrides and isolates from untrusted terminal output.
   They are format characters rather than controls, so they passed the sanitizer
   and could make a suggested command or a path read as something other than what

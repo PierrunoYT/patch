@@ -518,7 +518,15 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               const watchApplication = application;
               const { AiWatchMode } =
                 await import("./interfaces/watch-mode.js");
-              const markdown = new MarkdownStream(write, { color: false });
+              // Watch output goes to the same terminal as any other; honor the
+              // same TTY, NO_COLOR, and --no-color decision the interactive
+              // path makes rather than always rendering plain.
+              const watchRenderOptions = {
+                ...(options.color === false ? { color: false } : {}),
+                environment: dependencies.environment ?? process.env,
+                isTTY: dependencies.outputIsTTY ?? process.stdout.isTTY,
+              };
+              const markdown = new MarkdownStream(write, watchRenderOptions);
               watcher = new AiWatchMode({
                 root: application.root,
                 session,
@@ -538,11 +546,11 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   }
                   if (event.type === "commit-message-usage")
                     write(
-                      `Commit message: ${renderUsage(event.data as UsageReport, undefined, { color: false })}\n`,
+                      `Commit message: ${renderUsage(event.data as UsageReport, undefined, watchRenderOptions)}\n`,
                     );
                   if (event.type === "edit-preview")
                     write(
-                      `${renderDiff(renderEditPreview(event.data as EditPreview), { color: false })}\n`,
+                      `${renderDiff(renderEditPreview(event.data as EditPreview), watchRenderOptions)}\n`,
                     );
                   if (
                     event.type === "command-complete" ||
@@ -551,9 +559,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   ) {
                     markdown.end();
                     write(
-                      `${renderCommandResult(event.data as ModelCommandResult, {
-                        color: false,
-                      })}\n`,
+                      `${renderCommandResult(
+                        event.data as ModelCommandResult,
+                        watchRenderOptions,
+                      )}\n`,
                     );
                   }
                 },

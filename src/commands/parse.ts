@@ -13,8 +13,9 @@ export class CommandParseError extends Error {
 }
 
 /**
- * Every command `parseCommand` accepts, for completion and help. Kept in sync by
- * a test that parses each name, so an added command cannot stay uncompletable.
+ * Every command `parseCommand` accepts, for completion and help. A test compares
+ * this list against the parser's own switch in both directions, so a command
+ * added to one and not the other fails rather than staying uncompletable.
  */
 export const COMMAND_NAMES: readonly string[] = [
   "add",

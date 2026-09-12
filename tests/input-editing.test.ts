@@ -357,4 +357,21 @@ describe("terminal completion and recall", () => {
     }
     expect(() => parseCommand("/not-a-command")).toThrow(/Unknown command/u);
   });
+
+  it("lists every command the parser accepts, and no others", async () => {
+    // The loop above only proves the list is a subset. A command added to the
+    // parser and not to the list stays uncompletable, which is the drift the
+    // list exists to prevent, so the two sets are compared directly. The parser
+    // has one switch, over the command name.
+    const source = await readFile(
+      new URL("../src/commands/parse.ts", import.meta.url),
+      "utf8",
+    );
+    const accepted = [...source.matchAll(/^\s*case "([a-z-]+)":/gmu)].map(
+      ([, name]) => name,
+    );
+
+    expect(accepted.length).toBeGreaterThan(0);
+    expect([...accepted].sort()).toEqual([...COMMAND_NAMES].sort());
+  });
 });
