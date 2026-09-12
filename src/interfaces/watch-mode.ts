@@ -103,7 +103,9 @@ export class AiWatchMode {
   readonly #options: WatchModeOptions;
   readonly #queue: SerialTaskQueue | undefined;
   readonly #controller = new AbortController();
-  readonly #onAbort = () => void this.close();
+  // close() is asynchronous and an abort has nobody to report a failure to;
+  // dropping the promise bare would surface as an unhandled rejection instead.
+  readonly #onAbort = () => void this.close().catch(() => undefined);
   readonly #pending = new Set<Promise<void>>();
   #paths = new Set<string>();
   #timer: NodeJS.Timeout | undefined;

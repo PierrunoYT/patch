@@ -109,7 +109,9 @@ Ctrl-C abandons what is being typed, held lines included, before the interrupt
 handler runs. Node's readline emits `SIGINT` without touching the buffer, so an
 abandoned line would otherwise reappear in front of the next one. In the
 executable the interrupt also stops the CLI; an embedding caller that keeps the
-session alive gets a clean prompt. Ctrl-D on an empty line ends input.
+session alive gets a clean prompt. Ctrl-C at an approval prompt denies it, so a
+caller whose interrupt keeps the reader open does not leave the approval waiting
+for an answer nothing will supply. Ctrl-D on an empty line ends input.
 
 `--vim` is refused with the reason rather than accepted and ignored.
 `terminalKeyBindings` still describes Vi's modal Enter, but Node readline has no

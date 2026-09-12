@@ -295,6 +295,29 @@ describe("terminal completion and recall", () => {
     expect(messages).toEqual(["kept"]);
   });
 
+  it("denies a waiting approval on Ctrl-C without closing the reader", async () => {
+    const input = new PassThrough();
+    let interrupts = 0;
+    const terminal = new TerminalInput(
+      input,
+      () => undefined,
+      new AbortController().signal,
+      // An interrupt that keeps the reader open, unlike the default, which
+      // closes it and denies through the close handler.
+      () => {
+        interrupts += 1;
+      },
+    );
+
+    const approval = terminal.confirm("Run", "rm -rf /");
+    await new Promise((resolve) => setImmediate(resolve));
+    input.write(CTRL_C);
+
+    await expect(approval).resolves.toBe(false);
+    expect(interrupts).toBe(1);
+    terminal.close();
+  });
+
   it("removes the editor's temporary file even when the editor fails", async () => {
     const before = (await readdir(tmpdir())).filter((entry) =>
       entry.startsWith("patch-editor-"),

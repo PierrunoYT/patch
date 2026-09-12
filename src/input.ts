@@ -123,6 +123,13 @@ export class TerminalInput implements AsyncIterable<string> {
       // draft and every line Alt-Enter is holding.
       this.#continued = [];
       this.#replaceLine("");
+      // Ctrl-C at an approval prompt denies it. The default interrupt closes
+      // the reader, whose close handler would deny anyway, but an injected
+      // interrupt that keeps the reader open would leave confirm() awaiting a
+      // resolution nothing else produces.
+      const answer = this.#answer;
+      this.#answer = undefined;
+      answer?.(false);
       this.#interrupt();
     });
     reader.on("line", (line) => {
