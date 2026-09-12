@@ -13,7 +13,10 @@ import { UnifiedDiffEditStrategy } from "./unified-diff.js";
 import { WholeFileEditStrategy } from "./whole-file.js";
 import type { Fence } from "../core/fences.js";
 import type { ChatMessage } from "../core/messages.js";
-import { strategyPrompt } from "../resources/strategy-prompts.js";
+import {
+  editorStrategyPrompt,
+  strategyPrompt,
+} from "../resources/strategy-prompts.js";
 
 export interface StrategyDefinition {
   readonly format: ApplicationEditFormat;
@@ -65,4 +68,15 @@ export function createStrategy(
       throw new UnsupportedEditFormatError(format);
   }
   return { format: supported.data, strategy, ...prompts };
+}
+
+export function createEditorStrategy(
+  format: unknown,
+  fence: Fence = DEFAULT_FENCE,
+): StrategyDefinition {
+  if (format !== "whole" && format !== "diff" && format !== "diff-fenced") {
+    throw new UnsupportedEditFormatError(format);
+  }
+  const definition = createStrategy(format, fence);
+  return { ...definition, ...editorStrategyPrompt(format, fence) };
 }

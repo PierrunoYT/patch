@@ -17,6 +17,11 @@ export interface ApplicationSession {
   readonly queue?: import("./serial-queue.js").SerialTaskQueue;
   snapshot(): unknown | Promise<unknown>;
   submit(message: string, options: ApplicationSubmitOptions): Promise<unknown>;
+  /** Runs an internal fresh-history editor role; not a user-facing chat mode. */
+  runEditor?(
+    instructions: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<unknown>;
   close?(): void | Promise<void>;
 }
 

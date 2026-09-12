@@ -19,7 +19,11 @@ import { renderHelp } from "../commands/help.js";
 import { parseCommand } from "../commands/parse.js";
 import { renderSettings } from "../commands/settings.js";
 import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
-import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
+import {
+  createEditorStrategy,
+  createStrategy,
+  type StrategyDefinition,
+} from "../edits/registry.js";
 import {
   resolveEditBatch,
   EditResolutionError,
@@ -152,6 +156,7 @@ interface SessionProfile {
   /** Format `/chat-mode code` returns to for the active model. */
   readonly codeFormat: EditFormat;
   readonly definition: StrategyDefinition;
+  readonly editor: boolean;
   readonly fence: readonly [string, string];
   readonly repositoryMap?: RepositoryMap;
 }
@@ -358,18 +363,30 @@ class ConcreteApplicationSession implements ApplicationSession {
   #profile: SessionProfile;
   #closed = false;
 
-  constructor(context: ApplicationContext) {
+  constructor(
+    context: ApplicationContext,
+    role?: {
+      readonly main: ModelSettings;
+      readonly provider: ModelProvider;
+      readonly definition: StrategyDefinition;
+      readonly editablePaths: readonly string[];
+      readonly readOnlyPaths: readonly string[];
+    },
+  ) {
     this.#context = context;
+    const main = role?.main ?? context.models.main.settings;
+    const definition = role?.definition ?? context.definition;
     const model = {
-      ...context.models.main.settings,
-      editFormat: context.definition.strategy.format,
+      ...main,
+      editFormat: definition.format,
     };
     this.#profile = {
-      main: context.models.main.settings,
-      codeFormat: context.definition.format,
-      definition: context.definition,
+      main,
+      codeFormat: definition.format,
+      definition,
+      editor: role !== undefined,
       fence: context.fence,
-      ...(context.repositoryMap === undefined
+      ...(role !== undefined || context.repositoryMap === undefined
         ? {}
         : { repositoryMap: context.repositoryMap }),
     };
@@ -381,10 +398,10 @@ class ConcreteApplicationSession implements ApplicationSession {
         autoLint: context.bootstrap.arguments.lintCommand !== undefined,
         autoTest: context.bootstrap.arguments.testCommand !== undefined,
       },
-      provider: context.provider,
-      strategy: context.definition.strategy,
-      editablePaths: context.editablePaths,
-      readOnlyPaths: context.readOnlyPaths,
+      provider: role?.provider ?? context.provider,
+      strategy: definition.strategy,
+      editablePaths: role?.editablePaths ?? context.editablePaths,
+      readOnlyPaths: role?.readOnlyPaths ?? context.readOnlyPaths,
       availablePaths: context.availablePaths,
       fence: context.fence,
       approvePath: async ({ path }) => {
@@ -398,6 +415,41 @@ class ConcreteApplicationSession implements ApplicationSession {
 
   snapshot() {
     return this.#session.snapshot();
+  }
+
+  async runEditor(
+    instructions: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<ApplicationTurnResult> {
+    const state = this.#session.snapshot();
+    const contents = await Promise.all(
+      [...state.editablePaths, ...state.readOnlyPaths].map((path) =>
+        snapshot(this.#context.files, path),
+      ),
+    );
+    const fence = selectFence(
+      contents.flatMap(({ content }) => (content === null ? [] : [content])),
+    ).fence;
+    const main = this.#context.models.editor.settings;
+    const format = this.#context.models.editorEditFormat;
+    const definition = createEditorStrategy(format, fence);
+    const provider = this.#context.makeProvider({
+      ...main,
+      editFormat: format,
+    });
+    const editor = new ConcreteApplicationSession(this.#context, {
+      main,
+      provider,
+      definition,
+      editablePaths: state.editablePaths,
+      readOnlyPaths: state.readOnlyPaths,
+    });
+    try {
+      return await editor.submit(instructions, options);
+    } finally {
+      editor.close();
+      if (provider !== this.#context.provider) await provider.close?.();
+    }
   }
 
   submit(
@@ -450,10 +502,9 @@ class ConcreteApplicationSession implements ApplicationSession {
             content === null ? [] : [content],
           ),
         ).fence;
-        const definition = createStrategy(
-          this.#profile.definition.format,
-          fence,
-        );
+        const definition = this.#profile.editor
+          ? createEditorStrategy(this.#profile.definition.format, fence)
+          : createStrategy(this.#profile.definition.format, fence);
         this.#session.setAttemptFence(fence);
         this.#profile = { ...this.#profile, definition, fence };
         const selectedPaths = new Set(
@@ -566,6 +617,16 @@ class ConcreteApplicationSession implements ApplicationSession {
                   return {
                     source: "malformed" as const,
                     diagnostic: `${error.message}: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}`,
+                  };
+                }
+                if (
+                  !this.#profile.definition.allowShellCommands &&
+                  resolved.shellCommands.length > 0
+                ) {
+                  return {
+                    source: "malformed" as const,
+                    diagnostic:
+                      "This mode does not permit shell commands; return file edits only.",
                   };
                 }
                 if (
@@ -1084,6 +1145,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       main,
       codeFormat,
       definition,
+      editor: false,
       fence,
       ...(repositoryMap === undefined ? {} : { repositoryMap }),
     };

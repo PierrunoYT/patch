@@ -564,6 +564,10 @@ evidence is not claimed until that matrix completes on the pushed revision.
 - [x] Align public format schemas, configuration, bundled model settings,
   `/chat-mode`, and completion with the six constructed modes. Helper-only
   names are private identities and are rejected before provider creation.
+- [x] Port distinct editor whole/diff/fenced-diff prompts and construct a fresh
+  internal editor through `ApplicationService`. It uses the selected editor
+  model and capabilities, current authorized paths, no repository map, no shell
+  execution, fresh history, shared cancellation, and isolated failure cleanup.
 - [x] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
   concrete provider request puts the path inside the active fence while ordinary
   diff keeps it before the fence; a quadruple-backtick application test proves
@@ -577,8 +581,9 @@ evidence is not claimed until that matrix completes on the pushed revision.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. Independent pinned goldens for the format remain in R6.
-- [ ] Integrate architect/editor handoff with explicit user acceptance. A
-  library helper exists but is not constructed by `ApplicationService`.
+- [ ] Integrate architect/editor handoff with explicit user acceptance. The
+  production editor role is ready, but architect proposal/acceptance and state
+  transfer are not yet connected.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
 - [ ] Complete cache/continuation/media integration. Prompt-cache boundaries

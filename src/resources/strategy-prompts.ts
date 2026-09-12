@@ -321,3 +321,38 @@ ${finalReminders}`,
       };
   }
 }
+
+/** Pinned architect editor variants: terse edit-only prompts, never shell. */
+export function editorStrategyPrompt(
+  format: "whole" | "diff" | "diff-fenced",
+  fence: Fence,
+): StrategyPromptResource {
+  const base = strategyPrompt(format, fence);
+  if (format === "whole") {
+    return {
+      ...base,
+      systemPrompt: interpolate(
+        `Act as an expert software developer and make changes to source code.
+{final_reminders}
+Output a copy of each file that needs changes.`,
+        fence,
+      ),
+      allowShellCommands: false,
+    };
+  }
+  return {
+    ...base,
+    systemPrompt: interpolate(
+      `Act as an expert software developer who edits source code.
+{final_reminders}
+Describe each change with a *SEARCH/REPLACE block* per the examples below.
+All changes to files must use this *SEARCH/REPLACE block* format.
+ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!`,
+      fence,
+    ),
+    reminder: base.reminder
+      .replace(shellReminder, "")
+      .replace(/\n{3,}/gu, "\n\n"),
+    allowShellCommands: false,
+  };
+}
