@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Add bounded partial-context unified-diff recovery. Patch progressively drops
+  unchanged outer context over at most 256 candidates, preserves no-final-
+  newline assertions, and rejects ambiguity where pinned aider can modify
+  multiple matches. Generated upstream fixtures cover indentation, omitted-line,
+  and partial-context results; packed-bin smoke applies a recovered edit.
+
 - Recover unified-diff hunks against one unique indentation-normalized window or
   one unique bounded ordered subsequence when unchanged lines were omitted.
   Ambiguous recovery fails closed; omitted-line matching caps hunks at 100 lines,

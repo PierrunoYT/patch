@@ -125,8 +125,11 @@ once. Recovery then accepts one unique indentation-normalized line window and
 reindents replacement lines from the changed anchor. If exact and indentation
 matching fail, a unique ordered-subsequence match may preserve up to 20 omitted
 unchanged lines; recovery is disabled above 100 hunk lines or 10,000 comparisons.
-Ambiguity at either stage is rejected. Aider's progressively reduced partial-
-context recovery remains incomplete.
+Finally, partial-context recovery progressively drops only unchanged outer
+context and tries at most 256 exact or indentation-normalized candidates.
+Candidates may not discard a no-final-newline assertion. Ambiguity at every
+stage is rejected; pinned aider can modify multiple matches in some reduced-
+context cases, which Patch intentionally refuses.
 
 ## Patch actions
 

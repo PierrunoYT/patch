@@ -272,6 +272,9 @@ def export_repo_map(InputOutput, Model, RepoMap):
                 normalize_tag(tag)
                 for tag in repository_map.get_tags(file, Path(file).name)
             )
+        ranking_tags.sort(
+            key=lambda tag: (tag["path"], tag["kind"], tag["line"], tag["name"])
+        )
 
         import networkx as nx
 
@@ -459,7 +462,40 @@ def export_unified_diff(udiff_coder):
     applied = udiff_coder.directly_apply_hunk(
         'def first():\n    return 1\n', diffs[0][1]
     )
-    return {"response": UNIFIED_DIFF_RESPONSE, "diffs": exported, "applied": applied}
+    recovery_cases = {
+        "indentation": {
+            "content": "if ready:\n    old()\n",
+            "hunk": [" if ready:\n", "-old()\n", "+new()\n"],
+        },
+        "omittedLines": {
+            "content": "start\nkeep omitted\nold\nend\n",
+            "hunk": [" start\n", "-old\n", "+new\n", " end\n"],
+        },
+        "partialContext": {
+            "content": "actual start\nunique old value\nactual end\n",
+            "hunk": [
+                " stale start\n",
+                "-unique old value\n",
+                "+unique new value\n",
+                " stale end\n",
+            ],
+        },
+    }
+    recovery = {}
+    for name, case in recovery_cases.items():
+        before, after = udiff_coder.hunk_to_before_after(case["hunk"], lines=True)
+        recovery[name] = {
+            "content": case["content"],
+            "before": "".join(before),
+            "after": "".join(after),
+            "expected": udiff_coder.apply_hunk(case["content"], case["hunk"]),
+        }
+    return {
+        "response": UNIFIED_DIFF_RESPONSE,
+        "diffs": exported,
+        "applied": applied,
+        "recovery": recovery,
+    }
 
 
 def main():
@@ -497,7 +533,7 @@ def main():
     from aider.special import filter_important_files
 
     fixture = {
-        "schemaVersion": 6,
+        "schemaVersion": 7,
         "upstream": {"repository": remote, "commit": commit},
         "sources": {
             "configPrecedence": "aider/main.py:451-504; aider/args.py:35-54",

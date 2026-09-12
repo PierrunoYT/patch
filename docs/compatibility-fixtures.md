@@ -20,7 +20,8 @@ The exporter currently captures:
 - SEARCH/REPLACE parsing, errors, exact edits, indentation handling, and
   `...` elision;
 - unified-diff parsing for a response carrying two files, including the hunks
-  and the paths upstream targets;
+  and the paths upstream targets, plus pinned indentation, omitted-line, and
+  partial-context recovery results;
 - staged and unstaged Git diff behavior;
 - a small Python repository map, including normalized tags, definition rank
   order, rendered context, and an asymmetric personalized scenario with the

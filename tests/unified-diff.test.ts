@@ -258,7 +258,7 @@ describe("UnifiedDiffEditStrategy", () => {
         "if value:\nnew()\n",
         "a.py",
       ),
-    ).toThrow(UnifiedDiffNoMatchError);
+    ).toThrow(UnifiedDiffNotUniqueError);
     expect(() =>
       applyUnifiedDiff(
         "if ready:\n    old()\nif ready:\n    old()\n",
@@ -300,7 +300,48 @@ describe("UnifiedDiffEditStrategy", () => {
       applyUnifiedDiff(
         `start\n${omitted}old\nend\n`,
         "start\nold\nend\n",
-        "start\nnew\nend\n",
+        "changed start\nnew\nchanged end\n",
+        "a.ts",
+      ),
+    ).toThrow(UnifiedDiffNoMatchError);
+  });
+
+  it("recovers a unique change after dropping stale outer context", () => {
+    expect(
+      applyUnifiedDiff(
+        "actual start\nunique old value\nactual end\n",
+        "stale start\nunique old value\nstale end\n",
+        "stale start\nunique new value\nstale end\n",
+        "a.ts",
+      ),
+    ).toBe("actual start\nunique new value\nactual end\n");
+  });
+
+  it("rejects ambiguous partial-context recovery", () => {
+    expect(() =>
+      applyUnifiedDiff(
+        "actual start\nunique old value\nunique old value\nactual end\n",
+        "stale start\nunique old value\nstale end\n",
+        "stale start\nunique new value\nstale end\n",
+        "a.ts",
+      ),
+    ).toThrow(UnifiedDiffNotUniqueError);
+  });
+
+  it("retains a no-newline assertion during partial-context recovery", () => {
+    expect(
+      applyUnifiedDiff(
+        "actual start\nunique old value",
+        "stale start\nunique old value",
+        "stale start\nunique new value",
+        "a.ts",
+      ),
+    ).toBe("actual start\nunique new value");
+    expect(() =>
+      applyUnifiedDiff(
+        "actual start\nunique old value\ntrailing\n",
+        "stale start\nunique old value",
+        "stale start\nunique new value",
         "a.ts",
       ),
     ).toThrow(UnifiedDiffNoMatchError);

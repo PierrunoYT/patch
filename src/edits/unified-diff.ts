@@ -270,6 +270,78 @@ function replaceOmittedLines(
   return output.join("");
 }
 
+const MAX_PARTIAL_ATTEMPTS = 256;
+
+function replacePartialContext(
+  content: string,
+  before: string,
+  after: string,
+  path: string,
+): string | undefined {
+  const beforeLines = splitLines(before);
+  const afterLines = splitLines(after);
+  if (beforeLines.length > MAX_OMITTED_HUNK_LINES) return undefined;
+  let prefix = 0;
+  while (
+    prefix < beforeLines.length &&
+    prefix < afterLines.length &&
+    beforeLines[prefix] === afterLines[prefix]
+  )
+    prefix += 1;
+  let suffix = 0;
+  while (
+    suffix < beforeLines.length - prefix &&
+    suffix < afterLines.length - prefix &&
+    beforeLines[beforeLines.length - 1 - suffix] ===
+      afterLines[afterLines.length - 1 - suffix]
+  )
+    suffix += 1;
+  const contextLines = prefix + suffix;
+  if (contextLines === 0) return undefined;
+  const beforeChange = beforeLines.slice(prefix, beforeLines.length - suffix);
+  const afterChange = afterLines.slice(prefix, afterLines.length - suffix);
+  let attempts = 0;
+  for (let drop = 1; drop <= contextLines; drop += 1) {
+    const retain = contextLines - drop;
+    for (
+      let usePrefix = Math.min(prefix, retain);
+      usePrefix >= 0;
+      usePrefix -= 1
+    ) {
+      const useSuffix = retain - usePrefix;
+      if (useSuffix > suffix) continue;
+      attempts += 1;
+      if (attempts > MAX_PARTIAL_ATTEMPTS) return undefined;
+      const leading = beforeLines.slice(prefix - usePrefix, prefix);
+      const trailing = beforeLines.slice(
+        beforeLines.length - suffix,
+        beforeLines.length - suffix + useSuffix,
+      );
+      const candidateBefore = [...leading, ...beforeChange, ...trailing].join(
+        "",
+      );
+      if (candidateBefore === "") continue;
+      if (!before.endsWith("\n") && candidateBefore.endsWith("\n")) continue;
+      const candidateAfter = [...leading, ...afterChange, ...trailing].join("");
+      const exact = replaceExact(
+        content,
+        candidateBefore,
+        candidateAfter,
+        path,
+      );
+      if (exact !== undefined) return exact;
+      const indented = replaceRelativeIndent(
+        content,
+        candidateBefore,
+        candidateAfter,
+        path,
+      );
+      if (indented !== undefined) return indented;
+    }
+  }
+  return undefined;
+}
+
 export function applyUnifiedDiff(
   content: string,
   before: string,
@@ -283,6 +355,8 @@ export function applyUnifiedDiff(
   if (indented !== undefined) return indented;
   const omitted = replaceOmittedLines(content, before, after, path);
   if (omitted !== undefined) return omitted;
+  const partial = replacePartialContext(content, before, after, path);
+  if (partial !== undefined) return partial;
   throw new UnifiedDiffNoMatchError(
     `UnifiedDiffNoMatch: ${path} does not contain the ${before.split(/\r?\n/u).filter(Boolean).length} exact lines in the hunk${before.endsWith("\n") ? "" : " as its final line without a trailing newline"}`,
   );

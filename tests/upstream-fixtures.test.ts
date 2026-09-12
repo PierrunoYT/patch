@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import upstream from "../upstream.json" with { type: "json" };
 import {
   ALL_FENCES,
+  applyUnifiedDiff,
   ChatChunks,
   COMMON_PROMPTS,
   EditFormatSchema,
@@ -46,6 +47,10 @@ interface UpstreamFixture {
     response: string;
     diffs: { path: string; hunk: string[]; before: string; after: string }[];
     applied: string;
+    recovery: Record<
+      string,
+      { content: string; before: string; after: string; expected: string }
+    >;
   };
   configPrecedence: Record<string, string>;
   chatChunks: {
@@ -115,7 +120,7 @@ function unpinnedImports(source: string, paths: string[]): string[] {
 
 describe("upstream compatibility fixtures", () => {
   it("records the configured aider revision", () => {
-    expect(fixture.schemaVersion).toBe(6);
+    expect(fixture.schemaVersion).toBe(7);
     expect(fixture.upstream).toEqual({
       repository: upstream.repository,
       commit: upstream.commit,
@@ -383,6 +388,21 @@ describe("upstream compatibility fixtures", () => {
       }
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("matches upstream unified-diff recovery results", () => {
+    for (const [name, recovery] of Object.entries(
+      fixture.unifiedDiff.recovery,
+    )) {
+      expect({
+        [name]: applyUnifiedDiff(
+          recovery.content,
+          recovery.before,
+          recovery.after,
+          "fixture.py",
+        ),
+      }).toEqual({ [name]: recovery.expected });
     }
   });
 

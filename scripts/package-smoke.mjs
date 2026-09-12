@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdtempSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -310,6 +311,19 @@ try {
             throw new Error('ignored repository context leaked: ' + secret);
           }
           text = 'deterministic repository-map answer';
+        } else if (last.includes('unified recovery turn')) {
+          const fence = String.fromCharCode(96).repeat(3);
+          text = [
+            fence + 'diff',
+            '--- a/recovery.ts',
+            '+++ b/recovery.ts',
+            '@@ -1,3 +1,3 @@',
+            ' stale start',
+            '-unique old value',
+            '+unique new value',
+            ' stale end',
+            fence,
+          ].join('\\n');
         } else if (last.includes('one shot')) {
           text = 'deterministic one-shot answer';
         } else if (last.includes('first turn')) {
@@ -449,6 +463,39 @@ try {
   );
   if (!repositoryMap.includes("deterministic repository-map answer")) {
     throw new Error("Packed actual bin did not send repository-map context");
+  }
+  const recoveryRoot = join(consumerDirectory, "unified-recovery");
+  mkdirSync(recoveryRoot);
+  writeFileSync(
+    join(recoveryRoot, "recovery.ts"),
+    "actual start\nunique old value\nactual end\n",
+  );
+  execFileSync(
+    executable,
+    shellArguments([
+      "--no-git",
+      "--model",
+      "4o",
+      "--edit-format",
+      "udiff",
+      "--file",
+      "recovery.ts",
+      "--message",
+      "unified recovery turn",
+    ]),
+    {
+      cwd: recoveryRoot,
+      env: fakeEnvironment,
+      encoding: "utf8",
+      shell: useShell,
+      timeout: 15000,
+    },
+  );
+  if (
+    readFileSync(join(recoveryRoot, "recovery.ts"), "utf8") !==
+    "actual start\nunique new value\nactual end\n"
+  ) {
+    throw new Error("Packed actual bin did not apply partial-context recovery");
   }
   const malformed = spawnSync(
     executable,

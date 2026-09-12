@@ -67,7 +67,7 @@ unchanged result of any historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | implemented Patch scope; partial aider parity | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer requests are input-bounded with weak-to-main fallback; recovery from arbitrary child/Git side effects remains incomplete. |
-| Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers/normalization/duplicate suppression/bounded unique indentation and omitted-line recovery are implemented. Every format has a pinned independent golden and asymmetric hardening tests; partial-context unified-diff recovery remains absent. |
+| Editing | partial aider parity with format/recovery evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff transitions/no-newline markers/normalization/duplicate suppression/indentation/omitted-line/partial-context recovery are implemented. Every format has an independent golden; generated fixtures match upstream's three recovery results, and packed-bin smoke applies partial recovery. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
 | Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses isolated prompts/history and no map/shell; approved contained image/PDF media is request-only and bounded. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
@@ -121,9 +121,13 @@ claims.
   ordered subsequence. Omitted-line search caps hunks at 100 lines, permits at
   most 20 omitted lines, and stops after 10,000 comparisons. Evidence:
   `tests/unified-diff.test.ts`.
-- [ ] **P1 — Complete partial-context unified-diff recovery.** Add independent
-  asymmetric fixtures while retaining exact ambiguity rejection, bounded work,
-  and Patch's standard no-newline-marker behavior.
+- [x] **Complete partial-context unified-diff recovery.** Outer unchanged
+  context is reduced over at most 256 exact/indentation candidates; no-final-
+  newline assertions cannot be discarded, and ambiguity always fails closed.
+  Generated pinned fixtures cover indentation, omitted lines, and partial
+  context; package smoke drives partial recovery through the actual installed
+  bin. Evidence: `tests/unified-diff.test.ts`,
+  `tests/upstream-fixtures.test.ts`, and `scripts/package-smoke.mjs`.
 - [ ] **P2 — Close current-revision external evidence.** Drive DeepSeek through
   catalog/factory/session in the protected live contract, obtain a green
   Linux/macOS/Windows package run for the release revision, and run the
@@ -199,8 +203,9 @@ preserve revision-specific source references and evidence boundaries.
   resolution, and application, plus malformed placement and repeated no-newline
   context. Pinned aider ignores marker semantics and always adds a newline, so
   Patch intentionally implements the standard Git meaning while retaining its
-  stricter all-length unique-match requirement. Indentation, omitted-line,
-  partial-context, and duplicate-edit recovery remain open under Phase 7.
+  stricter all-length unique-match requirement. Normalization, duplicate
+  suppression, and bounded ambiguity-rejecting indentation, omitted-line, and
+  partial-context recovery are now complete under Phase 7.
 - [x] Preserve exact existing filenames containing glob metacharacters through
   selection; test beside files that would match the same pattern. Selection now
   resolves and stats the exact contained path before deciding whether its text

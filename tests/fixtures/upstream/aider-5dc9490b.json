@@ -306,6 +306,12 @@
         {
           "kind": "reference",
           "line": -1,
+          "name": "farewell",
+          "path": "definitions.py"
+        },
+        {
+          "kind": "reference",
+          "line": -1,
           "name": "greet",
           "path": "definitions.py"
         },
@@ -319,12 +325,6 @@
           "kind": "reference",
           "line": -1,
           "name": "name",
-          "path": "definitions.py"
-        },
-        {
-          "kind": "reference",
-          "line": -1,
-          "name": "farewell",
           "path": "definitions.py"
         },
         {
@@ -342,12 +342,18 @@
         {
           "kind": "reference",
           "line": 2,
-          "name": "print",
+          "name": "greet",
           "path": "usage.py"
         },
         {
           "kind": "reference",
           "line": 2,
+          "name": "print",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 3,
           "name": "greet",
           "path": "usage.py"
         },
@@ -360,25 +366,19 @@
         {
           "kind": "reference",
           "line": 4,
+          "name": "farewell",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 4,
+          "name": "farewell",
+          "path": "usage.py"
+        },
+        {
+          "kind": "reference",
+          "line": 4,
           "name": "print",
-          "path": "usage.py"
-        },
-        {
-          "kind": "reference",
-          "line": 3,
-          "name": "greet",
-          "path": "usage.py"
-        },
-        {
-          "kind": "reference",
-          "line": 4,
-          "name": "farewell",
-          "path": "usage.py"
-        },
-        {
-          "kind": "reference",
-          "line": 4,
-          "name": "farewell",
           "path": "usage.py"
         }
       ]
@@ -626,7 +626,7 @@
       ]
     }
   },
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "searchReplace": {
     "missingFilenameError": "<<<<<<< SEARCH\n\n^^^ Bad/missing filename. The filename must be alone on the line before the opening fence ```",
     "parsed": [
@@ -683,6 +683,26 @@
         "path": "b/second.py"
       }
     ],
+    "recovery": {
+      "indentation": {
+        "after": "if ready:\nnew()\n",
+        "before": "if ready:\nold()\n",
+        "content": "if ready:\n    old()\n",
+        "expected": "if ready:\n    new()\n"
+      },
+      "omittedLines": {
+        "after": "start\nnew\nend\n",
+        "before": "start\nold\nend\n",
+        "content": "start\nkeep omitted\nold\nend\n",
+        "expected": "start\nkeep omitted\nnew\nend\n"
+      },
+      "partialContext": {
+        "after": "stale start\nunique new value\nstale end\n",
+        "before": "stale start\nunique old value\nstale end\n",
+        "content": "actual start\nunique old value\nactual end\n",
+        "expected": "actual start\nunique new value\nactual end\n"
+      }
+    },
     "response": "Here are the changes.\n\n```diff\n--- a/first.py\n+++ b/first.py\n@@ ... @@\n def first():\n-    return 1\n+    return 2\n--- a/second.py\n+++ b/second.py\n@@ ... @@\n def second():\n-    return \"old\"\n+    return \"new\"\n```\n"
   },
   "upstream": {

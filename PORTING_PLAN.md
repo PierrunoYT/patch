@@ -87,10 +87,11 @@ original evidence; this plan and the backlog track current status and open work.
   shipped language entry has one sample whose tags match upstream's own
   extractor exactly; context mode and broader ranking/personalization fixtures
   remain. Models without input limits use the default map budget.
-- Unified-diff file transitions and standard no-newline markers, plus Patch
-  scopes/repeated actions, are constructed and tested locally. All six
-  constructed formats have format-specific prompts and independent pinned
-  goldens; broader unified-diff recovery remains incomplete.
+- Unified-diff file transitions, standard no-newline markers, normalized
+  duplicate suppression, and bounded unique indentation/omitted-line/partial-
+  context recovery are constructed and tested. All six formats have specific
+  prompts and independent goldens; generated recovery fixtures match pinned
+  aider while Patch intentionally rejects ambiguous reductions.
   User-facing schemas contain only the six constructed formats. Architect and
   context retain private orchestration identities; help is a local command.
 - Terminal Markdown, full-content replacement previews, explicit history writes, notifications, and
@@ -658,10 +659,12 @@ require a green matrix on the revision being claimed.
 - [x] Add indentation and omitted-line unified-diff recovery. Each stage requires
   one unique match; omitted-line search caps hunks at 100 lines, permits at most
   20 omitted lines, and stops after 10,000 comparisons.
-- [ ] Complete partial-context unified-diff recovery. Standard no-newline markers
-  preserve, add, or remove the final newline according to their position; this
-  intentionally fixes pinned aider's marker-tolerance behavior, which loses that
-  meaning.
+- [x] Complete bounded partial-context unified-diff recovery. Outer unchanged
+  context is reduced over at most 256 exact/indentation candidates; no-final-
+  newline assertions cannot be dropped, and every ambiguous candidate is
+  rejected. Standard markers preserve, add, or remove the final newline
+  according to position, intentionally fixing pinned aider's marker-tolerance
+  behavior.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. The independent pinned format golden covers an exact update;
@@ -685,9 +688,12 @@ require a green matrix on the revision being claimed.
   context with fixed per-file/count/aggregate bounds, signature validation,
   cancellation, ephemeral history treatment, and `/drop` cleanup.
 
-**Exit (not met):** advanced workflows are deliberately not advertised as CLI
-modes. The six constructed formats have independent pinned golden/property
-evidence, but broader unified-diff recovery remains incomplete.
+**Exit (met for documented advanced workflows):** architect/context identities
+remain private rather than advertised CLI modes. The six constructed formats
+have independent golden/property evidence; generated fixtures cover unified-
+diff indentation, omitted-line, and partial-context recovery; and packed-bin
+smoke applies a recovered edit. This is bounded, ambiguity-rejecting Patch scope,
+not unrestricted aider recovery parity.
 
 **Production evidence:** `tests/application-architect.test.ts`,
 `tests/application-editor.test.ts`, and `tests/application-context.test.ts`.

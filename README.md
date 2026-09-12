@@ -43,8 +43,9 @@ and `patch`. Each receives its pinned format-specific system instructions,
 examples, reminder, shell policy, and a fence reselected from the current files
 before every provider attempt. Each format also has an independently authored
 pinned golden plus asymmetric property, malformed, ambiguity/conflict,
-partial-write, and cancellation evidence. Broader unified-diff recovery remains
-incomplete; constructed formats are not a release-readiness claim.
+partial-write, and cancellation evidence. Unified-diff recovery includes bounded
+unique indentation, omitted-line, and partial-context stages; constructed
+formats are still not a release-readiness or unrestricted parity claim.
 Git selection treats leading-colon pathspec syntax as literal filenames during
 ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
 platform filename restrictions still apply.
