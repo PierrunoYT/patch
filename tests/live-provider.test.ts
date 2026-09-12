@@ -1,10 +1,18 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   AnthropicProvider,
+  ConcreteApplicationService,
+  ModelCatalog,
   ModelSettingsSchema,
   OpenAIProvider,
+  createProvider,
   diagnoseProvider,
+  type ApplicationTurnResult,
   type CompletionEvent,
   type ModelProvider,
 } from "../src/index.js";
@@ -79,10 +87,16 @@ function assertContract(events: readonly CompletionEvent[]) {
   expect(events.some((event) => event.type === "error")).toBe(false);
 }
 
-function assertSecretSafeDiagnostic(provider: "openai" | "anthropic") {
+function assertSecretSafeDiagnostic(
+  provider: "openai" | "anthropic" | "deepseek",
+) {
   const secret = `live-secret-${provider}`;
   const environmentVariable =
-    provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY";
+    provider === "openai"
+      ? "OPENAI_API_KEY"
+      : provider === "anthropic"
+        ? "ANTHROPIC_API_KEY"
+        : "DEEPSEEK_API_KEY";
   const result = diagnoseProvider(
     ModelSettingsSchema.parse({
       name: `${provider}-live-contract`,
@@ -200,19 +214,58 @@ describe.skipIf(!anthropicEnabled)("opt-in live Anthropic contract", () => {
 
 describe.skipIf(!deepSeekEnabled)("opt-in live DeepSeek contract", () => {
   it.skipIf(!process.env.DEEPSEEK_API_KEY)(
-    "streams the advertised DeepSeek-compatible contract",
+    "streams through the advertised catalog, factory, and application session",
     async () => {
-      assertContract(
-        await collect(
-          new OpenAIProvider({
-            apiKey: process.env.DEEPSEEK_API_KEY!,
-            baseURL: "https://api.deepseek.com",
-            timeout: 30_000,
-          }),
-          process.env.PATCH_LIVE_DEEPSEEK_MODEL ?? "deepseek-chat",
-          undefined,
-        ),
+      assertSecretSafeDiagnostic("deepseek");
+      const root = await mkdtemp(join(tmpdir(), "patch-live-deepseek-"));
+      const metadata = join(root, "metadata.json5");
+      const baseCatalog = await ModelCatalog.load();
+      const canonicalName = baseCatalog.resolve(
+        process.env.PATCH_LIVE_DEEPSEEK_MODEL ?? "deepseek/deepseek-chat",
+      ).canonicalName;
+      await writeFile(
+        metadata,
+        JSON.stringify({ [canonicalName]: { maxOutputTokens: 16 } }),
       );
+      const catalog = await ModelCatalog.load({ metadata: [metadata] });
+      expect(catalog.resolve(canonicalName).settings).toMatchObject({
+        provider: "deepseek",
+        maxOutputTokens: 16,
+      });
+      let service: ConcreteApplicationService | undefined;
+      try {
+        service = await ConcreteApplicationService.create({
+          cwd: root,
+          home: root,
+          environment: { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY },
+          argv: ["--no-git", "--model", canonicalName, "--edit-format", "ask"],
+          dependencies: {
+            catalog,
+            createProvider: (model, options) =>
+              createProvider(model, { ...options, timeout: 30_000 }),
+          },
+        });
+        const session = await service.createSession({
+          principal: "live-contract",
+          sessionId: "deepseek",
+        });
+        const result = (await session.submit("Reply with only OK.", {
+          signal: AbortSignal.timeout(30_000),
+          emit: () => undefined,
+        })) as ApplicationTurnResult;
+        expect(result.kind).toBe("turn");
+        expect(result.response.trim()).not.toBe("");
+        expect(result.changedPaths).toEqual([]);
+        expect(result.usage).toMatchObject({
+          inputTokens: expect.any(Number),
+          outputTokens: expect.any(Number),
+        });
+        expect(result.usage?.inputTokens).toBeGreaterThan(0);
+        expect(result.usage?.outputTokens).toBeGreaterThan(0);
+      } finally {
+        await service?.close();
+        await rm(root, { recursive: true, force: true });
+      }
     },
   );
 });

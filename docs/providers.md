@@ -121,11 +121,13 @@ manual live run fail independently of the credential-free suite. Tests and
 workflow configuration never print key values, custom headers, endpoint URLs,
 or media bytes.
 
-The DeepSeek live case constructs the adapter directly with endpoint-facing
-`deepseek-chat`. The bundled catalog name `deepseek/deepseek-chat` now reaches
-the same request shape through `createProvider`, covered without credentials by
-`tests/deepseek-provider.test.ts`; the live case still does not exercise the
-alias/catalog/session path end to end.
+The DeepSeek live case resolves the advertised bundled model through
+`ModelCatalog`, overlays only a 16-token output limit for the contract, constructs
+`createProvider` through `ConcreteApplicationService`, and submits through a real
+application session. `tests/deepseek-provider.test.ts` repeats that complete
+catalog/factory/session shape with deterministic Fetch and no credentials. The
+protected case still requires a successful manually dispatched run before it is
+external evidence.
 
 ## Anthropic Messages
 

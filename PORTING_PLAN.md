@@ -507,10 +507,11 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   Every attempted request contributes usage, temporary providers close per
   attempt, cancellation prevents fallback, and failure of both models leaves
   completed history unchanged.
-- [ ] Exercise the advertised DeepSeek catalog model through catalog, factory,
-  and session boundaries in the protected live contract. The current live case
-  constructs the compatible adapter directly; deterministic factory/session
-  coverage remains credential-free.
+- [ ] Run the protected DeepSeek catalog/factory/session contract successfully on
+  the claimed revision. The gated case now resolves the advertised bundled
+  model, caps output at 16 tokens, constructs the real factory through
+  `ConcreteApplicationService`, and submits a real session turn; deterministic
+  full-path coverage remains credential-free.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.

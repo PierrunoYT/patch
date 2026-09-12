@@ -33,7 +33,9 @@ that replaces `fetch`, so one-shot and two-turn history behavior run with no
 external network or live credential. A malformed fake stream must fail safely.
 Separately gated, credential-optional live OpenAI and Anthropic contracts cover
 minimal streaming, usage, stop reasons, timeout/cancellation, and one native
-capability; ordinary CI remains credential-free and offline.
+capability. The gated DeepSeek case resolves its bundled model and runs through
+the real factory/application session with a 16-token output cap. Ordinary CI
+remains credential-free and offline.
 Resolved catalog metadata supplies executable limits, capabilities, and pricing.
 Transient 408/409/429/5xx and malformed streams retry at most three attempts;
 validated `Retry-After` delays and exponential backoff are capped at 60 seconds

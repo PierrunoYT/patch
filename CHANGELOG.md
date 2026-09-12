@@ -15,6 +15,12 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- A protected DeepSeek live contract that resolves the advertised bundled model,
+  applies a 16-token contract-only output cap, constructs the real provider
+  factory through `ConcreteApplicationService`, and submits through an
+  application session. Deterministic Fetch coverage exercises the same full path
+  without credentials in the default suite.
+
 - A bounded local `/report [title]` issue draft with allowlisted Patch, Node.js,
   OS, architecture, and Git versions. The optional title is visibly marked as
   user input; unavailable or malformed metadata is omitted, and no diagnostics,

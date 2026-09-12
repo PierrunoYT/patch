@@ -1,6 +1,11 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  ConcreteApplicationService,
   OpenAIProvider,
   createProvider,
   type CompletionEvent,
@@ -173,5 +178,53 @@ describe("DeepSeek endpoint normalization", () => {
       model: "deepseek-chat",
       max_tokens: 8,
     });
+  });
+
+  it("routes the bundled model through catalog, factory, and application session", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-deepseek-session-"));
+    const { capture, fetch } = recording();
+    let service: ConcreteApplicationService | undefined;
+    try {
+      service = await ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: { DEEPSEEK_API_KEY: "test-key" },
+        argv: [
+          "--no-git",
+          "--model",
+          "deepseek/deepseek-chat",
+          "--edit-format",
+          "ask",
+        ],
+        dependencies: {
+          createProvider: (model, options) =>
+            createProvider(model, { ...options, fetch }),
+        },
+      });
+      const session = await service.createSession({
+        principal: "test",
+        sessionId: "deepseek",
+      });
+
+      const result = await session.submit("hello", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      });
+
+      expect(result).toMatchObject({
+        kind: "turn",
+        response: "answer",
+        changedPaths: [],
+        usage: { inputTokens: 9, outputTokens: 2 },
+      });
+      expect(capture.urls[0]).toBe("https://api.deepseek.com/chat/completions");
+      expect(capture.bodies[0]).toMatchObject({
+        model: "deepseek-chat",
+        max_tokens: 8192,
+      });
+    } finally {
+      await service?.close();
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
