@@ -71,7 +71,7 @@ unchanged result of the historical audit.
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | Nineteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, command outcomes, local help, safe settings, and a bounded local report draft are wired. The three ancillary commands have combined queue/cancellation/sanitization/approval and packed-bin evidence; exhaustive advertised-command effects remain open. |
+| Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Aider's wider command breadth remains outside this surface. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
@@ -685,8 +685,9 @@ and file-command matching are narrower than Aider's, and there is no semantic
 command help.
 
 - [x] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
-  `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`,
-  `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
+  `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`,
+  `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
+  `/exit`.
 - [x] Resolve and authorize command paths through the same containment boundary
   as model edits; never mutate session lists from raw parser strings.
 - [x] Rebuild provider and the complete strategy/prompt state safely for
@@ -710,15 +711,14 @@ command help.
 - [x] Serialize commands and provider turns through the same session queue and
   test commands submitted while a turn is active.
 
-**Acceptance:** met for effect and next-turn evidence. Every advertised
-command has its documented executable effect, and `tests/application-commands.test.ts`,
-`tests/interface-startup.test.ts`, `tests/interactive-command.test.ts`, and
-`tests/url-ingestion.test.ts` assert what each one leaves behind for the next
-turn. This exit covers the existing advertised commands, not future scope.
-Aider's wider matching remains outside that evidence; local `/help` and
-secret-safe `/settings` are now implemented under P2 item 7. `/report` remains
-selected with an unchecked acceptance task in the ancillary-command follow-ups
-above.
+**Acceptance:** met for effect and next-turn evidence. Every advertised command
+has its documented executable effect. `tests/advertised-commands.test.ts` keeps
+the documentation inventory equal to the parser/completion inventory and drives
+all 19 effects through one real-Git concrete application, including safe
+failures. `tests/application-commands.test.ts`, `tests/interface-startup.test.ts`,
+`tests/interactive-command.test.ts`, and `tests/url-ingestion.test.ts` retain
+deeper cases. This exit covers the existing advertised commands, not future
+scope or aider's wider command breadth.
 
 ## R4 — Add opt-in live provider contract tests
 
@@ -970,7 +970,11 @@ cover:
 - [ ] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
   commit, lint, approved shell command, test reflection, and owned undo;
 - [ ] exact file and Git state after cancellation or every injected failure;
-- [ ] every advertised slash command through its documented application effect;
+- [x] every advertised slash command through its documented application effect
+  (`tests/advertised-commands.test.ts` asserts exact docs/parser inventory
+  equality and executes all 19 effects in a real temporary Git repository,
+  including safe containment, denial, refused URL ingestion, and missing-state
+  paths; no unsupported advertising was found);
 - [x] tag extraction from the installed package for every shipped language
   (`scripts/package-smoke.mjs`), not every-language provider-context parity;
 - [ ] broader filtered repository-map context through executable provider turns;

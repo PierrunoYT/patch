@@ -521,6 +521,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- The documented slash-command inventory is now asserted equal to the parser's
+  source of truth, and a real-Git application scenario executes every one of the
+  19 advertised effects. Safe failures cover missing clipboard/undo state,
+  contained paths, unknown models, refused URL ingestion, denied processes, and
+  use after exit; no unsupported advertised command was found.
 - Joint executable acceptance for `/help`, `/settings`, and `/report` now covers
   serialized queue order, active and queued cancellation, hostile terminal
   metadata, unchanged write/path/process approvals, and dispatch from the actual

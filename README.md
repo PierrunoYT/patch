@@ -41,6 +41,10 @@ resolution, and post-write check failures share a three-reflection budget with
 fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
 the installed acceptance evidence and intentional differences from aider.
+The parser-owned inventory and `docs/commands.md` are checked against each other,
+and one real-Git application scenario executes all 19 advertised command effects
+plus contained/denied/missing-state failures. This proves the advertised Patch
+surface, not aider's wider command set.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;

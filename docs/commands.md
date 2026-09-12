@@ -124,9 +124,23 @@ package-manager command when `lint-cmd` or `test-cmd` is absent. Configuring a
 check authorizes its execution without a per-run prompt. See
 [turn lifecycle](turn-lifecycle.md) for reflection ordering and failure behavior.
 
+## Advertised-surface evidence
+
+`tests/advertised-commands.test.ts` extracts the inventory at the top of this
+document and requires exact set equality with `COMMAND_NAMES`, the parser and
+completion source of truth. Its real temporary Git repository then executes all
+19 effects through `ConcreteApplicationService`: selections, history, profile
+switching, local ancillary output, captured process/checks, bounded URL content,
+clipboard, commit/owned undo, and exit. It also verifies safe failures for
+missing clipboard and undo state, traversal, an unknown model, refused URL
+ingestion, denied process execution, and submission after exit. No unsupported
+advertising was found; the test makes future documentation drift fail rather
+than silently advertising an inert command.
+
 ## Parity limits
 
-The advertised command set is not yet a completed parity surface:
+The advertised command set is completely dispatched but is not an aider-parity
+surface:
 
 - `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
   parser, system prompt, examples, reminder, shell policy, fence, and

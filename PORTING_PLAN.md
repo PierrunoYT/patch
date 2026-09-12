@@ -506,9 +506,12 @@ combined live timeout/cancellation and capability evidence remains incomplete.
   refuses root, merge, moved-HEAD, and already-pushed commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
-- [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/ls`,
-  `/clear`, `/model`, `/chat-mode`, `/run`, `/test`, `/lint`, `/commit`,
-  `/undo`, and `/exit`.
+- [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/help`,
+  `/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`,
+  `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
+  `tests/advertised-commands.test.ts` keeps this 19-command documented inventory
+  equal to the parser's source of truth and executes every production effect in
+  one real-Git application scenario, including safe authority/state failures.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation
   in the application contract. Standalone interactive TTY input supplies one
@@ -527,7 +530,8 @@ The packed service acceptance scenario now passes with injected provider and
 approval adapters. `tests/terminal-approval.test.ts` exercises the executable's
 program path with real readline input, fake TTY streams, the concrete service,
 fake provider, and real filesystem/process effects; native terminal platform
-coverage for this approval path is not yet established.
+coverage for this approval path is not yet established. The 19-command inventory
+coverage does not imply aider's broader command parity.
 
 **Evidence:** `tests/application-lifecycle.test.ts`,
 `tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the
