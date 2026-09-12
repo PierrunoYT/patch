@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Built the URL fetcher once per session instead of once per `/web`, which is
+  what the documentation described, and printed the URL being fetched in the
+  terminal. The start and completion events existed but nothing rendered them,
+  so a slow fetch showed nothing at all.
+
 - Stopped reclaiming an HTTP session that was in use. Only a message post moved
   the idle deadline, so a client holding an event stream, or polling the session
   snapshot, was dropped mid-stream at the TTL. Any request addressed to a session

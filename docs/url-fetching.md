@@ -12,8 +12,11 @@ Patch's `UrlFetcher` is a bounded interface adapter inspired by pinned aider `ai
 ## `/web` ingestion
 
 `/web <url>` fetches one page and puts its readable text into the chat. The
-fetcher is constructed the first time the command runs, so a session that never
-fetches never loads it.
+fetcher is constructed the first time the command runs and kept for the rest of
+the session, so a session that never fetches never loads it and repeated
+fetching does not rebuild it. The terminal prints the URL it is fetching before
+the request, because a fetch is the one command that waits on a remote host and
+silence until it returns is indistinguishable from a hang.
 
 - **Explicit intent only.** Only a URL the user typed is fetched. A URL a model
   suggests, or one a fetched page links to, is never followed; Patch does not

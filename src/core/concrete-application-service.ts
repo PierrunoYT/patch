@@ -446,6 +446,10 @@ class ConcreteApplicationSession implements ApplicationSession {
   readonly #ownedProviders = new Set<ModelProvider>();
   readonly #contextRequest: string | undefined;
   readonly #media = new Map<string, ReadOnlyMedia>();
+  /** Built on first use and kept, so repeated `/web` reuses one fetcher. */
+  #fetchUrl:
+    | ((url: string, options: { signal?: AbortSignal }) => Promise<FetchedUrl>)
+    | undefined;
   #profile: SessionProfile;
   #closed = false;
   #closing: Promise<void> | undefined;
@@ -1475,14 +1479,18 @@ class ConcreteApplicationSession implements ApplicationSession {
     url: string,
     options: ApplicationSubmitOptions,
   ): Promise<string> {
-    const fetchUrl =
-      this.#context.fetchUrl ??
-      (await (async () => {
-        const { UrlFetcher } = await import("../interfaces/url-fetcher.js");
-        const fetcher = new UrlFetcher();
-        return (target: string, fetchOptions: { signal?: AbortSignal }) =>
-          fetcher.fetch(target, fetchOptions);
-      })());
+    if (this.#fetchUrl === undefined) {
+      this.#fetchUrl = this.#context.fetchUrl;
+    }
+    if (this.#fetchUrl === undefined) {
+      const { UrlFetcher } = await import("../interfaces/url-fetcher.js");
+      const fetcher = new UrlFetcher();
+      this.#fetchUrl = (
+        target: string,
+        fetchOptions: { signal?: AbortSignal },
+      ) => fetcher.fetch(target, fetchOptions);
+    }
+    const fetchUrl = this.#fetchUrl;
     options.emit({ type: "url-fetch-start", data: { url } });
     const fetched = await fetchUrl(url, {
       ...(options.signal === undefined ? {} : { signal: options.signal }),

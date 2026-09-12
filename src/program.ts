@@ -588,6 +588,14 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                                   renderOptions,
                                 )}\n`,
                               );
+                            } else if (event.type === "url-fetch-start") {
+                              // A fetch is the one command that waits on a
+                              // remote host, so saying nothing until it returns
+                              // is indistinguishable from a hang.
+                              markdown.end();
+                              write(
+                                `Fetching ${String((event.data as { url: string }).url)}…\n`,
+                              );
                             } else if (
                               event.type === "command-complete" ||
                               event.type === "lint-complete" ||
