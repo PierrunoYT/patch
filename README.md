@@ -31,6 +31,9 @@ placeholder credentials never reach a provider or the output.
 The same installed-bin smoke uses an in-process deterministic OpenAI-wire fake
 that replaces `fetch`, so one-shot and two-turn history behavior run with no
 external network or live credential. A malformed fake stream must fail safely.
+Separately gated, credential-optional live OpenAI and Anthropic contracts cover
+minimal streaming, usage, stop reasons, timeout/cancellation, and one native
+capability; ordinary CI remains credential-free and offline.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Each receives its pinned format-specific system instructions,
 examples, reminder, shell policy, and a fence reselected from the current files

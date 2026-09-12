@@ -32,7 +32,9 @@ jobs:
 
       - name: Run opt-in live contracts
         env:
-          PATCH_LIVE_PROVIDERS: "1"
+          PATCH_LIVE_OPENAI: "1"
+          PATCH_LIVE_ANTHROPIC: "1"
+          PATCH_LIVE_DEEPSEEK: "1"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}

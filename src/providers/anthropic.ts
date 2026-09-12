@@ -168,7 +168,7 @@ function errorEvent(error: unknown): CompletionEvent {
     return {
       type: "error",
       kind: "authentication",
-      message: error.message,
+      message: "Anthropic rejected the configured credential",
       retryable: false,
     };
   }

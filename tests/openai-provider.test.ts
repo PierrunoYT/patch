@@ -92,6 +92,8 @@ describe("OpenAIProvider", () => {
   });
 
   it("classifies HTTP authentication and rate-limit errors", async () => {
+    const secret = "do-not-return-openai-key-or-header";
+    const endpoint = "https://private-openai-endpoint.example/v1";
     const response = (status: number, message: string) =>
       new Response(
         JSON.stringify({ error: { message, type: "request_error" } }),
@@ -102,23 +104,68 @@ describe("OpenAIProvider", () => {
       );
     const authentication = new OpenAIProvider({
       apiKey: "bad",
-      fetch: async () => response(401, "invalid key"),
+      baseURL: endpoint,
+      defaultHeaders: { "x-private": secret },
+      fetch: async () => response(401, `${secret} ${endpoint}`),
     });
     const rateLimit = new OpenAIProvider({
       apiKey: "test",
       fetch: async () => response(429, "slow down"),
     });
 
-    expect((await collect(authentication)).at(-1)).toMatchObject({
+    const authenticationError = (await collect(authentication)).at(-1);
+    expect(authenticationError).toEqual({
       type: "error",
       kind: "authentication",
+      message: "OpenAI rejected the configured credential",
       retryable: false,
     });
+    expect(JSON.stringify(authenticationError)).not.toContain(secret);
+    expect(JSON.stringify(authenticationError)).not.toContain(endpoint);
     expect((await collect(rateLimit)).at(-1)).toMatchObject({
       type: "error",
       kind: "rate-limit",
       retryable: true,
     });
+  });
+
+  it("maps SDK timeout and caller cancellation without exposing request data", async () => {
+    const waitForAbort: typeof fetch = async (_input, init) =>
+      await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(init.signal?.reason),
+          { once: true },
+        );
+      });
+    const timeout = new OpenAIProvider({
+      apiKey: "timeout-secret",
+      timeout: 1,
+      fetch: waitForAbort,
+    });
+    expect((await collect(timeout)).at(-1)).toEqual({
+      type: "error",
+      kind: "timeout",
+      message: expect.any(String),
+      retryable: true,
+    });
+
+    const cancelled = new OpenAIProvider({
+      apiKey: "cancel-secret",
+      fetch: waitForAbort,
+    });
+    const events: CompletionEvent[] = [];
+    for await (const event of cancelled.stream(
+      {
+        model: "custom-model",
+        messages: [{ role: "user", content: "private prompt" }],
+        extraParameters: {},
+      },
+      AbortSignal.abort(),
+    )) {
+      events.push(event);
+    }
+    expect(events).toEqual([{ type: "finish", reason: "cancelled" }]);
   });
 
   it("treats server-side failures and unreadable chunks as retryable", async () => {

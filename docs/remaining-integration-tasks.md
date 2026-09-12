@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, repeated continuation, and some recovery evidence remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
-| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata/pricing, cache-aware cost, temperature policy, and bounded retries are wired. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`; media and cache keepalive remain unintegrated. |
+| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata/pricing, cache-aware cost, temperature policy, and bounded retries are wired. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`; media and cache keepalive remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
@@ -748,8 +748,15 @@ scope or aider's wider command breadth.
 
 - [x] Add separately gated OpenAI and Anthropic tests using documented
   environment variables; add DeepSeek if it remains an advertised provider.
-- [ ] Exercise authentication diagnostics, a minimal streamed response, usage,
+- [x] Exercise authentication diagnostics, a minimal streamed response, usage,
   finish reasons, timeout/cancellation, and one provider-specific capability.
+  OpenAI and Anthropic have independent opt-in gates and credential checks. Each
+  suite covers fixed secret-safe diagnostics, a positive-usage natural-stop
+  stream, a one-millisecond SDK timeout, and a pre-aborted request; the successful
+  OpenAI request carries a tiny PNG and Anthropic carries an ephemeral cache
+  marker. Credential-free adapter tests cover the same failure contracts
+  deterministically. Live success remains environment/account evidence rather
+  than a default-CI guarantee.
 - [x] Ensure missing credentials skip the live suite rather than failing normal
   CI and ensure failures never print keys, headers, or response secrets.
 - [x] Run live tests on a manual or protected scheduled workflow with strict

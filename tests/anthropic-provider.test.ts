@@ -123,22 +123,72 @@ describe("AnthropicProvider", () => {
   });
 
   it("classifies authentication failures without credentials", async () => {
+    const secret = "do-not-return-anthropic-key-or-header";
+    const endpoint = "https://private-anthropic-endpoint.example";
     const provider = new AnthropicProvider({
       apiKey: "bad",
+      baseURL: endpoint,
+      defaultHeaders: { "x-private": secret },
       fetch: async () =>
         new Response(
           JSON.stringify({
             type: "error",
-            error: { type: "authentication_error", message: "invalid key" },
+            error: {
+              type: "authentication_error",
+              message: `${secret} ${endpoint}`,
+            },
           }),
           { status: 401, headers: { "content-type": "application/json" } },
         ),
     });
 
-    expect((await collect(provider)).at(-1)).toMatchObject({
+    const authenticationError = (await collect(provider)).at(-1);
+    expect(authenticationError).toEqual({
       type: "error",
       kind: "authentication",
+      message: "Anthropic rejected the configured credential",
       retryable: false,
     });
+    expect(JSON.stringify(authenticationError)).not.toContain(secret);
+    expect(JSON.stringify(authenticationError)).not.toContain(endpoint);
+  });
+
+  it("maps SDK timeout and caller cancellation without exposing request data", async () => {
+    const waitForAbort: typeof fetch = async (_input, init) =>
+      await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(init.signal?.reason),
+          { once: true },
+        );
+      });
+    const timeout = new AnthropicProvider({
+      apiKey: "timeout-secret",
+      timeout: 1,
+      fetch: waitForAbort,
+    });
+    expect((await collect(timeout)).at(-1)).toEqual({
+      type: "error",
+      kind: "timeout",
+      message: expect.any(String),
+      retryable: true,
+    });
+
+    const cancelled = new AnthropicProvider({
+      apiKey: "cancel-secret",
+      fetch: waitForAbort,
+    });
+    const events: CompletionEvent[] = [];
+    for await (const event of cancelled.stream(
+      {
+        model: "claude-test",
+        messages: [{ role: "user", content: "private prompt" }],
+        extraParameters: {},
+      },
+      AbortSignal.abort(),
+    )) {
+      events.push(event);
+    }
+    expect(events).toEqual([{ type: "finish", reason: "cancelled" }]);
   });
 });

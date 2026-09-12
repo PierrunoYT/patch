@@ -490,13 +490,15 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
-**Exit (workflow present; live evidence pending):** opt-in provider tests and a
-protected manual workflow exist. Ordinary CI is deterministic and requires no
-external network: package smoke now drives one-shot, two-turn history, and
-malformed OpenAI-wire responses through the actual installed bin using a
-preloaded in-process `fetch` fake and no live credential. Authentication,
-minimal streaming, and usage are covered when each live credential is supplied;
-combined live timeout/cancellation and capability evidence remains incomplete.
+**Exit (workflow present; live execution remains externally variable):**
+separately gated OpenAI and Anthropic contracts cover secret-safe credential
+preflight, minimal streaming, positive usage, natural stop reasons,
+timeout/cancellation, OpenAI image input, and Anthropic cache-control input. A
+protected manual workflow exists; ordinary CI skips all live cases and requires
+no credentials or network. Package smoke also drives one-shot, two-turn history,
+and malformed OpenAI-wire responses through the actual installed bin using a
+preloaded in-process `fetch` fake. Actual live evidence still depends on a
+protected workflow run against configured accounts and models.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
 `tests/anthropic-provider.test.ts`; opt-in `tests/live-provider.test.ts` via
