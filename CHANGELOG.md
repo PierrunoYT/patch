@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Unescaped doubled braces when interpolating the ported strategy prompts. These
+  strings come from templates upstream renders with `str.format`, so the
+  whole-file example shipped `print(f"Hey {{name}}")` instead of the Python
+  upstream shows. Interpolation is now a single left-to-right pass that collapses
+  `{{`/`}}` and never rescans a substituted value.
+
 - Serialized `runEditor` on the session queue. It was the only public turn entry
   point that did not take the queue, so a caller invoking it directly ran a
   second turn against the same worktree concurrently with `submit`, mutating

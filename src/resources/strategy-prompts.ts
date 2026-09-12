@@ -31,11 +31,24 @@ Commands run from the repository root. Every suggested command is inert until th
 
 const shellReminder = `Shell commands may only be suggested in fenced shell blocks. They always require explicit user approval before execution.`;
 
+/**
+ * Substitutes the placeholders these pinned prompts use, in one left-to-right
+ * pass so a substituted value cannot be rescanned. `{{`/`}}` collapse to a
+ * single brace, as they do in the `str.format` call upstream applies to the
+ * same strings: without that the whole-file example ships
+ * `print(f"Hey {{name}}")`, which is not the Python upstream shows.
+ */
 function interpolate(value: string, fence: Fence): string {
-  return value
-    .replaceAll("{fence[0]}", fence[0])
-    .replaceAll("{fence[1]}", fence[1])
-    .replaceAll("{final_reminders}", finalReminders);
+  const values: Record<string, string> = {
+    "{fence[0]}": fence[0],
+    "{fence[1]}": fence[1],
+    "{final_reminders}": finalReminders,
+  };
+  return value.replaceAll(
+    /\{\{|\}\}|\{fence\[[01]\]\}|\{final_reminders\}/gu,
+    (match) =>
+      match === "{{" ? "{" : match === "}}" ? "}" : (values[match] ?? match),
+  );
 }
 
 function interpolateMessages(

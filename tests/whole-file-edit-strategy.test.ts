@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { WholeFileEditStrategy, WholeFileParseError } from "../src/index.js";
+import {
+  createStrategy,
+  WholeFileEditStrategy,
+  WholeFileParseError,
+} from "../src/index.js";
 
 const strategy = new WholeFileEditStrategy();
 const fence = ["```", "```"] as const;
@@ -111,5 +115,18 @@ const explicit = true;
         fence,
       }),
     ).toThrow(WholeFileParseError);
+  });
+  it("renders the pinned example as the Python upstream shows", () => {
+    const { examples } = createStrategy("whole", ["````", "````"]);
+    const shown = JSON.stringify(examples);
+
+    // Upstream runs str.format over this text, where {{name}} is an escaped
+    // brace. Shipping it unescaped puts invalid Python in the example.
+    expect(shown).toContain('print(f\\"Hey {name}\\")');
+    expect(shown).not.toContain("{{name}}");
+    // The fence placeholders are still substituted, and a substituted value is
+    // not rescanned for placeholders of its own.
+    expect(shown).toContain("````");
+    expect(shown).not.toContain("{fence[0]}");
   });
 });

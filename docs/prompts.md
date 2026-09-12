@@ -17,7 +17,11 @@ post-edit status messages.
 constructed modes from the pinned ask, whole-file, edit-block, fenced
 edit-block, unified-diff, Patch, and shell prompt modules. Their production
 system instructions, examples, reminders, and shell policy interpolate the
-active fence. `diff-fenced` puts the filename after the opening fence and
+active fence. Interpolation is one left-to-right pass, so a substituted value is
+never rescanned, and `{{`/`}}` collapse to a single brace as they do in the
+`str.format` call upstream applies to these same strings; the whole-file example
+would otherwise ship `print(f"Hey {{name}}")`, which is not the Python upstream
+shows. `diff-fenced` puts the filename after the opening fence and
 language; ordinary `diff` puts it before the fence. Patch intentionally uses
 English, requires explicit approval for every suggested command and
 out-of-chat path, and tells models about its safer unique-match/transactional
