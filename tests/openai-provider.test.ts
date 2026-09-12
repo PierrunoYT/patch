@@ -110,7 +110,11 @@ describe("OpenAIProvider", () => {
     });
     const rateLimit = new OpenAIProvider({
       apiKey: "test",
-      fetch: async () => response(429, "slow down"),
+      fetch: async () => {
+        const result = response(429, "slow down");
+        result.headers.set("retry-after", "2.5");
+        return result;
+      },
     });
 
     const authenticationError = (await collect(authentication)).at(-1);
@@ -122,10 +126,12 @@ describe("OpenAIProvider", () => {
     });
     expect(JSON.stringify(authenticationError)).not.toContain(secret);
     expect(JSON.stringify(authenticationError)).not.toContain(endpoint);
-    expect((await collect(rateLimit)).at(-1)).toMatchObject({
+    expect((await collect(rateLimit)).at(-1)).toEqual({
       type: "error",
       kind: "rate-limit",
+      message: "OpenAI rate limit exceeded",
       retryable: true,
+      retryAfterMs: 2500,
     });
   });
 
@@ -206,7 +212,7 @@ describe("OpenAIProvider", () => {
       type: "error",
       kind: "provider",
       retryable: true,
-      message: expect.stringContaining("could not read"),
+      message: "The provider returned a response Patch could not read",
     });
   });
 });

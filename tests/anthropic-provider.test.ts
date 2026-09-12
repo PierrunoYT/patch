@@ -153,6 +153,59 @@ describe("AnthropicProvider", () => {
     expect(JSON.stringify(authenticationError)).not.toContain(endpoint);
   });
 
+  it("classifies bounded retry headers, server failures, and malformed streams", async () => {
+    const failing = (status: number, headers: HeadersInit = {}) =>
+      new AnthropicProvider({
+        apiKey: "test",
+        fetch: async () =>
+          new Response(
+            JSON.stringify({
+              type: "error",
+              error: { type: "api_error", message: "private response" },
+            }),
+            {
+              status,
+              headers: { "content-type": "application/json", ...headers },
+            },
+          ),
+      });
+
+    expect(
+      (await collect(failing(429, { "retry-after-ms": "999999" }))).at(-1),
+    ).toEqual({
+      type: "error",
+      kind: "rate-limit",
+      message: "Anthropic rate limit exceeded",
+      retryable: true,
+      retryAfterMs: 60_000,
+    });
+    for (const status of [500, 502, 503, 529, 408, 409]) {
+      expect((await collect(failing(status))).at(-1)).toMatchObject({
+        type: "error",
+        retryable: true,
+      });
+    }
+    expect((await collect(failing(400))).at(-1)).toMatchObject({
+      type: "error",
+      retryable: false,
+    });
+
+    const malformed = new AnthropicProvider({
+      apiKey: "test",
+      fetch: async () =>
+        new Response(
+          `event: content_block_delta\ndata: ${JSON.stringify({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: 42 } })}\n\n`,
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+    });
+    expect((await collect(malformed)).at(-1)).toEqual({
+      type: "error",
+      kind: "provider",
+      message: "The provider returned a response Patch could not read",
+      retryable: true,
+    });
+  });
+
   it("maps SDK timeout and caller cancellation without exposing request data", async () => {
     const waitForAbort: typeof fetch = async (_input, init) =>
       await new Promise<Response>((_resolve, reject) => {

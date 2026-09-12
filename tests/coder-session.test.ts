@@ -247,6 +247,7 @@ describe("CoderSession", () => {
             kind: "rate-limit",
             message: "slow down",
             retryable: true,
+            retryAfterMs: 400,
           },
         ],
       },
@@ -280,7 +281,7 @@ describe("CoderSession", () => {
 
     expect(result).toMatchObject({ response: "answer", reasoning: "think" });
     expect(result.usage).toMatchObject({ cost: 0.25, costSource: "provider" });
-    expect(delays).toEqual([10]);
+    expect(delays).toEqual([400]);
     expect(provider.requests).toHaveLength(2);
     expect(observed).toEqual([
       "error",
@@ -301,6 +302,59 @@ describe("CoderSession", () => {
         { role: "assistant", content: "answer", reasoning: "think" },
       ],
     });
+  });
+
+  it("bounds attempts, provider retry delays, and cancellation during backoff", async () => {
+    const root = await temporaryDirectory();
+    const controller = new AbortController();
+    const provider = new FakeProvider([
+      {
+        actions: [
+          {
+            type: "error",
+            kind: "provider",
+            message: "temporary",
+            retryable: true,
+            retryAfterMs: 60_000,
+          },
+        ],
+      },
+    ]);
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider,
+      strategy: new AskEditStrategy(),
+      retry: {
+        maxAttempts: 2,
+        initialDelayMs: 10,
+        maxDelayMs: 25,
+        sleep: async (milliseconds, signal) => {
+          expect(milliseconds).toBe(25);
+          controller.abort();
+          signal?.throwIfAborted();
+        },
+      },
+    });
+
+    await expect(
+      session.runTurn("question", { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(provider.requests).toHaveLength(1);
+    expect(session.snapshot()).toMatchObject({
+      phase: "interrupted",
+      messages: [],
+      partialResponse: "",
+    });
+
+    expect(
+      () =>
+        new CoderSession({
+          config: config(root, "ask"),
+          provider: new FakeProvider([]),
+          strategy: new AskEditStrategy(),
+          retry: { maxAttempts: 11 },
+        }),
+    ).toThrow(/1 through 10/u);
   });
 
   it("classifies context overflow and output truncation without adding history", async () => {

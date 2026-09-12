@@ -7,7 +7,11 @@ import type {
   CompletionRequest,
   ModelProvider,
 } from "./events.js";
-import { responseValidationEvent, transientByStatus } from "./errors.js";
+import {
+  responseValidationEvent,
+  retryAfterMilliseconds,
+  transientByStatus,
+} from "./errors.js";
 
 const OpenAIChunkSchema = z
   .object({
@@ -165,18 +169,20 @@ function errorEvent(error: unknown): CompletionEvent {
     };
   }
   if (error instanceof OpenAI.RateLimitError) {
+    const retryAfterMs = retryAfterMilliseconds(error.headers);
     return {
       type: "error",
       kind: "rate-limit",
-      message: error.message,
+      message: "OpenAI rate limit exceeded",
       retryable: true,
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     };
   }
   if (error instanceof OpenAI.APIConnectionTimeoutError) {
     return {
       type: "error",
       kind: "timeout",
-      message: error.message,
+      message: "OpenAI request timed out",
       retryable: true,
     };
   }
@@ -184,21 +190,42 @@ function errorEvent(error: unknown): CompletionEvent {
     return {
       type: "error",
       kind: "network",
-      message: error.message,
+      message: "OpenAI network request failed",
       retryable: true,
     };
   }
-  const message = error instanceof Error ? error.message : String(error);
-  if (/context (?:length|window)|maximum context/iu.test(message)) {
-    return { type: "error", kind: "context-window", message, retryable: false };
+  const unsafeMessage = error instanceof Error ? error.message : String(error);
+  if (/context (?:length|window)|maximum context/iu.test(unsafeMessage)) {
+    return {
+      type: "error",
+      kind: "context-window",
+      message: "OpenAI context window exceeded",
+      retryable: false,
+    };
   }
   const transient = transientByStatus(
     error instanceof OpenAI.APIError ? error.status : undefined,
   );
-  if (transient !== undefined) return { type: "error", message, ...transient };
+  if (transient !== undefined) {
+    const retryAfterMs =
+      error instanceof OpenAI.APIError
+        ? retryAfterMilliseconds(error.headers)
+        : undefined;
+    return {
+      type: "error",
+      message: "OpenAI provider request failed",
+      ...transient,
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+    };
+  }
   const invalid = responseValidationEvent(error);
   if (invalid !== undefined) return invalid;
-  return { type: "error", kind: "provider", message, retryable: false };
+  return {
+    type: "error",
+    kind: "provider",
+    message: "OpenAI provider request failed",
+    retryable: false,
+  };
 }
 
 export class OpenAIProvider implements ModelProvider {

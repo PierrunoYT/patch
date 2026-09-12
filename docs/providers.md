@@ -63,6 +63,20 @@ errors are matched by message and bypass retries.
 
 `CoderSession` owns the retry loop with bounded exponential backoff; the SDK
 clients are constructed with `maxRetries: 0` so attempts are not multiplied.
+The adapters parse only `retry-after-ms` or standard `Retry-After` seconds/HTTP
+dates from an SDK error. The resulting millisecond value is capped at 60 seconds;
+malformed and negative values are ignored, and no other response header is
+retained. The session waits for the greater of that value and its local backoff,
+subject to its own configured cap. Retry configuration permits at most ten
+attempts, defaults to three, and uses an abort-aware timer. Aider's pinned loop
+does not inspect `Retry-After` and blocks during sleep; Patch intentionally adds
+bounded header support and responsive cancellation.
+
+All production adapter errors use fixed messages by category. Raw SDK/server
+messages can reflect credentials, custom headers, private endpoints, prompts, or
+response fragments, so they are used only internally for classification and do
+not enter completion events or conversation history. Malformed stream events
+likewise emit a fixed message without schema values.
 
 Default tests use mocked Fetch responses and never require credentials or
 network access.

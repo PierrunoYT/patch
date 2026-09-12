@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired. Provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
@@ -722,8 +722,15 @@ above.
   the same factory/session path used by the executable and live contract.
 - [x] Preserve OpenAI-compatible usage events that arrive with or after finish.
   Exposing accurate usage/cost at the application boundary is still P2.
-- [ ] Merge executable model metadata into settings and classify transient 5xx/
-  validation failures consistently with the session retry policy.
+- [x] Merge executable model metadata into settings and classify transient 5xx/
+  validation failures consistently with the session retry policy. Catalog limits,
+  prices, and capabilities reach session budgeting and accounting. Both adapters
+  classify 408/409/429/5xx and malformed stream events consistently, discard raw
+  provider diagnostics, and carry only a parsed delay from `Retry-After`. Header
+  and local backoff delays cap at 60 seconds, attempts default to three and cannot
+  exceed ten, and cancellation during backoff prevents a subsequent request.
+  This intentionally hardens aider's unbounded blocking sleep while retaining its
+  transient categories.
 
 **Acceptance:** Phase 4's exit statement is backed by executable, opt-in tests
 rather than only mocked Fetch responses.
