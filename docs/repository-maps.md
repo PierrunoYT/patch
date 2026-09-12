@@ -50,20 +50,25 @@ Only the repository root counts: a `README.md` beside a source file describes
 that directory, not the project. Rank-only bare-file ordering remains
 incomplete.
 
-`TreeContextRenderer` provides syntax-parent headers and `⋮` elisions, but it is
-a narrow approximation rather than a generic `grep_ast.TreeContext` equivalent.
-The model budget is model-aware, ported from `Model.get_repo_map_tokens`:
-`repoMapTokens` gives 1,024 tokens by default and otherwise an eighth of the
-model's input limit, clamped to 1,024–4,096, so a larger context window earns a
-larger map without letting the map crowd out the conversation. A turn holding
+`TreeContextRenderer` ports the pinned repository-map configuration of
+`grep_ast.TreeContext` for every shipped grammar: it walks generic syntax scopes,
+adds the shortest parent header (capped at ten lines), omits top-of-file parent
+scopes, and emits one `⋮` marker per hidden region. Repository maps deliberately
+disable child context, margins, last-line context, LOI markers, and LOI padding.
+Exact Python and TypeScript fixtures plus the normalized upstream map hold this
+behavior level. The model budget is model-aware, ported from
+`Model.get_repo_map_tokens`: `repoMapTokens` gives 1,024 tokens by default and
+otherwise an eighth of the model's input limit, clamped to 1,024–4,096, so a
+larger context window earns a larger map without letting the map crowd out the
+conversation. A turn holding
 nothing in the chat gets a wider view only when its model has an input limit:
 the budget times `mulNoFiles` (8), capped at the context window less 4,096 tokens
 of headroom. This follows the upstream helper's default multiplier, not aider's
 CLI default of 2. Every advertised bundled model now has an input limit, so its
-window determines the base budget. Production fitting still counts one token per
-four characters rather than using the selected model's tokenizer, and no
-user-facing control exposes the budget. Strict prefix fitting is an intentional
-Patch difference.
+window determines the base budget. Production fitting uses the selected model's
+`tiktoken` encoding for recognized OpenAI models and a labeled four-character
+estimate for Anthropic, DeepSeek, and unknown models. No user-facing control
+exposes the budget. Strict prefix fitting is an intentional Patch difference.
 
 `RepositoryMap` composes extraction, ranking, and rendering. Its JSON tag cache
 uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.

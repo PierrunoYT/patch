@@ -31,7 +31,7 @@ function ranked(path: string, line: number, rank: number): RankedRepoMapTag {
 }
 
 describe("TreeContextRenderer", () => {
-  it("shows parent scopes and elides unrelated function bodies", async () => {
+  it("matches pinned parent-scope and elision behavior", async () => {
     const root = await fixture();
     await writeFile(
       join(root, "scope.py"),
@@ -42,10 +42,23 @@ describe("TreeContextRenderer", () => {
       await TreeContextRenderer.create(root)
     ).render("scope.py", new Set([4]));
 
-    expect(output).toContain("│class Greeter:");
-    expect(output).toContain("│    def target(self):");
-    expect(output).not.toContain("def first");
-    expect(output).toContain("⋮");
+    expect(output).toBe(
+      "⋮\n│    def first(self):\n⋮\n│    def target(self):\n⋮\n",
+    );
+  });
+
+  it("renders the shortest multiline header for a TypeScript scope", async () => {
+    const root = await fixture();
+    await writeFile(
+      join(root, "scope.ts"),
+      "export class Greeter {\n  first() { return 1; }\n  target(\n    value: number,\n  ): number {\n    return value;\n  }\n}\n",
+    );
+
+    const output = await (
+      await TreeContextRenderer.create(root)
+    ).render("scope.ts", new Set([2]));
+
+    expect(output).toBe("⋮\n│  target(\n│    value: number,\n⋮\n");
   });
 });
 

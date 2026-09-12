@@ -606,10 +606,12 @@ real-repository `tests/git-*.test.ts` suites.
   version-pinned npm grammar packages; never place them in `assets/`.
 - [x] Build the weighted reference graph and deterministic personalized
   PageRank.
-- [ ] Complete generic TreeContext-equivalent rendering. Model-derived map
-  budgets and strict prefix fitting are wired, but the production composition
-  still estimates one token per four characters and current normalized rendering
-  evidence covers one small Python scenario.
+- [x] Complete the pinned repository-map TreeContext configuration for shipped
+  grammars: generic syntax scopes, shortest parent headers capped at ten lines,
+  top-scope omission, and deterministic elisions without child/margin/last-line
+  context. Production fitting uses the selected tokenizer for recognized OpenAI
+  models and a documented conservative estimate elsewhere. Exact Python and
+  TypeScript fixtures supplement the normalized upstream map.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
   `always`, `files`, and `auto` refresh behavior.
 - [x] Add production fallback map requests. An empty selected-file map retries
@@ -623,11 +625,12 @@ real-repository `tests/git-*.test.ts` suites.
   context remain unpinned.
 
 **Exit (partial):** representative multi-language tag fixtures and packed-
-resource tests are in the Linux/macOS/Windows CI matrix, and production fallback
-requests cover selected, hinted-global, and unhinted-global maps. Generic
-TreeContext rendering, personalization/lexical-fallback fixtures, and broader
-executable provider-context evidence remain open. Cross-platform claims require
-a green matrix on the revision being claimed.
+resource tests are in the Linux/macOS/Windows CI matrix. Production fallback
+requests cover selected, hinted-global, and unhinted-global maps; shipped
+languages share the pinned generic parent-header renderer; and fitting uses the
+selected tokenizer where reliable. Personalization/lexical-fallback fixtures and
+broader executable provider-context evidence remain open. Cross-platform claims
+require a green matrix on the revision being claimed.
 
 **Evidence:** `tests/repo-map-compatibility.test.ts`,
 `tests/repository-map-cache.test.ts`, `scripts/package-smoke.mjs`, and the

@@ -79,6 +79,26 @@ export function conservativeMessageTokens(
   }, 0);
 }
 
+export function countTextTokens(
+  text: string,
+  model: ModelSettings,
+): TokenCount {
+  const name = encodingName(model);
+  if (name === undefined) {
+    return { tokens: Math.ceil(text.length / 4), method: "conservative" };
+  }
+  const encoding = get_encoding(name);
+  try {
+    return {
+      tokens: encoding.encode(text).length,
+      method: "model-tokenizer",
+      tokenizer: name,
+    };
+  } finally {
+    encoding.free();
+  }
+}
+
 export function countMessageTokens(
   messages: readonly ChatMessage[],
   model: ModelSettings,

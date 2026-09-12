@@ -98,7 +98,7 @@ import {
   mediaTypeForPath,
   type ReadOnlyMedia,
 } from "./media-context.js";
-import { countMessageTokens } from "../models/token-count.js";
+import { countMessageTokens, countTextTokens } from "../models/token-count.js";
 import type { ChatMessage } from "./messages.js";
 import { SerialTaskQueue } from "./serial-queue.js";
 import {
@@ -242,7 +242,7 @@ function createRepositoryMap(
   return RepositoryMap.create({
     root,
     maxTokens: repoMapTokens(model.maxInputTokens),
-    countTokens: (text) => Math.ceil(text.length / 4),
+    countTokens: (text) => countTextTokens(text, model).tokens,
     ...(model.maxInputTokens === undefined
       ? {}
       : { maxContextWindow: model.maxInputTokens }),
@@ -261,7 +261,7 @@ function createContextRepositoryMap(
   return RepositoryMap.create({
     root,
     maxTokens: expanded,
-    countTokens: (text) => Math.ceil(text.length / 4),
+    countTokens: (text) => countTextTokens(text, model).tokens,
     refresh: "always",
     mulNoFiles: 1,
     ...(model.maxInputTokens === undefined

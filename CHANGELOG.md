@@ -382,6 +382,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Port the pinned repository-map `TreeContext` configuration across shipped
+  grammars: generic syntax-parent scopes, shortest headers capped at ten lines,
+  top-scope omission, and deterministic elisions without child/margin/final-line
+  context. Production map fitting now uses the selected `tiktoken` encoding for
+  recognized OpenAI models and keeps a documented conservative estimate for
+  other providers.
+
 - Retry an empty selected-file repository map globally with the same filename and
   identifier hints, then globally without hints, stopping after the first
   non-empty result. All three production requests reuse the filtered tracked
