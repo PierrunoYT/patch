@@ -98,8 +98,8 @@ modes; assistant prefill is reached by capable models but is incomplete.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
 user-typed page to the chat as bounded, labeled text. Web session expiry,
-quotas, backpressure, reclamation, and structured partial-error responses remain
-unfinished. Worktree mutations are serialized in-process, not across separate
+quotas, bounded SSE replay/backpressure, reclamation, and structured errors are
+enforced. Worktree mutations are serialized in-process, not across separate
 Patch processes. See the unchecked items in
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
 the authoritative remaining scope.
