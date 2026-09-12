@@ -1,6 +1,7 @@
 // Adapted from aider/models.py at revision
 // 5dc9490bb35f9729ef2c95d00a19ccd30c26339c. Modified for Patch's initial
 // supported model catalog.
+// Licensed under the Apache License, Version 2.0.
 {
   "4o": "gpt-4o",
   sonnet: "claude-sonnet-4-6",

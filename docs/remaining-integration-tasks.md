@@ -73,7 +73,7 @@ unchanged result of the historical audit.
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Renderer fidelity and true Vi input remain incomplete. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; `/web` ingests one bounded user-named page; HTTP sessions expire and are reclaimed under explicit quotas; SSE replay and per-client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
+| Configuration/package/provenance | partial with direct-port evidence | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. A machine-readable ledger plus CI drift scan verifies every identified direct Aider source/resource path, revision, modification statement, and Apache line; packed-package evidence includes the ledger. Config-aware option breadth and provider-lifetime cleanup remain open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -906,9 +906,11 @@ they do not merely compile against an interface that has no implementation.
 - [ ] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
   “support” and “parity” for safe behavior reachable through a documented
   interface.
-- [ ] Establish a direct-derivation ledger and ensure every listed source or
-  shipped resource carries the required upstream path, revision, modification,
-  and Apache-2.0 provenance.
+- [x] Establish a direct-derivation ledger and ensure every identified direct
+  Aider source or shipped resource carries the required upstream path, revision,
+  modification, and Apache-2.0 provenance. The automated scan rejects marker,
+  ledger, per-file, and package drift while leaving generated fixtures on their
+  independent blob-hash contract.
 
 **Acceptance:** not met. The table and blockers above are the current
 source-audit result; application fixes and executable evidence remain required.
