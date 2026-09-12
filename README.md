@@ -117,6 +117,11 @@ CLI precedence as model, Git, file, edit, and check controls. Explicit `--no-*`
 forms disable configured interface booleans, and repository-root correction
 re-resolves all of them without retaining provisional dotenv values.
 
+Shutdown aborts and drains active model streams and subprocesses, closes
+providers created by model switches, awaits watcher and web session work, and
+finishes each history append without retaining file descriptors. Startup
+failures use the same ownership path and do not leave a constructed provider.
+
 The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
 includes offline `/help`, which now lists commands and performs bounded search
 over installed Patch documentation without provider or network access, and

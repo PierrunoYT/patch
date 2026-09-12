@@ -41,7 +41,8 @@ arbitration. Watch notifications are not appended to terminal input/chat history
 files.
 
 EOF, `/exit`, Ctrl-C, or SIGTERM stops the watcher, cancels pending/active watch
-submissions, and closes the concrete service after its session queue settles.
+submissions, awaits standalone submission callbacks and owned queue work, and
+closes the concrete service after its session queue settles.
 Watcher startup failure also closes the service. Watch cannot be combined with
 web or one-shot modes. This is local-filesystem support, not a guarantee of
 notifications on network filesystems; a native Node watch error stops watching
@@ -50,7 +51,8 @@ and is reported through `onError`.
 Evidence: `tests/interface-startup.test.ts` exercises real filesystem changes,
 Git ignores, shared history, question-only write suppression, selected-file edits,
 denied out-of-chat edits, and cleanup. `tests/watch-mode.test.ts` covers bounded
-reads, malformed/escaping paths, debounce, and cancellation. The packed startup
+reads, malformed/escaping paths, debounce, cancellation, and awaited active
+submission cleanup. The packed startup
 path and default dependency footprint are exercised by `scripts/package-smoke.mjs`.
 The pinned source is
 [`aider/watch.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/watch.py).

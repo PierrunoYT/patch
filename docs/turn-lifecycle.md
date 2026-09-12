@@ -96,6 +96,20 @@ undo's two Git commands need further recovery evidence. Approved/configured
 child commands are not sandboxed: they can change unrelated files or Git themselves, and Patch
 cannot promise to preserve that work against arbitrary command side effects.
 
+## Cleanup ownership
+
+Session close first aborts its lifecycle signal, which cancels active provider
+streams and child-process groups, then awaits the serial queue before closing
+providers created by model switches. The service owns and closes the startup
+provider after every session has drained. Temporary summary/commit providers
+close in `finally`. Watch mode owns its native watcher, debounce timer, and any
+standalone submissions; web mode owns its listener, connections, SSE clients,
+and application sessions. Terminal history owns no persistent descriptor: each
+append opens and closes its file in `finally`, and the input loop awaits each
+append. Normal exit, cancellation, and startup failure all follow the same
+outermost-to-innermost shutdown path. Cleanup failures are aggregated only after
+all independent resources have been attempted.
+
 ## Evidence
 
 `scripts/lifecycle-smoke.mjs` imports the clean-installed package's concrete

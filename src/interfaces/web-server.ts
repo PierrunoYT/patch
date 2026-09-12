@@ -92,11 +92,19 @@ export class LocalWebServer {
           });
     const sessions = [...this.#sessions.values()];
     this.#sessions.clear();
-    for (const session of sessions) {
+    const closingSessions = sessions.map(async (session) => {
       for (const client of session.clients) client.end();
       await session.application.close?.();
-    }
-    await closed;
+    });
+    const settled = await Promise.allSettled([...closingSessions, closed]);
+    const failures = settled.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (failures.length > 0)
+      throw new AggregateError(
+        failures.map(({ reason }) => reason),
+        "Unable to close web resources",
+      );
   }
 
   async #handle(

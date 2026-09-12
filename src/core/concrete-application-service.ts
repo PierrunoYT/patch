@@ -357,8 +357,10 @@ class ConcreteApplicationSession implements ApplicationSession {
   readonly #lifecycle = new AbortController();
   readonly #context: ApplicationContext;
   readonly #session: CoderSession;
+  readonly #ownedProviders = new Set<ModelProvider>();
   #profile: SessionProfile;
   #closed = false;
+  #closing: Promise<void> | undefined;
 
   constructor(context: ApplicationContext) {
     this.#context = context;
@@ -686,9 +688,28 @@ class ConcreteApplicationSession implements ApplicationSession {
     }, options.signal);
   }
 
-  close(): void {
+  close(): Promise<void> {
+    if (this.#closing !== undefined) return this.#closing;
     this.#closed = true;
     this.#lifecycle.abort(new Error("Application session closed"));
+    this.#closing = (async () => {
+      await this.queue.idle();
+      const providers = [...this.#ownedProviders];
+      this.#ownedProviders.clear();
+      const settled = await Promise.allSettled(
+        providers.map((provider) => provider.close?.()),
+      );
+      const failures = settled.filter(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      if (failures.length > 0)
+        throw new AggregateError(
+          failures.map(({ reason }) => reason),
+          "Unable to close session providers",
+        );
+    })();
+    return this.#closing;
   }
 
   async #dispatch(
@@ -1057,30 +1078,41 @@ class ConcreteApplicationSession implements ApplicationSession {
   ): Promise<void> {
     const model = { ...main, editFormat: format };
     const provider = this.#context.makeProvider(model);
-    const state = this.#session.snapshot();
-    const contents = await Promise.all(
-      [...state.editablePaths, ...state.readOnlyPaths].map((path) =>
-        snapshot(this.#context.files, path),
-      ),
-    );
-    const fence = selectFence(
-      contents.flatMap(({ content }) => (content === null ? [] : [content])),
-    ).fence;
-    const definition = createStrategy(format, fence);
-    const repositoryMap = await this.#selectRepositoryMap(main);
-    await this.#session.switch({
-      model,
-      provider,
-      strategy: definition.strategy,
-      fence,
-    });
-    this.#profile = {
-      main,
-      codeFormat,
-      definition,
-      fence,
-      ...(repositoryMap === undefined ? {} : { repositoryMap }),
-    };
+    const previous = this.#session.provider;
+    try {
+      const state = this.#session.snapshot();
+      const contents = await Promise.all(
+        [...state.editablePaths, ...state.readOnlyPaths].map((path) =>
+          snapshot(this.#context.files, path),
+        ),
+      );
+      const fence = selectFence(
+        contents.flatMap(({ content }) => (content === null ? [] : [content])),
+      ).fence;
+      const definition = createStrategy(format, fence);
+      const repositoryMap = await this.#selectRepositoryMap(main);
+      await this.#session.switch({
+        model,
+        provider,
+        strategy: definition.strategy,
+        fence,
+      });
+      if (provider !== this.#context.provider)
+        this.#ownedProviders.add(provider);
+      if (provider !== previous && this.#ownedProviders.delete(previous))
+        await previous.close?.();
+      this.#profile = {
+        main,
+        codeFormat,
+        definition,
+        fence,
+        ...(repositoryMap === undefined ? {} : { repositoryMap }),
+      };
+    } catch (error) {
+      if (provider !== previous && provider !== this.#context.provider)
+        await provider.close?.();
+      throw error;
+    }
   }
 
   /**
@@ -1120,7 +1152,15 @@ class ConcreteApplicationSession implements ApplicationSession {
         return text;
       },
     });
-    return summary.summarize(messages, signal);
+    try {
+      return await summary.summarize(messages, signal);
+    } finally {
+      if (
+        provider !== this.#context.provider &&
+        provider !== this.#session.provider
+      )
+        await provider.close?.();
+    }
   }
 
   async #selectRepositoryMap(
@@ -1415,10 +1455,6 @@ export class ConcreteApplicationService implements ApplicationService {
       (options.dependencies?.createProvider ?? createProvider)(model, {
         environment: bootstrap.environment,
       });
-    const provider = makeProvider({
-      ...models.main.settings,
-      editFormat: requestedFormat,
-    });
     const files = await FileSystemAdapter.create(root, {
       encoding: bootstrap.arguments.encoding,
     });
@@ -1441,6 +1477,12 @@ export class ConcreteApplicationService implements ApplicationService {
       models.main.settings.useRepoMap && repository !== undefined
         ? await createRepositoryMap(root, models.main.settings)
         : undefined;
+    // Provider construction is deliberately last: startup failures in path,
+    // filesystem, Git, strategy, or map setup cannot leak a client.
+    const provider = makeProvider({
+      ...models.main.settings,
+      editFormat: requestedFormat,
+    });
     return new ConcreteApplicationService({
       bootstrap,
       catalog,
@@ -1494,11 +1536,20 @@ export class ConcreteApplicationService implements ApplicationService {
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
-    for (const session of this.#sessions) session.close();
-    await Promise.all(
-      [...this.#sessions].map((session) => session.queue.idle()),
+    const settled = await Promise.allSettled(
+      [...this.#sessions].map((session) => session.close()),
     );
     this.#sessions.clear();
-    await this.#context.provider.close?.();
+    const provider = await Promise.allSettled([
+      this.#context.provider.close?.(),
+    ]);
+    const failures = [...settled, ...provider].filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (failures.length > 0)
+      throw new AggregateError(
+        failures.map(({ reason }) => reason),
+        "Unable to close application resources",
+      );
   }
 }

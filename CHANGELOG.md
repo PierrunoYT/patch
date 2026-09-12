@@ -15,6 +15,10 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Explicit cleanup ownership across startup and switched providers, temporary
+  weak-model streams, watchers, subprocesses, history writes, HTTP sessions,
+  SSE clients, and server sockets on normal exit, failure, and cancellation.
+
 - Staged YAML, `PATCH_*`, dotenv, and CLI configuration for input/chat
   histories, multiline input, notifications, watch mode, and the authenticated
   local web interface, including explicit CLI disable overrides and

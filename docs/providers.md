@@ -64,6 +64,22 @@ errors are matched by message and bypass retries.
 `CoderSession` owns the retry loop with bounded exponential backoff; the SDK
 clients are constructed with `maxRetries: 0` so attempts are not multiplied.
 
+## Lifetime ownership
+
+The concrete service owns the startup provider. Each application session owns
+providers created by `/model` or `/chat-mode`: a successful replacement closes
+the prior session-owned provider, a failed switch closes the unused candidate,
+and session shutdown aborts its stream, drains its queue, then closes its active
+session-owned provider. Temporary weak-model providers used for summarization or
+commit subjects close in `finally`; a shared/current provider is never closed by
+temporary-use cleanup. Service shutdown closes all sessions concurrently and
+then the startup provider, attempting every close even when one fails.
+
+Provider construction is the last composition-root step, so earlier startup
+failures cannot leak a client. This explicit ownership is Patch lifecycle
+hardening: pinned Aider relies on process/object lifetime and does not provide a
+corresponding async provider-close contract.
+
 Default tests use mocked Fetch responses and never require credentials or
 network access.
 

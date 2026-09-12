@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ConcreteApplicationService,
@@ -12,6 +12,71 @@ import {
 import { createProgram } from "../src/program.js";
 
 describe("application slash commands", () => {
+  it("closes replaced and active /model providers under session ownership", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-provider-lifetime-"));
+    const closed = [vi.fn(), vi.fn(), vi.fn()];
+    let created = 0;
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o"],
+      dependencies: {
+        createProvider: () => {
+          const provider = new FakeProvider([]);
+          return {
+            stream: provider.stream.bind(provider),
+            close: closed[created++]!,
+          };
+        },
+      },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "provider-lifetime",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+
+    await session.submit("/model gpt-4o-mini", options);
+    await session.submit("/model sonnet", options);
+    expect(closed[1]).toHaveBeenCalledOnce();
+    expect(closed[0]).not.toHaveBeenCalled();
+    expect(closed[2]).not.toHaveBeenCalled();
+
+    await session.close?.();
+    expect(closed[2]).toHaveBeenCalledOnce();
+    await service.close();
+    expect(closed[0]).toHaveBeenCalledOnce();
+  });
+
+  it("does not construct a provider before fallible startup validation finishes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-provider-startup-"));
+    await writeFile(join(root, "same.txt"), "same\n");
+    const createProvider = vi.fn(() => new FakeProvider([]));
+
+    await expect(
+      ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: [
+          "--no-git",
+          "--model",
+          "4o",
+          "--file",
+          "same.txt",
+          "--read-only",
+          "same.txt",
+        ],
+        dependencies: { createProvider },
+      }),
+    ).rejects.toThrow("both editable and read-only");
+    expect(createProvider).not.toHaveBeenCalled();
+  });
+
   it("dispatches selected-file, mode, process, clipboard, history, and exit effects", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-commands-"));
     await writeFile(join(root, "one.txt"), "one\n");

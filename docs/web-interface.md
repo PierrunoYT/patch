@@ -40,8 +40,9 @@ embedding approver. Malformed JSON and invalid messages return 400, oversized
 messages return 413, and internal errors return a generic 500.
 
 Ctrl-C/SIGTERM stops accepting connections, disconnects HTTP/SSE clients, closes
-sessions (aborting their work), drains the concrete service queues, and closes
-the provider. Startup bind failures also release the service. `DELETE
+all sessions concurrently (aborting and draining their work), and closes every
+owned provider. Cleanup attempts every session and socket even if one close
+fails. Startup bind failures also release the service. `DELETE
 /sessions/:id` closes an individual session; `/exit` in a message only closes
 that application session, not the server.
 

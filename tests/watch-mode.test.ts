@@ -166,4 +166,28 @@ describe("AI watch mode", () => {
     watcher.close();
     expect(reported.filter(([source]) => source === "submit")).toHaveLength(1);
   });
+
+  it("aborts and awaits an active standalone submission during close", async () => {
+    const directory = await root();
+    await writeFile(join(directory, "trigger.ts"), "// AI! do it\n");
+    let started!: () => void;
+    const active = new Promise<void>((resolve) => (started = resolve));
+    let settled = false;
+    const watcher = new AiWatchMode({
+      root: directory,
+      debounceMs: 1,
+      submit: async ({ signal }) => {
+        started();
+        await new Promise<void>((resolve) =>
+          signal.addEventListener("abort", () => resolve(), { once: true }),
+        );
+        settled = true;
+      },
+    });
+
+    watcher.notify("trigger.ts");
+    await active;
+    await watcher.close();
+    expect(settled).toBe(true);
+  });
 });
