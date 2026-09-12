@@ -42,6 +42,15 @@ link target survives only if it is an absolute `http(s)` URL, so no inline
 its text, and an unterminated tag ends the document rather than being read as
 content.
 
+Linear is a load-bearing property, not a description: the separating whitespace
+between pieces of content is held as counters and emitted before the next piece,
+so no step reads back the text produced so far. An earlier version rescanned the
+whole accumulated output on every block tag, which is quadratic — a 1.4 MB page,
+comfortably inside the 2 MB fetch cap, took over two minutes and could not be
+interrupted, because the conversion is synchronous and truncation happens after
+it. A test converts a document of that size and fails if the cost returns to
+quadratic.
+
 `loadPlaywrightRenderer()` remains an opt-in library helper for embedding
 callers. It renders already-fetched static HTML with every browser network
 request blocked; it does not navigate a page or load external

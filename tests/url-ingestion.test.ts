@@ -66,6 +66,24 @@ describe("HTML to readable text", () => {
       "&notareference; &#xD800; &#0;",
     );
   });
+
+  it("converts a page the size of the fetch cap in linear time", () => {
+    // The fetcher accepts up to 2 MB. The earlier converter rescanned all of the
+    // text it had produced on every block tag, so this document took minutes;
+    // the bound is loose enough to survive a slow machine and still fail any
+    // return to quadratic behavior.
+    const html = "<p>hello world this is a paragraph of text</p>".repeat(
+      32_000,
+    );
+    expect(html.length).toBeGreaterThan(1_000_000);
+    const started = Date.now();
+    const text = htmlToReadableText(html);
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(text.startsWith("hello world this is a paragraph of text\n")).toBe(
+      true,
+    );
+    expect(text.split("\n\n")).toHaveLength(32_000);
+  });
 });
 
 describe("/web ingestion", () => {

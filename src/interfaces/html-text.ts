@@ -146,29 +146,70 @@ function attributeOf(tag: string, name: string): string | undefined {
  * document.
  */
 export function htmlToReadableText(html: string): string {
-  let output = "";
+  // Separating whitespace is held as counters and emitted before the next piece
+  // of real content, so no step inspects the text produced so far. Scanning the
+  // accumulated output on every block tag made the conversion quadratic: a
+  // 1.4 MB page — well inside the fetcher's 2 MB cap — took over two minutes.
+  const chunks: string[] = [];
+  let content = false;
+  let pendingNewlines = 0;
+  let pendingSpace = false;
   let index = 0;
   let discarding: string | undefined;
   let listDepth = 0;
   const pendingHrefs: Array<string | undefined> = [];
 
+  /** Appends literal text, holding back whatever whitespace trails it. */
+  const push = (text: string) => {
+    let end = text.length;
+    let newlines = 0;
+    while (end > 0) {
+      const character = text[end - 1] ?? "";
+      if (!/\s/u.test(character)) break;
+      if (character === "\n") newlines += 1;
+      end -= 1;
+    }
+    const body = text.slice(0, end);
+    if (body !== "") {
+      if (content) {
+        if (pendingNewlines > 0) chunks.push("\n".repeat(pendingNewlines));
+        else if (pendingSpace) chunks.push(" ");
+      }
+      pendingNewlines = 0;
+      pendingSpace = false;
+      chunks.push(body);
+      content = true;
+    }
+    if (end === text.length || !content) return;
+    // Three or more blank lines collapse to two in the final pass, so holding
+    // more than two here would change nothing.
+    if (newlines > 0) {
+      pendingNewlines = Math.max(pendingNewlines, Math.min(newlines, 2));
+      pendingSpace = false;
+    } else if (pendingNewlines === 0) {
+      pendingSpace = true;
+    }
+  };
+
   const appendText = (text: string) => {
     if (discarding !== undefined) return;
     const decoded = decodeHtmlEntities(text).replace(/[ \t\r\f\v]+/gu, " ");
     if (decoded.trim() === "") {
-      if (decoded !== "" && !/\s$/u.test(output) && output !== "")
-        output += " ";
+      if (decoded !== "" && content && pendingNewlines === 0)
+        pendingSpace = true;
       return;
     }
-    output += /\s$/u.test(output) ? decoded.replace(/^\s+/u, "") : decoded;
+    push(
+      pendingSpace || pendingNewlines > 0 || !content
+        ? decoded.replace(/^\s+/u, "")
+        : decoded,
+    );
   };
   const newline = (blank: boolean) => {
     if (discarding !== undefined) return;
-    output = output.replace(/[ \t]+$/u, "");
-    if (output === "") return;
-    const trailing = /\n*$/u.exec(output)?.[0].length ?? 0;
-    const wanted = blank ? 2 : 1;
-    if (trailing < wanted) output += "\n".repeat(wanted - trailing);
+    if (!content) return;
+    pendingNewlines = Math.max(pendingNewlines, blank ? 2 : 1);
+    pendingSpace = false;
   };
 
   while (index < html.length) {
@@ -210,29 +251,30 @@ export function htmlToReadableText(html: string): string {
     }
     if (name === "li" && !closing) {
       newline(false);
-      output += `${"  ".repeat(Math.max(0, listDepth - 1))}- `;
+      push(`${"  ".repeat(Math.max(0, listDepth - 1))}- `);
       continue;
     }
     if (/^h[1-6]$/u.test(name) && !closing) {
       newline(true);
-      output += `${"#".repeat(Number(name.slice(1)))} `;
+      push(`${"#".repeat(Number(name.slice(1)))} `);
       continue;
     }
     if (name === "a" && !closing) {
       const href = readableHref(attributeOf(tag, "href"));
-      if (href !== undefined) output += "[";
+      if (href !== undefined) push("[");
       pendingHrefs.push(href);
       continue;
     }
     if (name === "a" && closing) {
       const href = pendingHrefs.pop();
-      if (href !== undefined) output += `](${href})`;
+      if (href !== undefined) push(`](${href})`);
       continue;
     }
     if (BLOCK.has(name)) newline(SPACED.has(name));
   }
 
-  return output
+  return chunks
+    .join("")
     .split("\n")
     .map((line) => line.replace(/[ \t]+$/u, ""))
     .join("\n")

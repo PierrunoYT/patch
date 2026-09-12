@@ -380,6 +380,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Made `htmlToReadableText` linear, as its documentation already claimed. It
+  rescanned all of the text produced so far on every block tag, so `/web` on an
+  ordinary large page blocked the session for minutes: 1.4 MB took 136 seconds
+  and now takes 26 milliseconds. Separating whitespace is held as counters and
+  emitted before the next piece of content instead. Output is unchanged, checked
+  against the previous implementation over 20,000 generated documents.
+
 - Anchored unified-diff application to line boundaries. A search side that
   carries a `\ No newline at end of file` marker has no trailing newline, and
   plain substring matching applied it inside a longer line: applying `old` to
