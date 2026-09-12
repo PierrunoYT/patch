@@ -86,6 +86,15 @@ reaches both file context and the map; a transient Git failure falls back to the
 startup inventory instead of failing the turn. Aider's broader fallback map
 requests are still absent.
 
+The private production context workflow is the one deliberate refresh override.
+It creates a dedicated `always` map, multiplies the model-derived base budget by
+eight (bounded by model context headroom), and disables a second empty-chat
+multiplier. Every convergence pass sets `forceRefresh`, supplies the current
+complete provisional file set as chat paths, and preserves mentioned paths and
+identifier hints from the original request. This ports `context_coder.py`'s
+expanded/always behavior without weakening Patch's filtered tracked inventory,
+containment checks, or strict prefix fitting.
+
 The pinned exporter compares raw tags, definition order, and normalized
 rendering for one two-file Python scenario. It also captures important-root-file
 selection and one source-backed tag sample for every shipped language entry.

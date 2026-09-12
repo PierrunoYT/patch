@@ -22,6 +22,18 @@ export interface ContextSelectionResult {
   readonly converged: boolean;
 }
 
+export class ContextSelectionConvergenceError extends Error {
+  override readonly name = "ContextSelectionConvergenceError";
+  readonly iterations: number;
+
+  constructor(iterations: number) {
+    super(
+      `Context selection did not converge after ${String(iterations)} iterations`,
+    );
+    this.iterations = iterations;
+  }
+}
+
 export async function selectContextFiles(
   session: CoderSession,
   userInput: string,

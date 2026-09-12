@@ -160,6 +160,16 @@ regardless of response order. It defaults to three iterations and reports when
 the bound, rather than convergence, ended selection. Cancellation is forwarded
 to every provider turn and no filesystem state changes during selection.
 
-This selection loop is also helper-only. It does not replace the concrete
-session's selected paths or force/rebuild repository-map context between
-iterations.
+`ApplicationSession.selectContext` now composes that behavior through the
+concrete production prompt/provider path. It starts from the parent's complete
+editable set, carries current history and read-only files, and gives every pass
+a force-refreshed repository map whose base budget is expanded by the pinned
+empty-file multiplier. Map ranking keeps path and identifier hints from the
+original request even when later turns use the fixed retry instruction.
+
+Convergence compares complete sets without order sensitivity. Only a stable set
+can reach the parent, where every newly selected file is rechecked for root
+containment and ignore policy and requires the existing path-approval callback.
+All approvals complete before one `setSelectedPaths` call, so rejection,
+cancellation, or typed bounded non-convergence cannot partially alter the
+parent. Read-only paths are retained and excluded from editable candidates.

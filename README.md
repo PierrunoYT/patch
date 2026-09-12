@@ -111,8 +111,9 @@ non-ignored source. Candidates are refreshed on each Tab press;
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
 `$EDITOR`, and `/run --interactive` hands the terminal to one approved command
 through the optional `node-pty` package. `--vim` is refused rather than ignored;
-Vi modal editing is not implemented. Architect/context/cache/media helpers are not constructed
-modes; assistant prefill is reached by capable models but is incomplete.
+Vi modal editing is not implemented. Architect and context are private
+application workflows, not public modes; cache/media helpers remain
+unintegrated, and assistant prefill is reached by capable models but incomplete.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
 user-typed page to the chat as bounded, labeled text. Web session expiry,
@@ -241,12 +242,16 @@ configured editor model/parser with editor-only prompts, no repository map, no
 shell commands, and fresh history. `ApplicationSession.runArchitect` now obtains
 a read-only proposal, requires an explicit acceptance callback, then performs
 that handoff and reconciles cost, commit, selected paths, and final architect
-history. Context convergence remains unintegrated.
+history. `ApplicationSession.selectContext` runs the private context analyst to
+bounded convergence, force-refreshing an expanded repository map with original
+identifier hints on every pass. A stable complete set replaces editable files
+only after all newly selected paths are approved; cancellation, denial, or
+non-convergence leaves the parent selection unchanged.
 Assistant-prefill continuation is reached inside production `CoderSession` for
 capable models but is not wire-compatible for all advertised routes.
 `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore not
 edit-format schema values. The local `/help` command is separate; architect and
-context use private orchestration identities only inside their helpers.
+context use private orchestration identities only through application methods.
 
 ## Technology direction and references
 

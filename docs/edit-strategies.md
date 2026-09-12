@@ -33,6 +33,14 @@ selected files, and repository context, requires explicit acceptance of its
 proposal, and only then invokes the fresh editor. No architect output is parsed
 as edits or shell commands.
 
+Context is likewise private and read-only. `ApplicationSession.selectContext`
+uses the pinned analyst prompt and retry reminder through the real provider
+path, replacing the provisional complete file set between bounded passes. The
+stable result is not an edit batch: containment, ignore filtering, and approval
+for every newly selected path complete before the parent selection changes.
+Oscillation raises a typed error rather than silently accepting the final pass,
+an intentional hardening over pinned aider's last-reflection behavior.
+
 ## Ask
 
 `AskEditStrategy` ports aider's

@@ -54,6 +54,10 @@ dated parity audits for revision-specific evidence.
   histories, multiline input, notifications, watch mode, and the authenticated
   local web interface, including explicit CLI disable overrides and
   repository-root correction.
+- Application-level bounded context selection with the pinned analyst prompt,
+  forced map refresh, an expanded initial map budget, original-request
+  identifier hints, complete editable-set replacement, explicit approval for
+  newly selected paths, and atomic cancellation/non-convergence failure.
 - Application-level architect proposal and editor handoff with explicit user
   acceptance. The architect is read-only, denial never constructs an editor,
   accepted edits use a fresh editor, and selected paths, usage cost, commit
