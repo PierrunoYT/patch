@@ -15,6 +15,10 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- A bounded local `/report [title]` issue draft with allowlisted Patch, Node.js,
+  OS, architecture, and Git versions. The optional title is visibly marked as
+  user input; unavailable or malformed metadata is omitted, and no diagnostics,
+  browser, upload, provider, or network path is present.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

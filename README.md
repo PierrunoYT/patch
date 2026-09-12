@@ -115,8 +115,11 @@ The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2
 includes offline `/help`, which now lists commands and performs bounded search
 over installed Patch documentation without provider or network access, and
 `/settings`, which displays only allowlisted effective/current values without
-raw configuration or credentials. It also selects a local reviewable `/report`
-draft for implementation; **that slash command is not available yet**.
+raw configuration or credentials. `/report [title]` prints a bounded local issue
+draft containing only allowlisted Patch, Node.js, OS, architecture, and Git
+versions. The optional title is visibly identified as user-supplied; no paths,
+chat, source, environment, diagnostics, browser, upload, provider, or network are
+involved.
 Browser GUI and CLI voice UX are deferred. Built-in analytics, automatic
 provider/model onboarding and OAuth, and update checks/release-note prompts are
 non-goals: configuration stays explicit, updates stay user-managed, and release

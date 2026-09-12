@@ -7,9 +7,9 @@ This ports the dispatch boundary from
 [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203)
 without copying aider's stateful Python command object.
 
-The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/settings`, `/ls`,
-`/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`,
-`/undo`, `/copy`, `/paste`, and `/exit`.
+The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/settings`,
+`/report`, `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`,
+`/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -34,6 +34,15 @@ or credentials, and it never partially masks secrets. Display labels are
 control-free and bounded. The command performs no provider request and its
 packed-executable and secret-bearing interface tests cover terminal and history
 output.
+
+`/report [title]` prints a local issue draft for the user to review and copy. Its
+complete metadata allowlist is the installed Patch version, Node.js version, OS
+name and release, architecture, and Git version; missing or malformed values are
+shown as unavailable. The optional title is limited to 160 control-free
+characters and is visibly labeled and JSON-quoted as user-supplied text. Paths,
+chat, source, environment, credentials, and raw errors are not inputs to the
+renderer. Unlike pinned aider's `report.py`, Patch never opens a browser or
+constructs an upload or issue URL, and it makes no provider or network request.
 
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:

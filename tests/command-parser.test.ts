@@ -12,6 +12,11 @@ describe("parseCommand", () => {
     ["/read-only README.md", { type: "read-only", paths: ["README.md"] }],
     ["/help", { type: "help" }],
     ["/help repository map", { type: "help", query: "repository map" }],
+    ["/report", { type: "report" }],
+    [
+      "/report Unexpected failure",
+      { type: "report", title: "Unexpected failure" },
+    ],
     ["/settings", { type: "settings" }],
     ["/ls", { type: "ls" }],
     ["/clear", { type: "clear" }],
@@ -61,6 +66,15 @@ describe("parseCommand", () => {
       /at most 256/u,
     );
     expect(() => parseCommand("/help unsafe\u0000query")).toThrow(
+      /control characters/u,
+    );
+  });
+
+  it("bounds and validates local report titles", () => {
+    expect(() => parseCommand(`/report ${"x".repeat(161)}`)).toThrow(
+      /at most 160/u,
+    );
+    expect(() => parseCommand("/report unsafe\u001btitle")).toThrow(
       /control characters/u,
     );
   });

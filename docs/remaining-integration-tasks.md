@@ -71,7 +71,7 @@ unchanged result of the historical audit.
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
+| Commands/terminal | partial | Nineteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, command outcomes, local help, safe settings, and a bounded local report draft are wired. Combined ancillary packed-executable evidence and exhaustive advertised-command effects remain open. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
@@ -466,11 +466,19 @@ decision or one command does not establish release readiness.
   plus post-startup model/mode switches, asserting full secrets and suffixes are
   absent from terminal output, both histories, and provider requests. Package
   smoke also dispatches `/settings` from the installed executable.
-- [ ] Implement `/report` as a bounded local, reviewable draft with allowlisted
+- [x] Implement `/report` as a bounded local, reviewable draft with allowlisted
   version metadata and a user-supplied title. Test unavailable Git metadata,
   oversized/control-character input, and exclusion of credentials, paths, chat,
   source, environment, and raw diagnostics. No browser, upload, or automatic
   provider turn; user-supplied text must be visibly identified for review.
+  `/report [title]` now renders only validated Patch, Node.js, OS, architecture,
+  and Git versions; unavailable or malformed metadata becomes `unavailable`.
+  Titles are limited to 160 control-free characters and visibly JSON-quoted as
+  user input. Parser, renderer, and application tests cover malformed metadata,
+  unavailable Git, cancellation, secret/path exclusion, no provider use, and
+  unchanged chat history. Unlike pinned `aider/report.py`, no browser, issue URL,
+  upload, provider, or network path exists. Combined packed execution remains
+  the next unchecked item.
 - [ ] Verify all three through executable dispatch and packed installation,
   including queued commands, cancellation, and terminal sanitization, without
   weakening write/process approval. Update command completion, README, parity

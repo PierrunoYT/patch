@@ -17,6 +17,11 @@ import {
 import type { CommandEffect } from "../commands/effects.js";
 import { renderHelp } from "../commands/help.js";
 import { parseCommand } from "../commands/parse.js";
+import {
+  renderReport,
+  resolveReportMetadata,
+  type ReportMetadata,
+} from "../commands/report.js";
 import { renderSettings } from "../commands/settings.js";
 import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
 import { createStrategy, type StrategyDefinition } from "../edits/registry.js";
@@ -101,6 +106,8 @@ export interface ConcreteApplicationDependencies {
   ) => Promise<FetchedUrl>;
   readonly readClipboard?: () => Promise<string>;
   readonly writeClipboard?: (text: string) => Promise<void>;
+  /** Test/embedder override; production resolves only the report allowlist. */
+  readonly reportMetadata?: (signal?: AbortSignal) => Promise<ReportMetadata>;
 }
 
 export interface ConcreteApplicationOptions extends BootstrapOptions {
@@ -139,6 +146,7 @@ interface ApplicationContext {
   readonly makeProvider: (model: ModelSettings) => ModelProvider;
   readonly readClipboard: () => Promise<string>;
   readonly writeClipboard: (text: string) => Promise<void>;
+  readonly reportMetadata: (signal?: AbortSignal) => Promise<ReportMetadata>;
 }
 
 /**
@@ -779,6 +787,13 @@ class ConcreteApplicationSession implements ApplicationSession {
         );
       case "help":
         return result(await renderHelp(effect.query));
+      case "report":
+        return result(
+          renderReport(
+            await this.#context.reportMetadata(options.signal),
+            effect.title,
+          ),
+        );
       case "settings": {
         const bootstrap = this.#context.bootstrap;
         return result(
@@ -1456,6 +1471,8 @@ export class ConcreteApplicationService implements ApplicationService {
       readClipboard: options.dependencies?.readClipboard ?? readClipboardText,
       writeClipboard:
         options.dependencies?.writeClipboard ?? writeClipboardText,
+      reportMetadata:
+        options.dependencies?.reportMetadata ?? resolveReportMetadata,
       ...(repositoryMap === undefined ? {} : { repositoryMap }),
       ...(options.dependencies?.approvePath === undefined
         ? {}

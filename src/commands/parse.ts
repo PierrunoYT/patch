@@ -30,6 +30,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "model",
   "paste",
   "read-only",
+  "report",
   "run",
   "settings",
   "test",
@@ -55,6 +56,16 @@ function optionalHelpQuery(argument: string): string | undefined {
   if (argument.length > 256 || /[\p{Cc}\p{Cf}]/u.test(argument)) {
     throw new CommandParseError(
       "/help query must be at most 256 characters without control characters",
+    );
+  }
+  return argument;
+}
+
+function optionalReportTitle(argument: string): string | undefined {
+  if (argument === "") return undefined;
+  if (argument.length > 160 || /[\p{Cc}\p{Cf}]/u.test(argument)) {
+    throw new CommandParseError(
+      "/report title must be at most 160 characters without control characters",
     );
   }
   return argument;
@@ -125,6 +136,11 @@ export function parseCommand(input: string): CommandEffect {
     case "help": {
       const query = optionalHelpQuery(argument);
       effect = { type: "help", ...(query === undefined ? {} : { query }) };
+      break;
+    }
+    case "report": {
+      const title = optionalReportTitle(argument);
+      effect = { type: "report", ...(title === undefined ? {} : { title }) };
       break;
     }
     case "ls":

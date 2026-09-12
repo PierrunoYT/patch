@@ -293,6 +293,80 @@ describe("application slash commands", () => {
     await service.close();
   });
 
+  it("renders a local report draft from only allowlisted metadata", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-report-"));
+    const provider = new FakeProvider([]);
+    const secret = "report-secret-3f6ab2";
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: { PRIVATE_TOKEN: secret },
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: {
+        provider,
+        reportMetadata: async () => ({
+          patchVersion: "0.0.0",
+          nodeVersion: "22.1.0",
+          platform: "linux",
+          release: "6.1.0",
+          architecture: "x64",
+        }),
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "report",
+    });
+    const result = (await session.submit("/report Failure in selected file", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    })) as { response: string };
+
+    expect(result.response).toContain(
+      'User-supplied title (review carefully): "Failure in selected file"',
+    );
+    expect(result.response).toContain("- Git: unavailable");
+    expect(result.response).toContain(
+      "Nothing was uploaded or opened automatically.",
+    );
+    expect(result.response).not.toContain(root);
+    expect(result.response).not.toContain(secret);
+    expect(provider.requests).toHaveLength(0);
+    expect(await session.snapshot()).toMatchObject({ messages: [] });
+  });
+
+  it("cancels report metadata collection without producing a draft", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-report-cancel-"));
+    const controller = new AbortController();
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: {
+        provider: new FakeProvider([]),
+        reportMetadata: (signal) =>
+          new Promise((_resolve, reject) => {
+            signal?.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            });
+          }),
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "report-cancel",
+    });
+    const pending = session.submit("/report", {
+      signal: controller.signal,
+      emit: () => undefined,
+    });
+    controller.abort(new Error("cancel report"));
+
+    await expect(pending).rejects.toThrow(/cancel report/u);
+    expect(await session.snapshot()).toMatchObject({ messages: [] });
+  });
+
   it("shows current safe settings after switches without disclosing configuration secrets", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-command-settings-"));
     const apiKey = "settings-api-secret-3e7270";
