@@ -9,7 +9,20 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { fileURLToPath, URL } from "node:url";
+import { fileURLToPath, pathToFileURL, URL } from "node:url";
+
+// `.cmd` shims force `shell: true` on Windows, and a shell command line is one
+// string: an argument holding a space would otherwise split into two. Quote the
+// arguments that need it rather than dropping down to the shim's target script.
+const useShell = process.platform === "win32";
+const shellArguments = (values) =>
+  useShell
+    ? values.map((value) =>
+        /[\s"^&|<>()]/u.test(value)
+          ? `"${value.replaceAll('"', '""')}"`
+          : value,
+      )
+    : values;
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "patch-package-"));
@@ -90,9 +103,9 @@ try {
     ".bin",
     process.platform === "win32" ? "patch.cmd" : "patch",
   );
-  const help = execFileSync(executable, ["--help"], {
+  const help = execFileSync(executable, shellArguments(["--help"]), {
     encoding: "utf8",
-    shell: process.platform === "win32",
+    shell: useShell,
   });
 
   if (!help.includes("Usage: patch [options]")) {
@@ -129,7 +142,14 @@ try {
   // must close the watcher; no provider request is needed for these commands.
   const interactive = execFileSync(
     executable,
-    ["--watch-files", "--no-git", "--model", "4o", "--edit-format", "ask"],
+    shellArguments([
+      "--watch-files",
+      "--no-git",
+      "--model",
+      "4o",
+      "--edit-format",
+      "ask",
+    ]),
     {
       cwd: consumerDirectory,
       env: {
@@ -140,7 +160,7 @@ try {
       },
       input: "/help command\n/settings\n/report Packed installation\n/exit\n",
       encoding: "utf8",
-      shell: process.platform === "win32",
+      shell: useShell,
       timeout: 15000,
     },
   );
@@ -183,12 +203,12 @@ try {
     STARTUP_SECRET: "packed-startup-secret-42c913",
   };
   const runSettings = (args, environment = precedenceEnvironment) =>
-    execFileSync(executable, ["--watch-files", ...args], {
+    execFileSync(executable, shellArguments(["--watch-files", ...args]), {
       cwd: precedenceRoot,
       env: environment,
       input: "/settings\n/exit\n",
       encoding: "utf8",
-      shell: process.platform === "win32",
+      shell: useShell,
       timeout: 15000,
     });
   const configOnly = runSettings(["--config", configuration], {
@@ -313,11 +333,11 @@ try {
     USERPROFILE: precedenceRoot,
     OPENAI_API_KEY: "not-a-credential",
     NODE_OPTIONS:
-      `${process.env.NODE_OPTIONS ?? ""} --import=${fakeProvider}`.trim(),
+      `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(fakeProvider).href}`.trim(),
   };
   const oneShot = execFileSync(
     executable,
-    [
+    shellArguments([
       "--no-git",
       "--model",
       "4o",
@@ -325,12 +345,12 @@ try {
       "ask",
       "--message",
       "one shot",
-    ],
+    ]),
     {
       cwd: precedenceRoot,
       env: fakeEnvironment,
       encoding: "utf8",
-      shell: process.platform === "win32",
+      shell: useShell,
       timeout: 15000,
     },
   );
@@ -341,13 +361,20 @@ try {
   }
   const multiTurn = execFileSync(
     executable,
-    ["--watch-files", "--no-git", "--model", "4o", "--edit-format", "ask"],
+    shellArguments([
+      "--watch-files",
+      "--no-git",
+      "--model",
+      "4o",
+      "--edit-format",
+      "ask",
+    ]),
     {
       cwd: precedenceRoot,
       env: fakeEnvironment,
       input: "first turn\nsecond turn\n/exit\n",
       encoding: "utf8",
-      shell: process.platform === "win32",
+      shell: useShell,
       timeout: 15000,
     },
   );
@@ -359,7 +386,7 @@ try {
   }
   const malformed = spawnSync(
     executable,
-    [
+    shellArguments([
       "--no-git",
       "--model",
       "4o",
@@ -367,12 +394,12 @@ try {
       "ask",
       "--message",
       "malformed wire",
-    ],
+    ]),
     {
       cwd: precedenceRoot,
       env: fakeEnvironment,
       encoding: "utf8",
-      shell: process.platform === "win32",
+      shell: useShell,
       timeout: 15000,
     },
   );

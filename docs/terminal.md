@@ -29,7 +29,10 @@ uses `--message`, and another sends two lines plus `/exit` and rejects the secon
 request unless it contains the first user/assistant exchange. No socket,
 external network, or live credential is used. A malformed SSE run must exit
 nonzero and omit the fake's private sentinel; this is executable-path evidence,
-not a live-provider claim.
+not a live-provider claim. The preload is handed to `--import` as a `file://`
+URL, because Node's ESM loader rejects a bare Windows absolute path as an
+unsupported `c:` scheme; the smoke therefore runs on every CI platform, not
+only POSIX.
 
 Input acquisition can use an injected message handler for tests and embedding
 hosts. Without one, `createProgram` constructs `ConcreteApplicationService`

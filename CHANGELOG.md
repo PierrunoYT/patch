@@ -380,6 +380,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Ran the packed-binary provider smoke on Windows. The deterministic preload is
+  passed to `--import` as a `file://` URL, because Node's ESM loader rejects a
+  bare Windows absolute path as an unsupported `c:` scheme, and arguments that
+  contain a space are quoted for the `.cmd` shim's shell command line instead of
+  splitting into two arguments. `npm run smoke:package` previously failed on
+  every `windows-latest` run that reached the provider section.
+
 - Returned a structured, allowlisted HTTP recovery result when a turn fails
   after changing files or creating a commit. The response includes bounded safe
   relative paths, a validated commit ID, and command status metadata, but never
