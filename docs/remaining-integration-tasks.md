@@ -615,7 +615,7 @@ guarantees below remain unchecked where recovery or interactive policy is not
 implemented. See [turn lifecycle](turn-lifecycle.md) for pinned sources and
 intentional differences.
 
-- [ ] Refactor orchestration so every editing attempt executes in this order:
+- [x] Refactor orchestration so every editing attempt executes in this order:
   1. compose current context and stream the provider response;
   2. parse and dry-run resolve the full edit batch;
   3. reflect on parse or application diagnostics within the configured bound;
@@ -627,6 +627,10 @@ intentional differences.
   9. preview and approve each model-suggested shell command;
   10. run configured tests and optionally reflect; and
   11. finalize history, usage, changed paths, and commit state.
+  One deep-frozen attempt context carries the provider-visible snapshots and
+  authorization sets through the entire callback; each reflection captures a
+  fresh context. Configured failures reflect automatically within the bound,
+  intentionally replacing Aider's interactive per-failure question.
 - [x] Ensure lint and test commands observe the edited working tree, not an
   unapplied candidate.
 - [x] Decide and document rollback behavior for a filesystem failure between
@@ -665,11 +669,12 @@ deterministic tests; actual child execution is retained.
 
 **Precisely remaining unchecked R2 boundaries:**
 
-- The complete orchestration item: per-failure lint/test reflection choice
-  (currently automatic for explicitly configured checks) and complete
-  standalone-bin approval-driven acceptance. The successful installed-service
+- Standalone-bin approval acceptance is covered for the supported terminal
+  policy separately from the installed-service lifecycle smoke. Configured
+  lint/test reflection is deliberately automatic; there is no per-failure
+  choice to leave the immutable attempt sequence half-entered. The successful
   path finalizes history, usage, changed paths, and latest commit correctly, and
-  an interrupted turn whose edits survive now reconciles history and reports a
+  an interrupted turn whose edits survive reconciles history and reports a
   structured partial outcome.
 - Unrelated-work preservation across *all* failures: normal checkpoint,
   commit, failed checks, sampled cancellation, and undo preserve the unrelated

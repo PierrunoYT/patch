@@ -38,6 +38,9 @@ dated parity audits for revision-specific evidence.
 - A machine-readable ledger for all identified direct Aider source/resource
   derivations, with a full-suite drift check for local/upstream paths, the pinned
   revision, modification notices, Apache-2.0 evidence, and packed documentation.
+- An immutable per-attempt lifecycle context that binds provider-visible file
+  snapshots and authorization sets to parsing, resolution, writes, configured
+  checks/reflection, commits, and final accounting.
 - Explicit cleanup ownership across startup and switched providers, temporary
   weak-model streams, watchers, subprocesses, history writes, HTTP sessions,
   SSE clients, and server sockets on normal exit, failure, and cancellation.

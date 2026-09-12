@@ -32,7 +32,8 @@ important correctness, integration, and evidence gaps remain.
 
 ### Strong, production-wired areas
 
-- Serialized turns, edit approval, checkpointing, reflection, and cancellation.
+- Serialized turns with immutable per-attempt context, edit approval,
+  checkpointing, reflection, and cancellation.
 - Model/mode switching and weak-model history summarization.
 - Six constructed edit formats: `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
   and `patch`.

@@ -38,6 +38,13 @@ or bracket names cannot expand at that boundary. Commit-failure index
 restoration remains unresolved. A successful application records the final
 marker-bearing commit and returns the session to `waiting`.
 
+For composed turns, `CoderSession` deep-clones and freezes the application
+attempt context before constructing the provider request. The resulting
+candidate carries that same prompt, file snapshots, and editable/read-only sets
+to the application lifecycle callback. Reflection obtains a new context;
+transport retries retain the same one. Parsing and authorization therefore
+cannot accidentally observe a later mutable session snapshot.
+
 Multi-file writes are not transactionally rolled back after the first rename.
 Patch validates every snapshot and dry-runs every operation before the first
 mutation, and Git-enabled sessions create a checkpoint for dirty selected files,
