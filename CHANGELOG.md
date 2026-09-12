@@ -381,6 +381,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Took the approval prompt for a captured `/run` outside the worktree lock, as
+  interactive `/run` already did. Holding the lock across a question nobody has
+  answered yet blocked every other session sharing the worktree for as long as
+  the prompt stood. Only the execution holds the lock now.
+
 - Charged history summarization to the session. The summarizer consumed only
   text and error events and discarded usage, so the weak-model call every
   compacting turn pays for was invisible in the reported cost — the

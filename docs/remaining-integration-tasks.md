@@ -213,9 +213,14 @@ implementation tasks.
   region that observes or changes the worktree: the checkpoint/apply/commit/
   lint/command/test phase of a turn, each Git commit, each configured check,
   an approved `/run`, and the check-and-reset pair behind `/undo`. Streaming
-  stays outside the lock. Separate processes on one worktree remain ordered
-  only by Git's own index lock, which is documented as a limit rather than a
-  guarantee.
+  stays outside the lock, and so does the approval prompt for `/run`, captured
+  or interactive: a prompt waits on a person, and blocking every other session
+  until someone answers is worse than the race it would prevent. Two things do
+  hold the lock and are meant to — the apply transaction, whose model-suggested
+  commands are approved inside it because the transaction is atomic, and
+  generated commit messages, whose provider call sits between staging the diff
+  and committing it. Separate processes on one worktree remain ordered only by
+  Git's own index lock, which is documented as a limit rather than a guarantee.
 - [x] Apply one stateful sanitizer to all untrusted terminal output, not only
   PTY child output. `ControlSequenceSanitizer` now lives in `src/io/sanitize.ts`
   and is used by PTY output, `MarkdownStream` (one instance per stream, so a

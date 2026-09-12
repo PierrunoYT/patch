@@ -1366,17 +1366,30 @@ class ConcreteApplicationSession implements ApplicationSession {
       case "run": {
         if (effect.interactive === true)
           return this.#runInteractive(effect.command, options);
-        // An approved command may mutate the worktree.
+        // The preview and approval happen before the lock is taken, as they do
+        // for interactive `/run`: a prompt waits on a person, and holding the
+        // worktree lock across that stalls every other session on this worktree
+        // for as long as nobody answers. Only the execution, which may mutate
+        // the worktree, needs the lock.
+        let approved = false;
+        if (effect.command.trim() !== "" && !options.signal.aborted) {
+          options.emit({
+            type: "command-preview",
+            data: { command: effect.command },
+          });
+          approved =
+            (await this.#context.approveCommand?.(effect.command)) ?? false;
+        }
         const command = await this.#context.worktree.run(
           () =>
             executeModelCommand(
               effect.command,
               { root: this.#context.root, signal: options.signal },
               {
-                show: (command) =>
-                  options.emit({ type: "command-preview", data: { command } }),
-                approve: (command) =>
-                  this.#context.approveCommand?.(command) ?? false,
+                // Already shown and decided above; the execution path must not
+                // ask a second time.
+                show: () => undefined,
+                approve: () => approved,
               },
             ),
           options.signal,
