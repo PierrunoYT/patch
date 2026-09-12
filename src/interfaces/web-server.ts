@@ -71,6 +71,8 @@ export class LocalWebServer {
   readonly #options: LocalWebServerOptions;
   readonly #sessions = new Map<string, OwnedSession>();
   readonly #expired = new Map<string, string>();
+  /** Closes of reclaimed sessions, awaited by `close()` but by no request. */
+  readonly #reclaiming = new Set<Promise<void>>();
   readonly #reclaimer: NodeJS.Timeout;
   #server: Server | undefined;
   #closing = false;
@@ -94,10 +96,7 @@ export class LocalWebServer {
       Math.min(options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS, 60_000);
     if (!Number.isSafeInteger(interval) || interval <= 0)
       throw new Error("reclamationIntervalMs must be a positive integer");
-    this.#reclaimer = setInterval(
-      () => void this.#reclaimExpired().catch(() => undefined),
-      interval,
-    );
+    this.#reclaimer = setInterval(() => this.#reclaimExpired(), interval);
     this.#reclaimer.unref();
   }
 
@@ -175,7 +174,11 @@ export class LocalWebServer {
       for (const client of session.clients) client.response.end();
       await session.application.close?.();
     });
-    const settled = await Promise.allSettled([...closingSessions, closed]);
+    const settled = await Promise.allSettled([
+      ...closingSessions,
+      ...this.#reclaiming,
+      closed,
+    ]);
     const failures = settled.filter(
       (result): result is PromiseRejectedResult => result.status === "rejected",
     );
@@ -196,7 +199,7 @@ export class LocalWebServer {
     if (principal === undefined)
       return json(response, 401, { error: "Unauthorized" });
     try {
-      await this.#reclaimExpired();
+      this.#reclaimExpired();
       if (this.#closing)
         return json(response, 503, { error: "Server closing" });
       let url: URL;
@@ -256,6 +259,10 @@ export class LocalWebServer {
       }
       if (session.principal !== principal)
         return json(response, 404, { error: "Not found" });
+      // Any request its owner addresses to a session is use of that session, so
+      // the idle deadline moves. Reclamation already ran above, so this cannot
+      // revive a session that had expired before the request arrived.
+      session.expiresAt = this.#now() + this.#limits().sessionTtlMs;
 
       if (request.method === "GET" && operation === "events") {
         if (session.clients.size >= this.#limits().maxEventClientsPerSession)
@@ -339,7 +346,6 @@ export class LocalWebServer {
             "Pending message quota exceeded",
           );
         session.pendingMessages += 1;
-        session.expiresAt = this.#now() + this.#limits().sessionTtlMs;
         try {
           const body = await readJson(
             request,
@@ -359,6 +365,8 @@ export class LocalWebServer {
             emit: (event) => this.#emit(session, event),
           });
           this.#emit(session, { type: "complete", data: result });
+          // Measured from completion, not from when the request arrived: a turn
+          // can take longer than the idle deadline itself.
           session.expiresAt = this.#now() + this.#limits().sessionTtlMs;
           return json(response, 200, { result });
         } finally {
@@ -421,11 +429,22 @@ export class LocalWebServer {
       writeClient(session, client, payload, limits.maxClientQueueBytes);
   }
 
-  async #reclaimExpired(): Promise<void> {
+  /**
+   * Retires idle sessions. A session with a connected event stream is not idle:
+   * its client is waiting to be told something, and only message posts used to
+   * push the deadline out, so such a session was dropped mid-stream at the TTL.
+   *
+   * Nothing here is awaited by the request that triggers it. Closing an
+   * application waits for its queue to drain, which would otherwise put an
+   * unrelated request behind an expiring session's in-flight work.
+   */
+  #reclaimExpired(): void {
     const now = this.#now();
     const expired = [...this.#sessions.entries()].filter(
       ([, session]) =>
-        session.expiresAt <= now && session.pendingMessages === 0,
+        session.expiresAt <= now &&
+        session.pendingMessages === 0 &&
+        session.clients.size === 0,
     );
     for (const [id, session] of expired) {
       if (!this.#sessions.delete(id)) continue;
@@ -433,7 +452,11 @@ export class LocalWebServer {
       while (this.#expired.size > this.#limits().maxSessions)
         this.#expired.delete(this.#expired.keys().next().value as string);
       for (const client of session.clients) client.response.end();
-      await session.application.close?.();
+      const closing = Promise.resolve(session.application.close?.()).catch(
+        () => undefined,
+      );
+      this.#reclaiming.add(closing);
+      void closing.finally(() => this.#reclaiming.delete(closing));
     }
   }
 }

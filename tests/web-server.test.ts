@@ -215,6 +215,47 @@ describe("LocalWebServer", () => {
     ).toBe(201);
   });
 
+  it("keeps a session whose only client is holding the event stream", async () => {
+    let now = 1_000;
+    let closed = 0;
+    const applicationService: ApplicationService = {
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async () => ({}),
+        close: () => {
+          closed += 1;
+        },
+      }),
+    };
+    const { base } = await fixture(applicationService, {
+      now: () => now,
+      sessionTtlMs: 10,
+      reclamationIntervalMs: 60_000,
+    });
+    const { sessionId } = (await (
+      await request(base, "/sessions", "aliceToken", { method: "POST" })
+    ).json()) as { sessionId: string };
+
+    const controller = new AbortController();
+    const stream = await request(
+      base,
+      `/sessions/${sessionId}/events`,
+      "aliceToken",
+      { signal: controller.signal },
+    );
+    expect(stream.status).toBe(200);
+
+    // A client waiting to be told something is not an idle session. Only
+    // message posts used to move the deadline, so this one was dropped
+    // mid-stream at the TTL.
+    now = 1_011;
+    const alive = await request(base, `/sessions/${sessionId}`, "aliceToken");
+    expect(alive.status).toBe(200);
+    expect(closed).toBe(0);
+
+    controller.abort();
+  });
+
   it("bounds queued messages and SSE clients with stable quota errors", async () => {
     let release!: () => void;
     let entered!: () => void;

@@ -382,6 +382,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Stopped reclaiming an HTTP session that was in use. Only a message post moved
+  the idle deadline, so a client holding an event stream, or polling the session
+  snapshot, was dropped mid-stream at the TTL. Any request addressed to a session
+  now refreshes it, and a session with a connected event stream is not idle.
+  Reclamation no longer blocks the request that triggers it either: closing an
+  application waits for its queue to drain, which put unrelated requests behind
+  an expiring session's in-flight work.
+
 - Counted U+2028 and U+2029 as line-ending characters wherever output claims to
   be control-free. They are separators rather than controls, so they passed the
   `/settings` label filter, the `/report` title check, and the HTTP partial-path

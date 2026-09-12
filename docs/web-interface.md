@@ -74,9 +74,14 @@ cannot cross the HTTP boundary. Unexpected errors remain `{ "error": "Request
 failed" }`. SSE may already contain progress events; inspect the reported paths
 and repository before retrying.
 
-Use only with trusted local clients. A session expires after 30 idle minutes;
-active message work is not reclaimed, and completion resets its deadline.
-Reclamation closes its SSE clients and application session. Defaults allow 32
+Use only with trusted local clients. A session expires after 30 idle minutes.
+Idle means nothing is using it: any request its owner addresses to the session
+moves the deadline, active message work is never reclaimed, completion resets
+the deadline again because a turn can outlast it, and a session with a connected
+event stream is not idle at all — its client is waiting to be told something.
+Reclamation closes its SSE clients and application session, and no request waits
+for that close, so an expiring session's shutdown cannot delay an unrelated
+one. Defaults allow 32
 sessions total, eight per principal, four pending message requests and four SSE
 clients per session. The server retains at most 256 events and 256 KiB per
 session for `Last-Event-ID` replay, and at most 128 KiB queued behind each slow
