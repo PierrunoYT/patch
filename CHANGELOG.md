@@ -893,6 +893,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Recorded current external evidence for implementation revision `88adf8e5c`:
+  Node 22, Linux/macOS/Windows package jobs, and provisioned Linux/Windows PTY
+  jobs passed in CI run `34717847304`. Protected run `34720534293` executed but
+  skipped all seven live contracts because no provider secrets were configured;
+  it is not claimed as live-provider evidence.
 - Re-audited all Phase 0–9 checkboxes at Patch `bda2be474` against pinned aider
   `5dc9490b`. The new dated snapshot confirms production wiring for every checked
   item, corrects stale phase/status/evidence claims, and narrows the remaining

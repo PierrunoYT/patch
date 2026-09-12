@@ -133,10 +133,14 @@ claims.
   output cap, constructs the real factory through `ConcreteApplicationService`,
   and submits a real session turn. Deterministic full-path coverage runs without
   credentials in `tests/deepseek-provider.test.ts`.
-- [ ] **P2 — Close current-revision external evidence.** Obtain a green
-  Linux/macOS/Windows package run for the release revision, run the provisioned
-  PTY jobs, and successfully dispatch the protected provider workflow before
-  citing those claims.
+- [ ] **P2 — Close current-revision live-provider evidence.** CI run
+  [`34717847304`](https://github.com/PierrunoYT/patch/actions/runs/34717847304)
+  is green on implementation revision `88adf8e5c` for Node 22, Linux/macOS/
+  Windows package jobs, and provisioned Linux/Windows PTY jobs. Protected run
+  [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
+  checked out the same revision but skipped all seven live contracts because the
+  environment supplied no provider secrets. A successful credentialed protected
+  run remains required before citing live provider behavior.
 - [ ] **Deferred product scope — richer terminal rendering.** Computed edit
   hunks, Rich-style tables/lists/wrapping and unstable-tail rerendering, and true
   Vi input remain unscheduled and do not block the documented minimal terminal
@@ -1225,15 +1229,18 @@ cover:
 - [x] filtered ranked repository-map context through an actual installed-bin
   provider turn, including exclusion of a tracked `.aiderignore` match
   (`scripts/package-smoke.mjs`);
-- [ ] live provider contracts through catalog, factory, and session boundaries;
-- [ ] green Linux, macOS, and Windows package/platform jobs for the release
-  revision. Run
-  [`34618401395`](https://github.com/PierrunoYT/patch/actions/runs/34618401395)
-  on `baebd0e83a1f317b0aba48da174feae04a7b7e61` is historical green evidence for
-  all three `platform` jobs, not for the current audit revision. Any later claim
-  must cite its own run, not this one and not the workflow name;
+- [ ] credentialed live provider contracts through catalog, factory, and session
+  boundaries. Protected run
+  [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
+  on `88adf8e5c` skipped all seven contracts because no provider keys were
+  available;
+- [x] green Linux, macOS, and Windows package/platform jobs for implementation
+  revision `88adf8e5c` in run
+  [`34717847304`](https://github.com/PierrunoYT/patch/actions/runs/34717847304);
 - [x] default packed installation with no native/browser/audio dependency; and
-- [ ] explicitly provisioned PTY and optional-interface suites.
+- [x] explicitly provisioned PTY suites on Linux and Windows in run
+  `34717847304`, plus credential-free optional-interface loopback suites in the
+  Node 22 job.
 
 Record the exact test files/workflows next to each corrected phase exit. A green
 unit test for an exported helper is evidence for that helper, not for an

@@ -538,8 +538,12 @@ unchecked above; actual live evidence still depends on configured accounts and
 models.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
-`tests/anthropic-provider.test.ts`; opt-in `tests/live-provider.test.ts` via
-`.github/workflows/live-providers.yml`.
+`tests/anthropic-provider.test.ts`; deterministic full-path DeepSeek coverage in
+`tests/deepseek-provider.test.ts`; opt-in `tests/live-provider.test.ts` via
+`.github/workflows/live-providers.yml`. Manual run
+[`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
+on `88adf8e5c` skipped all seven contracts because no provider secrets were
+available, so it is workflow/skip evidence only.
 
 ### Phase 5 — Git, authorization, and commands (MVP)
 

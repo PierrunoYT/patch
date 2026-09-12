@@ -126,8 +126,12 @@ The DeepSeek live case resolves the advertised bundled model through
 `createProvider` through `ConcreteApplicationService`, and submits through a real
 application session. `tests/deepseek-provider.test.ts` repeats that complete
 catalog/factory/session shape with deterministic Fetch and no credentials. The
-protected case still requires a successful manually dispatched run before it is
-external evidence.
+protected case still requires a successful credentialed run before it is
+external evidence. Manual run
+[`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
+checked out `88adf8e5c` and completed successfully, but all seven contracts
+skipped because the protected environment supplied no provider keys. It proves
+workflow execution and secret-safe skipping, not provider behavior.
 
 ## Anthropic Messages
 
