@@ -6,6 +6,7 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -199,5 +200,36 @@ describe("RepositoryMap cache", () => {
     });
     expect(recovered).toContain("third_name");
     expect(map.skippedPaths).toEqual([]);
+  });
+
+  it("isolates a path that disappears after it was tagged", async () => {
+    const root = await fixture();
+    await writeFile(
+      join(root, "gone.py"),
+      "def vanishing_name():\n    return 2\n",
+    );
+    // Rendering happens repeatedly while the map is fitted to its budget, so
+    // removing the file from the first measurement lands between tagging, which
+    // already read it, and a later render, which cannot.
+    let measured = 0;
+    const map = await RepositoryMap.create({
+      root,
+      maxTokens: 100,
+      refresh: "files",
+      countTokens: (text) => {
+        if (measured++ === 0) rmSync(join(root, "gone.py"));
+        return Math.ceil(text.length / 4);
+      },
+    });
+
+    const rendered = await map.getMap({
+      chatPaths: [],
+      otherPaths: ["defs.py", "use.py", "gone.py"],
+    });
+
+    // The turn asked for advisory context, so losing one file drops that file
+    // rather than the map — and rather than the turn.
+    expect(rendered).toContain("first_name");
+    expect(map.skippedPaths).toEqual(["gone.py"]);
   });
 });

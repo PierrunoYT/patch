@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Isolated repository-map read failures during rendering, not only during
+  tagging. The map is rendered repeatedly while it is fitted to its budget, so a
+  path deleted after it was tagged threw out of `getMap` and failed a turn that
+  had only asked for advisory context — the opposite of the documented
+  behavior. Such a path is now dropped and reported by `skippedPaths`.
+
 - Stopped the edit preview from printing a line that is not in the file: an
   empty side split into one empty line, so a create showed a phantom `-`, a
   delete a phantom `+`, and content ending in a newline one of each.

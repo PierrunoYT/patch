@@ -68,7 +68,10 @@ Strict prefix fitting is an intentional Patch difference.
 uses mtime, size, and SHA-256 and falls back to memory after cache-file failures.
 Per-file read and parser failures are isolated: the map is advisory context, so
 a path that cannot be read or parsed is dropped from the map and reported by
-`skippedPaths` rather than propagating out of `getMap`. A path that becomes
+`skippedPaths` rather than propagating out of `getMap`. That covers rendering as
+well as tagging — the map is rendered several times while it is fitted to its
+budget, so a file can disappear after it was tagged and before its body is
+read. A path that becomes
 readable again is removed from that set on the next construction.
 
 The cache file records an extractor fingerprint alongside its entries, and tags

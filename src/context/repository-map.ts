@@ -179,6 +179,7 @@ export class RepositoryMap {
       chatPaths,
       maxTokens: this.#budget(request.chatPaths),
       countTokens: this.#countTokens,
+      onUnreadable: (path) => this.#skipped.add(path),
     });
     this.#lastProcessingMs = performance.now() - started;
     this.#maps.set(key, map);

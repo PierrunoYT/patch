@@ -18,6 +18,8 @@ export interface RepoMapRenderOptions {
   readonly chatPaths?: ReadonlySet<string>;
   readonly maxTokens: number;
   readonly countTokens: TextTokenCounter;
+  /** Told about a path whose body could not be read while rendering. */
+  readonly onUnreadable?: (path: string) => void;
 }
 
 type MapEntry =
@@ -28,6 +30,7 @@ async function renderEntries(
   renderer: TreeContextRenderer,
   entries: readonly MapEntry[],
   chatPaths: ReadonlySet<string>,
+  onUnreadable?: (path: string) => void,
 ): Promise<string> {
   if (entries.length === 0) return "";
   const grouped = new Map<string, Set<number> | undefined>();
@@ -50,7 +53,16 @@ async function renderEntries(
     if (lines === undefined) {
       output += `\n${path}\n`;
     } else {
-      output += `\n${path}:\n${await renderer.render(path, lines)}`;
+      // Tagging tolerates a path that has since been deleted or become
+      // unreadable; rendering has to as well, or a turn that only asked for
+      // advisory context fails on it after all.
+      let body: string | undefined;
+      try {
+        body = await renderer.render(path, lines);
+      } catch {
+        onUnreadable?.(path);
+      }
+      if (body !== undefined) output += `\n${path}:\n${body}`;
     }
   }
   if (output.length === 0) return "";
@@ -96,6 +108,7 @@ export async function renderRepoMap(
       renderer,
       entries.slice(0, middle),
       chatPaths,
+      options.onUnreadable,
     );
     if (options.countTokens(candidate) <= options.maxTokens) {
       best = candidate;
