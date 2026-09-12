@@ -15,6 +15,11 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Canonical pinned strategy prompts, examples, reminders, and shell policy for
+  all six production formats, with prompt/context/parser fences reselected from
+  current files before every initial and reflected provider attempt. Patch
+  retains stricter ambiguity rejection, path approval, transactional writes,
+  and explicit command approval.
 - Offline `/help` command listing and bounded literal search over six allowlisted
   installed Patch documents. Results include document/line references, require
   no provider, embedding download, or network, and are exercised through the

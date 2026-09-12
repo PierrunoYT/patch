@@ -13,14 +13,15 @@ The pinned compatibility fixture compares every field and newline, including
 file-context instructions, repository-map boundaries, read-only guidance, and
 post-edit status messages.
 
-Format-specific production prompts are currently short Patch-authored
-instructions, not complete pinned Aider prompt resources. `diff-fenced` has its
-distinct pinned protocol: the filename follows the opening fence and language,
-where ordinary `diff` puts it before the fence. Its production instruction,
-example, and reminder all teach that ordering and interpolate the active fence.
-`udiff`/`patch` still lack canonical examples and reminders. Exact equality of
-`COMMON_PROMPTS` does not prove that the concrete application consumes every
-field or formats each mode equivalently.
+`strategy-prompts.ts` ports the format-specific resources for the six
+constructed modes from the pinned ask, whole-file, edit-block, fenced
+edit-block, unified-diff, Patch, and shell prompt modules. Their production
+system instructions, examples, reminders, and shell policy interpolate the
+active fence. `diff-fenced` puts the filename after the opening fence and
+language; ordinary `diff` puts it before the fence. Patch intentionally uses
+English, requires explicit approval for every suggested command and
+out-of-chat path, and tells models about its safer unique-match/transactional
+rules rather than promising aider's first-match behavior.
 
 ## Fence selection
 
@@ -39,15 +40,13 @@ triple backticks. The caller owns presentation of the corresponding warning.
 Pinned fixtures cover the candidate order, backtick prefix behavior, indentation,
 and exhausted fallback.
 
-The selector itself matches the pinned candidate order. Production chooses a
-fence from startup snapshots and reselects it from the files currently in
-context whenever `/model` or `/chat-mode` switches the profile, and the selected
-fence — not a literal triple backtick — wraps the read-only and editable file
-messages and the `diff`/`diff-fenced` examples and fenced reminder, so those
-prompts and parsers agree on the same markers. Selection still ignores the
-fallback warning and does not recompute when `/add`, `/drop`, or a reflection
-changes the files in context between switches, so per-attempt fence parity
-remains open.
+The selector itself matches the pinned candidate order. Before every initial or
+reflected provider attempt, production re-reads the selected files, chooses one
+fence, reconstructs the strategy resource, wraps read-only/editable content,
+and updates the parser with that same fence. `/add`, `/drop`, successful edits,
+and external content changes therefore cannot leave stale prompt fencing.
+Selection still ignores the exhausted-candidate warning and falls back to
+triple backticks, matching the existing documented limitation.
 
 ## Message chunk order
 

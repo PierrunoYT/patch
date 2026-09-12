@@ -27,9 +27,11 @@ and runs serialized one-shot or line-oriented interactive turns. A DeepSeek
 route normalizes the catalog model name, output limit, and prefill request for
 that endpoint.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
-and `patch`. Unified-diff recovery/no-newline handling, format-specific prompts,
-and broader pinned fixtures remain incomplete; constructed formats are not a
-release-readiness claim.
+and `patch`. Each receives its pinned format-specific system instructions,
+examples, reminder, shell policy, and a fence reselected from the current files
+before every provider attempt. Broader unified-diff recovery and pinned edit
+fixtures remain incomplete; constructed formats are not a release-readiness
+claim.
 Selected-file edits are dry-run resolved, previewed, written, optionally
 committed, and followed by explicitly configured lint/test commands. Parse,
 resolution, and post-write check failures share a three-reflection budget with
@@ -168,6 +170,8 @@ accepted. Ordinary `diff` places each filename before its edit fence;
 language, using the fence selected from current file content. See the
 [provider documentation](docs/providers.md) and
 [input modes](docs/terminal.md#input-modes).
+Fence selection repeats after `/add`, `/drop`, edits, and reflected attempts so
+the prompt, file context, and parser cannot retain a stale delimiter.
 Unified-diff input honors standard `\ No newline at end of file` markers,
 including transitions that add or remove the final newline.
 Rich terminal contracts and history privacy guidance are documented in

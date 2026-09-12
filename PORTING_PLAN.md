@@ -373,9 +373,12 @@ invoked the installed `patch --help` entry point without Python.
 - [x] Reject hardlinked/non-regular mutation targets and recheck target identity
   immediately before replacement or deletion. Portable ancestor-race and full
   metadata preservation remain open.
-- [ ] Complete production prompt resources and per-attempt fence selection.
-  The shared resource and selector helpers exist, but constructed strategy
-  prompts are abridged and context fencing is inconsistent.
+- [x] Complete production prompt resources and per-attempt fence selection.
+  All six constructed strategies use format-specific pinned instructions,
+  examples, reminders, and shell policy. The application reselects the shared
+  prompt/context/parser fence from current selected-file snapshots before each
+  initial or reflected provider attempt. Patch retains English-only prompts,
+  explicit command approval, path authorization, and unique-match rejection.
 - [x] Implement chat roles and the upstream chunk order: system, examples,
   read-only files, repository map, old history, editable files, current turn,
   reminder.
@@ -560,8 +563,8 @@ evidence is not claimed until that matrix completes on the pushed revision.
 - [x] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
   concrete provider request puts the path inside the active fence while ordinary
   diff keeps it before the fence; a quadruple-backtick application test proves
-  the selected fence reaches the example and reminder. Full canonical prompt
-  text and per-attempt fence selection remain open in Phase 1.
+  the selected fence reaches the example and reminder. Canonical prompt
+  resources and per-attempt fence selection are complete in Phase 1.
 - [ ] Complete unified-diff behavior. File-header transitions are handled, but
   Aider's indentation, omitted-line, partial-context, and duplicate-hunk
   recovery stages remain absent. Standard no-newline markers preserve, add, or

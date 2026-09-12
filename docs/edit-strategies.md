@@ -5,11 +5,12 @@ contract. A strategy declares its format and converts one complete model
 response plus the selected files and active fence into an `EditBatch`. Parsing
 does not write to disk; authorization and application remain separate stages.
 
-Current parity is uneven. Whole-file and basic SEARCH/REPLACE are the mature
-paths. Unified-diff file transitions and Patch scopes/repeated actions are
-implemented as described below; broader unified-diff recovery behavior,
-format-specific prompts, and broader pinned golden coverage remain incomplete.
-Constructing a format is not a release-readiness or full parity claim.
+Current parity is uneven. All six constructed formats have their pinned
+format-specific system instructions, examples, reminders, shell policy, and
+per-attempt fence. Unified-diff file transitions and Patch scopes/repeated
+actions are implemented as described below; broader unified-diff recovery and
+pinned golden coverage remain incomplete. Constructing a format is not a
+release-readiness or full parity claim.
 
 ## Ask
 
@@ -150,10 +151,10 @@ the later Git workflow.
 
 ## Property coverage
 
-Property tests cover selected local invariants. Pinned fixtures cover a small
+Production prompt tests cover every-attempt fence reselection and the distinct
+ordinary/fenced SEARCH/REPLACE layouts. Pinned fixtures cover a small
 SEARCH/REPLACE sample and parsing one two-file unified-diff response, including
 the intentional mid-block prefix difference. They do not establish complete
-Aider parity for whole-file prompts, broader unified-diff application/recovery,
-Patch scopes or repeated actions, provider requests beyond the concrete
-`diff`/`diff-fenced` layout case, architect/context, or media. Each remaining
-claim needs asymmetric exact-revision evidence at its production boundary.
+Aider parity for broader unified-diff application/recovery, Patch scopes or
+repeated actions, architect/context, or media. Each remaining claim needs
+asymmetric exact-revision evidence at its production boundary.
