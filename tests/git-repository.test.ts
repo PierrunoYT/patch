@@ -80,6 +80,30 @@ describe("GitRepository", () => {
     expect(() => git.relativePath("../outside")).toThrow(GitRepositoryError);
   });
 
+  it("checks leading pathspec-magic filenames literally under both ignore policies", async () => {
+    const root = await repository();
+    await writeFile(join(root, ".gitignore"), ":(glob)private.txt\n");
+    await writeFile(join(root, ".aiderignore"), ":(literal)secret.txt\n");
+    const git = await GitRepository.open(root);
+    const visible = [
+      ":(glob)visible.txt",
+      ":!visible.txt",
+      ":[ab].txt",
+      "working.txt",
+    ];
+
+    await expect(
+      git.filterIgnored([
+        ":(glob)private.txt",
+        ":(literal)secret.txt",
+        ...visible,
+      ]),
+    ).resolves.toEqual(visible);
+    await expect(git.isIgnored(":(glob)private.txt")).resolves.toBe(true);
+    await expect(git.isIgnored(":(literal)secret.txt")).resolves.toBe(true);
+    await expect(git.isIgnored(":(glob)visible.txt")).resolves.toBe(false);
+  });
+
   it("filters tracked Git and aider ignore matches in one batch", async () => {
     const root = await repository();
     await writeFile(join(root, ".aiderignore"), "private.ts\n");

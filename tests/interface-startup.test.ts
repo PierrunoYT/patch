@@ -184,6 +184,51 @@ describe("application interface startup", () => {
     expect(provider.requests).toHaveLength(3);
   });
 
+  it.skipIf(process.platform === "win32")(
+    "keeps leading-colon filenames literal through selection and provider context",
+    async () => {
+      const root = await fixture();
+      execFileSync("git", ["init", "--quiet"], { cwd: root });
+      await writeFile(
+        join(root, ":(glob)visible.txt"),
+        "literal visible content\n",
+      );
+      await writeFile(join(root, ":(literal)private.txt"), "private content\n");
+      await writeFile(join(root, ".aiderignore"), ":(literal)private.txt\n");
+      const provider = new FakeProvider([turn("answer")]);
+      const service = await ConcreteApplicationService.create({
+        cwd: root,
+        home: root,
+        environment: {},
+        argv: ["--model", "4o", "--edit-format", "ask"],
+        dependencies: { provider },
+      });
+      try {
+        const session = service.createSession({
+          principal: "literal",
+          sessionId: "literal",
+        });
+        const options = {
+          signal: new AbortController().signal,
+          emit: () => undefined,
+        };
+        await session.submit("/add :(glob)visible.txt", options);
+        await expect(
+          session.submit("/add :(literal)private.txt", options),
+        ).rejects.toThrow(/ignored/);
+        await session.submit("describe the selected file", options);
+        expect(JSON.stringify(provider.requests)).toContain(
+          "literal visible content",
+        );
+        expect(JSON.stringify(provider.requests)).not.toContain(
+          "private content",
+        );
+      } finally {
+        await service.close();
+      }
+    },
+  );
+
   it("rejects an explicitly selected ignored file before provider use", async () => {
     const root = await fixture();
     execFileSync("git", ["init", "--quiet"], { cwd: root });

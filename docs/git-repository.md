@@ -21,8 +21,17 @@ Git child commands that accept selected pathspecs receive
 syntax remain literal across diff, stage, commit, and undo operations.
 `check-ignore` accepts exact pathnames rather than glob patterns and rejects
 Git's literal-pathspec magic, so that command is deliberately invoked without
-the variable. `tests/git-commit.test.ts` exercises the mutation boundary with a
-literal `[ab].txt` beside a matching `a.txt`.
+the variable. Its NUL-delimited input paths are prefixed with `./` to prevent
+leading `:` names from being parsed as magic, and the prefix is removed from
+returned names before matching. This keeps both ordinary and aider ignore
+rules active rather than treating a Git error as permission to include a path.
+`tests/git-repository.test.ts` checks leading magic syntax with real Git on all
+platforms without creating colon-named files. A POSIX-only application test in
+`tests/interface-startup.test.ts` covers actual selection and provider context;
+Windows cannot create those filenames. `tests/git-commit.test.ts` exercises the
+mutation boundary with a literal `[ab].txt` beside a matching `a.txt`.
+Pinned `aider/repo.py:523–565` uses GitPython for Git ignores and a separate
+pathspec matcher for aider ignores; Patch retains its fail-closed Git CLI checks.
 
 The concrete service batches selected and tracked paths through
 `git check-ignore --no-index -z --stdin` before snapshots, mention matching,

@@ -45,6 +45,9 @@ before every provider attempt. Each format also has an independently authored
 pinned golden plus asymmetric property, malformed, ambiguity/conflict,
 partial-write, and cancellation evidence. Broader unified-diff recovery remains
 incomplete; constructed formats are not a release-readiness claim.
+Git selection treats leading-colon pathspec syntax as literal filenames during
+ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
+platform filename restrictions still apply.
 Selected-file edits are dry-run resolved, previewed, written, optionally
 committed, and followed by explicitly configured lint/test commands. Parse,
 resolution, and post-write check failures share a three-reflection budget with

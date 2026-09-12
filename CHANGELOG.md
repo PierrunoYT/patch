@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Pass leading-colon filenames literally to Git ignore checks instead of
+  failing with unsupported pathspec-magic errors. Prefixing stdin paths with
+  `./` retains both ordinary and aider ignore exclusions; other Git failures
+  still fail closed. Adapter regressions run on Windows too; actual colon-named
+  file selection/context tests are POSIX-only.
+
 - Refuse undo when a configured upstream cannot be resolved or Git's ancestry
   check fails unexpectedly. Real-Git missing-ref and non-commit-ref regressions
   previously allowed undo; they now preserve HEAD, index, and working files.

@@ -101,7 +101,9 @@ evidence; this plan and the backlog track current status and open work.
   refused rather than implemented, and renderer fidelity stays out of scope.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
-  ignore filtering to actual patterns.
+  ignore filtering to actual patterns. Git ignore checks prefix exact paths
+  with `./`, so leading-colon pathspec syntax remains a filename; both ignore
+  policies and fail-closed error handling remain enforced.
 - OpenAI and Anthropic have basic executable routes, DeepSeek requests are
   normalized for its endpoint, and post-finish usage events are retained.
   Metadata merging, bundled limits/prices, cache accounting, temperature policy,

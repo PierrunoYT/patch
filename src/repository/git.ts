@@ -271,9 +271,11 @@ export class GitRepository {
     try {
       const output = await this.#gitWithInput(
         [...configuration, "check-ignore", "--no-index", "-z", "--stdin"],
-        `${selected.join("\0")}\0`,
+        `${selected.map((path) => `./${path}`).join("\0")}\0`,
       );
-      return new Set(nulFields(output));
+      return new Set(
+        nulFields(output).map((path) => path.replace(/^\.\//u, "")),
+      );
     } catch (error) {
       const cause =
         error instanceof GitRepositoryError ? error.cause : undefined;
