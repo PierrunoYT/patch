@@ -592,6 +592,12 @@ dated parity audits for revision-specific evidence.
   serialized queue order, active and queued cancellation, hostile terminal
   metadata, unchanged write/path/process approvals, and dispatch from the actual
   binary installed from a packed tarball.
+- Provider failures now expose fixed safe diagnostics instead of SDK/server
+  messages. OpenAI and Anthropic propagate only a parsed `Retry-After` delay;
+  seconds, dates, and `retry-after-ms` are accepted, malformed values are ignored,
+  and both provider and session caps prevent delays above 60 seconds. The session
+  keeps its three-attempt default, rejects unbounded retry configuration, and
+  aborts during backoff without another request.
 - Gave `diff-fenced` its distinct pinned filename-inside-fence protocol instead
   of sending the same prompt and example as ordinary `diff`. Strategy examples
   and the fenced reminder now interpolate the fence selected from file content,

@@ -78,6 +78,8 @@ const ErrorEventSchema = z
     ]),
     message: z.string().min(1),
     retryable: z.boolean(),
+    /** Provider-requested delay, already validated and capped locally. */
+    retryAfterMs: z.number().int().min(0).max(60_000).optional(),
     raw: z.unknown().optional(),
   })
   .strict();

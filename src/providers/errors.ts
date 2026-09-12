@@ -13,6 +13,32 @@ import type { CompletionEvent } from "./events.js";
 type ErrorEvent = Extract<CompletionEvent, { type: "error" }>;
 type ErrorKind = ErrorEvent["kind"];
 
+export const MAX_RETRY_AFTER_MS = 60_000;
+
+/** Parses provider retry headers without retaining any other response headers. */
+export function retryAfterMilliseconds(
+  headers: Headers | undefined,
+  now = Date.now(),
+): number | undefined {
+  if (headers === undefined) return undefined;
+  const milliseconds = headers.get("retry-after-ms");
+  if (milliseconds !== null && /^\d+(?:\.\d+)?$/u.test(milliseconds.trim())) {
+    return Math.min(MAX_RETRY_AFTER_MS, Math.ceil(Number(milliseconds)));
+  }
+  const retryAfter = headers.get("retry-after");
+  if (retryAfter === null) return undefined;
+  const value = retryAfter.trim();
+  let delay: number;
+  if (/^\d+(?:\.\d+)?$/u.test(value)) {
+    delay = Number(value) * 1000;
+  } else {
+    const date = Date.parse(value);
+    if (!Number.isFinite(date)) return undefined;
+    delay = Math.max(0, date - now);
+  }
+  return Math.min(MAX_RETRY_AFTER_MS, Math.ceil(delay));
+}
+
 /**
  * Classifies a status the SDK's own error classes do not already cover.
  *
@@ -45,7 +71,7 @@ export function responseValidationEvent(
   return {
     type: "error",
     kind: "provider",
-    message: `The provider returned a response Patch could not read: ${error.message}`,
+    message: "The provider returned a response Patch could not read",
     retryable: true,
   };
 }

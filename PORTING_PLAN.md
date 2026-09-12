@@ -483,10 +483,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   checks.
 - [x] Add model-aware token counting where reliable and conservative estimates
   elsewhere.
-- [ ] Complete executable usage and cost coverage. Post-finish usage is retained,
-  metadata merges into settings, and turn/session reports reach the terminal.
-  Most bundled models lack input limits/prices, cache-specific costs are not
-  modeled, and wider provider evidence remains incomplete.
+- [x] Complete executable usage and cost coverage. Post-finish usage is retained,
+  metadata limits/prices/capabilities merge into session settings, cache reads
+  and writes have distinct prices, and turn/session reports reach the terminal.
+  Every advertised bundled model has validated limits and prices.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 

@@ -7,7 +7,11 @@ import type {
   CompletionRequest,
   ModelProvider,
 } from "./events.js";
-import { responseValidationEvent, transientByStatus } from "./errors.js";
+import {
+  responseValidationEvent,
+  retryAfterMilliseconds,
+  transientByStatus,
+} from "./errors.js";
 
 const StreamEventSchema = z
   .object({
@@ -173,18 +177,20 @@ function errorEvent(error: unknown): CompletionEvent {
     };
   }
   if (error instanceof Anthropic.RateLimitError) {
+    const retryAfterMs = retryAfterMilliseconds(error.headers);
     return {
       type: "error",
       kind: "rate-limit",
-      message: error.message,
+      message: "Anthropic rate limit exceeded",
       retryable: true,
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
     };
   }
   if (error instanceof Anthropic.APIConnectionTimeoutError) {
     return {
       type: "error",
       kind: "timeout",
-      message: error.message,
+      message: "Anthropic request timed out",
       retryable: true,
     };
   }
@@ -192,21 +198,42 @@ function errorEvent(error: unknown): CompletionEvent {
     return {
       type: "error",
       kind: "network",
-      message: error.message,
+      message: "Anthropic network request failed",
       retryable: true,
     };
   }
-  const message = error instanceof Error ? error.message : String(error);
-  if (/prompt is too long|context window/iu.test(message)) {
-    return { type: "error", kind: "context-window", message, retryable: false };
+  const unsafeMessage = error instanceof Error ? error.message : String(error);
+  if (/prompt is too long|context window/iu.test(unsafeMessage)) {
+    return {
+      type: "error",
+      kind: "context-window",
+      message: "Anthropic context window exceeded",
+      retryable: false,
+    };
   }
   const transient = transientByStatus(
     error instanceof Anthropic.APIError ? error.status : undefined,
   );
-  if (transient !== undefined) return { type: "error", message, ...transient };
+  if (transient !== undefined) {
+    const retryAfterMs =
+      error instanceof Anthropic.APIError
+        ? retryAfterMilliseconds(error.headers)
+        : undefined;
+    return {
+      type: "error",
+      message: "Anthropic provider request failed",
+      ...transient,
+      ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+    };
+  }
   const invalid = responseValidationEvent(error);
   if (invalid !== undefined) return invalid;
-  return { type: "error", kind: "provider", message, retryable: false };
+  return {
+    type: "error",
+    kind: "provider",
+    message: "Anthropic provider request failed",
+    retryable: false,
+  };
 }
 
 export class AnthropicProvider implements ModelProvider {

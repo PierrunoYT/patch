@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, repeated continuation, and some recovery evidence remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
-| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata/pricing, cache-aware cost, temperature policy, and bounded retries are wired. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`; media and cache keepalive remain unintegrated. |
+| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`; media and cache keepalive remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
@@ -767,8 +767,15 @@ scope or aider's wider command breadth.
   the same factory/session path used by the executable and live contract.
 - [x] Preserve OpenAI-compatible usage events that arrive with or after finish.
   Exposing accurate usage/cost at the application boundary is still P2.
-- [ ] Merge executable model metadata into settings and classify transient 5xx/
-  validation failures consistently with the session retry policy.
+- [x] Merge executable model metadata into settings and classify transient 5xx/
+  validation failures consistently with the session retry policy. Catalog limits,
+  prices, and capabilities reach session budgeting and accounting. Both adapters
+  classify 408/409/429/5xx and malformed stream events consistently, discard raw
+  provider diagnostics, and carry only a parsed delay from `Retry-After`. Header
+  and local backoff delays cap at 60 seconds, attempts default to three and cannot
+  exceed ten, and cancellation during backoff prevents a subsequent request.
+  This intentionally hardens aider's unbounded blocking sleep while retaining its
+  transient categories.
 
 **Acceptance:** Phase 4's exit statement is backed by executable, opt-in tests
 rather than only mocked Fetch responses.

@@ -105,6 +105,7 @@ export interface PreparedTurn {
 export interface RetryPolicy {
   readonly maxAttempts: number;
   readonly initialDelayMs: number;
+  readonly maxDelayMs: number;
   readonly sleep: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 }
 
@@ -335,9 +336,27 @@ export class CoderSession {
     this.#provider = options.provider;
     this.#strategy = options.strategy;
     this.#fence = [...(options.fence ?? ["```", "```"])];
+    const maxAttempts = options.retry?.maxAttempts ?? 3;
+    const initialDelayMs = options.retry?.initialDelayMs ?? 125;
+    const maxDelayMs = options.retry?.maxDelayMs ?? 60_000;
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
+      throw new RangeError(
+        "Retry attempts must be an integer from 1 through 10",
+      );
+    }
+    if (
+      !Number.isInteger(initialDelayMs) ||
+      initialDelayMs < 0 ||
+      !Number.isInteger(maxDelayMs) ||
+      maxDelayMs < 0 ||
+      initialDelayMs > maxDelayMs
+    ) {
+      throw new RangeError("Retry delays must be bounded nonnegative integers");
+    }
     this.#retry = {
-      maxAttempts: options.retry?.maxAttempts ?? 3,
-      initialDelayMs: options.retry?.initialDelayMs ?? 125,
+      maxAttempts,
+      initialDelayMs,
+      maxDelayMs,
       sleep: options.retry?.sleep ?? defaultSleep,
     };
     this.#availablePaths = [...(options.availablePaths ?? [])];
@@ -745,6 +764,7 @@ export class CoderSession {
       while (true) {
         options.signal?.throwIfAborted();
         let delay = this.#retry.initialDelayMs;
+        let retryAfterMs: number | undefined;
         let response = responsePrefix;
         let reasoning = "";
         let continueOutput = false;
@@ -830,6 +850,7 @@ export class CoderSession {
                 }
                 if (event.retryable && attempt < this.#retry.maxAttempts) {
                   retry = true;
+                  retryAfterMs = event.retryAfterMs;
                   break;
                 }
                 throw new ProviderStreamError(event.kind, event.message);
@@ -875,8 +896,15 @@ export class CoderSession {
               partialResponse: "",
               outputTokens: 0,
             });
-            await this.#retry.sleep(delay, options.signal);
-            delay *= 2;
+            await this.#retry.sleep(
+              Math.min(
+                this.#retry.maxDelayMs,
+                Math.max(delay, retryAfterMs ?? 0),
+              ),
+              options.signal,
+            );
+            delay = Math.min(this.#retry.maxDelayMs, delay * 2);
+            retryAfterMs = undefined;
             continue;
           }
           if (!finished) {

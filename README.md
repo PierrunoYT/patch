@@ -34,6 +34,10 @@ external network or live credential. A malformed fake stream must fail safely.
 Separately gated, credential-optional live OpenAI and Anthropic contracts cover
 minimal streaming, usage, stop reasons, timeout/cancellation, and one native
 capability; ordinary CI remains credential-free and offline.
+Resolved catalog metadata supplies executable limits, capabilities, and pricing.
+Transient 408/409/429/5xx and malformed streams retry at most three attempts;
+validated `Retry-After` delays and exponential backoff are capped at 60 seconds
+and cancellation interrupts backoff.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Each receives its pinned format-specific system instructions,
 examples, reminder, shell policy, and a fence reselected from the current files
