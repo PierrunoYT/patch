@@ -95,4 +95,6 @@
 
 - After completing and verifying each task, commit its cohesive code and
   documentation changes before considering the task complete.
-- Do not push commits unless the user explicitly requests a push.
+- The user has explicitly requested standing push behavior: after each completed
+  task is committed, push the current branch to its configured upstream unless
+  the user says to keep that task local. Never force-push.
