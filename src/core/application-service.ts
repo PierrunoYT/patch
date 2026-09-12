@@ -22,6 +22,15 @@ export interface ApplicationArchitectResult {
   readonly editor?: unknown;
 }
 
+export interface ApplicationContextOptions extends ApplicationSubmitOptions {
+  readonly maxIterations?: number;
+}
+
+export interface ApplicationContextResult {
+  readonly paths: readonly string[];
+  readonly iterations: number;
+}
+
 export interface ApplicationSession {
   /** The sole mutation queue shared by every adapter using this session. */
   readonly queue?: import("./serial-queue.js").SerialTaskQueue;
@@ -36,6 +45,11 @@ export interface ApplicationSession {
     request: string,
     options: ApplicationArchitectOptions,
   ): Promise<ApplicationArchitectResult>;
+  /** Selects the complete editable-file set through private context orchestration. */
+  selectContext?(
+    request: string,
+    options: ApplicationContextOptions,
+  ): Promise<ApplicationContextResult>;
   close?(): void | Promise<void>;
 }
 

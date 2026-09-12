@@ -586,18 +586,23 @@ evidence is not claimed until that matrix completes on the pushed revision.
   its proposal even when denied, constructs a fresh editor only after approval,
   and transfers selected paths, cost, commit ownership, cancellation, and the
   final architect acknowledgement back to the parent session.
-- [ ] Integrate context mode's repeated file selection with a bounded convergence
-  loop.
+- [x] Integrate context mode's repeated file selection with a bounded convergence
+  loop. Each pass force-refreshes an initially expanded map using the original
+  request's identifier hints and the complete provisional file set. A stable set
+  atomically replaces editable paths after approval; cancellation, rejection,
+  and deterministic non-convergence leave the parent selection unchanged.
 - [ ] Complete cache/continuation/media integration. Prompt-cache boundaries
   and bounded prefill are wired, including DeepSeek prefix normalization, but
   keepalive is unscheduled and repeated truncations accumulate duplicate
   prefixes. Media remains a helper-only context shape.
 
-**Exit (not met):** advanced helpers are not advertised as CLI modes. The six
-constructed formats still need independent pinned golden/property evidence and
-the advanced orchestration paths remain unintegrated.
+**Exit (not met):** advanced workflows are deliberately not advertised as CLI
+modes. The six constructed formats still need independent pinned golden/property
+evidence; cache keepalive and media/continuation integration remain incomplete.
 
-**Component evidence only:** `tests/architect.test.ts`,
+**Production evidence:** `tests/application-architect.test.ts`,
+`tests/application-editor.test.ts`, and `tests/application-context.test.ts`.
+Helper/component evidence remains in `tests/architect.test.ts`,
 `tests/context-selection.test.ts`, `tests/capability-context.test.ts`, and the
 individual edit-strategy suites.
 

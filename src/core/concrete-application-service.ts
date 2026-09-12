@@ -21,6 +21,7 @@ import { renderSettings } from "../commands/settings.js";
 import { RepositoryMap, repoMapTokens } from "../context/repository-map.js";
 import {
   createArchitectStrategy,
+  createContextStrategy,
   createEditorStrategy,
   createStrategy,
   type StrategyDefinition,
@@ -62,9 +63,12 @@ import { htmlToReadableText } from "../interfaces/html-text.js";
 import type { FetchedUrl } from "../interfaces/url-fetcher.js";
 import { GitRepository } from "../repository/git.js";
 import { COMMON_PROMPTS } from "../resources/prompts.js";
+import { CONTEXT_PROMPTS } from "../resources/strategy-prompts.js";
 import type {
   ApplicationArchitectOptions,
   ApplicationArchitectResult,
+  ApplicationContextOptions,
+  ApplicationContextResult,
   ApplicationService,
   ApplicationSession,
   ApplicationSubmitOptions,
@@ -72,6 +76,8 @@ import type {
 import { TurnPartiallyAppliedError } from "./application-service.js";
 import { ChatSummary } from "./chat-summary.js";
 import { CoderSession } from "./coder-session.js";
+import { ContextSelectionConvergenceError } from "./context-selection.js";
+import { findFileMentions } from "./file-mentions.js";
 import { countMessageTokens } from "../models/token-count.js";
 import type { ChatMessage } from "./messages.js";
 import { SerialTaskQueue } from "./serial-queue.js";
@@ -159,7 +165,7 @@ interface SessionProfile {
   /** Format `/chat-mode code` returns to for the active model. */
   readonly codeFormat: EditFormat;
   readonly definition: StrategyDefinition;
-  readonly role: "main" | "editor" | "architect";
+  readonly role: "main" | "editor" | "architect" | "context";
   readonly fence: readonly [string, string];
   readonly repositoryMap?: RepositoryMap;
 }
@@ -187,6 +193,27 @@ function createRepositoryMap(
     root,
     maxTokens: repoMapTokens(model.maxInputTokens),
     countTokens: (text) => Math.ceil(text.length / 4),
+    ...(model.maxInputTokens === undefined
+      ? {}
+      : { maxContextWindow: model.maxInputTokens }),
+  });
+}
+
+function createContextRepositoryMap(
+  root: string,
+  model: ModelSettings,
+): Promise<RepositoryMap> {
+  const base = repoMapTokens(model.maxInputTokens);
+  const expanded =
+    model.maxInputTokens === undefined
+      ? base * 8
+      : Math.max(base, Math.min(base * 8, model.maxInputTokens - 4096));
+  return RepositoryMap.create({
+    root,
+    maxTokens: expanded,
+    countTokens: (text) => Math.ceil(text.length / 4),
+    refresh: "always",
+    mulNoFiles: 1,
     ...(model.maxInputTokens === undefined
       ? {}
       : { maxContextWindow: model.maxInputTokens }),
@@ -363,6 +390,7 @@ class ConcreteApplicationSession implements ApplicationSession {
   readonly #lifecycle = new AbortController();
   readonly #context: ApplicationContext;
   readonly #session: CoderSession;
+  readonly #contextRequest: string | undefined;
   #profile: SessionProfile;
   #closed = false;
 
@@ -375,25 +403,38 @@ class ConcreteApplicationSession implements ApplicationSession {
       readonly editablePaths: readonly string[];
       readonly readOnlyPaths: readonly string[];
       readonly messages?: readonly ChatMessage[];
-      readonly kind: "editor" | "architect";
+      readonly kind: "editor" | "architect" | "context";
+      readonly repositoryMap?: RepositoryMap;
+      readonly contextRequest?: string;
     },
   ) {
     this.#context = context;
+    this.#contextRequest = role?.contextRequest;
     const main = role?.main ?? context.models.main.settings;
     const definition = role?.definition ?? context.definition;
+    const format =
+      definition.format === "context"
+        ? main.editFormat
+        : definition.format === "architect"
+          ? "ask"
+          : definition.format;
     const model = {
       ...main,
-      editFormat: definition.format,
+      editFormat: format,
     };
+    const repositoryMap =
+      role?.kind === "editor"
+        ? undefined
+        : role?.kind === "context"
+          ? role.repositoryMap
+          : context.repositoryMap;
     this.#profile = {
       main,
-      codeFormat: definition.format,
+      codeFormat: format,
       definition,
       role: role?.kind ?? "main",
       fence: context.fence,
-      ...(role?.kind === "editor" || context.repositoryMap === undefined
-        ? {}
-        : { repositoryMap: context.repositoryMap }),
+      ...(repositoryMap === undefined ? {} : { repositoryMap }),
     };
     this.#session = new CoderSession({
       config: {
@@ -513,6 +554,85 @@ class ConcreteApplicationSession implements ApplicationSession {
     }, options.signal);
   }
 
+  selectContext(
+    request: string,
+    options: ApplicationContextOptions,
+  ): Promise<ApplicationContextResult> {
+    return this.queue.run(async () => {
+      const maximum = options.maxIterations ?? 3;
+      if (!Number.isInteger(maximum) || maximum < 1)
+        throw new RangeError("maxIterations must be a positive integer");
+      options.signal.throwIfAborted();
+      const parent = this.#session.snapshot();
+      const available = await this.#availablePaths();
+      const readOnly = new Set(parent.readOnlyPaths);
+      const candidates = available.filter((path) => !readOnly.has(path));
+      const map =
+        this.#context.repository === undefined || !this.#profile.main.useRepoMap
+          ? undefined
+          : await createContextRepositoryMap(
+              this.#context.root,
+              this.#profile.main,
+            );
+      const context = new ConcreteApplicationSession(this.#context, {
+        main: this.#profile.main,
+        provider: this.#session.provider,
+        definition: createContextStrategy(),
+        editablePaths: parent.editablePaths,
+        readOnlyPaths: parent.readOnlyPaths,
+        messages: parent.messages,
+        kind: "context",
+        contextRequest: request,
+        ...(map === undefined ? {} : { repositoryMap: map }),
+      });
+      let selected = [...parent.editablePaths];
+      let charged = false;
+      try {
+        for (let iteration = 1; iteration <= maximum; iteration += 1) {
+          options.signal.throwIfAborted();
+          const turn = await context.submit(
+            iteration === 1 ? request : CONTEXT_PROMPTS.tryAgain,
+            { signal: options.signal, emit: options.emit, readOnly: true },
+          );
+          const next = findFileMentions(turn.response, candidates, []);
+          const converged =
+            next.length === selected.length &&
+            next.every((path) => selected.includes(path));
+          if (converged) {
+            const resolver = await SafePathResolver.create(this.#context.root);
+            await assertPathsNotIgnored(this.#context.repository, next);
+            for (const path of next) {
+              await resolver.resolve(path);
+              if (
+                !parent.editablePaths.includes(path) &&
+                !(await this.#context.approvePath?.(path))
+              ) {
+                throw new Error(`Context selection was not approved: ${path}`);
+              }
+            }
+            options.signal.throwIfAborted();
+            this.#session.setSelectedPaths(next, parent.readOnlyPaths);
+            this.#session.recordAuxiliaryCost(
+              context.#session.snapshot().totalCost,
+            );
+            charged = true;
+            return { paths: next, iterations: iteration };
+          }
+          selected = next;
+          context.#session.setSelectedPaths(selected, parent.readOnlyPaths);
+        }
+        throw new ContextSelectionConvergenceError(maximum);
+      } finally {
+        if (!charged) {
+          this.#session.recordAuxiliaryCost(
+            context.#session.snapshot().totalCost,
+          );
+        }
+        context.close();
+      }
+    }, options.signal);
+  }
+
   submit(
     message: string,
     options: ApplicationSubmitOptions,
@@ -568,7 +688,9 @@ class ConcreteApplicationSession implements ApplicationSession {
             ? createEditorStrategy(this.#profile.definition.format, fence)
             : this.#profile.role === "architect"
               ? createArchitectStrategy()
-              : createStrategy(this.#profile.definition.format, fence);
+              : this.#profile.role === "context"
+                ? createContextStrategy()
+                : createStrategy(this.#profile.definition.format, fence);
         this.#session.setAttemptFence(fence);
         this.#profile = { ...this.#profile, definition, fence };
         const selectedPaths = new Set(
@@ -601,14 +723,33 @@ class ConcreteApplicationSession implements ApplicationSession {
               : [
                   {
                     role: "user" as const,
-                    content: `${COMMON_PROMPTS.repoContentPrefix}\n\n${repositoryContent}`,
+                    content: `${
+                      this.#profile.role === "context"
+                        ? CONTEXT_PROMPTS.repositoryPrefix
+                        : COMMON_PROMPTS.repoContentPrefix
+                    }\n\n${repositoryContent}`,
                   },
                 ],
-          editableFiles: editableFilesMessages(
-            editable,
-            fence,
-            repositoryContent !== "",
-          ),
+          editableFiles:
+            this.#profile.role === "context"
+              ? editable.length === 0
+                ? []
+                : [
+                    ...fileMessage(
+                      CONTEXT_PROMPTS.filesContentPrefix,
+                      editable,
+                      fence,
+                    ),
+                    {
+                      role: "assistant" as const,
+                      content: CONTEXT_PROMPTS.filesContentAssistantReply,
+                    },
+                  ]
+              : editableFilesMessages(
+                  editable,
+                  fence,
+                  repositoryContent !== "",
+                ),
           reminder: [
             {
               role: "system" as const,
@@ -1300,14 +1441,16 @@ class ConcreteApplicationSession implements ApplicationSession {
       ...this.#session.snapshot().editablePaths,
       ...this.#session.snapshot().readOnlyPaths,
     ]);
+    const source = this.#contextRequest ?? message;
     const mentionedPaths = availablePaths.filter((path) =>
-      message.includes(path),
+      source.includes(path),
     );
     return map.getMap({
       chatPaths: [...selected],
       otherPaths: availablePaths.filter((path) => !selected.has(path)),
       mentionedPaths,
-      mentionedIdentifiers: identifierHints(message),
+      mentionedIdentifiers: identifierHints(source),
+      ...(this.#profile.role === "context" ? { forceRefresh: true } : {}),
     });
   }
 

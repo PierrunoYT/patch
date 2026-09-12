@@ -35,6 +35,14 @@ concise, complete, unambiguous plan for an editor and forbids whole updated
 functions/files. It has no edit reminder or shell policy, and production always
 runs it read-only before presenting the proposal for acceptance.
 
+The private context resource ports `context_prompts.py`: it asks only for the
+complete set of existing files requiring edits and relevant symbols, has its own
+file/map framing, repeats the pinned “updated set” instruction until stable, and
+reminds the analyst never to return code. Patch fixes replies to English and
+turns bounded non-convergence into an error rather than accepting an unstable
+last set. This role is reachable only through `ApplicationSession.selectContext`,
+not through public mode parsing.
+
 ## Fence selection
 
 `selectFence()` ports the ordered candidates and line-prefix collision check

@@ -81,6 +81,11 @@ export class RepositoryMap {
     return this.#maxContextWindow;
   }
 
+  /** Base token budget before the ordinary empty-chat multiplier. */
+  get maxTokens(): number {
+    return this.#maxTokens;
+  }
+
   private constructor(
     options: RepositoryMapOptions,
     tagCache: RepoMapTagCache,

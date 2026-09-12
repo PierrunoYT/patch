@@ -1,14 +1,15 @@
-import { ArchitectEditStrategy, AskEditStrategy } from "./ask.js";
+import {
+  ArchitectEditStrategy,
+  AskEditStrategy,
+  ContextEditStrategy,
+} from "./ask.js";
 import { PatchEditStrategy } from "./patch.js";
 import {
   FencedSearchReplaceEditStrategy,
   SearchReplaceEditStrategy,
 } from "./search-replace.js";
 import type { EditStrategy } from "./strategy.js";
-import {
-  ApplicationEditFormatSchema,
-  type ApplicationEditFormat,
-} from "./types.js";
+import { ApplicationEditFormatSchema, type StrategyFormat } from "./types.js";
 import { UnifiedDiffEditStrategy } from "./unified-diff.js";
 import { WholeFileEditStrategy } from "./whole-file.js";
 import type { Fence } from "../core/fences.js";
@@ -16,11 +17,12 @@ import type { ChatMessage } from "../core/messages.js";
 import {
   editorStrategyPrompt,
   ARCHITECT_SYSTEM_PROMPT,
+  CONTEXT_PROMPTS,
   strategyPrompt,
 } from "../resources/strategy-prompts.js";
 
 export interface StrategyDefinition {
-  readonly format: ApplicationEditFormat;
+  readonly format: StrategyFormat;
   readonly strategy: EditStrategy;
   readonly systemPrompt: string;
   readonly examples: readonly ChatMessage[];
@@ -89,6 +91,17 @@ export function createArchitectStrategy(): StrategyDefinition {
     systemPrompt: ARCHITECT_SYSTEM_PROMPT,
     examples: [],
     reminder: "",
+    allowShellCommands: false,
+  };
+}
+
+export function createContextStrategy(): StrategyDefinition {
+  return {
+    format: "context",
+    strategy: new ContextEditStrategy(),
+    systemPrompt: CONTEXT_PROMPTS.systemPrompt,
+    examples: [],
+    reminder: CONTEXT_PROMPTS.reminder,
     allowShellCommands: false,
   };
 }

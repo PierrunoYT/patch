@@ -66,11 +66,11 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, and in-process worktree serialization are wired. Context mode, summarizer fallback/input caps, repeated continuation, and exhaustive recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, and in-process worktree serialization are wired. Summarizer fallback/input caps, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
 | Models/providers | partial | Public mode surfaces expose exactly six constructed formats. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`. Media/cache-keepalive remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
-| Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
+| Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
@@ -777,9 +777,15 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   “I made those changes”/“Ok.” history pair. Real-Git production tests assert
   file/HEAD state, exact final messages, model requests, cost, denial, and
   cancellation.
-- [ ] Integrate context convergence with forced repository-map refresh, expanded
+- [x] Integrate context convergence with forced repository-map refresh, expanded
   initial map budget, complete replacement of selected files, and relevant
-  identifier hints.
+  identifier hints. `ApplicationSession.selectContext` uses the current main
+  model/history and pinned context prompt, refreshes every pass with hints from
+  the original request, and compares complete order-independent sets. It stages
+  containment/ignore checks and approvals before atomically replacing editable
+  paths while retaining read-only paths. Cancellation, denial, and a typed
+  bounded non-convergence failure leave the parent selection unchanged.
+  Production tests inspect both provider requests and map requests/budgets.
 - [ ] Schedule prompt-cache keepalive using only the cacheable prefix and
   verify retry/cancellation behavior. Cache-boundary markers are already wired;
   the keepalive helper is not.
