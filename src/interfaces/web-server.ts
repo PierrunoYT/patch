@@ -229,8 +229,10 @@ export class LocalWebServer {
           sessionId,
         });
         if (this.#closing) {
+          // Answer rather than returning silently: without a response the
+          // client hangs until close() drops the connection underneath it.
           await application.close?.();
-          return;
+          return json(response, 503, { error: "Server closing" });
         }
         const expiresAt = this.#now() + limits.sessionTtlMs;
         this.#sessions.set(sessionId, {

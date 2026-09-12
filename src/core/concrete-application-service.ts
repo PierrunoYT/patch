@@ -1763,8 +1763,17 @@ class ConcreteApplicationSession implements ApplicationSession {
       );
     } catch {
       // A transient Git failure must not fail the turn; the startup inventory is
-      // still a usable approximation.
-      return repository.filterIgnored(this.#context.availablePaths);
+      // still a usable approximation. The fallback asks Git one more time,
+      // because dropping ignore filtering would put an ignored file into model
+      // context, but a repository that is down rather than briefly busy would
+      // otherwise fail the turn from inside the handler meant to prevent that.
+      try {
+        return await repository.filterIgnored(this.#context.availablePaths);
+      } catch {
+        // Nothing here can be trusted to be non-ignored, so the turn continues
+        // with no inventory rather than with an unfiltered one.
+        return [];
+      }
     }
   }
 

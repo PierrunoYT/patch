@@ -381,6 +381,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Answered a session request that races server shutdown with 503 instead of
+  returning no response at all, which left the client waiting until `close()`
+  dropped its connection.
+- Kept a persistently broken Git repository from failing the turn through the
+  handler that exists to stop exactly that: the fallback in `#availablePaths`
+  called Git again and let its failure escape. It now degrades to an empty
+  inventory, which is the only safe answer when ignore state cannot be read.
+
 - Captured the parent-directory identity for a delete when the mutation is
   prepared, not as the argument to the check that compares it. Read at
   comparison time it was two reads one statement apart, so the ancestor guard on
