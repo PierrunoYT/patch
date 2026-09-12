@@ -67,7 +67,7 @@ unchanged result of the historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Packed actual-bin one-shot and two-turn fake-wire sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
-| Editing | partial with format evidence | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Every constructed format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
+| Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
@@ -583,11 +583,14 @@ strategy prompt, provider lifetime, or interface policy listed below.
   filename and identifier hints.
 - [x] Add a strategy registry for genuinely implemented modes and reject
   schema-only modes before a provider call.
-- [ ] Give each constructed strategy its canonical system prompt, examples,
-  reminders, shell policy, and per-attempt fence. Production prompts remain
-  abridged. `diff` and `diff-fenced` examples and reminders use their distinct
-  pinned layouts and the selected fence, but selection runs at startup and
-  profile switches rather than after every file/context change.
+- [x] Give each constructed strategy its canonical system prompt, examples,
+  reminders, shell policy, and per-attempt fence. `ConcreteApplicationService`
+  reconstructs the format prompt and updates `CoderSession`'s parser fence from
+  current editable/read-only snapshots before every initial and reflected
+  attempt. Production-path tests change selection without a profile switch and
+  prove the new fence reaches context, examples, reminders, and parsing. Patch
+  intentionally keeps English-only replies, unique-match rejection, explicit
+  path/command approval, and transactional application.
 
 **Acceptance:** the installed application service can start from supported
 configuration, select a main provider/model/strategy, compose repository

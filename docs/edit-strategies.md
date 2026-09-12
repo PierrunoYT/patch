@@ -5,11 +5,13 @@ contract. A strategy declares its format and converts one complete model
 response plus the selected files and active fence into an `EditBatch`. Parsing
 does not write to disk; authorization and application remain separate stages.
 
-Current parity is uneven. Whole-file and basic SEARCH/REPLACE are the mature
-paths. Unified-diff file transitions and Patch scopes/repeated actions are
-implemented as described below; broader unified-diff recovery behavior
-and full canonical format-specific prompts remain incomplete.
-Constructing a format is not a release-readiness or full parity claim.
+Current parity is uneven. All six constructed formats have their pinned
+format-specific system instructions, examples, reminders, shell policy, and
+per-attempt fence. Unified-diff file transitions and Patch scopes/repeated
+actions are implemented as described below, and each format has independent
+pinned golden and asymmetric hardening evidence. Broader unified-diff recovery
+remains incomplete. Constructing a format is not a release-readiness or full
+parity claim.
 
 ## Ask
 
@@ -150,9 +152,12 @@ the later Git workflow.
 
 ## Property coverage
 
-Two fixture classes are deliberately separate. The exporter-generated upstream
+Production prompt tests cover every-attempt fence reselection and the distinct
+ordinary/fenced SEARCH/REPLACE layouts. Two fixture classes are deliberately
+separate. The exporter-generated upstream
 fixture covers a small SEARCH/REPLACE sample and one two-file unified-diff
-response. `tests/fixtures/edit-format-goldens.json` is an independently authored
+response, including the intentional mid-block prefix difference.
+`tests/fixtures/edit-format-goldens.json` is an independently authored
 contract fixture: it records pinned aider revision `5dc9490b`, upstream path,
 classification, asymmetric input, and expected resolved operation for each of
 the six constructed formats. Its expectations are checked in rather than
@@ -165,5 +170,5 @@ mutating format. Those latter cases establish Patch hardening and partial-write
 semantics shared below parsing; they are not upstream compatibility claims.
 `tests/coder-session.test.ts` separately proves incompatible assistant protocol
 history is removed during a format switch. This evidence does not establish
-complete Aider parity for whole-file prompts, broader unified-diff recovery,
-all Patch fuzz paths, architect/context, or media.
+complete Aider parity for broader unified-diff recovery, all Patch fuzz paths,
+architect/context, or media.

@@ -380,6 +380,11 @@ export class CoderSession {
     return this.#fence;
   }
 
+  /** Reselects prompt/parser fencing for the next provider attempt. */
+  setAttemptFence(fence: readonly [string, string]): void {
+    this.#fence = [...fence];
+  }
+
   async switch(options: SessionSwitchOptions): Promise<void> {
     if (this.#activeTurn !== undefined) {
       throw new SessionSwitchError("Cannot switch during an active turn");

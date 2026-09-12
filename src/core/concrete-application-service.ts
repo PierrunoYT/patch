@@ -511,6 +511,17 @@ class ConcreteApplicationSession implements ApplicationSession {
             snapshot(this.#context.files, path),
           ),
         );
+        const fence = selectFence(
+          [...editable, ...readOnly].flatMap(({ content }) =>
+            content === null ? [] : [content],
+          ),
+        ).fence;
+        const definition = createStrategy(
+          this.#profile.definition.strategy.format,
+          fence,
+        );
+        this.#session.setAttemptFence(fence);
+        this.#profile = { ...this.#profile, definition, fence };
         const selectedPaths = new Set(
           [...editable, ...readOnly].map(({ path }) => path),
         );
@@ -526,17 +537,14 @@ class ConcreteApplicationSession implements ApplicationSession {
           system: [
             {
               role: "system" as const,
-              content: this.#profile.definition.systemPrompt,
+              content: definition.systemPrompt,
             },
           ],
-          examples: [
-            ...COMMON_PROMPTS.exampleMessages,
-            ...this.#profile.definition.examples,
-          ],
+          examples: [...COMMON_PROMPTS.exampleMessages, ...definition.examples],
           readOnlyFiles: fileMessage(
             COMMON_PROMPTS.readOnlyFilesPrefix,
             readOnly,
-            this.#profile.fence,
+            fence,
           ),
           repository:
             repositoryContent === ""
@@ -549,14 +557,14 @@ class ConcreteApplicationSession implements ApplicationSession {
                 ],
           editableFiles: editableFilesMessages(
             editable,
-            this.#profile.fence,
+            fence,
             repositoryContent !== "",
           ),
           reminder: [
             {
               role: "system" as const,
-              content: `${this.#profile.definition.reminder}\n${
-                this.#profile.definition.allowShellCommands
+              content: `${definition.reminder}\n${
+                definition.allowShellCommands
                   ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
                   : "Do not suggest shell commands."
               }`,

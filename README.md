@@ -32,11 +32,12 @@ The same installed-bin smoke uses an in-process deterministic OpenAI-wire fake
 that replaces `fetch`, so one-shot and two-turn history behavior run with no
 external network or live credential. A malformed fake stream must fail safely.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
-and `patch`. Unified-diff recovery/no-newline handling, format-specific prompts,
-and some broader upstream recovery remain incomplete. Each constructed format
-has an independently authored pinned golden plus asymmetric property, malformed,
-ambiguity/conflict, partial-write, and cancellation evidence; that is not a
-release-readiness claim.
+and `patch`. Each receives its pinned format-specific system instructions,
+examples, reminder, shell policy, and a fence reselected from the current files
+before every provider attempt. Each format also has an independently authored
+pinned golden plus asymmetric property, malformed, ambiguity/conflict,
+partial-write, and cancellation evidence. Broader unified-diff recovery remains
+incomplete; constructed formats are not a release-readiness claim.
 Selected-file edits are dry-run resolved, previewed, written, optionally
 committed, and followed by explicitly configured lint/test commands. Parse,
 resolution, and post-write check failures share a three-reflection budget with
@@ -210,6 +211,8 @@ accepted. Ordinary `diff` places each filename before its edit fence;
 language, using the fence selected from current file content. See the
 [provider documentation](docs/providers.md) and
 [input modes](docs/terminal.md#input-modes).
+Fence selection repeats after `/add`, `/drop`, edits, and reflected attempts so
+the prompt, file context, and parser cannot retain a stale delimiter.
 Unified-diff input honors standard `\ No newline at end of file` markers,
 including transitions that add or remove the final newline.
 Rich terminal contracts and history privacy guidance are documented in

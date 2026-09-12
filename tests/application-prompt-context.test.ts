@@ -234,7 +234,7 @@ describe("switching the active model", () => {
     await submit("second question");
 
     // The replacement model's own prompt, reminder, and shell policy.
-    expect(sent(1)).toContain("complete fenced file body");
+    expect(sent(1)).toContain("entire content of the updated file");
     expect(sent(1)).not.toContain("SEARCH");
     expect(sent(1)).toContain("Do not suggest shell commands.");
     // Assistant output in the previous format cannot survive the format change.
@@ -301,7 +301,7 @@ describe("switching the active model", () => {
     expect(sent(1)).not.toContain(REPO_MAP_PREFIX);
   });
 
-  it("reselects the fence for the files in context", async () => {
+  it("reselects the fence after context changes without a profile switch", async () => {
     const root = await temporaryDirectory("patch-switch-fence-");
     await writeFile(join(root, "one.txt"), "one\n");
     await writeFile(join(root, "fenced.md"), "```\nembedded\n```\n");
@@ -315,9 +315,10 @@ describe("switching the active model", () => {
     expect(sent(0)).toContain("one.txt\\n```\\none\\n```");
 
     await submit("/add fenced.md");
-    await submit("/model test/diff-model");
     await submit("second question");
     expect(sent(1)).toContain("one.txt\\n````\\none\\n````");
+    expect(sent(1)).toContain("````python");
+    expect(sent(1)).toContain("The closing fence: ````");
   });
 
   it("sends the distinct fenced-diff protocol with the active fence", async () => {
@@ -345,14 +346,16 @@ describe("switching the active model", () => {
     await fenced.submit("change the value");
 
     expect(ordinary.sent(0)).toContain(
-      "src/value.ts\\n````ts\\n<<<<<<< SEARCH",
+      "mathweb/flask/app.py\\n````python\\n<<<<<<< SEARCH",
     );
     expect(ordinary.sent(0)).not.toContain(
-      "````ts\\nsrc/value.ts\\n<<<<<<< SEARCH",
+      "````python\\nmathweb/flask/app.py\\n<<<<<<< SEARCH",
     );
-    expect(fenced.sent(0)).toContain("````ts\\nsrc/value.ts\\n<<<<<<< SEARCH");
+    expect(fenced.sent(0)).toContain(
+      "````python\\nmathweb/flask/app.py\\n<<<<<<< SEARCH",
+    );
     expect(fenced.sent(0)).not.toContain(
-      "src/value.ts\\n````ts\\n<<<<<<< SEARCH",
+      "mathweb/flask/app.py\\n````python\\n<<<<<<< SEARCH",
     );
     expect(fenced.sent(0)).toContain("The closing fence: ````");
   });
@@ -379,7 +382,7 @@ describe("switching the active model", () => {
 
     await submit("second question");
     expect(sent(1)).toContain("SEARCH");
-    expect(sent(1)).not.toContain("complete fenced file body");
+    expect(sent(1)).not.toContain("entire content of the updated file");
     await expect(submit("/chat-mode code")).resolves.toMatchObject({
       response: "Chat mode: diff",
     });
