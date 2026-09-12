@@ -68,7 +68,7 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
@@ -703,8 +703,15 @@ above.
 
 - [x] Add separately gated OpenAI and Anthropic tests using documented
   environment variables; add DeepSeek if it remains an advertised provider.
-- [ ] Exercise authentication diagnostics, a minimal streamed response, usage,
+- [x] Exercise authentication diagnostics, a minimal streamed response, usage,
   finish reasons, timeout/cancellation, and one provider-specific capability.
+  OpenAI and Anthropic have independent opt-in gates and credential checks. Each
+  suite covers fixed secret-safe diagnostics, a positive-usage natural-stop
+  stream, a one-millisecond SDK timeout, and a pre-aborted request; the successful
+  OpenAI request carries a tiny PNG and Anthropic carries an ephemeral cache
+  marker. Credential-free adapter tests cover the same failure contracts
+  deterministically. Live success remains environment/account evidence rather
+  than a default-CI guarantee.
 - [x] Ensure missing credentials skip the live suite rather than failing normal
   CI and ensure failures never print keys, headers, or response secrets.
 - [x] Run live tests on a manual or protected scheduled workflow with strict

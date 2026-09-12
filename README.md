@@ -26,6 +26,9 @@ OpenAI or Anthropic routes, builds editable/read-only/repository-map context,
 and runs serialized one-shot or line-oriented interactive turns. A DeepSeek
 route normalizes the catalog model name, output limit, and prefill request for
 that endpoint.
+Separately gated, credential-optional live OpenAI and Anthropic contracts cover
+minimal streaming, usage, stop reasons, timeout/cancellation, and one native
+capability; ordinary CI remains credential-free and offline.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Unified-diff recovery/no-newline handling, format-specific prompts,
 and broader pinned fixtures remain incomplete; constructed formats are not a

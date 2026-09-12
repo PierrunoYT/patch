@@ -69,22 +69,24 @@ network access.
 
 ## Opt-in live contracts
 
-`tests/live-provider.test.ts` is skipped unless `PATCH_LIVE_PROVIDERS=1`. Each
-OpenAI, Anthropic, or DeepSeek case also skips when its provider-specific key is
+`tests/live-provider.test.ts` gates providers independently with
+`PATCH_LIVE_OPENAI=1`, `PATCH_LIVE_ANTHROPIC=1`, and
+`PATCH_LIVE_DEEPSEEK=1`. Each case also skips when its provider-specific key is
 absent. The protected, manually dispatched `live-providers.yml` workflow has a
-five-minute job bound and sends one tiny response request per configured
-provider; it never runs for pull requests. Model overrides use
+five-minute job bound and never runs for pull requests. Model overrides use
 `PATCH_LIVE_OPENAI_MODEL`, `PATCH_LIVE_ANTHROPIC_MODEL`, and
 `PATCH_LIVE_DEEPSEEK_MODEL`.
 
-Live contracts assert text streaming, usage, and finish events; Anthropic also
-exercises a cache-control system block. Authentication classification,
-cancellation, timeout, fragmented events, and secret-safe diagnostics remain
-deterministic mocked-adapter tests because intentionally failing live calls are
-variable and wasteful. Provider availability, account permissions, model names,
-rate limits, and API behavior can make a manual live run fail independently of
-the credential-free suite. Tests and workflow configuration never print key
-values.
+The OpenAI and Anthropic contracts each assert text streaming, positive usage,
+a natural stop reason, SDK timeout, pre-aborted cancellation, and secret-safe
+missing-credential diagnostics. OpenAI's successful request includes a tiny PNG;
+Anthropic's includes an ephemeral cache-control system block. Deterministic
+adapter tests repeat timeout, cancellation, authentication rejection, fragmented
+events, and diagnostic secrecy without network access. Provider availability,
+account permissions, model names, rate limits, and API behavior can make a
+manual live run fail independently of the credential-free suite. Tests and
+workflow configuration never print key values, custom headers, endpoint URLs,
+or media bytes.
 
 The DeepSeek live case constructs the adapter directly with endpoint-facing
 `deepseek-chat`. The bundled catalog name `deepseek/deepseek-chat` now reaches
@@ -111,6 +113,9 @@ environment snapshot or a `credentialPresent` flag; it never reads or returns a
 secret value. Capability errors distinguish a model that does not declare a
 feature from an adapter that cannot represent it. `assertProviderReady` turns
 the structured result into `ProviderConfigurationError` for startup paths.
+Authentication rejection events use a fixed provider-specific message rather
+than the SDK/server message, so reflected credentials, headers, and endpoints
+cannot enter diagnostics.
 
 ## Compatibility
 
