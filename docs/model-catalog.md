@@ -69,6 +69,10 @@ endpoint's limits, prices, and capabilities, and metadata wins for the fields it
 defines, as upstream's `model-metadata.json` overrides LiteLLM's model info.
 Capabilities merge key by key, so an entry need only state what it changes, and
 `resolve()` still returns the raw `metadata` alongside the merged settings.
+Metadata capability parsing has no defaults: omitted keys cannot overwrite a
+setting's explicit image, document, tool, or streaming capability with `false`.
+The bundled GPT-4o entries declare their documented image capability; PDF input
+remains disabled for OpenAI Chat Completions.
 Bundled metadata prices therefore reach executable cost reports. A final
 OpenAI-compatible usage event that arrives after the finish event is retained,
 and `ApplicationTurnResult` carries the report and the running `sessionCost`, so

@@ -576,12 +576,14 @@ evidence is not claimed until that matrix completes on the pushed revision.
   library helper exists but is not constructed by `ApplicationService`.
 - [ ] Integrate context mode's repeated file selection with a bounded convergence
   loop.
-- [ ] Complete media integration. Prompt-cache boundaries and
+- [x] Complete media integration. Prompt-cache boundaries and
   opt-in keepalive are production-wired: only the marked prefix is refreshed at
   295-second intervals, pings cap at ten, and session shutdown cancels timers and
   in-flight refreshes. Bounded repeated prefill, including DeepSeek prefix
   normalization, replaces the prior cumulative prefix and aggregates usage.
-  Media remains a helper-only context shape.
+  `/attach` loads explicitly approved, contained, capability-gated image/PDF
+  context with fixed per-file/count/aggregate bounds, signature validation,
+  cancellation, ephemeral history treatment, and `/drop` cleanup.
 
 **Exit (not met):** advanced helpers are not advertised as CLI modes. The six
 constructed formats still need independent pinned golden/property evidence and

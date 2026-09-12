@@ -20,7 +20,7 @@ export interface CompletionSources {
   readonly identifiers?: readonly string[];
 }
 
-const FILE_COMMANDS = new Set(["/add", "/drop", "/read-only"]);
+const FILE_COMMANDS = new Set(["/add", "/attach", "/drop", "/read-only"]);
 const RESERVED_WORDS = new Set([
   "break",
   "case",

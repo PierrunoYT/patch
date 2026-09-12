@@ -7,7 +7,7 @@ This ports the dispatch boundary from
 [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203)
 without copying aider's stateful Python command object.
 
-The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/settings`, `/ls`,
+The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`, `/settings`, `/ls`,
 `/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`,
 `/undo`, `/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
@@ -39,6 +39,12 @@ File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather
 than silently dropped.
+
+`/attach <path...>` is the media-only path command. It requires explicit approval
+for every contained non-ignored file, validates PNG/JPEG/WebP/PDF
+content under fixed count and byte bounds, and rejects media the current model
+cannot accept. Attachments are read-only request context, not chat history;
+`/drop <path...>` removes them and `/drop` clears all attachments.
 
 A directory selects the files beneath it and a glob selects the files it
 matches. `*` and `?` stay inside one path segment, `**` crosses segments, `**/`

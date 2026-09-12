@@ -76,6 +76,30 @@ describe("catalog metadata merging", () => {
     expect(resolved.metadata).toMatchObject({ maxInputTokens: 128000 });
   });
 
+  it("does not let omitted metadata capabilities erase settings", async () => {
+    const catalog = await catalogWith(
+      `- name: test/media
+  provider: anthropic
+  editFormat: ask
+  capabilities:
+    images: true
+    documents: true
+`,
+      `{
+  "test/media": {
+    provider: "anthropic",
+    capabilities: { promptCaching: true },
+  },
+}`,
+    );
+
+    expect(catalog.resolve("test/media").settings.capabilities).toMatchObject({
+      images: true,
+      documents: true,
+      promptCaching: true,
+    });
+  });
+
   it("leaves a model with no metadata entry untouched", async () => {
     const catalog = await catalogWith(
       `- name: test/plain
@@ -101,6 +125,17 @@ describe("catalog metadata merging", () => {
       inputCostPerMillion: 0.28,
       outputCostPerMillion: 0.42,
       maxInputTokens: 128000,
+    });
+  });
+
+  it("retains bundled image and document capabilities through metadata", async () => {
+    const catalog = await ModelCatalog.load();
+
+    expect(catalog.resolve("4o").settings.capabilities.images).toBe(true);
+    expect(catalog.resolve("sonnet").settings.capabilities).toMatchObject({
+      images: true,
+      documents: true,
+      promptCaching: true,
     });
   });
 

@@ -68,10 +68,10 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, bounded repeated assistant-prefill continuation, and in-process worktree serialization are wired. Summarizer fallback/input caps, advanced modes, and exhaustive recovery evidence remain incomplete. |
 | Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
-| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired. Provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup; editor/media workflows remain unintegrated. |
+| Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices/capabilities for every advertised model, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired. Provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive and approved bounded image/PDF application context are production-wired; editor workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | Sixteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, and command outcomes are wired. Help, report, and settings are selected but absent. |
+| Commands/terminal | partial | Nineteen commands dispatch; profile switching, media attachment, paste, rich input, explicit PTY, literal-first directory/glob expansion, help/settings, and command outcomes are wired. Report remains absent. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
@@ -663,7 +663,7 @@ and status are correct. What remains is breadth rather than correctness: `/ls`
 and file-command matching are narrower than Aider's, and there is no semantic
 command help.
 
-- [x] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
+- [x] Add an application-owned dispatcher for `/add`, `/attach`, `/drop`, `/read-only`,
   `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`,
   `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
 - [x] Resolve and authorize command paths through the same containment boundary
@@ -785,8 +785,12 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   than appending duplicates. Deterministic core and executable tests prove three
   fragments assemble once, all usage/cost is aggregated, natural stop completes,
   and provider error or cancellation exits without committing partial history.
-- [ ] Integrate contained, size-limited image/PDF loading through application
-  interfaces. The media message builder remains helper-only.
+- [x] Integrate contained, size-limited image/PDF loading through application
+  interfaces. `/attach` requires per-path approval and model capability before a
+  no-follow cancellable read, validates allowlisted extension/signature pairs,
+  rejects encrypted PDFs, and caps four files at 5 MiB each/10 MiB total. Fake
+  provider tests prove image and PDF request parts while snapshots, histories,
+  command results, and errors retain no bytes; `/drop` and close release context.
 - [ ] Add independent pinned golden fixtures plus asymmetric property tests for
   every advertised edit format, including switching away from incompatible
   protocol history.

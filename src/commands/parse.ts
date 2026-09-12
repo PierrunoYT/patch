@@ -18,6 +18,7 @@ export class CommandParseError extends Error {
  */
 export const COMMAND_NAMES: readonly string[] = [
   "add",
+  "attach",
   "chat-mode",
   "clear",
   "commit",
@@ -116,6 +117,7 @@ export function parseCommand(input: string): CommandEffect {
   let effect: unknown;
   switch (command) {
     case "add":
+    case "attach":
     case "read-only":
       effect = { type: command, paths: parsePaths(command, argument, true) };
       break;

@@ -15,6 +15,13 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Production `/attach` media context for approved repository-contained PNG,
+  JPEG, WebP, and PDF files. Capability checks precede reads;
+  no more than four files, 5 MiB each and 10 MiB total, are retained. Bounded
+  cancellable no-follow reads validate extension/signature (and reject encrypted
+  PDFs), `/drop` removes attachments, and encoded bytes never enter histories or
+  diagnostics. Bundled OpenAI vision capabilities and sparse metadata capability
+  merging were corrected so omitted metadata no longer disables configured media.
 - Repeated assistant-prefill continuation for capable models, bounded to three
   follow-up requests. Each request replaces the prior trailing prefill, adds only
   the new suffix, aggregates usage/cost across requests, and preserves final

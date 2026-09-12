@@ -98,7 +98,7 @@ selected right now, `--input-history-file` also makes earlier input recallable,
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
 `$EDITOR`, and `/run --interactive` hands the terminal to one approved command
 through the optional `node-pty` package. `--vim` is refused rather than ignored;
-Vi modal editing is not implemented. Architect/context/media helpers are not
+Vi modal editing is not implemented. Architect/context helpers are not
 constructed modes; prompt-cache keepalive is production-wired as an explicit,
 bounded opt-in, and capable models repeat assistant-prefill continuation up to
 three times without duplicating prior output.
@@ -170,6 +170,11 @@ symbolic links skipped, ignored files dropped, and the selection bounded; a
 named path that does not exist yet stays selectable. An exact existing name is
 checked before glob interpretation, so glob metacharacters in a filename remain
 literal. External read-only files are not supported.
+Use `/attach <path...>` to add up to four approved, contained images or PDFs as
+read-only model context. Attachments are limited to 5 MiB each and 10 MiB total,
+must match an allowlisted extension and file signature, and are available only
+when the selected model declares the matching capability. `/drop` removes them;
+their encoded bytes are never copied into chat history or diagnostics.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. Ordinary `diff` places each filename before its edit fence;

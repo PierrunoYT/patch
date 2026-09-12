@@ -106,3 +106,8 @@ exist yet is still selectable, because a turn may create it. An exact existing
 file or directory wins before glob interpretation, so a name such as
 `[ab].txt` stays literal even beside `a.txt` and `b.txt`. See [slash
 commands](commands.md) for shared selection semantics.
+
+`/attach` uses the same containment, ignore filtering, exact-name-first, and
+bounded expansion rules, but it accepts only existing media files. Every result
+also requires explicit interface approval and media-specific type/size checks;
+media is not a YAML or environment bootstrap input.

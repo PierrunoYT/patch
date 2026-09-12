@@ -11,6 +11,7 @@
     streaming: true
     systemRole: true
     tools: true
+    images: true
 
 - name: gpt-4o-mini
   provider: openai
@@ -20,6 +21,7 @@
     streaming: true
     systemRole: true
     tools: true
+    images: true
 
 - name: claude-sonnet-4-6
   provider: anthropic
