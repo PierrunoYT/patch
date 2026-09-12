@@ -54,6 +54,11 @@ dated parity audits for revision-specific evidence.
   histories, multiline input, notifications, watch mode, and the authenticated
   local web interface, including explicit CLI disable overrides and
   repository-root correction.
+- A production internal editor role using pinned editor-specific whole-file,
+  SEARCH/REPLACE, or fenced SEARCH/REPLACE prompts. Each invocation constructs
+  fresh history with the configured editor model/capabilities, current approved
+  paths, no repository map, and no shell execution; cancellation and provider
+  failure leave the parent session reusable.
 - One six-value production edit-format schema shared by CLI/YAML/environment
   configuration, model settings, slash-command parsing, and terminal mode
   completion. Helper-only format names are no longer accepted by public model

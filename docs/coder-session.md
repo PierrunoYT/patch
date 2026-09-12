@@ -145,9 +145,12 @@ independently configured. Denial or an empty plan cannot consume an editor
 turn, and a shared abort signal prevents the editor from starting after
 cancellation.
 
-This orchestrator is an exported helper, not a mode constructed by
-`ConcreteApplicationService`. It does not establish selected-file/context,
-commit, cost, or final-history transfer parity.
+`ConcreteApplicationService.runEditor` now supplies the production editor half:
+it creates a fresh session using the selected editor model/protocol, current
+authorized paths, distinct editor prompts, no repository map, and no shell
+execution. It shares cancellation and cleans up after failures without changing
+the parent history. Architect proposal/acceptance and commit/cost/final-history
+transfer remain unintegrated at this stage.
 
 ## Context selection
 

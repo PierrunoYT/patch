@@ -66,9 +66,9 @@ unchanged result of the historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, and in-process worktree serialization. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, repeated continuation, and some recovery evidence remain incomplete. |
+| Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, and in-process worktree serialization. The internal editor role uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, advanced orchestration, repeated continuation, and some recovery evidence remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
-| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata/pricing, cache-aware cost, temperature policy, and bounded retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
+| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata/pricing, cache-aware cost, temperature policy, and bounded retries are wired. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics through `ApplicationService`; media and cache keepalive remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
@@ -799,8 +799,14 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   boundaries before provider construction; architect/context identities remain
   private to read-only orchestration helpers. The pinned upstream format list is
   retained as evidence of Patch's intentionally narrower advertised subset.
-- [ ] Port distinct editor prompts and enforce editor-specific no-shell,
+- [x] Port distinct editor prompts and enforce editor-specific no-shell,
   no-repo-map, and fresh-history behavior where required by pinned Aider.
+  `runEditor` constructs a new application session with the selected editor
+  model/capabilities and current authorized paths, but no prior messages or map.
+  Editor whole/diff/fenced-diff prompts remove shell/rename/go-ahead guidance;
+  shell output is rejected through the production reflection path. Tests prove
+  model routing, prompt/context shape, correction, cancellation-before-call,
+  provider failure cleanup, unchanged files, and parent-session reuse.
   The selected local `/help` command is tracked separately; it does not require
   constructing Aider's model-backed help coder.
 - [ ] Integrate architect acceptance, fresh editor construction, state/cost/

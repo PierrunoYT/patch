@@ -25,6 +25,11 @@ export interface ApplicationSession {
     readonly identifiers: readonly string[];
   }>;
   submit(message: string, options: ApplicationSubmitOptions): Promise<unknown>;
+  /** Runs an internal fresh-history editor role; not a user-facing chat mode. */
+  runEditor?(
+    instructions: string,
+    options: ApplicationSubmitOptions,
+  ): Promise<unknown>;
   close?(): void | Promise<void>;
 }
 

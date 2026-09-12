@@ -23,6 +23,13 @@ English, requires explicit approval for every suggested command and
 out-of-chat path, and tells models about its safer unique-match/transactional
 rules rather than promising aider's first-match behavior.
 
+Its editor variants port `editor_whole_prompts.py`,
+`editor_editblock_prompts.py`, and `editor_diff_fenced_prompts.py`. They retain
+the parser-specific examples/reminders but replace the general system prompt
+with the terse edit-only role and remove shell, rename, and conversational
+go-ahead guidance. Production additionally rejects any parsed editor shell
+block rather than relying on prompting alone.
+
 ## Fence selection
 
 `selectFence()` ports the ordered candidates and line-prefix collision check

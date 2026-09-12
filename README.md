@@ -236,8 +236,10 @@ cannot be combined with each other or one-shot input, and use the same staged
 model/file configuration as terminal startup. This API is for trusted local
 clients, not public or multi-tenant hosting.
 
-Architect/editor handoff, context convergence, cache keepalive, and media
-utilities are currently library-level contracts, not constructed CLI modes.
+The internal editor role is production-wired for architect handoff: it uses the
+configured editor model/parser with editor-only prompts, no repository map, no
+shell commands, and fresh history. Architect acceptance/handoff and context
+convergence remain library-level contracts, not constructed CLI modes.
 Assistant-prefill continuation is reached inside production `CoderSession` for
 capable models but is not wire-compatible for all advertised routes.
 `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore not

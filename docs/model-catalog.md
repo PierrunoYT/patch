@@ -54,9 +54,10 @@ rather than importing aider's LiteLLM-specific catalog wholesale.
 construction. Explicit role overrides are library options, not executable
 controls. The concrete application constructs the main provider/session and
 resolves the active main model's weak model when compacting long history, so a
-model switch also changes subsequent summarization. Editor handoff and generated
-commit-message workflows remain unintegrated; role resolution alone does not
-establish those workflows.
+model switch also changes subsequent summarization. The internal editor path now
+constructs the selected editor provider and parser on demand with fresh history,
+current selected paths, and the editor model's capabilities; full architect
+handoff remains separate. Generated commit-message role selection is unchanged.
 
 ## Token counting
 

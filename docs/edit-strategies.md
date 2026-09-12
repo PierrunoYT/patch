@@ -20,6 +20,13 @@ them as parsers. Architect and context keep private read-only strategy
 identities for orchestration, while the local `/help` command is unrelated to
 an edit strategy.
 
+The internal editor role reuses only `whole`, `diff`, or `diff-fenced` parsers
+with the pinned editor-specific prompt variants. It is not a public format.
+Each run is a fresh `ConcreteApplicationSession` with current authorized paths,
+the selected editor model/capabilities, no repository map or prior history, and
+an enforced no-shell policy. Parsing, unique-match resolution, authorization,
+and transactional writes remain the same production path as an ordinary turn.
+
 ## Ask
 
 `AskEditStrategy` ports aider's

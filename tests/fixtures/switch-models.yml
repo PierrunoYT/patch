@@ -13,11 +13,21 @@
 - name: test/diff-model
   provider: openai
   editFormat: diff
+  editorModel: test/editor-model
+  editorEditFormat: diff
   useRepoMap: true
   capabilities:
     streaming: true
     systemRole: true
     images: true
+
+- name: test/editor-model
+  provider: openai
+  editFormat: diff
+  useRepoMap: true
+  capabilities:
+    streaming: true
+    systemRole: true
 
 # A history budget small enough that one exchange overflows it, so the
 # summarization path is reachable without a wall of fixture text.
