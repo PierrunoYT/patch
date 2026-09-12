@@ -51,7 +51,8 @@ provider SDK.
 
 `ChatChunks` validates every message on construction and emits defensive copies
 in this order: system, examples, read-only files, repository map, completed
-history, editable files, current turn, then reminder. Empty chunks add nothing.
+history, editable files, transient approved media, current turn, then reminder.
+Empty chunks add nothing.
 Cache marking returns a new chunk value and uses camel-case `cacheControl`; a
 provider adapter is responsible for translating that marker to its wire format.
 The cache boundaries match aider: examples or system, repository map or

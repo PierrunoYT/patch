@@ -76,6 +76,13 @@ dated parity audits for revision-specific evidence.
   current files before every initial and reflected provider attempt. Patch
   retains stricter ambiguity rejection, path approval, transactional writes,
   and explicit command approval.
+- Production `/attach` media context for approved repository-contained PNG,
+  JPEG, WebP, and PDF files. Capability checks precede reads;
+  no more than four files, 5 MiB each and 10 MiB total, are retained. Bounded
+  cancellable no-follow reads validate extension/signature (and reject encrypted
+  PDFs), `/drop` removes attachments, and encoded bytes never enter histories or
+  diagnostics. Bundled OpenAI vision capabilities and sparse metadata capability
+  merging were corrected so omitted metadata no longer disables configured media.
 - Production prompt-cache keepalive behind `--cache-keepalive-pings`,
   `PATCH_CACHE_KEEPALIVE_PINGS`, or `cache-keepalive-pings` YAML. The default is
   zero network requests; opted-in sessions schedule at most ten one-token refreshes

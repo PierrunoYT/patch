@@ -47,6 +47,13 @@ describe("advertised slash-command surface", () => {
     execFileSync("git", ["config", "commit.gpgSign", "false"], { cwd: root });
     await writeFile(join(root, "one.txt"), "one\n");
     await writeFile(join(root, "two.txt"), "two\n");
+    await writeFile(
+      join(root, "image.png"),
+      Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    );
     execFileSync("git", ["add", "one.txt", "two.txt"], { cwd: root });
     execFileSync("git", ["commit", "--quiet", "-m", "baseline"], { cwd: root });
 
@@ -136,10 +143,12 @@ describe("advertised slash-command surface", () => {
     clipboard = "pasted text";
     await submit("/paste");
     await submit("/add two.txt");
+    await submit("/attach image.png");
     await submit("/read-only two.txt");
     await expect(submit("/ls")).resolves.toMatchObject({
       response: expect.stringContaining("Read-only: two.txt"),
     });
+    await submit("/drop image.png");
     await submit("/drop two.txt");
     await submit("/model 4o");
     await submit("/chat-mode ask");

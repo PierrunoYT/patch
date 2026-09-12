@@ -52,7 +52,7 @@ fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
 the installed acceptance evidence and intentional differences from aider.
 The parser-owned inventory and `docs/commands.md` are checked against each other,
-and one real-Git application scenario executes all 19 advertised command effects
+and one real-Git application scenario executes all 20 advertised command effects
 plus contained/denied/missing-state failures. This proves the advertised Patch
 surface, not aider's wider command set.
 
@@ -122,7 +122,8 @@ Vi modal editing is not implemented. Architect and context are private
 application workflows, not public modes; prompt-cache keepalive is
 production-wired as an explicit bounded opt-in. Capable models repeat
 assistant-prefill continuation up to three times without duplicating prior
-output. Media remains unintegrated.
+output. `/attach` adds bounded, approved image/PDF context for capable models;
+attached bytes are request-only and `/drop` removes them.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
 user-typed page to the chat as bounded, labeled text. Web session expiry,
@@ -214,6 +215,11 @@ symbolic links skipped, ignored files dropped, and the selection bounded; a
 named path that does not exist yet stays selectable. An exact existing name is
 checked before glob interpretation, so glob metacharacters in a filename remain
 literal. External read-only files are not supported.
+Use `/attach <path...>` to add up to four approved, contained images or PDFs as
+read-only model context. Attachments are limited to 5 MiB each and 10 MiB total,
+must match an allowlisted extension and file signature, and are available only
+when the selected model declares the matching capability. `/drop` removes them;
+their encoded bytes are never copied into chat history or diagnostics.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. This same six-value set drives configuration, model settings,

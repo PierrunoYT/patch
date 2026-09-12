@@ -96,15 +96,16 @@ evidence; this plan and the backlog track current status and open work.
   ignore filtering to actual patterns.
 - OpenAI and Anthropic have basic executable routes, DeepSeek requests are
   normalized for its endpoint, and post-finish usage events are retained.
-  Metadata merging, temperature policy, bounded retries, and weak-model history
-  compaction are wired. Bundled limits/prices and cache accounting are incomplete;
-  editor, media, and cache-keepalive workflows remain unintegrated.
+  Metadata merging, bundled limits/prices, cache accounting, temperature policy,
+  bounded retries, repeated assistant-prefill continuation, and weak-model
+  history compaction are wired. The private editor role, bounded prompt-cache
+  keepalive opt-in, and approved ephemeral image/PDF context are production-wired.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock, and `/web` ingests one user-typed URL as
-  bounded, labeled text. GUI and CLI voice UX are deferred. HTTP disconnect
-  cancellation is wired but needs targeted runtime evidence; partial-turn errors
-  expose only bounded recovery metadata. Expiry, quotas, backpressure, and
-  reclamation remain open.
+  bounded, labeled text. GUI and CLI voice UX are deferred. Loopback production
+  tests cover HTTP disconnect cancellation, principal/session isolation,
+  structured partial-turn recovery, expiry, quotas, bounded replay/backpressure,
+  reclamation, and concurrent terminal/watch/web work.
 - The eight ancillary feature families have explicit dispositions below.
   Offline `/help`, allowlisted `/settings`, and the bounded local `/report` draft
   are implemented and jointly exercised through terminal dispatch and the
@@ -474,8 +475,9 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 
 - [ ] Complete OpenAI-compatible streaming parity. Streaming, custom
   constructor options, post-finish usage, DeepSeek normalization, metadata
-  merging, temperature policy, and bounded transient retries are wired.
-  Repeated continuation and broader provider-wire evidence remain incomplete.
+  merging, temperature policy, bounded transient retries, and bounded repeated
+  assistant-prefill continuation are wired. Broader provider-wire parity remains
+  incomplete.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
@@ -622,16 +624,18 @@ evidence is not claimed until that matrix completes on the pushed revision.
   request's identifier hints and the complete provisional file set. A stable set
   atomically replaces editable paths after approval; cancellation, rejection,
   and deterministic non-convergence leave the parent selection unchanged.
-- [ ] Complete media integration. Prompt-cache boundaries and
+- [x] Complete media integration. Prompt-cache boundaries and
   opt-in keepalive are production-wired: only the marked prefix is refreshed at
   295-second intervals, pings cap at ten, and session shutdown cancels timers and
   in-flight refreshes. Bounded repeated prefill, including DeepSeek prefix
   normalization, replaces the prior cumulative prefix and aggregates usage.
-  Media remains a helper-only context shape.
+  `/attach` loads explicitly approved, contained, capability-gated image/PDF
+  context with fixed per-file/count/aggregate bounds, signature validation,
+  cancellation, ephemeral history treatment, and `/drop` cleanup.
 
 **Exit (not met):** advanced workflows are deliberately not advertised as CLI
 modes. The six constructed formats have independent pinned golden/property
-evidence; media integration remains incomplete.
+evidence, but broader unified-diff recovery remains incomplete.
 
 **Production evidence:** `tests/application-architect.test.ts`,
 `tests/application-editor.test.ts`, and `tests/application-context.test.ts`.

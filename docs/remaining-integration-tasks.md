@@ -68,10 +68,10 @@ unchanged result of the historical audit.
 | --- | --- | --- |
 | Core lifecycle | partial | Turns use immutable attempt context, explicit cancellation boundaries, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer fallback/input caps and some recovery evidence remain incomplete. |
 | Editing | partial with format evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and unified-diff transitions/no-newline markers are implemented. Every format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
-| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses its selected model/capabilities, distinct prompts, fresh history, no map/shell, and isolated cancellation/failure semantics; media remains unintegrated. |
+| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers, subject to external account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses isolated prompts/history and no map/shell; approved contained image/PDF media is request-only and bounded. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Private context selection force-refreshes an expanded map with original-request identifier hints. Broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
+| Commands/terminal | partial | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. Broader release-audit reconciliation remains open. |
 
@@ -182,10 +182,11 @@ for revision-specific source references and reproduction limits.
 ### Historical immediate P0 checklist
 
 The original immediate P0 and P1 lists below record completed milestones, not
-all remaining release blockers. P2's ancillary disposition is decided, but its
-commands are still absent. The audit's direct fixture-import hash gap is closed.
-Current audit follow-ups and unchecked R0–R9 tasks continue to control release
-readiness. Updating documentation does not complete those implementation tasks.
+all remaining release blockers. P2's ancillary commands are now implemented and
+verified through the packed executable. The audit's direct fixture-import hash
+gap is closed. Current audit follow-ups and unchecked R0–R9 tasks continue to
+control release readiness. Updating documentation does not complete those
+implementation tasks.
 
 - [x] Make every Git path argument literal so pathspec magic cannot stage,
   commit, diff, or undo unrelated files.
@@ -403,10 +404,10 @@ readiness. Updating documentation does not complete those implementation tasks.
   implement local `/help`, allowlisted `/settings`, and a local reviewable
   `/report` draft; defer browser GUI and voice UX; make analytics, automatic
   onboarding/OAuth, and built-in update/release-note flows non-goals.
-  This closed the product decision only; `/help` and `/settings` are now
-  implemented and the `/report` acceptance task below remains unchecked. Cost/privacy
-  rationale and pinned source references are retained in the plan. Source
-  review also corrects the earlier table: settings uses
+  The product decision and the executable `/help`, `/settings`, and `/report`
+  acceptance tasks below are complete. Cost/privacy rationale and pinned source
+  references are retained in the plan. Source review also corrects the earlier
+  table: settings uses
   `aider/format_settings.py`, and upstream ordinary version probes are throttled
   for 24 hours, not sent on every startup.
 - [x] Complete fixture-source hash coverage while retaining the implemented
@@ -708,10 +709,10 @@ and status are correct. What remains is breadth rather than correctness: `/ls`
 and file-command matching are narrower than Aider's, and there is no semantic
 command help.
 
-- [x] Add an application-owned dispatcher for `/add`, `/drop`, `/read-only`,
-  `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`,
-  `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
-  `/exit`.
+- [x] Add an application-owned dispatcher for `/add`, `/attach`, `/drop`,
+  `/read-only`, `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`,
+  `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
+  `/paste`, and `/exit`.
 - [x] Resolve and authorize command paths through the same containment boundary
   as model edits; never mutate session lists from raw parser strings.
 - [x] Rebuild provider and the complete strategy/prompt state safely for
@@ -738,7 +739,7 @@ command help.
 **Acceptance:** met for effect and next-turn evidence. Every advertised command
 has its documented executable effect. `tests/advertised-commands.test.ts` keeps
 the documentation inventory equal to the parser/completion inventory and drives
-all 19 effects through one real-Git concrete application, including safe
+all 20 effects through one real-Git concrete application, including safe
 failures. `tests/application-commands.test.ts`, `tests/interface-startup.test.ts`,
 `tests/interactive-command.test.ts`, and `tests/url-ingestion.test.ts` retain
 deeper cases. This exit covers the existing advertised commands, not future
@@ -855,8 +856,12 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   than appending duplicates. Deterministic core and executable tests prove three
   fragments assemble once, all usage/cost is aggregated, natural stop completes,
   and provider error or cancellation exits without committing partial history.
-- [ ] Integrate contained, size-limited image/PDF loading through application
-  interfaces. The media message builder remains helper-only.
+- [x] Integrate contained, size-limited image/PDF loading through application
+  interfaces. `/attach` requires per-path approval and model capability before a
+  no-follow cancellable read, validates allowlisted extension/signature pairs,
+  rejects encrypted PDFs, and caps four files at 5 MiB each/10 MiB total. Fake
+  provider tests prove image and PDF request parts while snapshots, histories,
+  command results, and errors retain no bytes; `/drop` and close release context.
 - [x] Add independent pinned golden fixtures plus asymmetric property tests for
   every advertised edit format, including switching away from incompatible
   protocol history. `tests/fixtures/edit-format-goldens.json` records one
@@ -1062,7 +1067,7 @@ cover:
 - [ ] exact file and Git state after cancellation or every injected failure;
 - [x] every advertised slash command through its documented application effect
   (`tests/advertised-commands.test.ts` asserts exact docs/parser inventory
-  equality and executes all 19 effects in a real temporary Git repository,
+  equality and executes all 20 effects in a real temporary Git repository,
   including safe containment, denial, refused URL ingestion, and missing-state
   paths; no unsupported advertising was found);
 - [x] tag extraction from the installed package for every shipped language

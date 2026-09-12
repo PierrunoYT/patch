@@ -84,6 +84,14 @@ import { ChatSummary } from "./chat-summary.js";
 import { CoderSession } from "./coder-session.js";
 import { ContextSelectionConvergenceError } from "./context-selection.js";
 import { findFileMentions } from "./file-mentions.js";
+import {
+  buildReadOnlyMediaMessage,
+  loadReadOnlyMedia,
+  MAX_MEDIA_FILES,
+  MAX_MEDIA_TOTAL_BYTES,
+  mediaTypeForPath,
+  type ReadOnlyMedia,
+} from "./media-context.js";
 import { countMessageTokens } from "../models/token-count.js";
 import type { ChatMessage } from "./messages.js";
 import { SerialTaskQueue } from "./serial-queue.js";
@@ -437,6 +445,7 @@ class ConcreteApplicationSession implements ApplicationSession {
   readonly #session: CoderSession;
   readonly #ownedProviders = new Set<ModelProvider>();
   readonly #contextRequest: string | undefined;
+  readonly #media = new Map<string, ReadOnlyMedia>();
   #profile: SessionProfile;
   #closed = false;
   #closing: Promise<void> | undefined;
@@ -805,6 +814,10 @@ class ConcreteApplicationSession implements ApplicationSession {
         );
         const snapshots = [...editable, ...readOnly, ...unselected];
         const repositoryContent = await this.#repositoryContext(message);
+        const media = buildReadOnlyMediaMessage(
+          [...this.#media.values()],
+          this.#profile.main,
+        );
         const prompt = {
           system: [
             {
@@ -851,6 +864,7 @@ class ConcreteApplicationSession implements ApplicationSession {
                   fence,
                   repositoryContent !== "",
                 ),
+          ...(media === undefined ? {} : { media: [media] }),
           reminder: [
             {
               role: "system" as const,
@@ -1092,6 +1106,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     if (this.#closing !== undefined) return this.#closing;
     this.#closed = true;
     this.#lifecycle.abort(new Error("Application session closed"));
+    this.#media.clear();
     this.#session.close();
     this.#closing = (async () => {
       await this.queue.idle();
@@ -1169,6 +1184,56 @@ class ConcreteApplicationSession implements ApplicationSession {
         );
         return result(`Added: ${paths.join(", ")}`);
       }
+      case "attach": {
+        const paths = await selectable(effect.paths);
+        await assertPathsNotIgnored(this.#context.repository, paths);
+        const uniquePaths = [...new Set(paths)];
+        if (
+          new Set([...this.#media.keys(), ...uniquePaths]).size >
+          MAX_MEDIA_FILES
+        )
+          throw new Error(
+            `At most ${MAX_MEDIA_FILES} media files may be attached`,
+          );
+        const loaded: ReadOnlyMedia[] = [];
+        for (const path of uniquePaths) {
+          options.signal.throwIfAborted();
+          const mediaType = mediaTypeForPath(path);
+          if (mediaType === undefined)
+            throw new Error("Unsupported media type");
+          const supported = mediaType.startsWith("image/")
+            ? this.#profile.main.capabilities.images
+            : this.#profile.main.capabilities.documents;
+          if (!supported)
+            throw new Error(
+              "The selected model does not support this media type",
+            );
+          if (
+            this.#context.approvePath === undefined ||
+            !(await this.#context.approvePath(path))
+          ) {
+            throw new Error(`Attaching path was not approved: ${path}`);
+          }
+          options.signal.throwIfAborted();
+          loaded.push(
+            await loadReadOnlyMedia(this.#context.root, path, options.signal),
+          );
+        }
+        const merged = new Map(this.#media);
+        for (const file of loaded) merged.set(file.path, file);
+        const totalBytes = [...merged.values()].reduce(
+          (total, file) => total + Buffer.byteLength(file.data, "base64"),
+          0,
+        );
+        if (totalBytes > MAX_MEDIA_TOTAL_BYTES)
+          throw new Error(
+            `Attached media may total at most ${MAX_MEDIA_TOTAL_BYTES} bytes`,
+          );
+        for (const file of loaded) this.#media.set(file.path, file);
+        return result(
+          `Attached: ${loaded.map((file) => file.path).join(", ")}`,
+        );
+      }
       case "read-only": {
         const paths = await selectable(effect.paths);
         await assertPathsNotIgnored(this.#context.repository, paths);
@@ -1180,6 +1245,8 @@ class ConcreteApplicationSession implements ApplicationSession {
       }
       case "drop": {
         const paths = await normalize(effect.paths);
+        if (effect.paths.length === 0) this.#media.clear();
+        else for (const path of paths) this.#media.delete(path);
         this.#session.setSelectedPaths(
           effect.paths.length === 0
             ? []
@@ -1199,6 +1266,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           [
             `Editable: ${state.editablePaths.join(", ") || "(none)"}`,
             `Read-only: ${state.readOnlyPaths.join(", ") || "(none)"}`,
+            `Media: ${[...this.#media.keys()].join(", ") || "(none)"}`,
           ].join("\n"),
         );
       case "help":

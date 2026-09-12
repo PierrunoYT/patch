@@ -7,9 +7,9 @@ This ports the dispatch boundary from
 [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203)
 without copying aider's stateful Python command object.
 
-The parser recognizes `/add`, `/drop`, `/read-only`, `/help`, `/settings`,
-`/report`, `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`, `/test`,
-`/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
+The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
+`/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`,
+`/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -56,6 +56,12 @@ File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather
 than silently dropped.
+
+`/attach <path...>` is the media-only path command. It requires explicit approval
+for every contained non-ignored file, validates PNG/JPEG/WebP/PDF
+content under fixed count and byte bounds, and rejects media the current model
+cannot accept. Attachments are read-only request context, not chat history;
+`/drop <path...>` removes them and `/drop` clears all attachments.
 
 A directory selects the files beneath it and a glob selects the files it
 matches. `*` and `?` stay inside one path segment, `**` crosses segments, `**/`
@@ -129,7 +135,7 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-19 effects through `ConcreteApplicationService`: selections, history, profile
+20 effects through `ConcreteApplicationService`: selections, media, history, profile
 switching, local ancillary output, captured process/checks, bounded URL content,
 clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL

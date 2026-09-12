@@ -11,11 +11,7 @@ import JSON5 from "json5";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
-import {
-  ModelCapabilitiesSchema,
-  ModelSettingsSchema,
-  type ModelSettings,
-} from "./settings.js";
+import { ModelSettingsSchema, type ModelSettings } from "./settings.js";
 
 const ModelAliasesSchema = z.record(z.string().min(1), z.string().min(1));
 const ModelSettingsFileSchema = z.array(ModelSettingsSchema);
@@ -28,7 +24,18 @@ export const ModelMetadataSchema = z
     outputCostPerMillion: z.number().nonnegative().optional(),
     cachedInputCostPerMillion: z.number().nonnegative().optional(),
     cacheWriteCostPerMillion: z.number().nonnegative().optional(),
-    capabilities: ModelCapabilitiesSchema.partial().optional(),
+    capabilities: z
+      .object({
+        streaming: z.boolean().optional(),
+        systemRole: z.boolean().optional(),
+        tools: z.boolean().optional(),
+        images: z.boolean().optional(),
+        documents: z.boolean().optional(),
+        promptCaching: z.boolean().optional(),
+        assistantPrefill: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 const ModelMetadataFileSchema = z.record(

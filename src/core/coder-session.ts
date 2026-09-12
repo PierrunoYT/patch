@@ -97,6 +97,8 @@ export interface TurnPrompt {
   readonly readOnlyFiles?: readonly ChatMessage[];
   readonly repository?: readonly ChatMessage[];
   readonly editableFiles?: readonly ChatMessage[];
+  /** Ephemeral media context; never copied into completed session history. */
+  readonly media?: readonly ChatMessage[];
   readonly reminder?: readonly ChatMessage[];
 }
 
@@ -679,7 +681,7 @@ export class CoderSession {
       repo: prompt.repository,
       done: this.#state.messages,
       chatFiles: prompt.editableFiles,
-      current: [userMessage],
+      current: [...(prompt.media ?? []), userMessage],
       reminder: prompt.reminder,
     });
     const messages = (
@@ -1101,7 +1103,11 @@ export class CoderSession {
                 repo: prompt.repository,
                 done: this.#state.messages,
                 chatFiles: prompt.editableFiles,
-                current: [turn.userMessage, ...reflectedMessages],
+                current: [
+                  ...(prompt.media ?? []),
+                  turn.userMessage,
+                  ...reflectedMessages,
+                ],
                 reminder: prompt.reminder,
               });
         if (this.#config.model.capabilities.promptCaching)

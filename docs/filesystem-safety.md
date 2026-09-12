@@ -33,6 +33,13 @@ a path checked earlier in a workflow is not authorization to write later.
 `FileSystemAdapter` retains this final containment check when it performs an
 atomic replacement.
 
+`/attach` applies the resolver again immediately before opening media. The
+canonical target is opened read-only with no-follow where the platform supports
+it, verified as a regular file, bounded before allocation, and read through an
+`AbortSignal`. Extension and signature/terminator must agree. The application
+keeps only approved relative labels outside the private attachment map; base64
+bytes are never placed in session snapshots, completed history, or diagnostics.
+
 ## Text files and replacement
 
 `FileSystemAdapter` reads and writes text through the resolver. It supports

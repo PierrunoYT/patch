@@ -44,7 +44,7 @@ unless `--no-git` is supplied. See
 
 `completeInput` supplies deterministic command, repository-file, and source
 identifier candidates. Slash commands complete immediately; `/add`, `/drop`,
-and `/read-only` use file-only candidates. General file and identifier
+`/read-only`, and `/attach` use file-only candidates. General file and identifier
 completion starts after three characters to avoid a noisy menu, matching the
 pinned upstream threshold. `extractIdentifiers` recognizes Unicode identifiers;
 callers decide which approved file contents may be scanned.

@@ -8,6 +8,7 @@ describe("parseCommand", () => {
       "/add src/a.ts 'docs/user guide.md'",
       { type: "add", paths: ["src/a.ts", "docs/user guide.md"] },
     ],
+    ["/attach diagram.png", { type: "attach", paths: ["diagram.png"] }],
     ["/drop", { type: "drop", paths: [] }],
     ["/read-only README.md", { type: "read-only", paths: ["README.md"] }],
     ["/help", { type: "help" }],
@@ -87,6 +88,7 @@ describe("parseCommand", () => {
 
   it.each([
     "/add",
+    "/attach",
     "/read-only",
     "/model",
     "/run",

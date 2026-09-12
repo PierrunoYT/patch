@@ -189,7 +189,20 @@ an immediate continuation whose response is only the suffix; ordinary OpenAI Cha
 Completions does not promise that contract, so Patch gates the behavior on model
 capability rather than enabling it for every OpenAI-compatible endpoint.
 
-`buildReadOnlyMediaMessage` labels image and PDF references and includes only
-parts supported by the selected model. PDFs are always context-only and remain
-subject to the Anthropic adapter's document support; OpenAI Chat Completions
-continues to reject them at its boundary.
+`/attach <path...>` production-wires `buildReadOnlyMediaMessage`. Every new path
+must be explicitly approved and remain inside the selected root; ignored paths
+and symlink escapes fail closed. Patch accepts PNG, JPEG, WebP,
+and PDF, verifies extension-specific signatures/terminators, and rejects encrypted
+PDFs. Reads use a no-follow file handle, accept cancellation, and are bounded to
+four files, 5 MiB each, and 10 MiB total—deliberately below provider maxima and
+stricter than pinned aider's suffix-only unbounded reads. Model capability is
+checked before bytes are read. OpenAI receives images only; PDFs require a model
+with `documents` and the Anthropic adapter's native document block.
+
+Approved bytes live only in the private application-session attachment map and
+the active provider request. Prompt labels contain safe relative paths; completed
+chat history, snapshots, command results, and diagnostics never receive encoded
+bytes. `/drop` removes named media (or all media with no arguments), and session
+close clears the map. Deterministic fake-provider tests prove image/PDF delivery,
+approval, capability denial, malformed/oversized input, containment, cancellation,
+history secrecy, and cleanup without network access.
