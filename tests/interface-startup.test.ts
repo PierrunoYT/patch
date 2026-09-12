@@ -38,6 +38,64 @@ function turn(text: string) {
 }
 
 describe("application interface startup", () => {
+  it("refreshes executable completion from approved selected and available source", async () => {
+    const root = await fixture();
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    await writeFile(join(root, ".aiderignore"), "ignored.ts\n");
+    await writeFile(
+      join(root, "selected.ts"),
+      "const CurrentIdentifier = 1;\n",
+    );
+    await writeFile(
+      join(root, "available.ts"),
+      "const AvailableIdentifier = 2;\n",
+    );
+    await writeFile(join(root, "ignored.ts"), "const PrivateIdentifier = 3;\n");
+    execFileSync("git", ["add", "--force", "."], { cwd: root });
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--model", "4o", "--edit-format", "ask", "selected.ts"],
+      dependencies: { provider: new FakeProvider([]) },
+    });
+    const session = service.createSession({
+      principal: "completion",
+      sessionId: "completion",
+    });
+
+    await expect(session.completionCandidates?.()).resolves.toEqual({
+      files: expect.arrayContaining(["selected.ts", "available.ts"]),
+      identifiers: ["CurrentIdentifier"],
+    });
+    expect((await session.completionCandidates?.())?.files).not.toContain(
+      "ignored.ts",
+    );
+    expect(
+      JSON.stringify(await session.completionCandidates?.()),
+    ).not.toContain("PrivateIdentifier");
+
+    await writeFile(
+      join(root, "selected.ts"),
+      "const RefreshedIdentifier = 4;\n",
+    );
+    expect((await session.completionCandidates?.())?.identifiers).toEqual([
+      "RefreshedIdentifier",
+    ]);
+    await session.submit("/drop selected.ts", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+    await session.submit("/add available.ts", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+    expect((await session.completionCandidates?.())?.identifiers).toEqual([
+      "AvailableIdentifier",
+    ]);
+    await service.close();
+  });
+
   it("starts real filesystem watching with Git ignores and shares terminal history; AI? cannot write", async () => {
     const root = await fixture();
     execFileSync("git", ["init", "--quiet"], { cwd: root });

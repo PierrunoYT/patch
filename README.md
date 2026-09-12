@@ -96,7 +96,9 @@ destination before removing its source, so an interrupted move keeps both paths.
 commit the current session created, and refuses a moved HEAD or a commit its
 upstream branch already contains.
 Interactive terminal input is connected: Tab completes commands and the files
-selected right now, `--input-history-file` also makes earlier input recallable,
+available right now plus identifiers read only from currently selected,
+non-ignored source. Candidates are refreshed on each Tab press;
+`--input-history-file` also makes earlier input recallable,
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
 `$EDITOR`, and `/run --interactive` hands the terminal to one approved command
 through the optional `node-pty` package. `--vim` is refused rather than ignored;

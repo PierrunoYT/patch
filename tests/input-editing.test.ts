@@ -103,22 +103,28 @@ describe("terminal completion and recall", () => {
     return terminal;
   };
 
-  it("completes commands, selected files, and nothing else", () => {
+  it("completes commands, selected files, and nothing else", async () => {
     const terminal = reader({
       commands: COMMAND_NAMES,
       files: ["src/one.ts", "src/two.ts"],
     });
 
     // A leading slash completes command names.
-    expect(terminal.complete("/ch")).toEqual([["/chat-mode"], "/ch"]);
+    await expect(terminal.complete("/ch")).resolves.toEqual([
+      ["/chat-mode"],
+      "/ch",
+    ]);
     // A file command completes from the selected files.
-    expect(terminal.complete("/add src/o")).toEqual([["src/one.ts"], "src/o"]);
+    await expect(terminal.complete("/add src/o")).resolves.toEqual([
+      ["src/one.ts"],
+      "src/o",
+    ]);
     // Ordinary prose is left alone rather than being rewritten.
-    expect(terminal.complete("no")).toEqual([[], "no"]);
+    await expect(terminal.complete("no")).resolves.toEqual([[], "no"]);
     terminal.close();
   });
 
-  it("offers no completion without configured sources", () => {
+  it("offers no completion without configured sources", async () => {
     const input = new PassThrough();
     const terminal = new TerminalInput(
       input,
@@ -127,7 +133,7 @@ describe("terminal completion and recall", () => {
       () => undefined,
     );
 
-    expect(terminal.complete("/ch")).toEqual([[], "/ch"]);
+    await expect(terminal.complete("/ch")).resolves.toEqual([[], "/ch"]);
     terminal.close();
   });
 

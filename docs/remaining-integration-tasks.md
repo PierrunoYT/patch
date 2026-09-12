@@ -71,7 +71,7 @@ unchanged result of the historical audit.
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
-| Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Aider's wider command breadth remains outside this surface. |
+| Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
@@ -801,9 +801,11 @@ below; helper capabilities must not be read as additional executable behavior.
 
 - [x] Connect command/file completion to the current command inventory and live
   selected paths; candidates follow `/add` and `/drop`.
-- [ ] Supply approved source-identifier candidates to executable completion.
-  `completeInput` can consume them, but `program.ts` currently supplies only
-  command names and selected file paths.
+- [x] Supply approved source-identifier candidates to executable completion.
+  The session refreshes tracked non-ignored filenames and extracts identifiers
+  only from current editable/read-only files on every Tab request. The async
+  readline boundary does not receive source contents. Evidence:
+  `tests/interface-startup.test.ts` and `tests/input-editing.test.ts`.
 - [x] Load persistent input history for navigation and append input/chat records
   only after the correct lifecycle events; test explicit paths and disabled-by-
   default behavior. Recall is seeded only when `--input-history-file` is
@@ -842,8 +844,8 @@ below; helper capabilities must not be read as additional executable behavior.
   sequences), `tests/render.test.ts` (no-color, hostile provider sequences), and
   `tests/terminal-sanitizer.test.ts`.
 
-**Acceptance:** met for the listed command/file input paths, not source-identifier
-completion or full renderer fidelity. Recall, multiline, the external editor,
+**Acceptance:** met for the listed command/file/source-identifier input paths,
+not full renderer fidelity. Recall, multiline, the external editor,
 explicitly requested PTY dispatch, shell
 completions, and notification timing are all reachable through `patch` rather
 than by importing helpers, and the default installation remains native-free. The

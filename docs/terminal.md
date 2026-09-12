@@ -51,13 +51,16 @@ callers decide which approved file contents may be scanned.
 
 The interactive reader connects this to Tab. `TerminalInput` takes a
 `completionSources` callback and adapts the result to readline's completer
-contract; the executable reads the session's editable and read-only paths each
-time completion runs, so candidates follow `/add` and `/drop` rather than being
-fixed at startup. Command candidates come from `COMMAND_NAMES`, which a test
-holds level with what `parseCommand` accepts. Production supplies command names
-and file paths, not source-identifier candidates; identifier extraction remains
-a helper capability for embedding callers. A reader built without
-`completionSources` leaves input untouched.
+contract. The executable asks the application session on every Tab press for
+current tracked, non-ignored filenames and identifiers extracted only from the
+current editable/read-only files, so candidates follow `/add`, `/drop`, disk
+edits, and repository inventory changes rather than being fixed at startup.
+Source text never crosses the completion contract. A newly ignored file is
+filtered again, and safe filesystem reads prevent out-of-root source from being
+scanned. This follows pinned `aider/io.py` in tokenizing in-chat/read-only source
+while intentionally applying Patch's stricter containment and ignore policy.
+Command candidates come from `COMMAND_NAMES`, held level with `parseCommand` by
+a test. A reader built without `completionSources` leaves input untouched.
 
 ## Persistent history and privacy
 

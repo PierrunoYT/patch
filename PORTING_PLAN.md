@@ -603,8 +603,10 @@ individual edit-strategy suites.
 - [x] Connect command and file completion to the executable. Tab completes
   command names and files selected at that keystroke, re-read per completion so
   candidates follow `/add` and `/drop`.
-- [ ] Connect approved source-identifier candidates to executable completion;
-  the completion helper accepts them, but the CLI currently supplies none.
+- [x] Connect approved source-identifier candidates to executable completion.
+  The application refreshes available non-ignored filenames and extracts
+  identifiers only from current editable/read-only source on each completion;
+  ignored, stale-dropped, and out-of-root content cannot become candidates.
 - [x] Add persistent input/chat history navigation. With
   `--input-history-file` configured the reader seeds recall from it; without the
   option nothing is written and nothing is recalled.
@@ -627,7 +629,7 @@ individual edit-strategy suites.
   `/paste` submits clipboard text as a user turn without reparsing it as a
   command. Clipboard images remain unread.
 
-**Exit (partial):** command/file completion, recall, multiline, the
+**Exit (partial):** command/file/source-identifier completion, recall, multiline, the
 external editor, explicit PTY dispatch, generated shell completions, and
 provider-turn-only notifications all run through the executable's reader, and
 provisioned PTY contract tests cover Ctrl-C, EOF, resize, cleanup, and hostile

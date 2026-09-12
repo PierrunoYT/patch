@@ -335,21 +335,24 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                   {
                     // Read per keystroke so completion reflects the files selected
                     // now, not those selected at startup.
-                    completionSources: () => {
+                    completionSources: async () => {
                       const state = session?.snapshot() as
                         | {
                             editablePaths?: readonly string[];
                             readOnlyPaths?: readonly string[];
                           }
                         | undefined;
+                      const approved = await session?.completionCandidates?.();
                       return {
                         commands: COMMAND_NAMES,
                         files: [
                           ...new Set([
+                            ...(approved?.files ?? []),
                             ...(state?.editablePaths ?? []),
                             ...(state?.readOnlyPaths ?? []),
                           ]),
                         ],
+                        identifiers: approved?.identifiers ?? [],
                       };
                     },
                     // Recall is opt-in: without a configured history file there is
