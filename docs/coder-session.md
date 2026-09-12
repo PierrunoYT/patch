@@ -79,10 +79,12 @@ Each summary request reserves 512 tokens from the summarizing model's input
 window, counts the complete labeled request, and sends only a whole-message
 prefix that fits. Unsent head messages remain available to later recursive
 passes instead of being discarded. Models without a declared limit use aider's
-4,096-token fallback before the reserve. The concrete application summarizes
-with the active model's weak model, resolved at call time so `/model` changes it
-too. A summarizer that fails leaves history untouched and the turn proceeds —
-losing a summary is recoverable, and an
+4,096-token fallback before the reserve. The concrete application tries the
+active model's weak model first and then its main model, both resolved at call
+time so `/model` changes them too. Usage from every attempted request is charged,
+temporary providers close after each attempt, and cancellation prevents a
+fallback request. If both models fail, history remains untouched and the turn
+proceeds — losing a summary is recoverable, and an
 oversized prompt still fails on the explicit token-budget check. Its tokens are
 charged to the session like any other provider call, so the per-turn cost line
 covers the compaction the turn paid for rather than only the turn itself, and it

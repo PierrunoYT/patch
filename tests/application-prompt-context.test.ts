@@ -66,6 +66,7 @@ interface Harness {
   readonly submit: (message: string) => Promise<unknown>;
   readonly sent: (index: number) => string;
   readonly totalCost: () => Promise<number>;
+  readonly close: () => Promise<void>;
 }
 
 async function harness(options: {
@@ -76,6 +77,7 @@ async function harness(options: {
     model: ModelSettings,
     scripted: ModelProvider,
   ) => ModelProvider;
+  readonly signal?: AbortSignal;
 }): Promise<Harness> {
   const provider = answering(options.turns ?? 0);
   const build = options.createProvider;
@@ -100,12 +102,13 @@ async function harness(options: {
     provider,
     submit: (message) =>
       session.submit(message, {
-        signal: controller.signal,
+        signal: options.signal ?? controller.signal,
         emit: () => undefined,
       }),
     sent: (index) => JSON.stringify(provider.requests[index]?.messages ?? []),
     totalCost: async () =>
       ((await session.snapshot()) as { totalCost: number }).totalCost,
+    close: () => service.close(),
   };
 }
 
@@ -241,6 +244,145 @@ describe("long completed history", () => {
     // usage events made the reported total stop at the two turns.
     expect(provider.requests).toHaveLength(3);
     expect(await totalCost()).toBeCloseTo(afterOne * 3, 10);
+  });
+
+  it("falls back to the main model and charges a failed weak attempt", async () => {
+    const root = await temporaryDirectory("patch-summary-fallback-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    let weakRequests = 0;
+    let weakCloses = 0;
+    const weak: ModelProvider = {
+      async *stream() {
+        weakRequests += 1;
+        yield { type: "usage", inputTokens: 100, outputTokens: 0 };
+        yield {
+          type: "error",
+          kind: "provider",
+          message: "weak summary failed",
+          retryable: false,
+        };
+      },
+      close() {
+        weakCloses += 1;
+      },
+    };
+    const { submit, provider, sent, totalCost, close } = await harness({
+      root,
+      turns: 3,
+      argv: [
+        "--no-git",
+        "--model",
+        "test/summarizing-model",
+        "--file",
+        "one.txt",
+      ],
+      createProvider: (model, scripted) =>
+        model.name === "test/weak-model" ? weak : scripted,
+    });
+
+    await submit("first question");
+    const afterOne = await totalCost();
+    await submit("second question");
+
+    expect(weakRequests).toBe(1);
+    expect(weakCloses).toBe(1);
+    expect(provider.requests).toHaveLength(3);
+    expect(provider.requests[1]?.model).toBe("test/summarizing-model");
+    expect(sent(2)).toContain("I spoke to you previously about a number of");
+    expect(await totalCost()).toBeCloseTo(afterOne * 3 + 0.0001, 10);
+    await close();
+  });
+
+  it("keeps raw history when both summarizer models fail", async () => {
+    const root = await temporaryDirectory("patch-summary-all-fail-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    let mainCreations = 0;
+    const closed: string[] = [];
+    const failing = (name: string): ModelProvider => ({
+      async *stream() {
+        yield {
+          type: "error",
+          kind: "provider",
+          message: `${name} summary failed`,
+          retryable: false,
+        };
+      },
+      close() {
+        closed.push(name);
+      },
+    });
+    const { submit, provider, sent, close } = await harness({
+      root,
+      turns: 2,
+      argv: [
+        "--no-git",
+        "--model",
+        "test/summarizing-model",
+        "--file",
+        "one.txt",
+      ],
+      createProvider: (model, scripted) => {
+        if (model.name === "test/weak-model") return failing("weak");
+        mainCreations += 1;
+        return mainCreations === 1 ? scripted : failing("main");
+      },
+    });
+
+    await submit("first question");
+    await submit("second question");
+
+    expect(provider.requests).toHaveLength(2);
+    expect(sent(1)).toContain("first question");
+    expect(sent(1)).toContain("assistant answer");
+    expect(sent(1)).not.toContain(
+      "I spoke to you previously about a number of",
+    );
+    expect(closed).toEqual(["weak", "main"]);
+    await close();
+  });
+
+  it("does not fall back after summarization is cancelled", async () => {
+    const root = await temporaryDirectory("patch-summary-cancel-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    const controller = new AbortController();
+    let mainCreations = 0;
+    let weakCloses = 0;
+    const { submit, close } = await harness({
+      root,
+      turns: 1,
+      signal: controller.signal,
+      argv: [
+        "--no-git",
+        "--model",
+        "test/summarizing-model",
+        "--file",
+        "one.txt",
+      ],
+      createProvider: (model, scripted) => {
+        if (model.name !== "test/weak-model") {
+          mainCreations += 1;
+          return scripted;
+        }
+        return {
+          async *stream(_request, signal) {
+            controller.abort(new Error("summary cancelled"));
+            signal?.throwIfAborted();
+            yield { type: "finish", reason: "cancelled" };
+          },
+          close() {
+            weakCloses += 1;
+          },
+        };
+      },
+    });
+
+    await submit("first question");
+    await expect(submit("second question")).rejects.toThrow(
+      "summary cancelled",
+    );
+    expect(mainCreations).toBe(1);
+    expect(weakCloses).toBe(1);
+    await close();
   });
 });
 

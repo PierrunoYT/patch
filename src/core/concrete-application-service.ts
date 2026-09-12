@@ -1684,35 +1684,56 @@ class ConcreteApplicationSession implements ApplicationSession {
       main.weakModel === undefined || main.weakModel === main.name
         ? main
         : this.#context.catalog.resolve(main.weakModel).settings;
-    const provider = this.#context.makeProvider(weak);
+    const models = weak.name === main.name ? [main] : [weak, main];
+    let lastError: unknown;
+    for (const model of models) {
+      try {
+        return await this.#summarizeWithModel(messages, model, signal);
+      } catch (error) {
+        signal?.throwIfAborted();
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("History summarization failed");
+  }
+
+  async #summarizeWithModel(
+    messages: readonly ChatMessage[],
+    model: ModelSettings,
+    signal?: AbortSignal,
+  ): Promise<readonly ChatMessage[]> {
+    signal?.throwIfAborted();
+    const provider = this.#context.makeProvider(model);
     const summary = new ChatSummary({
-      maxTokens: main.maxChatHistoryTokens,
-      ...(weak.maxInputTokens === undefined
+      maxTokens: this.#profile.main.maxChatHistoryTokens,
+      ...(model.maxInputTokens === undefined
         ? {}
-        : { maxInputTokens: weak.maxInputTokens }),
-      countTokens: (values) => countMessageTokens(values, weak).tokens,
+        : { maxInputTokens: model.maxInputTokens }),
+      countTokens: (values) => countMessageTokens(values, model).tokens,
       send: async (request, abort) => {
         let text = "";
-        // Summarization is a real provider call on the weak model. Dropping its
-        // usage made every turn that compacted history under-report what the
+        // Summarization is a real provider call on the selected model. Dropping
+        // its usage made every turn that compacted history under-report what the
         // session had spent, the same way the commit-message path would if it
         // did not record its own.
         let accounted = 0;
         for await (const event of provider.stream(
           CompletionRequestSchema.parse({
-            model: weak.name,
+            model: model.name,
             messages: request,
-            temperature: requestTemperature(weak),
-            extraParameters: weak.extraParameters,
-            ...(weak.maxOutputTokens === undefined
+            temperature: requestTemperature(model),
+            extraParameters: model.extraParameters,
+            ...(model.maxOutputTokens === undefined
               ? {}
-              : { maxOutputTokens: weak.maxOutputTokens }),
+              : { maxOutputTokens: model.maxOutputTokens }),
           }),
           abort,
         )) {
           if (event.type === "text-delta") text += event.text;
           if (event.type === "usage") {
-            const usage = reportUsage(weak, event);
+            const usage = reportUsage(model, event);
             this.#session.recordAuxiliaryCost(
               Math.max(0, (usage.cost ?? 0) - accounted),
             );
@@ -1720,6 +1741,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           }
           if (event.type === "error") throw new Error(event.message);
         }
+        abort?.throwIfAborted();
         return text;
       },
     });

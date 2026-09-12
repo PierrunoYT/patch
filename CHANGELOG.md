@@ -382,6 +382,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Fall back from the weak model to the main model when history summarization
+  fails. Every attempted request contributes usage, temporary providers close
+  per attempt, cancellation prevents fallback, and failure of both models leaves
+  completed history unchanged so the original turn can continue.
+
 - Bound history-summary requests to the summarizing model's input window with a
   512-token reserve. Patch counts the complete labeled request, sends only whole
   messages that fit, and retains unsent history for recursive compaction instead

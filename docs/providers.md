@@ -87,9 +87,9 @@ The concrete service owns the startup provider. Each application session owns
 providers created by `/model` or `/chat-mode`: a successful replacement closes
 the prior session-owned provider, a failed switch closes the unused candidate,
 and session shutdown aborts its stream, drains its queue, then closes its active
-session-owned provider. Temporary weak-model providers used for summarization or
-commit subjects close in `finally`; a shared/current provider is never closed by
-temporary-use cleanup. Service shutdown closes all sessions concurrently and
+session-owned provider. Temporary weak/main summarizer providers and weak-model
+commit providers close in `finally`; a shared/current provider is never closed
+by temporary-use cleanup. Service shutdown closes all sessions concurrently and
 then the startup provider, attempting every close even when one fails.
 
 Provider construction is the last composition-root step, so earlier startup
