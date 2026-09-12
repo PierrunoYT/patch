@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Bound history-summary requests to the summarizing model's input window with a
+  512-token reserve. Patch counts the complete labeled request, sends only whole
+  messages that fit, and retains unsent history for recursive compaction instead
+  of silently discarding it; models without a declared limit use the pinned
+  4,096-token fallback.
+
 - Correct edit-preview documentation: the renderer emits full-content before/
   after replacement blocks, including unchanged lines, not computed diff hunks
   or applicable unified patches. A characterization test pins that limitation;

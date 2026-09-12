@@ -104,6 +104,50 @@ describe("ChatSummary", () => {
 
     expect(result.at(-1)).toEqual({ role: "assistant", content: "Ok." });
   });
+
+  it("caps summary requests while retaining messages that do not fit", async () => {
+    const sent: ChatMessage[][] = [];
+    const maxInputTokens = 700;
+    const summary = new ChatSummary({
+      maxTokens: 60,
+      maxInputTokens,
+      countTokens,
+      send: async (messages) => {
+        sent.push([...messages]);
+        return `summary ${String(sent.length)}`;
+      },
+    });
+    const history = conversation(8);
+
+    const result = await summary.summarize(history);
+
+    expect(sent.length).toBeGreaterThan(0);
+    expect(
+      sent.every((messages) => countTokens(messages) <= maxInputTokens - 512),
+    ).toBe(true);
+    expect(JSON.stringify(sent[0])).not.toContain("question 3");
+    const retained = JSON.stringify([...sent.flat(), ...result]);
+    for (const message of history) {
+      expect(retained).toContain(message.content);
+    }
+  });
+
+  it("keeps history when no complete summary request fits", async () => {
+    let calls = 0;
+    const summary = new ChatSummary({
+      maxTokens: 1,
+      maxInputTokens: 513,
+      countTokens,
+      send: async () => {
+        calls += 1;
+        return "should not be sent";
+      },
+    });
+    const history = conversation(1);
+
+    expect(await summary.summarize(history)).toEqual(history);
+    expect(calls).toBe(0);
+  });
 });
 
 describe("a session with long completed history", () => {

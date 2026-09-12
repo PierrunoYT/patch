@@ -1687,6 +1687,9 @@ class ConcreteApplicationSession implements ApplicationSession {
     const provider = this.#context.makeProvider(weak);
     const summary = new ChatSummary({
       maxTokens: main.maxChatHistoryTokens,
+      ...(weak.maxInputTokens === undefined
+        ? {}
+        : { maxInputTokens: weak.maxInputTokens }),
       countTokens: (values) => countMessageTokens(values, weak).tokens,
       send: async (request, abort) => {
         let text = "";

@@ -75,9 +75,14 @@ the most recent half-budget of messages is kept verbatim, the head is split at a
 assistant message and sent for summarization, and the result recurses up to three
 times before summarizing everything at once. The summary always ends on an
 assistant message so the next turn's user message is not the second in a row.
-The concrete application summarizes with the active model's weak model, resolved
-at call time so `/model` changes it too. A summarizer that fails leaves history
-untouched and the turn proceeds — losing a summary is recoverable, and an
+Each summary request reserves 512 tokens from the summarizing model's input
+window, counts the complete labeled request, and sends only a whole-message
+prefix that fits. Unsent head messages remain available to later recursive
+passes instead of being discarded. Models without a declared limit use aider's
+4,096-token fallback before the reserve. The concrete application summarizes
+with the active model's weak model, resolved at call time so `/model` changes it
+too. A summarizer that fails leaves history untouched and the turn proceeds —
+losing a summary is recoverable, and an
 oversized prompt still fails on the explicit token-budget check. Its tokens are
 charged to the session like any other provider call, so the per-turn cost line
 covers the compaction the turn paid for rather than only the turn itself, and it

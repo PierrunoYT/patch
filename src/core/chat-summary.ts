@@ -21,11 +21,14 @@ export interface ChatSummaryOptions {
   readonly countTokens: (messages: readonly ChatMessage[]) => number;
   /** History budget before summarization runs. */
   readonly maxTokens?: number;
+  readonly maxInputTokens?: number;
 }
 
 /** Below this, splitting a conversation leaves too little to summarize. */
 const MINIMUM_SPLIT = 4;
 const MAXIMUM_DEPTH = 3;
+const DEFAULT_INPUT_TOKENS = 4096;
+const INPUT_TOKEN_RESERVE = 512;
 
 function messageText(message: ChatMessage): string {
   if (message.role === "tool") return message.content;
@@ -37,15 +40,39 @@ function messageText(message: ChatMessage): string {
     .join("");
 }
 
+function summaryRequest(
+  messages: readonly ChatMessage[],
+): readonly ChatMessage[] | undefined {
+  const content = messages
+    .filter(
+      (message) => message.role === "user" || message.role === "assistant",
+    )
+    .map((message) => {
+      const text = messageText(message);
+      return `# ${message.role.toUpperCase()}\n${text.endsWith("\n") ? text : `${text}\n`}`;
+    })
+    .join("");
+  if (content === "") return undefined;
+  return [
+    { role: "system", content: SUMMARY_PROMPTS.summarize },
+    { role: "user", content },
+  ];
+}
+
 export class ChatSummary {
   readonly #send: SummarySend;
   readonly #countTokens: (messages: readonly ChatMessage[]) => number;
   readonly #maxTokens: number;
+  readonly #maxSummaryInputTokens: number;
 
   constructor(options: ChatSummaryOptions) {
     this.#send = options.send;
     this.#countTokens = options.countTokens;
     this.#maxTokens = options.maxTokens ?? 1024;
+    this.#maxSummaryInputTokens = Math.max(
+      0,
+      (options.maxInputTokens ?? DEFAULT_INPUT_TOKENS) - INPUT_TOKEN_RESERVE,
+    );
   }
 
   tooBig(messages: readonly ChatMessage[]): boolean {
@@ -75,7 +102,7 @@ export class ChatSummary {
     const total = sized.reduce((sum, [tokens]) => sum + tokens, 0);
     if (total <= this.#maxTokens && depth === 0) return [...messages];
     if (messages.length <= MINIMUM_SPLIT || depth > MAXIMUM_DEPTH) {
-      return this.#summarizeAll(messages, signal);
+      return this.#summarizeBounded(messages, signal);
     }
 
     // Keep the most recent half-budget of messages verbatim and summarize the
@@ -92,11 +119,11 @@ export class ChatSummary {
       splitIndex -= 1;
     }
     if (splitIndex <= MINIMUM_SPLIT) {
-      return this.#summarizeAll(messages, signal);
+      return this.#summarizeBounded(messages, signal);
     }
 
     const tail = messages.slice(splitIndex);
-    const summary = await this.#summarizeAll(
+    const summary = await this.#summarizeBounded(
       messages.slice(0, splitIndex),
       signal,
     );
@@ -105,27 +132,34 @@ export class ChatSummary {
     return this.#summarize(combined, depth + 1, signal);
   }
 
-  async #summarizeAll(
+  async #summarizeBounded(
     messages: readonly ChatMessage[],
     signal?: AbortSignal,
   ): Promise<ChatMessage[]> {
-    const content = messages
-      .filter(
-        (message) => message.role === "user" || message.role === "assistant",
+    let splitIndex = 0;
+    for (let index = 1; index <= messages.length; index += 1) {
+      const request = summaryRequest(messages.slice(0, index));
+      if (
+        request !== undefined &&
+        this.#countTokens(request) > this.#maxSummaryInputTokens
       )
-      .map((message) => {
-        const text = messageText(message);
-        return `# ${message.role.toUpperCase()}\n${text.endsWith("\n") ? text : `${text}\n`}`;
-      })
-      .join("");
-    if (content === "") return [];
-    const summary = await this.#send(
-      [
-        { role: "system", content: SUMMARY_PROMPTS.summarize },
-        { role: "user", content },
-      ],
-      signal,
-    );
+        break;
+      splitIndex = index;
+    }
+    if (splitIndex === 0) return [...messages];
+    const selected = messages.slice(0, splitIndex);
+    const request = summaryRequest(selected);
+    if (request === undefined) return [...messages];
+    const summary = await this.#summarizeAll(selected, request, signal);
+    return [...summary, ...messages.slice(splitIndex)];
+  }
+
+  async #summarizeAll(
+    messages: readonly ChatMessage[],
+    request: readonly ChatMessage[],
+    signal?: AbortSignal,
+  ): Promise<ChatMessage[]> {
+    const summary = await this.#send(request, signal);
     if (summary.trim() === "") return [...messages];
     return [
       ChatMessageSchema.parse({

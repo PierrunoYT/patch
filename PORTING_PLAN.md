@@ -498,10 +498,13 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   metadata merging, temperature policy, bounded transient retries, and bounded
   repeated assistant-prefill continuation are wired. Tool execution and aider's
   broader LiteLLM provider surface are outside Patch's advertised contract.
-- [ ] Bound history-summary input to the summarizing model's window and fall back
-  from the weak model to the main model as pinned aider does. Preserve Patch's
-  cancellation, usage accounting, and unchanged-history behavior when every
-  summarizer fails.
+- [x] Bound each history-summary request to the summarizing model's input window
+  with 512 tokens of safety headroom. Complete-request token counting sends only
+  whole messages that fit and retains an unsent head for recursive compaction;
+  models without a limit use aider's 4,096-token fallback.
+- [ ] Fall back from the weak model to the main model as pinned aider does.
+  Preserve Patch's cancellation, usage accounting, and unchanged-history
+  behavior when every summarizer fails.
 - [ ] Exercise the advertised DeepSeek catalog model through catalog, factory,
   and session boundaries in the protected live contract. The current live case
   constructs the compatible adapter directly; deterministic factory/session
@@ -527,9 +530,9 @@ timeout/cancellation, OpenAI image input, and Anthropic cache-control input. A
 protected manual workflow exists; ordinary CI skips all live cases and requires
 no credentials or network. Package smoke also drives one-shot, two-turn history,
 and malformed OpenAI-wire responses through the actual installed bin using a
-preloaded in-process `fetch` fake. DeepSeek's protected live path and
-summarization fallback/input bounds remain unchecked above; actual live evidence
-still depends on configured accounts and models.
+preloaded in-process `fetch` fake. DeepSeek's protected live path and main-model
+summarization fallback remain unchecked above; actual live evidence still
+depends on configured accounts and models.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
 `tests/anthropic-provider.test.ts`; opt-in `tests/live-provider.test.ts` via

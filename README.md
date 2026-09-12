@@ -124,7 +124,10 @@ content and unrelated staged/unstaged changes.
 Cancellation is checked at every editing lifecycle boundary. Completed atomic
 file replacements and Patch commits remain valid and are reported explicitly;
 pending edits are cleared and the same session queue can accept a fresh retry.
-Interactive terminal input is connected: Tab completes commands and the files
+Long completed histories use weak-model summary requests capped to that model's
+input window while retaining unsent messages for later compaction; main-model
+fallback remains open. Interactive terminal input is connected: Tab completes
+commands and the files
 available right now plus identifiers read only from currently selected,
 non-ignored source. Candidates are refreshed on each Tab press;
 `--input-history-file` also makes earlier input recallable,
