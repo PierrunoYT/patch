@@ -67,6 +67,44 @@ describe("CLI", () => {
     expect(output).toBe("\u0007");
   });
 
+  it("keeps a configured web port out of an ordinary terminal start", async () => {
+    // The guard exists to refuse a CLI flag pair that cannot be honored. Read
+    // from the merged configuration it also caught a persisted `web-port:`,
+    // which made every non-web run fail at startup.
+    const root = await mkdtemp(join(tmpdir(), "patch-cli-web-port-"));
+    await writeFile(join(root, ".patch.conf.yml"), "web-port: 9123\n");
+    const received: string[] = [];
+
+    await createProgram({
+      cwd: root,
+      environment: {},
+      handleMessage: (message) => {
+        received.push(message);
+      },
+    }).parseAsync(["--message", "hello"], { from: "user" });
+    expect(received).toEqual(["hello"]);
+
+    await createProgram({
+      cwd: root,
+      environment: { PATCH_WEB_PORT: "9124" },
+      handleMessage: (message) => {
+        received.push(message);
+      },
+    }).parseAsync(["--message", "again"], { from: "user" });
+    expect(received).toEqual(["hello", "again"]);
+
+    // Asking for the pair on the command line is still refused.
+    await expect(
+      createProgram({
+        cwd: root,
+        environment: {},
+        handleMessage: () => undefined,
+      }).parseAsync(["--web-port", "9125", "--message", "hello"], {
+        from: "user",
+      }),
+    ).rejects.toThrow("web-port and web-token-file require web");
+  });
+
   it("runs one-shot text and message-file input exactly once", async () => {
     const received: string[] = [];
     const create = () =>

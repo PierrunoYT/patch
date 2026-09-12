@@ -289,9 +289,14 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               : { environment: dependencies.environment }),
           });
           const configured = bootstrap.arguments;
+          // Only a command-line request is refused. A persisted `web-port:` or
+          // `web-token-file:` is a setting for the runs that do serve HTTP, and
+          // reading the merged value here failed every ordinary terminal start
+          // for anyone who had one in a config file or the environment.
           if (
             configured.web !== true &&
-            (configured.webPort !== 0 || configured.webTokenFile !== undefined)
+            (options.webPort !== undefined ||
+              options.webTokenFile !== undefined)
           ) {
             throw new Error("web-port and web-token-file require web");
           }
@@ -306,7 +311,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
           if (configured.web === true && configured.watchFiles === true) {
             throw new Error("web and watch-files cannot be combined");
           }
-          const port = configured.webPort;
+          const port = configured.webPort ?? 0;
           let token: string | undefined;
           if (configured.web === true) {
             if (configured.webTokenFile === undefined)

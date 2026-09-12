@@ -13,8 +13,11 @@ letters, digits, underscores or hyphens after trimming surrounding whitespace;
 length validation is not a substitute for cryptographic randomness. The CLI
 never prints token contents and uses one principal, `local`. It prints the
 listening address on `127.0.0.1`; `--web-port 8080` chooses a port, and omitted
-or zero chooses an available port. These interface flags are CLI-only; model,
-provider credentials, Git, and selected files use the normal staged configuration.
+or zero chooses an available port. `web`, `web-port`, and `web-token-file` are
+staged like other configuration, but only a command-line `--web-port` or
+`--web-token-file` without `--web` is refused; a persisted one is ignored by a
+terminal run. Model, provider credentials, Git, and selected files use the
+normal staged configuration.
 No browser opens and no HTML GUI is shipped. The browser GUI is **deferred**
 (wanted, not scheduled), as recorded in the
 [P2 scope decision](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7).

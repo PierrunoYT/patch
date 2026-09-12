@@ -380,6 +380,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Stopped a staged `web-port` or `web-token-file` from failing every terminal
+  run. The guard that refuses the pair without `web` was reading the merged
+  configuration, so a `web-port:` in `.patch.conf.yml` or `PATCH_WEB_PORT` in the
+  environment aborted startup for a run that never wanted HTTP. Only a
+  command-line request is refused now. `webPort` is also left unset rather than
+  defaulted to zero, so asking for port 0 is no longer indistinguishable from
+  asking for nothing.
+
 - Stopped a failed provider close from undoing a `/model` switch that had
   already happened. Retiring the replaced provider ran inside the switch's own
   `try`, so a rejection there took the catch path and closed the newly installed,

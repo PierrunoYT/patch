@@ -88,7 +88,8 @@ export interface BootstrapArguments {
   readonly notificationsCommand: string | undefined;
   readonly watchFiles: boolean;
   readonly web: boolean;
-  readonly webPort: number;
+  /** Undefined when no source set one; the server then takes any free port. */
+  readonly webPort: number | undefined;
   readonly webTokenFile: string | undefined;
   readonly files: readonly string[];
   readonly readOnlyFiles: readonly string[];
@@ -402,12 +403,16 @@ function resolveArguments(
       `Unsupported edit format: ${editFormatValue}`,
     );
   }
+  // Left undefined rather than defaulted to 0, so "no port was configured" stays
+  // distinguishable from "port 0 was asked for" once the sources are merged.
   const webPortValue =
     commandLine.webPort ??
     environment.PATCH_WEB_PORT ??
-    configuration["web-port"]?.toString() ??
-    "0";
-  if (!/^\d+$/u.test(webPortValue) || Number(webPortValue) > 65_535) {
+    configuration["web-port"]?.toString();
+  if (
+    webPortValue !== undefined &&
+    (!/^\d+$/u.test(webPortValue) || Number(webPortValue) > 65_535)
+  ) {
     throw new BootstrapArgumentError(
       "web-port must be an integer from 0 to 65535",
     );
@@ -520,7 +525,7 @@ function resolveArguments(
       environmentBoolean(environment.PATCH_WEB, "PATCH_WEB") ??
       configuration.web ??
       false,
-    webPort: Number(webPortValue),
+    webPort: webPortValue === undefined ? undefined : Number(webPortValue),
     webTokenFile:
       commandLine.webTokenFile ??
       environment.PATCH_WEB_TOKEN_FILE ??

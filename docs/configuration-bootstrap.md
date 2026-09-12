@@ -65,7 +65,12 @@ use the same `PATCH_` uppercase/underscore convention. Boolean CLI controls
 have explicit `--no-multiline`, `--no-notifications`, `--no-watch-files`, and
 `--no-web` forms so a command line can disable YAML or dotenv values. Interface
 combinations and web token contents are validated before opening the watcher or
-server. One-shot message/editor/color/completion controls remain intentionally
+server. Asking for `web-port` or `web-token-file` without `web` is refused only
+when the command line asks for it: staged in a config file or the environment,
+those two are settings for the runs that do serve HTTP, and are ignored by an
+ordinary terminal run rather than failing it. `web-port` is left unset when no
+source supplies one, so requesting port 0 stays distinguishable from requesting
+nothing. One-shot message/editor/color/completion controls remain intentionally
 CLI-only because they govern invocation mechanics, not application
 configuration.
 
