@@ -73,7 +73,7 @@ unchanged result of the historical audit.
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | Nineteen commands dispatch; profile switching, paste, rich input, explicit PTY, literal-first directory/glob expansion, command outcomes, local help, safe settings, and a bounded local report draft are wired. The three ancillary commands have combined queue/cancellation/sanitization/approval and packed-bin evidence; exhaustive advertised-command effects remain open. |
 | Watch/URL/web/voice/help | partial or missing | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, and partial-turn HTTP failures return an allowlisted recovery shape. HTTP disconnect cancellation needs targeted evidence; quotas, expiry, backpressure, and session reclamation remain open. GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | partial | Bootstrap, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist, with import-derived coverage and hidden-change regression tests. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
+| Configuration/package/provenance | partial | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
 ### Current audit follow-ups — 2026-09-11
 
@@ -954,7 +954,10 @@ npm start -- --help
 Before claiming the MVP/session exits, also run targeted integration tests that
 cover:
 
-- [ ] packed CLI startup with config, dotenv, environment, and CLI precedence;
+- [x] packed CLI startup with config, dotenv, environment, and CLI precedence
+  (`scripts/package-smoke.mjs` invokes the actual installed bin four times,
+  checks the safe effective model/mode/encoding, makes no provider turn, and
+  rejects leakage of an unrelated environment secret);
 - [ ] actual-bin one-shot and multi-turn deterministic-provider sessions;
 - [ ] edit preview, authorization denial/acceptance, dirty checkpoint, apply,
   commit, lint, approved shell command, test reflection, and owned undo;

@@ -80,6 +80,14 @@ have final precedence. The returned environment is an isolated copy for later
 provider resolution; callers must never log it because it can contain secrets.
 Neither the caller's environment object nor `process.env` is mutated.
 
+`scripts/package-smoke.mjs` proves this production path after `npm pack` and a
+clean install. It invokes the installed `patch` bin four times and observes safe
+`/settings` fields: explicit YAML alone, process environment over YAML, explicit
+dotenv over the initial environment, and CLI over dotenv. Each run uses only a
+placeholder credential, stops without a provider turn, and asserts an unrelated
+environment secret is absent from output. This complements the broader
+in-process bootstrap matrix; it does not claim unsupported configuration keys.
+
 Patch intentionally uses `.patch.conf.yml` and `PATCH_*` rather than Aider's
 names. A model must be selected explicitly even when a provider credential is
 present. OAuth/default-model onboarding, line-ending policy, model resource/

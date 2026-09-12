@@ -150,6 +150,106 @@ try {
   ) {
     throw new Error("The packed executable could not render a local report");
   }
+
+  // Prove configuration precedence through the installed bin itself. These
+  // runs stop at /settings, so the placeholder key is never sent anywhere.
+  const precedenceRoot = join(consumerDirectory, "precedence");
+  mkdirSync(precedenceRoot);
+  const configuration = join(precedenceRoot, "explicit.patch.yml");
+  const dotenv = join(precedenceRoot, "explicit.env");
+  execFileSync(process.execPath, [
+    "--input-type=module",
+    "--eval",
+    `import { writeFileSync } from 'node:fs';
+       writeFileSync(${JSON.stringify(configuration)}, 'model: gpt-4o-mini\\nedit-format: ask\\ngit: false\\nencoding: utf-8\\n');
+       writeFileSync(${JSON.stringify(dotenv)}, 'PATCH_MODEL=gpt-4o-mini\\nPATCH_EDIT_FORMAT=whole\\nPATCH_ENCODING=utf-16le\\n');`,
+  ]);
+  const precedenceEnvironment = {
+    ...process.env,
+    HOME: precedenceRoot,
+    USERPROFILE: precedenceRoot,
+    OPENAI_API_KEY: "packed-precedence-not-a-real-key",
+    PATCH_MODEL: "4o",
+    PATCH_EDIT_FORMAT: "diff",
+    PATCH_ENCODING: "latin1",
+    STARTUP_SECRET: "packed-startup-secret-42c913",
+  };
+  const runSettings = (args, environment = precedenceEnvironment) =>
+    execFileSync(executable, ["--watch-files", ...args], {
+      cwd: precedenceRoot,
+      env: environment,
+      input: "/settings\n/exit\n",
+      encoding: "utf8",
+      shell: process.platform === "win32",
+      timeout: 15000,
+    });
+  const configOnly = runSettings(["--config", configuration], {
+    ...precedenceEnvironment,
+    PATCH_MODEL: undefined,
+    PATCH_EDIT_FORMAT: undefined,
+    PATCH_ENCODING: undefined,
+  });
+  if (
+    !configOnly.includes("Model: gpt-4o-mini") ||
+    !configOnly.includes("Chat mode: ask") ||
+    !configOnly.includes("Encoding: utf-8")
+  ) {
+    throw new Error("Packed CLI did not apply explicit YAML configuration");
+  }
+  const environmentOnly = runSettings(["--config", configuration]);
+  if (
+    !environmentOnly.includes("Model: gpt-4o") ||
+    !environmentOnly.includes("Chat mode: diff") ||
+    !environmentOnly.includes("Encoding: latin1")
+  ) {
+    throw new Error("Packed CLI environment did not override YAML");
+  }
+  const dotenvOverEnvironment = runSettings([
+    "--config",
+    configuration,
+    "--env-file",
+    dotenv,
+  ]);
+  if (
+    !dotenvOverEnvironment.includes("Model: gpt-4o-mini") ||
+    !dotenvOverEnvironment.includes("Chat mode: whole") ||
+    !dotenvOverEnvironment.includes("Encoding: utf-16le")
+  ) {
+    throw new Error(
+      "Packed CLI dotenv did not override the initial environment",
+    );
+  }
+  const cliOverDotenv = runSettings([
+    "--config",
+    configuration,
+    "--env-file",
+    dotenv,
+    "--model",
+    "4o",
+    "--edit-format",
+    "ask",
+    "--encoding",
+    "utf-8",
+  ]);
+  if (
+    !cliOverDotenv.includes("Model: gpt-4o") ||
+    !cliOverDotenv.includes("Chat mode: ask") ||
+    !cliOverDotenv.includes("Encoding: utf-8")
+  ) {
+    throw new Error("Packed CLI arguments did not override dotenv");
+  }
+  for (const output of [
+    configOnly,
+    environmentOnly,
+    dotenvOverEnvironment,
+    cliOverDotenv,
+  ]) {
+    if (output.includes("packed-startup-secret-42c913")) {
+      throw new Error(
+        "Packed CLI startup disclosed an unrelated environment value",
+      );
+    }
+  }
   const model = execFileSync(
     process.execPath,
     [

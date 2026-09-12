@@ -64,7 +64,8 @@ dated parity audits for revision-specific evidence.
   correction for files selected from another repository.
 - Validated YAML configuration with explicit precedence across defaults, home,
   repository, working-directory and explicit config files, environment,
-  dotenv, and command-line values.
+  dotenv, and command-line values. Packed smoke now verifies the implemented
+  YAML → environment → dotenv → CLI order through the actual installed binary.
 - A packaged, validated model catalog with aliases, YAML settings, commented
   JSON5 metadata, deterministic overrides, and clean-install resource checks.
 - A provider-neutral edit-strategy contract and an `ask` strategy that cannot

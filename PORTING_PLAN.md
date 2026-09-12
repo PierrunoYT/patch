@@ -383,12 +383,15 @@ invoked the installed `patch --help` entry point without Python.
 - [x] Implement provisional Git-root discovery, config search, preliminary CLI
   parse, dotenv loading, final parse, and true-root correction.
 - [x] Specify and test precedence among defaults, home config, repository
-  config, working-directory config, `.env`, environment, and CLI.
+  config, working-directory config, `.env`, environment, and CLI. In addition to
+  bootstrap unit tests, package smoke now verifies YAML → environment → dotenv →
+  CLI overrides through `/settings` on the actual installed `patch` bin.
 - [x] Load and validate model aliases, model settings, and JSON5 metadata from
   packaged resources.
 
 **Exit (partial):** local fixtures cover selected configuration and generic
-chunk/resource behavior. Full production prompt composition, broad pinned
+chunk/resource behavior, and the packed installed binary proves the implemented
+configuration precedence. Full production prompt composition, broad pinned
 configuration comparison, portable ancestor-race handling, and full metadata
 preservation remain open.
 
