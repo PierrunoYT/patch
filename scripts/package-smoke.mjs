@@ -12,17 +12,17 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL, URL } from "node:url";
 
 // `.cmd` shims force `shell: true` on Windows, and a shell command line is one
-// string: an argument holding a space would otherwise split into two. Quote the
-// arguments that need it rather than dropping down to the shim's target script.
+// string: anything holding a space would otherwise split into two. Node does not
+// quote the file either, and the installed shim sits under a temporary directory
+// that inherits the user's profile name, so the executable needs the same
+// treatment as the arguments.
 const useShell = process.platform === "win32";
+const quoteForShell = (value) =>
+  useShell && /[\s"^&|<>()]/u.test(value)
+    ? `"${value.replaceAll('"', '""')}"`
+    : value;
 const shellArguments = (values) =>
-  useShell
-    ? values.map((value) =>
-        /[\s"^&|<>()]/u.test(value)
-          ? `"${value.replaceAll('"', '""')}"`
-          : value,
-      )
-    : values;
+  useShell ? values.map(quoteForShell) : values;
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "patch-package-"));
@@ -97,11 +97,13 @@ try {
     { stdio: "inherit" },
   );
 
-  const executable = join(
-    consumerDirectory,
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? "patch.cmd" : "patch",
+  const executable = quoteForShell(
+    join(
+      consumerDirectory,
+      "node_modules",
+      ".bin",
+      process.platform === "win32" ? "patch.cmd" : "patch",
+    ),
   );
   const help = execFileSync(executable, shellArguments(["--help"]), {
     encoding: "utf8",

@@ -210,12 +210,13 @@ describe("UnifiedDiffEditStrategy", () => {
   it("replaces every generated unique asymmetric hunk exactly", () => {
     fc.assert(
       fc.property(
-        fc.string({ minLength: 1 }).filter((value) => {
-          if (value.includes("\n")) return false;
-          const content = `prefix\n${value}\nsuffix\n`;
-          const hunk = `${value}\n`;
-          return content.indexOf(hunk) === content.lastIndexOf(hunk);
-        }),
+        // Only whole single lines are excluded. The generator used to drop any
+        // value whose `value\n` appeared anywhere else as a substring, which
+        // removed exactly the suffix cases — "x" inside "suffix" — that the
+        // substring matcher got wrong, so the property could not see the bug it
+        // should have caught. Matching is line-anchored now, so those values
+        // are the interesting ones.
+        fc.string({ minLength: 1 }).filter((value) => !value.includes("\n")),
         fc.string(),
         (oldValue, newValue) => {
           expect(

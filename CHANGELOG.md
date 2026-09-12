@@ -381,6 +381,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Strengthened the unified-diff property test and removed the two per-test
+  timeouts that the suite-wide 30-second bound had made tighter than the global
+  one. The property generator excluded any value appearing elsewhere as a
+  substring, which is exactly the suffix case line anchoring fixed, so it could
+  not have caught the bug it existed for. The packed-binary smoke also quotes the
+  executable path, not only the arguments, since Node does not quote the file
+  under `shell: true` either.
+
 - Answered a session request that races server shutdown with 503 instead of
   returning no response at all, which left the client waiting until `close()`
   dropped its connection.

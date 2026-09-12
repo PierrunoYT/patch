@@ -997,7 +997,7 @@ describe("application edit lifecycle", () => {
     await session.submit("/undo", submitOptions());
     expect(await git(root, "show", "HEAD:selected.txt")).toBe("three\n");
     expect(await git(root, "diff", "--cached")).toBe(before.index);
-  }, 15_000);
+  });
 
   it.each(["denied", "nonzero", "timed-out", "cancelled", "truncated"])(
     "retains the edited commit and unrelated index for a %s command",

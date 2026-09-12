@@ -9,7 +9,9 @@ export default defineConfig({
     // which left almost no headroom under the default five: the commit-policy
     // lifecycle test runs in about three seconds alone and timed out when the
     // whole suite ran in parallel. The bound is here to catch a hang, not to
-    // measure speed.
+    // measure speed, and it is the only one: a per-test timeout under this
+    // value would be the tightest budget in the suite rather than the relief it
+    // was written to be.
     testTimeout: 30_000,
     hookTimeout: 30_000,
   },

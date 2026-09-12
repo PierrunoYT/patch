@@ -242,7 +242,7 @@ describe("upstream compatibility fixtures", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 20_000);
+  });
 
   it("captures each foundation behavior category", () => {
     expect(fixture.configPrecedence).toEqual({
