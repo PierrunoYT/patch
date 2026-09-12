@@ -103,11 +103,13 @@ export class AiWatchMode {
   readonly #options: WatchModeOptions;
   readonly #queue: SerialTaskQueue | undefined;
   readonly #controller = new AbortController();
-  readonly #onAbort = () => this.close();
+  readonly #onAbort = () => void this.close();
+  readonly #pending = new Set<Promise<void>>();
   #paths = new Set<string>();
   #timer: NodeJS.Timeout | undefined;
   #watcher: FSWatcher | undefined;
   #resolver: SafePathResolver | undefined;
+  #closing: Promise<void> | undefined;
 
   constructor(options: WatchModeOptions) {
     if (options.submit === undefined && options.session === undefined) {
@@ -153,11 +155,13 @@ export class AiWatchMode {
       this.#timer = undefined;
       const paths = [...this.#paths];
       this.#paths.clear();
-      void (
+      const pending = (
         this.#queue === undefined
           ? this.#process(paths)
           : this.#queue.run(() => this.#process(paths), this.#controller.signal)
       ).catch((error: unknown) => this.#report(error, "submit"));
+      this.#pending.add(pending);
+      void pending.finally(() => this.#pending.delete(pending));
     }, this.#options.debounceMs ?? 100);
   }
 
@@ -187,7 +191,8 @@ export class AiWatchMode {
     await this.#queue?.idle();
   }
 
-  close(): void {
+  close(): Promise<void> {
+    if (this.#closing !== undefined) return this.#closing;
     this.#options.signal?.removeEventListener("abort", this.#onAbort);
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = undefined;
@@ -195,6 +200,11 @@ export class AiWatchMode {
     this.#controller.abort(new Error("Watch mode stopped"));
     this.#watcher?.close();
     this.#watcher = undefined;
+    this.#closing = (async () => {
+      await Promise.allSettled([...this.#pending]);
+      await this.#queue?.idle();
+    })();
+    return this.#closing;
   }
 
   /**

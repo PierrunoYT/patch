@@ -476,4 +476,36 @@ describe("LocalWebServer", () => {
     expect(JSON.stringify(body)).not.toContain(internalSecret);
     expect(JSON.stringify(body)).not.toContain("absolute-secret");
   });
+
+  it("attempts every session cleanup when one close fails", async () => {
+    const invoked: number[] = [];
+    const closes = [
+      () => {
+        invoked.push(0);
+        return Promise.reject(new Error("first close failed"));
+      },
+      () => {
+        invoked.push(1);
+        return Promise.resolve();
+      },
+    ];
+    let created = 0;
+    const { server, base } = await fixture({
+      createSession: () => ({
+        snapshot: () => ({}),
+        submit: async () => ({}),
+        close: vi.fn(closes[created++]!),
+      }),
+    });
+    await request(base, "/sessions", "aliceToken", { method: "POST" });
+    await request(base, "/sessions", "aliceToken", { method: "POST" });
+    const sessions = closes.length;
+
+    await expect(server.close()).rejects.toThrow(
+      "Unable to close web resources",
+    );
+    expect(created).toBe(sessions);
+    expect(invoked).toEqual([0, 1]);
+    servers.splice(servers.indexOf(server), 1);
+  });
 });

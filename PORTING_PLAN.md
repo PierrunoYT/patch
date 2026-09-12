@@ -299,6 +299,10 @@ waiting for input
 ```
 
 Use `AbortController` for cancellation and one async queue for session mutation.
+Cleanup follows the same ownership graph: sessions abort and drain before their
+switched providers close; the service then closes its startup provider; watch
+and web adapters await all owned submissions/sessions and socket resources;
+history appends and child processes close at their operation boundaries.
 Provider adapters should emit normalized events for text, reasoning, tool-call
 fragments, usage, finish reasons, and errors. Preserve raw provider metadata on
 events so future adapters do not require changes to the session core.

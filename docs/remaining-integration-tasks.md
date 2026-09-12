@@ -565,8 +565,13 @@ strategy prompt, provider lifetime, or interface policy listed below.
   no optional dependencies, and close resources on exit or startup failure.
   Evidence: `tests/interface-startup.test.ts` and packed concrete CLI-program
   startup in `scripts/package-smoke.mjs`. Full web operational policy remains R8.
-- [ ] Define complete cleanup for provider streams, watchers, subprocesses,
-  histories, and web sessions. Providers created after `/model` are not tracked.
+- [x] Define complete cleanup for provider streams, watchers, subprocesses,
+  histories, and web sessions. Session close aborts and drains active streams
+  and process groups before closing `/model` providers; temporary weak providers
+  close in `finally`; watch and web await all owned work and attempt independent
+  cleanup after failures; history appends own short-lived descriptors. Provider
+  construction occurs after fallible startup setup. Deterministic tests cover
+  replacement, active shutdown, startup rejection, and aggregate cleanup.
 
 ### Context and strategies
 

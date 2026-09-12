@@ -670,7 +670,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
             terminal?.close();
             process.off("SIGINT", stop);
             process.off("SIGTERM", stop);
-            watcher?.close();
+            await watcher?.close();
             try {
               await web?.close();
               await session?.close?.();
