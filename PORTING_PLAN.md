@@ -660,16 +660,18 @@ because the provisioned native package fails its spawn contract there.
 - [x] Define session expiry, quotas, bounded event/backpressure policy, and
   reclamation. Sessions expire after bounded idle time; total, per-principal,
   message, and SSE-client quotas reject excess work; event replay and each slow
-  client's pending bytes are bounded. Direct disconnect-cancellation evidence
-  remains part of the next interface-evidence task.
+  client's pending bytes are bounded. Loopback HTTP tests directly verify
+  disconnect cancellation and overflow recovery.
 - [x] Add voice recording/transcription as an optional package subpath and
   embedding adapter without changing the default install footprint. No CLI
   `/voice` or device/recording UX is claimed.
 
-**Exit (default footprint and local API policy met; adapter evidence partial):** package smoke tests
+**Exit (met for the documented adapters):** package smoke tests
 assert that optional native/browser/audio dependencies do not enter a normal
-install. Watch, local API startup, and `/web` ingestion work; broader
-simultaneous-interface evidence remains incomplete. Interface flags are CLI-only and web
+install. Watch, local API startup, and `/web` ingestion work. A deterministic
+concurrent test drives terminal, actual watch submission, and loopback HTTP
+through one concrete service and proves their mutation phases do not overlap.
+Interface flags are CLI-only and web
 cannot run alongside terminal/watch input in the same executable instance.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,

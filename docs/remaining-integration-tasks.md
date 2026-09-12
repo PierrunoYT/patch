@@ -72,7 +72,7 @@ unchanged result of the historical audit.
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
 | Commands/terminal | partial | All 19 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
-| Watch/URL/web/voice/help | partial | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Simultaneous-interface and disconnect evidence remains under R8. GUI and CLI voice UX are deferred. |
+| Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | partial | Bootstrap plus YAML/environment/dotenv/CLI precedence through the packed installed bin, parser-derived shell completion, packaged docs/resources, clean-tree checks, and all direct fixture-import blob checks exist. Config-aware option breadth, provider-lifetime cleanup, and broader attribution/provenance evidence remain open. |
 
 ### Current audit follow-ups — 2026-09-11
@@ -887,9 +887,13 @@ remains unfinished; the API is for trusted local clients, not public hosting.
 - [x] Expose voice transcription as explicit input to an application session
   without importing voice code from the root/CLI path or requiring ffmpeg at
   install time.
-- [ ] Test principal/session isolation, simultaneous terminal/watch/web work,
-  conflicting cross-session writes, disconnect cancellation, and resource
-  cleanup.
+- [x] Test principal/session isolation, simultaneous terminal/watch/web work,
+  conflicting cross-session writes, disconnect cancellation, overflow,
+  partial-failure consistency, and resource cleanup. The simultaneous test uses
+  actual `AiWatchMode`, loopback HTTP, and direct terminal-style sessions over
+  one `ConcreteApplicationService`; authorization overlap stays at one and all
+  three writes survive. Evidence: `tests/web-server.test.ts`,
+  `tests/interface-startup.test.ts`, and `tests/worktree-serialization.test.ts`.
 
 **Acceptance:** Phase 9 adapters drive the same session behavior as the CLI;
 they do not merely compile against an interface that has no implementation.

@@ -7,7 +7,9 @@ import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  AiWatchMode,
   ConcreteApplicationService,
+  LocalWebServer,
   RepositoryMap,
   WorktreeMutationLock,
   worktreeMutationLock,
@@ -175,6 +177,81 @@ describe("worktree mutation lock", () => {
 });
 
 describe("concurrent application sessions on one worktree", () => {
+  it("orders simultaneous terminal, watch, and HTTP work through the shared lock", async () => {
+    const root = await repository();
+    await writeFile(join(root, "watch.txt"), "// AI! ask:watch\n");
+    let active = 0;
+    let maximum = 0;
+    const provider = routedProvider({
+      terminal: edit("terminal.txt", "", "terminal"),
+      web: edit("web.txt", "", "web"),
+      watch: edit("watch-result.txt", "", "watched"),
+    });
+    const application = await service(
+      root,
+      provider,
+      ["--no-git", "--file", "watch.txt"],
+      async () => {
+        active += 1;
+        maximum = Math.max(maximum, active);
+        await tick(15);
+        active -= 1;
+        return true;
+      },
+    );
+    const terminal = application.createSession({
+      principal: "terminal",
+      sessionId: "terminal",
+    });
+    const watched = application.createSession({
+      principal: "watch",
+      sessionId: "watch",
+    });
+    const watcher = new AiWatchMode({
+      root,
+      session: watched,
+      debounceMs: 0,
+      selectedPaths: () => ["watch.txt"],
+    });
+    const server = new LocalWebServer({
+      service: application,
+      tokens: { integrationToken: "web" },
+    });
+    const { port } = await server.start();
+    try {
+      const base = `http://127.0.0.1:${port}`;
+      const headers = {
+        authorization: "Bearer integrationToken",
+        "content-type": "application/json",
+      };
+      const { sessionId } = (await (
+        await fetch(`${base}/sessions`, { method: "POST", headers })
+      ).json()) as { sessionId: string };
+      watcher.notify("watch.txt");
+      const web = fetch(`${base}/sessions/${sessionId}/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ message: "ask:web" }),
+      });
+      const direct = terminal.submit("ask:terminal", submitOptions());
+      await Promise.all([watcher.flush(), web, direct]);
+
+      expect(maximum).toBe(1);
+      await expect(readFile(join(root, "terminal.txt"), "utf8")).resolves.toBe(
+        "terminal\n",
+      );
+      await expect(readFile(join(root, "web.txt"), "utf8")).resolves.toBe(
+        "web\n",
+      );
+      await expect(
+        readFile(join(root, "watch-result.txt"), "utf8"),
+      ).resolves.toBe("watched\n");
+    } finally {
+      watcher.close();
+      await server.close();
+    }
+  });
+
   it("never interleaves the mutation phases of two sessions", async () => {
     const root = await repository();
     const log: string[] = [];
