@@ -67,7 +67,7 @@ unchanged result of the historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial | Turns, profile switching, weak-model long-history summarization, mutation-aware history, and in-process worktree serialization are wired. Packed actual-bin one-shot and two-turn fake-wire sessions prove retained history without external network or live credentials. Summarizer fallback/input caps, advanced modes, repeated continuation, and exhaustive recovery evidence remain incomplete. |
-| Editing | partial | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Broader unified-diff recovery and independent Patch-format goldens remain absent. |
+| Editing | partial with format evidence | Whole-file, basic SEARCH/REPLACE, distinct fence-aware `diff-fenced` requests, Patch scopes/repeated actions, and unified-diff file transitions/no-newline markers are implemented. Every constructed format has a pinned independent golden and asymmetric hardening tests; broader unified-diff recovery remains absent. |
 | Models/providers | partial | OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, metadata merging, bundled limits/prices for every advertised model, cache-aware cost, temperature policy, and bounded transient retries are wired. Editor/media/cache-keepalive workflows remain unintegrated. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs, selected/ignored filtering, global-ignore composition, move ordering, session-owned undo, and in-process worktree locking are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Context mode, broader ranking/personalization fixtures, fallback requests, tokenizer accuracy, and executable map controls remain incomplete. |
@@ -785,9 +785,16 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
 - [ ] Complete repeated assistant-prefill continuation and integrate contained,
   size-limited image/PDF loading. Bounded continuation and DeepSeek prefix
   normalization are wired; repeated-prefix accumulation and media loading remain.
-- [ ] Add independent pinned golden fixtures plus asymmetric property tests for
+- [x] Add independent pinned golden fixtures plus asymmetric property tests for
   every advertised edit format, including switching away from incompatible
-  protocol history.
+  protocol history. `tests/fixtures/edit-format-goldens.json` records one
+  manually authored expected result, pinned revision, upstream path, and
+  compatibility classification for each of the six constructed formats.
+  `tests/edit-format-goldens.test.ts` checks asymmetric generated replacements,
+  malformed output, ambiguous/conflicting targets, and exact completed-write
+  state after injected failure or cancellation for all five mutating formats;
+  `tests/coder-session.test.ts` covers incompatible-history removal. These are
+  format-contract cases, not full upstream recovery parity.
 
 **Acceptance:** each Phase 7 checkbox is reachable from a constructed session,
 and its exit is backed by independent golden/property and switching tests.

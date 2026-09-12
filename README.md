@@ -33,7 +33,9 @@ that replaces `fetch`, so one-shot and two-turn history behavior run with no
 external network or live credential. A malformed fake stream must fail safely.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Unified-diff recovery/no-newline handling, format-specific prompts,
-and broader pinned fixtures remain incomplete; constructed formats are not a
+and some broader upstream recovery remain incomplete. Each constructed format
+has an independently authored pinned golden plus asymmetric property, malformed,
+ambiguity/conflict, partial-write, and cancellation evidence; that is not a
 release-readiness claim.
 Selected-file edits are dry-run resolved, previewed, written, optionally
 committed, and followed by explicitly configured lint/test commands. Parse,

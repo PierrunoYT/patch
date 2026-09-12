@@ -4,6 +4,13 @@ Patch records deterministic outputs from the pinned aider checkout before
 porting behavior. These fixtures are development oracles, not runtime data, and
 are excluded from the npm package.
 
+There are two intentionally distinct evidence sources. The generated
+`aider-5dc9490b.json` below is exported by pinned upstream code. The manually
+authored `edit-format-goldens.json` is independent of Patch output and records a
+pinned source path/classification for each constructed format; its malformed,
+ambiguity, failure, and cancellation cases are Patch hardening tests, not
+upstream-export compatibility.
+
 The exporter currently captures:
 
 - config file, environment, and CLI precedence;
