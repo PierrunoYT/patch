@@ -245,12 +245,13 @@ dated parity audits for revision-specific evidence.
 - Opt-in persistent input and chat history with explicit CLI paths, multiline
   JSONL input records, Markdown transcripts, private creation modes, and
   retention and secret-exposure documentation.
-- Executable tagged and EOF multiline input plus library-only declarative Emacs/
-  Vi keybindings and shell-free external-editor invocation.
+- Executable tagged and EOF multiline input and shell-free external-editor
+  invocation, plus library-only declarative Emacs/Vi keybindings.
 - Incremental Markdown rendering, lightweight fenced-code syntax highlighting,
   colored diff previews, hostile escape stripping, and TTY/`NO_COLOR`/CLI
   no-color behavior without a rendering dependency.
-- A library-only optional native `node-pty` adapter with argv commands, resize,
+- An optional native `node-pty` adapter, since composed behind `/run
+  --interactive`, with argv commands, resize,
   Ctrl-C, EOF, cancellation cleanup, and stateful child control-sequence
   sanitization while preserving a portable default installation.
 - Bash, Zsh, and Fish completion generation, opt-in bell or argv-command
@@ -380,6 +381,10 @@ dated parity audits for revision-specific evidence.
   opening tag is cleaned once it is complete.
 
 ### Fixed
+
+- Stopped the edit preview from printing a line that is not in the file: an
+  empty side split into one empty line, so a create showed a phantom `-`, a
+  delete a phantom `+`, and content ending in a newline one of each.
 
 - Strengthened the unified-diff property test and removed the two per-test
   timeouts that the suite-wide 30-second bound had made tighter than the global

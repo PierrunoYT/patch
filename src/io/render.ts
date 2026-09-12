@@ -223,6 +223,15 @@ export function renderCommandResult(
   ].join("\n");
 }
 
+/** The lines of a file's content: empty content has none, and a trailing
+ * newline ends the last line rather than starting an empty one. */
+function lines(content: string): readonly string[] {
+  if (content === "") return [];
+  const split = content.split("\n");
+  if (split.at(-1) === "") split.pop();
+  return split;
+}
+
 export function renderEditPreview(preview: EditPreview): string {
   return preview.operations
     .map((operation) => {
@@ -232,8 +241,11 @@ export function renderEditPreview(preview: EditPreview): string {
         `--- ${operation.kind === "create" ? "/dev/null" : `a/${operation.path}`}`,
         `+++ ${operation.kind === "delete" ? "/dev/null" : `b/${operation.path}`}`,
         "@@ proposed edit @@",
-        ...before.split("\n").map((line) => `-${line}`),
-        ...after.split("\n").map((line) => `+${line}`),
+        // Splitting "" yields [""], and a trailing newline yields a final "",
+        // so a create used to show a phantom `-` line, a delete a phantom `+`,
+        // and any ordinary file one of each.
+        ...lines(before).map((line) => `-${line}`),
+        ...lines(after).map((line) => `+${line}`),
       ].join("\n");
     })
     .join("\n");

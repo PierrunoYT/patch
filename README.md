@@ -86,9 +86,11 @@ you just typed is not asked about again. Per-failure reflection prompts remain
 unsupported.
 
 This is not yet a usable-release or Aider-parity claim. Repository mutations are
-serialized across every session sharing a worktree, all untrusted terminal
-output passes through one stateful control-sequence sanitizer, and replacement
-preserves the metadata Node can carry portably while refusing a swapped ancestor;
+serialized across every session in this process that shares a worktree — a
+second `patch` process is ordered only by Git's own index lock — all untrusted
+terminal output passes through one stateful control-sequence sanitizer, and
+replacement preserves the metadata Node can carry portably while refusing a
+swapped ancestor;
 `/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
 submits clipboard text as a user turn, and a turn interrupted after its edits
 landed reconciles history and reports surviving work through the terminal.

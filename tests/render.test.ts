@@ -69,6 +69,24 @@ describe("terminal rendering", () => {
     );
   });
 
+  it("shows no phantom line for a create, a delete, or a trailing newline", () => {
+    // An empty side has no lines at all, and a trailing newline ends the last
+    // line rather than starting an empty one.
+    expect(
+      renderEditPreview({
+        changedPaths: ["new.ts"],
+        operations: [{ kind: "create", path: "new.ts", content: "added\n" }],
+      }),
+    ).toBe("--- /dev/null\n+++ b/new.ts\n@@ proposed edit @@\n+added");
+
+    expect(
+      renderEditPreview({
+        changedPaths: ["gone.ts"],
+        operations: [{ kind: "delete", path: "gone.ts", before: "removed\n" }],
+      }),
+    ).toBe("--- a/gone.ts\n+++ /dev/null\n@@ proposed edit @@\n-removed");
+  });
+
   it("reports tokens and cost, and omits a cost it does not know", () => {
     expect(
       renderUsage(
