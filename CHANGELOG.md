@@ -381,6 +381,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Sanitized the three terminal status lines that interpolated untrusted text
+  directly: the fetched URL, a watch-mode failure, and a failed notification
+  command. Only the Commander streams and the executable's own failure path were
+  covered, so `docs/terminal.md`'s "only styling Patch itself emits survives" did
+  not hold for them.
+
 - Stopped one stray C1 byte from discarding the rest of a model response. The
   terminal sanitizer treated every byte in `0x98`-`0x9F` as a string introducer,
   but `0x9C` is ST, a terminator, and `0x99`/`0x9A` open nothing. Because a

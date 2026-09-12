@@ -137,8 +137,10 @@ treating a terminator as an introducer would discard the remainder of a stream
 that a single mojibake byte had wandered into. `MarkdownStream` holds one sanitizer for the life of a
 stream, so a sequence split across provider deltas cannot rejoin; `stripAnsi`
 sanitizes one self-contained string for the diff and preview renderers; both
-Commander streams and the executable's failure messages are sanitized as well.
-Only styling Patch itself emits survives.
+Commander streams and the executable's failure messages are sanitized as well,
+as are the interpolated parts of the terminal's own status lines — the fetched
+URL, a watch-mode failure, a failed notification command — since those quote a
+path, a URL, or child output. Only styling Patch itself emits survives.
 
 The renderer is intentionally smaller than Aider's Rich renderer and does not
 provide full tables, lists, wrapping, or unstable-tail rerendering.

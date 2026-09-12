@@ -27,7 +27,7 @@ import {
 } from "./io/render.js";
 import type { ModelCommandResult } from "./process/model-command.js";
 import type { UsageReport } from "./models/usage.js";
-import { sanitizedWriter } from "./io/sanitize.js";
+import { sanitizedWriter, sanitizeTerminalText } from "./io/sanitize.js";
 import type { EditPreview } from "./edits/write-boundary.js";
 import type { ApplicationSession } from "./core/application-service.js";
 import type { PathApprovalReason } from "./core/coder-session.js";
@@ -564,10 +564,12 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                 },
                 onError: (error, source) => {
                   markdown.end();
+                  // An error message quotes paths and child output, so the
+                  // quoted part is sanitized even though the label is ours.
                   write(
-                    `${source === "watcher" ? "Watch mode stopped" : "Watched turn failed"}: ${
-                      error instanceof Error ? error.message : String(error)
-                    }\n`,
+                    `${source === "watcher" ? "Watch mode stopped" : "Watched turn failed"}: ${sanitizeTerminalText(
+                      error instanceof Error ? error.message : String(error),
+                    )}\n`,
                   );
                 },
               });
@@ -615,7 +617,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                               // is indistinguishable from a hang.
                               markdown.end();
                               write(
-                                `Fetching ${String((event.data as { url: string }).url)}…\n`,
+                                `Fetching ${sanitizeTerminalText(
+                                  String((event.data as { url: string }).url),
+                                )}…\n`,
                               );
                             } else if (
                               event.type === "command-complete" ||
@@ -671,9 +675,11 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
                       );
                     } catch (error) {
                       write(
-                        `Notification failed: ${
-                          error instanceof Error ? error.message : String(error)
-                        }\n`,
+                        `Notification failed: ${sanitizeTerminalText(
+                          error instanceof Error
+                            ? error.message
+                            : String(error),
+                        )}\n`,
                       );
                     }
                   }
