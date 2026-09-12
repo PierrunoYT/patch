@@ -382,6 +382,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Dropped post-`finish` events before displaying them, not after. Draining the
+  stream for a trailing usage chunk forwarded every other late event to the
+  terminal first and excluded it from the response only afterwards, so a
+  provider sending text after its finish reason printed something history and
+  the edit parser had already discarded.
+
 - Swept read-only files for AI comments too. The watcher refreshes comments from
   "every selected file", but the executable handed it only the editable ones, so
   a question written in a read-only file was dropped.

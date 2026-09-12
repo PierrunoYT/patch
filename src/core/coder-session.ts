@@ -863,6 +863,13 @@ export class CoderSession {
             options.signal,
           )) {
             let event = CompletionEventSchema.parse(rawEvent);
+            // OpenAI-compatible endpoints deliver final usage in a chunk after
+            // the one carrying the finish reason, so the stream is drained past
+            // finish. Only usage is still accounted, and the drop happens before
+            // anything is displayed or recorded: forwarding a post-finish
+            // text-delta printed text that the response, the history, and the
+            // edit parser had all already excluded.
+            if (finished && event.type !== "usage") continue;
             // A model that reasons inside the content stream is split as it
             // arrives, so the terminal, history, and the edit parser all see the
             // answer alone rather than the tagged text.
@@ -882,13 +889,6 @@ export class CoderSession {
             }
             events.push(event);
             options.onEvent?.(structuredClone(event));
-            // OpenAI-compatible endpoints deliver final usage in a chunk after
-            // the one carrying the finish reason, so the stream is drained past
-            // finish. Only usage is still accounted; nothing can extend or
-            // invalidate a response that already finished.
-            if (finished) {
-              if (event.type !== "usage") continue;
-            }
             switch (event.type) {
               case "text-delta":
                 response += event.text;

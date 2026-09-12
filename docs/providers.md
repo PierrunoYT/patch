@@ -44,7 +44,10 @@ declare tools or assemble tool-call results. PDF message parts are rejected
 because Chat Completions does not define
 a portable PDF representation. `CoderSession` drains the stream past `finish`,
 so the usage chunk these endpoints send after the finish reason is accounted and
-reaches the terminal's per-turn token and cost line.
+reaches the terminal's per-turn token and cost line. Usage is the only thing the
+drain keeps: any other event after `finish` is dropped before it is displayed or
+recorded, so what the terminal shows cannot diverge from the response that
+history stores and the edit parser reads.
 
 ## Error classification
 

@@ -837,6 +837,38 @@ describe("CoderSession", () => {
     });
   });
 
+  it("neither displays nor keeps text delivered after the finish event", async () => {
+    const root = await temporaryDirectory();
+    const shown: string[] = [];
+    const session = new CoderSession({
+      config: config(root, "ask"),
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "answer" },
+            { type: "finish", reason: "stop" },
+            { type: "text-delta", text: " and more" },
+            { type: "usage", inputTokens: 3, outputTokens: 1 },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+
+    const completed = await session.runTurn("question", {
+      onEvent: (event) => {
+        if (event.type === "text-delta") shown.push(event.text);
+      },
+    });
+
+    // The response, the history, and the parser all stop at the finish event.
+    // Printing the trailing text anyway showed the user something none of them
+    // had accepted.
+    expect(completed.response).toBe("answer");
+    expect(shown).toEqual(["answer"]);
+    expect(completed.events.some((event) => event.type === "usage")).toBe(true);
+  });
+
   it("drops history media a replacement model cannot accept", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({
