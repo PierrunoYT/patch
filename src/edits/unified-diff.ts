@@ -52,6 +52,18 @@ function beforeAfter(lines: readonly string[]): [string, string] {
   return [before.join(""), after.join("")];
 }
 
+/**
+ * A hunk describes whole lines, so a match has to begin at a line boundary: a
+ * plain substring search would let `old` land inside `folder`. When the before
+ * side carries a no-newline marker it also asserts that those are the file's
+ * final bytes, so such a match must additionally end at the end of the content.
+ */
+function isAnchored(content: string, before: string, index: number): boolean {
+  if (index > 0 && content[index - 1] !== "\n") return false;
+  if (before.endsWith("\n")) return true;
+  return index + before.length === content.length;
+}
+
 export function applyUnifiedDiff(
   content: string,
   before: string,
@@ -65,11 +77,11 @@ export function applyUnifiedDiff(
     index >= 0;
     index = content.indexOf(before, index + 1)
   ) {
-    matches.push(index);
+    if (isAnchored(content, before, index)) matches.push(index);
   }
   if (matches.length === 0) {
     throw new UnifiedDiffNoMatchError(
-      `UnifiedDiffNoMatch: ${path} does not contain the ${before.split(/\r?\n/u).filter(Boolean).length} exact lines in the hunk`,
+      `UnifiedDiffNoMatch: ${path} does not contain the ${before.split(/\r?\n/u).filter(Boolean).length} exact lines in the hunk${before.endsWith("\n") ? "" : " as its final line without a trailing newline"}`,
     );
   }
   if (matches.length > 1) {
@@ -120,13 +132,16 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
         );
         const pending = hunk;
         hunk = [];
+        // Validated even when the hunk changes nothing: a detached marker is
+        // malformed wherever it appears, and returning early here would let a
+        // context-only hunk carry one silently.
+        const [search, replacement] = beforeAfter(pending);
         if (!changed) return;
         if (path === undefined) {
           throw new UnifiedDiffParseError(
             "Unified diff is missing a file path",
           );
         }
-        const [search, replacement] = beforeAfter(pending);
         edits.push({
           kind: "replace",
           path,

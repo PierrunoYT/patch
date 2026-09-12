@@ -107,10 +107,19 @@ real repository paths.
 Standard `\ No newline at end of file` markers apply to the immediately
 preceding old, new, or context line. Parsing and application therefore preserve
 a missing final newline or add/remove it when only one side carries the marker;
-a detached marker is malformed. Pinned aider tolerates the line only by ignoring
-it, then adds a newline to both sides. Patch intentionally implements the Git
-marker's meaning instead and preserves its stronger rejection whenever search
-text identifies more than one location. Aider's indentation, omitted-line,
+a detached marker is malformed wherever it appears, including in a hunk that
+changes nothing. Pinned aider tolerates the line only by ignoring it, then adds
+a newline to both sides. Patch intentionally implements the Git marker's meaning
+instead and preserves its stronger rejection whenever search text identifies
+more than one location.
+
+A hunk describes whole lines, so application anchors its search: a match must
+begin at the start of a line, and a search side carrying the marker must also
+end the content, because that is what the marker asserts. Without the first
+rule a bare `old` would match inside `folder`; without the second it would apply
+to a mid-file line and discard the marker's meaning. Both are reported as an
+ordinary no-match, which a reflection attempt can retry, rather than being
+applied. Aider's indentation, omitted-line,
 partial-context, and duplicate-hunk recovery are not implemented, and identical
 repeated hunks are not deduplicated.
 

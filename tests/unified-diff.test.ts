@@ -142,10 +142,51 @@ describe("UnifiedDiffEditStrategy", () => {
     ).toThrow(UnifiedDiffParseError);
   });
 
-  it("keeps ambiguity rejection for no-newline hunks", () => {
+  it("rejects a no-newline hunk that is not the whole final line", () => {
+    // "oldold" is one line; a hunk asserting a final line of "old" without a
+    // trailing newline does not describe it, at either offset.
     expect(() => applyUnifiedDiff("oldold", "old", "new", "a.ts")).toThrow(
-      UnifiedDiffNotUniqueError,
+      UnifiedDiffNoMatchError,
     );
+    expect(() =>
+      applyUnifiedDiff("keep\nold\nmore\n", "old", "new", "a.ts"),
+    ).toThrow(UnifiedDiffNoMatchError);
+    expect(() => applyUnifiedDiff("keep\nold\n", "old", "new", "a.ts")).toThrow(
+      UnifiedDiffNoMatchError,
+    );
+  });
+
+  it("never matches a hunk inside a longer line", () => {
+    // Before line anchoring this returned "fnewer\n".
+    expect(() => applyUnifiedDiff("folder\n", "old", "new", "a.ts")).toThrow(
+      UnifiedDiffNoMatchError,
+    );
+    expect(() =>
+      applyUnifiedDiff("folder\n", "old\n", "new\n", "a.ts"),
+    ).toThrow(UnifiedDiffNoMatchError);
+  });
+
+  it("applies a no-newline hunk that does end the file", () => {
+    expect(applyUnifiedDiff("keep\nold", "old", "new", "a.ts")).toBe(
+      "keep\nnew",
+    );
+  });
+
+  it("rejects a detached marker in a context-only hunk", () => {
+    expect(() =>
+      new UnifiedDiffEditStrategy().parse(
+        [
+          "```diff",
+          "--- a/src/a.ts",
+          "+++ b/src/a.ts",
+          "@@ -1 +1 @@",
+          "\\ No newline at end of file",
+          " context",
+          "```",
+        ].join("\n"),
+        context,
+      ),
+    ).toThrow(UnifiedDiffParseError);
   });
 
   it("distinguishes absent context from non-unique context", () => {

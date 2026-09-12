@@ -380,6 +380,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Anchored unified-diff application to line boundaries. A search side that
+  carries a `\ No newline at end of file` marker has no trailing newline, and
+  plain substring matching applied it inside a longer line: applying `old` to
+  `folder` produced `fnewer`. A match must now start a line, and a marked search
+  side must also end the content, since that is what the marker asserts; both
+  failures are reported as a no-match instead of corrupting the file. A detached
+  marker in a hunk that changes nothing is now rejected as well.
+
 - Ran the packed-binary provider smoke on Windows. The deterministic preload is
   passed to `--import` as a `file://` URL, because Node's ESM loader rejects a
   bare Windows absolute path as an unsupported `c:` scheme, and arguments that
