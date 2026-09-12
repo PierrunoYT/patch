@@ -318,6 +318,16 @@ export class GitRepository {
     if (diff.patch === "") {
       return undefined;
     }
+    // A path-limited commit still stages the selected work first. Save those
+    // exact index entries so a hook or commit failure cannot replace the user's
+    // prior partial staging; working-tree content is intentionally untouched.
+    const savedIndex = await this.#git([
+      "ls-files",
+      "--stage",
+      "-z",
+      "--",
+      ...paths,
+    ]);
     await this.#git(["add", "--", ...paths]);
     const trailers = [
       validated.attribution?.coAuthor === undefined
@@ -333,17 +343,34 @@ export class GitRepository {
     if (validated.attribution?.committerName !== undefined) {
       environment.GIT_COMMITTER_NAME = validated.attribution.committerName;
     }
-    await this.#git(
-      [
-        "commit",
-        ...(validated.verify ? [] : ["--no-verify"]),
-        "-m",
-        fullMessage,
-        "--",
-        ...paths,
-      ],
-      environment,
-    );
+    try {
+      await this.#git(
+        [
+          "commit",
+          ...(validated.verify ? [] : ["--no-verify"]),
+          "-m",
+          fullMessage,
+          "--",
+          ...paths,
+        ],
+        environment,
+      );
+    } catch (error) {
+      try {
+        await this.#git(["update-index", "--force-remove", "--", ...paths]);
+        if (savedIndex !== "")
+          await this.#gitWithInput(
+            ["update-index", "-z", "--index-info"],
+            savedIndex,
+          );
+      } catch (restoreError) {
+        throw new GitRepositoryError(
+          "Git commit failed and selected index entries could not be restored",
+          { cause: new AggregateError([error, restoreError]) },
+        );
+      }
+      throw error;
+    }
     const commit = (await this.#git(["rev-parse", "HEAD"])).trim();
     return CommitResultSchema.parse({
       commit,

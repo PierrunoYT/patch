@@ -116,14 +116,22 @@ a per-hook prompt. Hooks are not sandboxed, may alter files or Git state, and
 can block; Patch does not impose a Git-hook timeout. `--no-verify` skips only
 the hooks Git documents for that switch, notably `pre-commit` and `commit-msg`;
 it does not disable `prepare-commit-msg` or `post-commit`.
-Ordinary selected commits preserve unrelated index entries, but commit failure
-can replace the selected paths' prior staged state.
+Before staging selected paths, Patch saves their exact stage entries. If `git
+commit` fails, it removes only those selected entries and restores their prior
+blobs/stages with `git update-index --index-info`; working files and every
+unrelated index entry remain untouched. This preserves partially staged
+selected files and restores a newly added path to untracked. If restoration
+itself fails, the error reports both failures and the user must inspect the
+index. Index flags such as `assume-unchanged`/`skip-worktree` are outside this
+guarantee. Hooks and configured/approved commands can independently modify any
+file or Git state, and Patch does not reverse those arbitrary side effects.
 
 Evidence: `tests/config-bootstrap.test.ts` checks precedence and malformed
 configuration; `tests/application-lifecycle.test.ts` exercises the executable
 program with real Git hooks, distinct checkpoint/edit/check attribution,
 selected-diff privacy, cost, explicit messages, no-op commits, output bounds,
-generation cancellation, and pre-/post-write failures. The installed service
+generation cancellation, pre-/post-write failures, exact index restoration,
+and staged/unstaged preservation. The installed service
 scenario in `scripts/lifecycle-smoke.mjs` verifies generated messages, hook
 execution, and committer identity from the packed package. Providers are fake;
 this does not establish live-provider or new cross-platform evidence.

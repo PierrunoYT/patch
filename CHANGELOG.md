@@ -15,6 +15,9 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Exact selected-index restoration after failed Git commits, preserving partial
+  staging, untracked status, and unrelated staged/unstaged work across
+  checkpoint, edit, and configured-check paths.
 - An immutable per-attempt lifecycle context that binds provider-visible file
   snapshots and authorization sets to parsing, resolution, writes, configured
   checks/reflection, commits, and final accounting.

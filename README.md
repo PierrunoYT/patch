@@ -86,6 +86,9 @@ destination before removing its source, so an interrupted move keeps both paths.
 `/undo` retains working files and unrelated staged changes, reverts only the
 commit the current session created, and refuses a moved HEAD or a commit its
 upstream branch already contains.
+Failed checkpoint/edit/check commits likewise restore selected paths to their
+prior index entries, including partial staging, while retaining working-file
+content and unrelated staged/unstaged changes.
 Interactive terminal input is connected: Tab completes commands and the files
 selected right now, `--input-history-file` also makes earlier input recallable,
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in

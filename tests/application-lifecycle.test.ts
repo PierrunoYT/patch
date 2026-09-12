@@ -276,6 +276,13 @@ describe("application edit lifecycle", () => {
           : "The turn already changed selected.txt",
       );
       expect(await git(root, "rev-parse", "HEAD")).toBe(before.head);
+      expect(await git(root, "diff", "--cached", "--binary")).toBe(
+        before.index,
+      );
+      if (phase === "checkpoint")
+        expect(await git(root, "diff", "--", "unrelated.txt")).toContain(
+          "unstaged unrelated",
+        );
       expect(await readFile(join(root, "selected.txt"), "utf8")).toBe(
         phase === "checkpoint" ? "dirty\n" : "edited\n",
       );

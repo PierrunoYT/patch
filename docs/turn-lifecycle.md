@@ -25,8 +25,8 @@ All commit phases share the configured
 [commit policy](git-repository.md#production-commit-policy): hook verification,
 explicit identity, and opt-in weak-model messages. Generation runs under the
 worktree mutation lock before Git staging. A generation failure stops that
-commit; earlier writes/checkpoints remain. A failing hook can leave selected
-paths staged. Model-edit commits alone receive the configured author/co-author;
+commit; earlier writes/checkpoints remain. A failing commit restores the exact
+prior selected index entries while retaining working-file edits. Model-edit commits alone receive the configured author/co-author;
 checkpoint, manual, and check commits receive only the committer override.
 
 The broad sequence is adapted from pinned
@@ -102,8 +102,8 @@ unchanged and remain generic at the HTTP boundary.
 Sessions sharing a resolved worktree serialize mutation phases through one
 in-process lock. There is no cross-process Patch lock, durable recovery journal,
 per-file partial-write result, atomic Git/filesystem transaction, or exhaustive
-cancellation guarantee. Git failures after staging and interruption between
-undo's two Git commands need further recovery evidence. Approved/configured
+cancellation guarantee. Interruption between undo's two Git commands needs
+further recovery evidence. Approved/configured
 child commands are not sandboxed: they can change unrelated files or Git themselves, and Patch
 cannot promise to preserve that work against arbitrary command side effects.
 
