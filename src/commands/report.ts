@@ -71,13 +71,24 @@ export async function resolveReportMetadata(
   };
 }
 
+/**
+ * Bounds the title again at the boundary the renderer owns. The parser rejects
+ * an oversized or control-bearing title, but this function is exported, so an
+ * embedding host calling it directly must not be able to exceed the documented
+ * 160 control-free characters either.
+ */
+function safeTitle(title: string): string {
+  const cleaned = title.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, "�");
+  return cleaned.length <= 160 ? cleaned : `${cleaned.slice(0, 159)}…`;
+}
+
 /** Render a copyable local draft from the complete and deliberately small allowlist. */
 export function renderReport(metadata: ReportMetadata, title?: string): string {
   return [
     "Local issue draft (review before posting)",
     title === undefined
       ? 'Suggested title: "Bug report"'
-      : `User-supplied title (review carefully): ${JSON.stringify(title)}`,
+      : `User-supplied title (review carefully): ${JSON.stringify(safeTitle(title))}`,
     "",
     "Allowlisted version metadata:",
     `- Patch: ${allowlisted(metadata.patchVersion, SAFE_VERSION)}`,

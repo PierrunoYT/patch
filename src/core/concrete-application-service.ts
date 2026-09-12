@@ -1311,7 +1311,11 @@ class ConcreteApplicationSession implements ApplicationSession {
             currentModel: this.#profile.main.name,
             currentMode: this.#profile.definition.strategy.format,
             encoding: bootstrap.arguments.encoding,
-            git: bootstrap.arguments.git,
+            // Whether Git is in use, not whether it was asked for: running
+            // outside a repository leaves the flag on with no repository
+            // behind it, and reporting "enabled" there is simply wrong.
+            git:
+              bootstrap.arguments.git && this.#context.repository !== undefined,
             gitCommitVerify: bootstrap.arguments.gitCommitVerify,
             generateCommitMessages: bootstrap.arguments.generateCommitMessages,
             lintConfigured: bootstrap.arguments.lintCommand !== undefined,

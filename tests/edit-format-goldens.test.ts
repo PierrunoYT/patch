@@ -63,9 +63,9 @@ function context(snapshots: readonly FileSnapshot[]) {
 
 function responseFor(
   format: (typeof mutatingFormats)[number],
-  paths: readonly [string, string],
-  oldValues: readonly [string, string],
-  newValues: readonly [string, string],
+  paths: readonly string[],
+  oldValues: readonly string[],
+  newValues: readonly string[],
 ): string {
   const blocks = paths.map((path, index) => {
     const oldValue = oldValues[index] ?? "";
@@ -132,14 +132,16 @@ describe("independent advertised edit-format goldens", () => {
             const snapshots = [
               { path: "first.txt", content: `head:0\n${oldValue}\ntail:0\n` },
             ];
+            // Built as one file rather than by stripping a second one out of a
+            // two-file response: that regex also removed the closing ``` of a
+            // udiff fence and the *** End Patch trailer, so two of the five
+            // formats were parsing a truncated payload and passing only because
+            // their parsers tolerate one.
             const response = responseFor(
               format,
-              ["first.txt", "unused.txt"],
-              [oldValue, "unused"],
-              [newValue, "unused-new"],
-            ).replace(
-              /\n(?:unused\.txt|```text\nunused\.txt|--- a\/unused\.txt|\*\*\* Update File: unused\.txt)[\s\S]*$/u,
-              "",
+              ["first.txt"],
+              [oldValue],
+              [newValue],
             );
             const batch = createStrategy(format).strategy.parse(
               response,

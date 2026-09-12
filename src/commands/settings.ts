@@ -28,7 +28,10 @@ function configured(value: boolean): "configured" | "not configured" {
 }
 
 function safeLabel(value: string): string {
-  const cleaned = value.replace(/[\p{Cc}\p{Cf}]/gu, "�");
+  // U+2028/U+2029 are separators rather than controls, but they end a line in
+  // any consumer that splits on Unicode line breaks, so a label carrying one
+  // could forge a further settings row.
+  const cleaned = value.replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, "�");
   return cleaned.length <= 256 ? cleaned : `${cleaned.slice(0, 255)}…`;
 }
 

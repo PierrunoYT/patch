@@ -65,8 +65,9 @@ HTTP 500 and returns this stable recovery shape:
 }
 ```
 
-Paths are bounded, control-free, repository-relative values; invalid entries are
-omitted. A commit is a validated 40- or 64-hex Git object ID or `null`. Command
+Paths are bounded, repository-relative values carrying no control, format, or
+line-separator character, and no drive letter in any form, including the
+drive-relative `C:file`; invalid entries are omitted. A commit is a validated 40- or 64-hex Git object ID or `null`. Command
 text and output are never included, only bounded status metadata. The underlying
 cause and error message are also omitted, so credentials or raw diagnostics
 cannot cross the HTTP boundary. Unexpected errors remain `{ "error": "Request

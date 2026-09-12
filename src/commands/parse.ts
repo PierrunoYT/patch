@@ -64,7 +64,7 @@ function optionalHelpQuery(argument: string): string | undefined {
 
 function optionalReportTitle(argument: string): string | undefined {
   if (argument === "") return undefined;
-  if (argument.length > 160 || /[\p{Cc}\p{Cf}]/u.test(argument)) {
+  if (argument.length > 160 || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(argument)) {
     throw new CommandParseError(
       "/report title must be at most 160 characters without control characters",
     );

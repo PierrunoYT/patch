@@ -30,16 +30,22 @@ generated commit messages, whether lint/test commands are configured, and
 whether bootstrap corrected the repository root. These nine values are the
 complete allowlist. The renderer cannot receive raw arguments, paths, command
 text, commit identities, environment, provider headers/endpoints, model extras,
-or credentials, and it never partially masks secrets. Display labels are
-control-free and bounded. The command performs no provider request and its
+or credentials, and it never partially masks secrets. Display labels are bounded
+and stripped of controls, format characters, and the U+2028/U+2029 separators,
+so no label can end a line and forge a further settings row. `Git` reports
+whether Git is actually in use rather than whether the flag was left on, since
+running outside a repository leaves the flag set with no repository behind it. The command performs no provider request and its
 packed-executable and secret-bearing interface tests cover terminal and history
 output.
 
 `/report [title]` prints a local issue draft for the user to review and copy. Its
 complete metadata allowlist is the installed Patch version, Node.js version, OS
 name and release, architecture, and Git version; missing or malformed values are
-shown as unavailable. The optional title is limited to 160 control-free
-characters and is visibly labeled and JSON-quoted as user-supplied text. Paths,
+shown as unavailable. The optional title is limited to 160 characters without
+controls or line separators, and is visibly labeled and JSON-quoted as
+user-supplied text. The parser rejects a title that breaks those rules and the
+renderer bounds one again, because it is exported and an embedding host may call
+it directly. Paths,
 chat, source, environment, credentials, and raw errors are not inputs to the
 renderer. Unlike pinned aider's `report.py`, Patch never opens a browser or
 constructs an upload or issue URL, and it makes no provider or network request.

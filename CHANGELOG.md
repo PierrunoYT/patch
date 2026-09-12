@@ -382,6 +382,16 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Counted U+2028 and U+2029 as line-ending characters wherever output claims to
+  be control-free. They are separators rather than controls, so they passed the
+  `/settings` label filter, the `/report` title check, and the HTTP partial-path
+  check, and any consumer that splits on Unicode line breaks would have read a
+  forged extra row. The HTTP path check also rejects a drive-relative `C:file`,
+  not only `C:/file`, and `renderReport` bounds its title itself now that it is
+  exported.
+- Reported `Git` in `/settings` as whether Git is in use rather than whether the
+  flag was left on, which said "enabled" when running outside a repository.
+
 - Made the suite pass on Windows and stop timing out under load. The worktree
   serialization test compared a created file against an LF-terminated string,
   but a new file takes the platform line ending by documented policy, so it

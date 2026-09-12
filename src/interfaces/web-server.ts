@@ -441,11 +441,14 @@ export class LocalWebServer {
 class BodyLimitError extends Error {}
 class InvalidBodyError extends Error {}
 
+/**
+ * C0/C1 controls plus the separators and bidirectional overrides that are not
+ * in those ranges: U+2028/U+2029 end a line for a consumer that splits on
+ * Unicode line breaks, and U+202A-U+202E/U+2066-U+2069 can reorder how a path
+ * reads without changing its bytes.
+ */
 function hasControlCharacter(value: string): boolean {
-  return [...value].some((character) => {
-    const codePoint = character.codePointAt(0) ?? 0;
-    return codePoint <= 0x1f || codePoint === 0x7f;
-  });
+  return /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(value);
 }
 
 function safePartialPath(path: string): boolean {
@@ -455,7 +458,9 @@ function safePartialPath(path: string): boolean {
     !hasControlCharacter(path) &&
     !path.startsWith("/") &&
     !path.startsWith("\\") &&
-    !/^[A-Za-z]:[\\/]/u.test(path) &&
+    // Drive-relative too (C:file), not only C:/file: both name a location
+    // outside this repository's relative namespace.
+    !/^[A-Za-z]:/u.test(path) &&
     !path.split(/[\\/]/u).includes("..")
   );
 }

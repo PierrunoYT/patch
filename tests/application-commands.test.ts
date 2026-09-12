@@ -461,6 +461,8 @@ describe("application slash commands", () => {
       'User-supplied title (review carefully): "Terminal review"',
     );
     expect(output).toContain("- Patch: unavailable");
+    // Started with --no-git, so there is no repository behind the flag.
+    expect(output).toContain("Git: disabled");
     expect(output).not.toContain(escape);
     expect(approvalCalls).toBe(0);
     expect(provider.requests).toHaveLength(0);
@@ -606,11 +608,11 @@ describe("application slash commands", () => {
 
     await createProgram({
       cwd: root,
-      environment: {
-        OPENAI_API_KEY: apiKey,
-        OPENAI_BASE_URL: endpoint,
-        PATCH_PROVIDER_HEADERS: header,
-      },
+      // The endpoint and header secrets reach the application through the
+      // catalog's extraParameters above, which is the path that exists. They
+      // were also planted in OPENAI_BASE_URL and PATCH_PROVIDER_HEADERS, which
+      // nothing reads, so those assertions could not have failed.
+      environment: { OPENAI_API_KEY: apiKey },
       outputIsTTY: false,
       writeOutput: (text) => {
         output += text;
