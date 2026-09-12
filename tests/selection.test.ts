@@ -148,4 +148,15 @@ describe("contained selection expansion", () => {
       /No file to select under: empty/u,
     );
   });
+
+  it("refuses an absolute pattern, inside the root or outside it", async () => {
+    // Inside the root the exact-path check finds nothing and the glob branch
+    // reports the usable diagnostic; outside it, containment refuses first.
+    await expect(
+      expandSelection(resolver, [`${root.split("\\").join("/")}/src/*.ts`]),
+    ).rejects.toThrow(/repository-relative pattern/u);
+    await expect(
+      expandSelection(resolver, ["/elsewhere/*.ts"]),
+    ).rejects.toThrow();
+  });
 });
