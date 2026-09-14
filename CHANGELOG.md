@@ -893,6 +893,9 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Made the ancestor-swap filesystem tests independent of module-cache and test
+  execution order by reloading the application graph after installing their
+  filesystem hooks.
 - Recorded current external evidence for implementation revision `88adf8e5c`:
   Node 22, Linux/macOS/Windows package jobs, and provisioned Linux/Windows PTY
   jobs passed in CI run `34717847304`. Protected run `34720534293` executed but
