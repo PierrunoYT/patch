@@ -1,13 +1,15 @@
 # Remaining integration tasks
 
-This is the live implementation backlog, not a frozen audit report. The latest
+This is the live implementation backlog, not a frozen audit report. The current
+repository-wide audit below compares Patch
+`e10467b3dc787bb78bb2528339e52f4aa36c95bf` with canonical aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The latest preserved
 [dated audit](aider-parity-audit-2026-09-12.md) compares Patch
-`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with aider
-`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Earlier audits compared Patch
-`476d1657410bdd47982cc7fddb179ccf83d4a734` and
-`58597efc390e8e138b29024871a25d192fb27462` with that same aider revision. The
-current matrix and follow-ups below reconcile those findings without rewriting
-any dated audit's evidence boundary.
+`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with the same aider revision;
+earlier audits compared Patch `476d1657410bdd47982cc7fddb179ccf83d4a734`
+and `58597efc390e8e138b29024871a25d192fb27462`. The current matrix and
+follow-ups reconcile those findings without rewriting any dated audit's
+evidence boundary.
 
 This backlog distinguishes tested components from features that work through
 the installed `patch` executable. Completing an isolated adapter or parser is
@@ -51,13 +53,14 @@ depends on all earlier scope decisions being settled.
 
 ## Pinned Aider parity audits and current status
 
-The 2026-09-10 and 2026-09-11 audits preserve their historical revision
-boundaries. The 2026-09-12 audit rechecked all 78 Phase 0–9 boxes at Patch
-`bda2be474`: 73 were checked and five unchecked at that boundary. It traced
-production reachability and compared the remaining summarization, repository-
-map, unified-diff, and terminal-rendering differences with the pinned aider
-source. No audit ran live providers or remote CI. Existing tests are evidence
-only for the cases they exercise.
+The 2026-09-10, 2026-09-11, and 2026-09-12 audits preserve their historical
+revision boundaries. The repository-wide 2026-09-14 pass rechecked current
+Patch `e10467b3` against the same pinned aider source, inventoried the complete
+product and test surfaces, ran both feasible validation suites, and found three
+product correctness defects plus one renderer defect that the earlier scoped
+audit did not cover. No audit ran credentialed providers, current-revision
+remote CI, or non-Linux platform jobs. Existing tests are evidence only for the
+cases they exercise.
 
 ### Current parity matrix
 
@@ -67,15 +70,456 @@ unchanged result of any historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | implemented Patch scope; partial aider parity | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer requests are input-bounded with weak-to-main fallback; recovery from arbitrary child/Git side effects remains incomplete. |
-| Editing | partial aider parity with format/recovery evidence | All six constructed formats receive pinned format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff transitions/no-newline markers/normalization/duplicate suppression/indentation/omitted-line/partial-context recovery are implemented. Every format has an independent golden; generated fixtures match upstream's three recovery results, and packed-bin smoke applies partial recovery. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
+| Editing | partial aider parity with two open correctness defects | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented, but the current unified-diff parser truncates added Markdown fence lines and misplaces insertion-only hunks whose search body is empty. The P0 tasks below supersede any broader completed-recovery wording. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
 | Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers; the DeepSeek gate now traverses bundled catalog, factory, and application-session boundaries with a 16-token output cap. Successful external evidence remains subject to protected workflow/account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses isolated prompts/history and no map/shell; approved contained image/PDF media is request-only and bounded. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
-| Commands/terminal | partial | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Edit previews are full-content replacement blocks, not computed hunks. Renderer fidelity, true Vi input, and Aider's wider command breadth remain outside this surface. |
+| Commands/terminal | partial with two open correctness defects | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Slash-command path tokenization corrupts Windows backslashes, and quadruple fences lose their language identifier in the lightweight renderer. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, and Aider's wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. The library-only voice helper has cancellation-boundary and listener-cleanup tests; GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | implemented Patch scope with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. This is not aider's full option surface or transitive upstream-resource integrity. |
 
-### Current audit follow-ups — 2026-09-12
+### Repository-wide parity inventory -- 2026-09-14
+
+This pass compared clean checkouts of Patch
+`e10467b3dc787bb78bb2528339e52f4aa36c95bf` and canonical aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. It inventoried product source,
+tests, CLI and command registration, provider/model resources, edit strategies
+and prompts, configuration, session/orchestration, repository/Git behavior,
+IO and optional interfaces, lint/test execution, packaging, workflows, and
+current documentation. Generated, vendor, build, cache, benchmark-output, and
+historical website metadata were excluded except where package or documented
+runtime behavior depended on them.
+
+Status meanings in this section:
+
+- **defect**: Patch's supported surface produces incorrect behavior and needs a
+  fix.
+- **partial**: useful implementation exists, but an Aider capability or its
+  production path is incomplete.
+- **unported**: Aider behavior has no Patch production implementation.
+- **deferred**: potentially wanted work that requires scheduling or a product
+  scope decision.
+- **intentional difference**: Patch deliberately uses different behavior,
+  usually for safety, boundedness, privacy, or a smaller product contract.
+- **non-goal**: the absence is an accepted product decision, so it is not an
+  implementation task unless that decision changes.
+
+#### Verified defects and documentation corrections
+
+- [ ] **P0 -- Preserve added Markdown fences inside unified-diff hunks.**
+  **Status:** defect. This is a release blocker. Patch's block expression in
+  `src/edits/unified-diff.ts:386` terminates at any ` ``` ` substring, including
+  a valid added diff line such as `+```js`; an executable probe parsed only the
+  content before that line and silently omitted the rest of the replacement.
+  Aider's `aider/coders/udiff_coder.py:312-343` ends a block only when the diff
+  line itself starts with ` ``` `, so prefixed added/context lines remain in the
+  hunk. Add parser and installed-application regressions for Markdown files that
+  add, remove, and retain triple-backtick fences.
+- [ ] **P0 -- Apply insertion-only unified-diff hunks at their intended
+  location or fail closed.** **Status:** defect. This is a release blocker. Patch
+  discards every `@@` range in `src/edits/unified-diff.ts:443-445`, then
+  `applyUnifiedDiff` appends every empty-search replacement at EOF at
+  `src/edits/unified-diff.ts:351`. The executable probe applied a valid
+  beginning-of-file insertion to the end of an existing file. Aider refuses an
+  empty preimage in `aider/coders/udiff_coder.py:261-279` rather than silently
+  moving it. Preserve enough location/context information to apply uniquely or
+  reject the hunk; retain new-file creation behavior. Add beginning, middle,
+  end, ambiguous, and existing-empty-file cases.
+- [ ] **P1 -- Preserve Windows backslashes in slash-command paths.**
+  **Status:** defect. `src/commands/parse.ts:76-115` treats every backslash as a
+  generic escape; `/add C:\repo\file.ts` becomes `C:repofile.ts`. The same
+  tokenizer feeds `/attach`, `/drop`, and `/read-only`. Aider's
+  `aider/commands.py:799-805,912-925,1328-1416,1694-1697` preserves backslashes
+  while separating quoted names. Add parser and executable cases for absolute
+  drive paths, UNC paths, relative Windows paths, spaces, quotes, and literal
+  backslashes without regressing POSIX escaping.
+- [ ] **P2 -- Retain the language identifier for quadruple Markdown fences.**
+  **Status:** defect. `src/io/render.ts:121-130` recognizes four
+  backticks by matching only the first three, leaving the captured language
+  empty. `tests/application-prompt-context.test.ts:553-570` proves Patch selects
+  quadruple fences when source already contains triple backticks, while
+  `tests/render.test.ts:13-29` covers only triple fences. Aider delegates
+  variable-length fenced blocks to Rich Markdown in `aider/mdstream.py:81-139`.
+  Add variable-length opening/closing, split-chunk, and language-highlighting
+  cases.
+- [ ] **P1 -- Remove or implement the documented Git-backed `/diff`
+  operation.** **Status:** defect. This documentation inconsistency is at
+  `docs/terminal.md:140-143`, which
+  names a Git-backed `/diff`, but the complete command inventory in
+  `src/commands/parse.ts:20-41` has no such command. Aider implements `/diff` in
+  `aider/commands.py:657-689`. Correct the statement if it only meant a future
+  distinction, or port the command with tests and add it to the parser-owned
+  inventory.
+
+The first three defects were reproduced against the built Patch package and
+compared with executable calls into the pinned Aider checkout. The renderer
+case was reproduced through built `MarkdownStream`. These tasks supersede the
+broader checked unified-diff recovery claims below; those checked items remain
+valid only for the specific normalization and recovery cases they name.
+
+#### Models, providers, and model controls
+
+- [ ] **P1 -- Route live OpenAI and Anthropic contracts through catalog,
+  factory, and application session boundaries.** **Status:** partial. Test
+  coverage at `tests/live-provider.test.ts:116-213` constructs provider adapters
+  directly, while only DeepSeek traverses the production boundaries at
+  `tests/live-provider.test.ts:215-268`. Preserve the adapter-level timeout and
+  cancellation tests, but add one low-cost credentialed full-path turn for each
+  advertised provider. Aider's requests route through the model abstraction and
+  LiteLLM in `aider/models.py:249-260` and `aider/llm.py:21-45`.
+- [ ] **P2 -- Decide provider breadth beyond OpenAI, Anthropic, and DeepSeek.**
+  **Status:** unported. This work is unscheduled. Patch explicitly rejects every other
+  provider in `src/providers/factory.ts:50-60`; Aider accepts LiteLLM's provider
+  inventory through `aider/llm.py:21-45` and documents/configures Azure,
+  OpenRouter, Gemini/Vertex, Bedrock, Cohere, Groq, Ollama/LM Studio, xAI, and
+  other OpenAI-compatible routes through `aider/args.py:67-112` and
+  `aider/models.py:21-260`. Do not add a generic compatibility claim: choose supported
+  providers individually, define credential/capability contracts, and add
+  deterministic plus opt-in live evidence for each.
+- [ ] **P2 -- Expose safe executable model discovery and custom catalog
+  overlays.** **Status:** partial. `ModelCatalog` can load supplied aliases,
+  settings, and metadata for embedding callers at
+  `src/models/catalog.ts:64-68,169-203`, but `src/program.ts:228-233` exposes only
+  model name and edit format.
+  Aider exposes model search, settings/metadata files, aliases, and warnings at
+  `aider/args.py:113-137,207-228` and `aider/commands.py:205-217`. Define strict
+  schemas, source precedence, secret-safe diagnostics, package behavior, and
+  `/models` or equivalent discovery before advertising this surface.
+- [ ] **P2 -- Add reasoning-effort and thinking-token controls for models that
+  declare support.** **Status:** unported. Aider exposes and validates these
+  controls at `aider/args.py:139-150,212-218` and
+  `aider/commands.py:1580-1637`. Patch's `ModelSettingsSchema` has no dedicated
+  fields at `src/models/settings.ts:17-59`; callers can only bury provider data
+  in static `extraParameters`. Add capability validation and provider-specific
+  request tests before exposing mutable controls.
+- [ ] **P2 -- Expose independent main, weak, and editor model selection and
+  switching.** **Status:** partial. Patch resolves weak/editor defaults from the
+  selected main model in `src/models/selection.ts:26-58`, but its executable exposes
+  only `--model` and `/model` at `src/program.ts:228` and
+  `src/commands/parse.ts:167-169`. Aider exposes `--weak-model`,
+  `--editor-model`, `--editor-edit-format`, `/weak-model`, and `/editor-model`
+  at `aider/args.py:185-205` and `aider/commands.py:87-136`. Preserve atomic
+  profile switching, provider cleanup, compatible-history handling, and cost
+  accounting across all three roles.
+- [x] **N/A -- Keep arbitrary API-key injection and disabled TLS verification
+  out of the default Patch surface.** **Status:** intentional difference.
+  Aider accepts `--set-env`, generic `--api-key`, and `--no-verify-ssl` at
+  `aider/args.py:67-112,152-161`; Patch resolves allowlisted provider credentials
+  from a private environment snapshot and uses verified TLS. Revisit only with
+  a concrete private-endpoint requirement and secret-safe tests.
+- [x] **N/A -- Keep explicit model selection as the startup default.**
+  **Status:** intentional difference. Patch refuses startup without `--model`,
+  `PATCH_MODEL`, or configured `model` at
+  `src/core/concrete-application-service.ts:2035-2044`; Aider defaults to
+  `gpt-4o` at `aider/models.py:28-31`. Explicit selection avoids silently
+  choosing a billable provider and remains the accepted Patch policy.
+- [ ] **P3 -- Decide whether prompt-cache enablement needs an executable
+  toggle separate from keepalive.** **Status:** partial. Aider exposes
+  `--cache-prompts` and `--cache-keepalive-pings` at
+  `aider/args.py:230-243`; Patch derives cache markers from model capability and
+  exposes only bounded keepalive pings at `src/program.ts:229-232` and
+  `src/core/prompt-cache.ts:4-49`. Add a control only if users need to disable
+  provider-side cache markers independently of model metadata.
+
+#### Edit strategies, prompts, and orchestration
+
+- [ ] **P2 -- Decide whether `udiff-simple` is a product requirement.**
+  **Status:** unported. Patch's public set is exactly
+  `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch` at
+  `src/edits/types.ts:3-17` and `src/edits/registry.ts:43-73`. Aider registers
+  `UnifiedDiffSimpleCoder` at `aider/coders/__init__.py:12-13,26-27` and defines
+  its behavior in `aider/coders/udiff_simple.py:5-18`. If selected, add an
+  independent prompt/parser golden and production format selection; otherwise
+  record it as a non-goal. Function-call coder files were excluded because they
+  are not registered in Aider's `__all__` at the pinned revision.
+- [ ] **P2 -- Expose architect and context workflows through the executable.**
+  **Status:** partial. Patch has application implementations and private
+  strategies at `src/edits/types.ts:15-16`, `src/edits/registry.ts:101-121`, and
+  `src/core/concrete-application-service.ts:640-792`, but
+  `src/commands/parse.ts:175-182` rejects them as user modes. Aider exposes
+  `--architect`, `/architect`, and `/context` at
+  `aider/args.py:163-182` and `aider/commands.py:138-203,1182-1201`. Add explicit
+  approval UX, editor selection, cancellation, failure recovery, and installed
+  CLI tests before changing the public mode schema.
+- [ ] **P2 -- Decide whether incompatible model switches should summarize
+  history instead of dropping messages.** **Status:** partial. This behavioral
+  divergence is recorded at `docs/commands.md:161-172`: Patch drops assistant
+  messages a replacement model cannot accept; Aider's `SwitchCoder` path can
+  summarize from the prior coder in `aider/coders/base_coder.py:128-199` and
+  `aider/commands.py:191-203`. Preserve media capability filtering and fail
+  atomically if switch-time summarization is added.
+- [ ] **P3 -- Reassess exact prompt and localization parity only after the
+  public behavior above is settled.** **Status:** intentional difference.
+  Patch uses shorter English-only production templates in
+  `src/resources/strategy-prompts.ts:65-442`; Aider has format-specific prompt
+  classes under `aider/coders/*_prompts.py` plus `--chat-language` at
+  `aider/args.py:747-757`. Existing format fixtures prove selected structures,
+  not byte-for-byte prompt parity or multilingual replies.
+- [x] **N/A -- Preserve ambiguity rejection, authorization, and bounded
+  recovery when porting edit behavior.** **Status:** intentional difference.
+  This is security hardening.
+  Patch rejects non-unique SEARCH/REPLACE and unified-diff candidates and stages
+  authorized transactions before writes. Do not weaken these guarantees merely
+  to match Aider's first-match or broader fuzzy behavior.
+
+#### Commands and executable workflows
+
+- [ ] **P2 -- Add read-only inspection commands selected for Patch's product
+  scope.** **Status:** unported. Aider provides `/tokens`, `/diff`, `/map`,
+  `/map-refresh`, `/copy-context`, and broader `/settings` at
+  `aider/commands.py:439-552,657-689,1418-1464,1638-1680`. Patch's complete
+  inventory at `src/commands/parse.ts:20-41` includes none except its bounded
+  `/settings`. Prioritize `/diff` because current docs already imply it; require
+  bounded output, literal paths, sanitization, and actual-bin tests.
+- [ ] **P2 -- Decide session and mode command breadth.** **Status:** unported.
+  Patch's surface is narrower. Aider adds `/reset`, `/ask`, `/code`,
+  `/architect`, `/context`, `/ok`, `/multiline-mode`, and `/quit` at
+  `aider/commands.py:411-444,1055-1064,1182-1201,1524-1527`. Patch has `/clear`,
+  `/chat-mode`, and `/exit` only. Define aliases and state transitions without
+  bypassing Patch's exact-command and approval policies.
+- [ ] **P2 -- Decide file/script command breadth.** **Status:** unported. Aider
+  exposes `/git`, `/load`, `/save`, `/editor`, and `/edit` at
+  `aider/commands.py:967-992,1465-1523,1569-1579`. These can execute arbitrary
+  Git or command-file content and therefore require explicit authorization,
+  containment, output bounds, and queue/cancellation semantics before any port.
+- [ ] **P3 -- Decide offline apply and diagnostic CLI workflows.**
+  **Status:** unported. Aider exposes `--apply`, `--apply-clipboard-edits`, `--exit`,
+  `--show-repo-map`, and `--show-prompts` at `aider/args.py:669-697`. Patch has
+  internal pure edit resolution and package smoke utilities but no matching
+  executable modes at `src/program.ts:157-348`. If selected, require dry-run,
+  authorization, input-size, clipboard, and secret-redaction contracts.
+- [ ] **P3 -- Decide model-search and reasoning command aliases.**
+  **Status:** unported. Aider exposes `/models`, `/think-tokens`, `/reasoning-effort`, and
+  role-specific model commands at `aider/commands.py:87-217,1580-1637`. This
+  depends on the provider/model-control decisions above.
+- [x] **N/A -- Keep `/help`, `/settings`, and `/report` local and bounded.**
+  **Status:** intentional difference. Patch's implementations avoid Aider's
+  model-backed help, broad settings dump, browser launch, and automatic upload.
+  The accepted rationale and evidence remain in `PORTING_PLAN.md:140-149` and
+  the ancillary-command section below.
+
+#### Configuration, history, terminal, and clipboard
+
+- [ ] **P2 -- Decide history restoration, LLM-wire logging, and command-file
+  persistence.** **Status:** partial. Several related workflows are unported.
+  Patch can opt into input and
+  rendered chat-history writes at `src/program.ts:176-180`, but has no
+  `--restore-chat-history`, `--llm-history-file`, `/load`, or `/save`. Aider
+  exposes them at `aider/args.py:270-300,772-776` and
+  `aider/commands.py:1465-1523`. Any port must document secret retention,
+  corruption recovery, permissions, bounds, and whether loaded commands require
+  per-effect approval.
+- [ ] **P2 -- Expose an explicit line-ending policy if cross-platform users need
+  it.** **Status:** partial. Patch's filesystem supports preserve/LF/CRLF at
+  `src/io/filesystem.ts:12-20`, but bootstrap passes only encoding at
+  `src/core/concrete-application-service.ts:2082-2084`. Aider exposes
+  `--line-endings` at `aider/args.py:778-787`. Add config precedence and packed
+  Windows tests before making this public.
+- [ ] **P3 -- Decide text-encoding breadth beyond UTF-8, UTF-16LE, and Latin-1.**
+  **Status:** intentional difference. Patch deliberately validates only those
+  encodings in `src/io/filesystem.ts:12-20`; Aider passes a configured Python codec name
+  through `aider/args.py:777-781` and `aider/io.py:237-266`. Add encodings only
+  with fatal decode, round-trip encode, BOM, newline, and cross-platform tests.
+- [ ] **P2 -- Decide non-streaming output and terminal presentation controls.**
+  **Status:** deferred. These controls are unported. Aider exposes streaming,
+  pretty mode, colors, completion-menu colors, code theme, and diff display at
+  `aider/args.py:303-400`; Patch exposes only `--no-color` at
+  `src/program.ts:194-198`. This is separate from correctness and does not block
+  the minimal terminal contract.
+- [ ] **P2 -- Implement computed edit previews and true Vi input only if the
+  richer terminal scope is scheduled.** **Status:** deferred. Patch's
+  `src/io/render.ts:241-257` emits complete before/after bodies and
+  `src/program.ts:186-193,287-292` explicitly refuses `--vim`; Aider provides
+  progressive diffs through `aider/diffs.py:43-102` and Vi mode through
+  `aider/args.py:742-746` and `aider/main.py:549-562`. Retain the existing
+  sanitizer and approval boundaries in any replacement renderer/input stack.
+- [ ] **P3 -- Decide clipboard image ingestion.** **Status:** partial. Patch's
+  `/paste` submits text only and `/attach` handles explicitly named media;
+  `docs/commands.md:173-176` records the limit. Aider's
+  `aider/commands.py:1278-1327` can ingest clipboard images. Any port must require
+  visible preview/approval and reuse the bounded media path rather than silently
+  reading the clipboard.
+- [ ] **P3 -- Expand shell completion only for shells with maintained tests.**
+  **Status:** partial. Patch generates bash, zsh, and fish completion at
+  `src/program.ts:260-284`; Aider delegates the larger supported set to shtab at
+  `aider/args.py:853-862`. This is usability work, not core parity.
+- [ ] **P3 -- Decide runtime toggles for shell suggestions and the line editor.**
+  **Status:** partial. Patch's controls are narrower. Aider exposes
+  `--suggest-shell-commands` and `--fancy-input` at `aider/args.py:806-817`;
+  Patch binds shell suggestion policy
+  to the selected edit strategy in
+  `src/resources/strategy-prompts.ts:27-32,289-337` and always uses its Node
+  readline path for interactive input. Any toggle must preserve command approval
+  and parser/completion consistency.
+- [x] **N/A -- Keep history writes opt-in.** **Status:** intentional difference.
+  This is a privacy decision. Patch writes input/chat history only when paths are
+  configured at `src/program.ts:176-180,349-356`; Aider assigns default history paths at
+  `aider/args.py:270-288`. Do not create persistent transcripts by default.
+
+#### Repository maps, Git, filesystem, and recovery
+
+- [ ] **P2 -- Decide repository-map language expansion beyond the shipped
+  eleven.** **Status:** partial. Patch's exact list is in
+  `src/context/repomap-resources.ts:6-17,43-55`; Aider dynamically uses the
+  broader query inventory through `aider/repomap.py:279-363,805-842`, including
+  languages such as C, Clojure, Dart, Elixir, Elm, Gleam, Lua, OCaml, R,
+  Solidity, Swift, and Zig. Add one pinned tag fixture, packaged grammar/query
+  evidence, cache fingerprinting, and cross-platform extraction case per
+  selected language.
+- [ ] **P2 -- Expose repository-map token, refresh, multiplier, and display
+  controls if operationally needed.** **Status:** partial. Patch implements map
+  budgets and refresh modes in `src/context/repository-map.ts:15-46,60-188` but
+  does not expose them through bootstrap. Aider exposes `--map-tokens`,
+  `--map-refresh`, `--map-multiplier-no-files`, `--show-repo-map`, `/map`, and
+  `/map-refresh` at `aider/args.py:246-267,686-691` and
+  `aider/commands.py:1418-1430`.
+- [ ] **P3 -- Extend ranking/rendering parity only with independent fixtures.**
+  **Status:** partial. Patch has exact evidence for shipped samples and one
+  asymmetric personalization case, but not arbitrary-program or every-language
+  equivalence. Aider's graph and TreeContext path is in
+  `aider/repomap.py:365-804`; Patch's implementation is under
+  `src/context/repo-graph.ts:30-180`, `src/context/tree-context.ts:18-129`, and
+  `src/context/repo-map-renderer.ts:29-121`. Preserve strict token ceilings and
+  unreadable-file isolation.
+- [ ] **P2 -- Decide broader Git policy controls.** **Status:** partial. Patch is
+  intentionally narrower. Aider exposes custom ignore paths, subtree-only,
+  adding Git-ignored files, auto/dirty commit toggles, commit prompt/language,
+  one-shot commit, dry-run, and repository sanity controls at
+  `aider/args.py:403-525,748-787`; Patch exposes literal-path Git, one fixed
+  `.aiderignore` composition, configurable hook verification, explicit identity,
+  and generated-subject opt-in through `src/repository/git.ts:71-532` and
+  `src/config/bootstrap.ts:36-63`. Select controls individually without
+  weakening containment or session-owned undo.
+- [ ] **P2 -- Define durable recovery for arbitrary approved child/Git side
+  effects and cross-process mutation.** **Status:** partial. Patch serializes
+  in-process mutation and reports structured surviving state, but
+  `docs/turn-lifecycle.md:69-142` excludes arbitrary child side effects,
+  interruption inside Git, and coordination between separate Patch processes.
+  Aider likewise lacks a complete transaction, so this is robustness work rather
+  than a strict parity port.
+- [x] **N/A -- Retain Patch's stronger path, metadata, ignore, and undo
+  boundaries.** **Status:** intentional difference. This is security hardening.
+  Literal Git pathspecs,
+  symlink containment, regular-file/single-link checks, ancestor identity,
+  staged transaction validation, session-owned commit IDs, compare-and-swap
+  HEAD, and fail-closed publication checks must not be relaxed for upstream
+  behavioral similarity.
+- [x] **N/A -- Accept documented non-portable metadata limits.**
+  **Status:** intentional difference. This is a platform limit: Node cannot
+  portably preserve ACLs, extended
+  attributes, file flags, or alternate data streams during atomic replacement;
+  `docs/filesystem-safety.md:73-107` documents that boundary.
+
+#### Lint, tests, commands, and process execution
+
+- [ ] **P2 -- Decide built-in linting and language-specific lint command
+  support.** **Status:** unported. Patch runs only one explicitly configured
+  lint command and one test command at `src/process/configured-checks.ts:43-73`.
+  Aider provides tree-sitter syntax context, Python compile/flake8 checks,
+  language-specific lint commands, auto-lint, auto-test, and one-shot modes at
+  `aider/linter.py:21-168` and `aider/args.py:526-564`. Preserve Patch's rule
+  against guessing arbitrary package-manager commands.
+- [ ] **P2 -- Decide noninteractive dry-run, one-shot commit, lint, and test
+  workflows.** **Status:** partial. Patch has internal dry-run resolution and
+  slash commands, but no Aider-equivalent CLI `--dry-run`, `--commit`, `--lint`,
+  or `--test` exits. Upstream controls are at `aider/args.py:498-564`; Patch's
+  executable options are at `src/program.ts:171-263`. Require exact exit status,
+  no-write guarantees, and packed-bin coverage.
+- [x] **N/A -- Keep model-suggested commands approval-gated and bounded.**
+  **Status:** intentional difference. This is security hardening. Patch never
+  auto-runs model output, limits output/time, and reserves PTY access for an explicitly typed interactive
+  command. Aider's broader `/run` and `/git` behavior must not bypass this policy.
+
+#### Optional interfaces, web content, and ancillary product families
+
+- [ ] **P2 -- Build a browser GUI only after the deferred product decision is
+  reopened.** **Status:** deferred. Patch's authenticated local HTTP/SSE server
+  in `src/interfaces/web-server.ts:70-451` is an API, not a UI. Aider exposes a
+  Streamlit browser mode through `aider/args.py:637-668` and
+  `aider/gui.py:92-524`.
+  A Patch GUI needs session quotas, approval UX, reconnect/replay behavior,
+  secret storage, and shared-worktree concurrency tests.
+- [ ] **P2 -- Build production voice UX only after the deferred product decision
+  is reopened.** **Status:** deferred. Patch's partial dependency-injected helper
+  at `src/interfaces/voice.ts:22-257` has bounded fake-adapter tests but no CLI
+  recorder/device flow. Aider exposes voice format/language/device controls and
+  `/voice` at `aider/args.py:699-719`, `aider/commands.py:1252-1277`, and
+  `aider/voice.py:33-180`. Require device selection, cancellation, transcript
+  review, privacy disclosure, optional dependency packaging, and real-device evidence.
+- [ ] **P3 -- Decide browser-rendered `/web` and automatic URL detection.**
+  **Status:** partial. Patch retains intentional security differences and fetches
+  one explicit URL through the DNS-pinned, bounded, no-subresource path in
+  `src/interfaces/url-fetcher.ts:99-280` and never uses its optional browser
+  helper in production. Aider can detect URLs and use Playwright/Pandoc at
+  `aider/args.py:723-728,842-847` and `aider/scrape.py:79-250`. Do not port
+  subresource loading or implicit fetches without a separate threat model and
+  approval step.
+- [x] **N/A -- Keep analytics out of Patch.** **Status:** non-goal. Aider's
+  analytics controls and implementation are at `aider/args.py:567-594` and
+  `aider/analytics.py:60-304`; Patch intentionally performs only local token/cost
+  accounting.
+- [x] **N/A -- Keep automatic onboarding/OAuth out of Patch.**
+  **Status:** non-goal. Aider's onboarding is in `aider/onboarding.py:18-326`; Patch requires
+  explicit model and credential configuration to avoid implicit browser,
+  account, and credential-persistence effects.
+- [x] **N/A -- Keep built-in update checks, self-upgrade, and automatic release
+  notes out of Patch.** **Status:** non-goal. Aider exposes these at
+  `aider/args.py:597-634` and `aider/versioncheck.py:15-104`; Patch leaves updates
+  to npm and release communication to `CHANGELOG.md`.
+- [x] **N/A -- Keep Python runtime, Aider subprocess, and Docker parity out of
+  the npm package.** **Status:** non-goal. Patch's product contract is one
+  Node.js 22+ package and executable; Aider's Python and Docker distribution
+  surfaces are reference behavior, not runtime dependencies to port.
+
+#### Validation evidence and remaining evidence gaps
+
+Validation executed from the clean pinned checkouts during the 2026-09-14 pass:
+
+- Patch `npm ci`: passed with 153 packages and no reported vulnerabilities.
+- Patch `npm run check`: formatting, ESLint, TypeScript, 63-direct-derivation
+  provenance, 685 tests passed with eight gated/platform skips, clean build,
+  packed install, lifecycle smoke, commit-policy smoke, and installed
+  `patch --help` all passed. Vitest reported 79 passed and two skipped test
+  files.
+- Patch `npm install --no-save --no-package-lock node-pty@1.1.0` followed by
+  `PATCH_TEST_PTY=1 npm test -- tests/pty.test.ts tests/pty-provisioned.test.ts`:
+  both files and all seven tests passed on Linux.
+- Aider dependencies were installed into `/tmp/opencode/aider-venv`. The first
+  `python -m pytest` run produced five voice failures because the sandbox lacked
+  the system PortAudio library. After installing `libportaudio2`, the same full
+  command passed 492 tests with one Windows-only skip.
+- Aider `python -m build`: source distribution and wheel built successfully.
+- Aider's exact pinned
+  `pre-commit run --show-diff-on-failure --color=never --all-files` passed
+  isort, Black, flake8, and codespell in an isolated archive of the pinned
+  checkout. A separate newer flake8 7.3 invocation reported F824 at
+  `aider/onboarding.py:231`; the repository-pinned flake8 7.1 hook passed, so
+  this is not a Patch parity blocker.
+- Focused built-code probes reproduced all three substantive Patch defects and
+  exercised the corresponding Aider parser/helper behavior. The Patch and Aider
+  worktrees were clean at final verification.
+
+Evidence still unavailable or deliberately excluded:
+
+- [ ] **P2 -- Obtain successful credentialed live-provider evidence for the
+  current implementation revision.** **Status:** evidence gap. No provider keys
+  were available, so the seven gated live contracts could not execute. Never add
+  credentials to the default suite or logs.
+- [ ] **P2 -- Obtain current-revision macOS and Windows package evidence.**
+  **Status:** evidence gap. The local audit ran on Linux. Existing CI evidence at
+  `88adf8e5c` predates current `e10467b3`; rerun package/platform jobs before a
+  release claim.
+- [ ] **P2 -- Add current-revision real-device/optional-interface evidence only
+  for scheduled surfaces.** **Status:** evidence gap. PTY passed on Linux, but
+  Windows PTY, real microphone, ffmpeg device capture, browser GUI, and
+  browser-rendered `/web` were not local audit surfaces.
+- [ ] **P3 -- Decide whether provenance must cover transitive upstream imports
+  and resource hashes.** **Status:** partial. Current
+  `scripts/check-provenance.mjs:26-168` verifies direct derivations;
+  generated/vendor/build/cache files and non-product historical website metadata
+  were excluded from source-parity enumeration.
+
+### Dated audit follow-ups — 2026-09-12
 
 The [current dated audit](aider-parity-audit-2026-09-12.md) found no unchecked
 immediate P0 implementation item. These P1 correctness tasks block broader parity
@@ -301,7 +745,7 @@ not a new cross-platform CI or live-provider/device result.
 The original immediate P0 and P1 lists below record completed milestones, not
 all remaining release blockers. P2's ancillary commands are now implemented and
 verified through the packed executable. The audit's direct fixture-import hash
-gap is closed. Current audit follow-ups and unchecked Phase 0–9 tasks continue
+gap is closed. Dated audit follow-ups and unchecked Phase 0–9 tasks continue
 to control release readiness. Updating documentation does not complete those
 implementation tasks.
 
