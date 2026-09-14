@@ -75,6 +75,9 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   };
 });
 
+// The suite may reuse a worker with src/index.js already cached. Reload the
+// application graph so this file's filesystem hooks never depend on test order.
+vi.resetModules();
 const { AncestorChangedDuringWriteError, FileSystemAdapter } =
   await import("../src/index.js");
 
