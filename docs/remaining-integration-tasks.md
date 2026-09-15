@@ -74,7 +74,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
 | Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
-| Watch/URL/web/voice/help         | selected scope; open interface gaps                       | Watch and bounded URL transport are wired with nesting-aware HTML discards, but async session creation can exceed quotas and active ffmpeg abort lacks forced settlement. GUI/device UX remain non-goals.                      |
+| Watch/URL/web/voice/help         | selected scope; open interface gap                        | Watch and bounded URL transport are wired with nesting-aware HTML discards and atomic concurrent session quotas. Active ffmpeg abort still lacks forced settlement; GUI/device UX remain non-goals.                         |
 | Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
 
 ### Current audit findings — `cee39ed` — 2026-09-15
@@ -94,7 +94,11 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       bounded SHA-256, growth detection, and production map coverage that skips
       extraction while retaining the tracked filename.
 - [ ] **P1 / PROC-3 — cap retained PTY transcript output.**
-- [ ] **P1 / WEB-3 — reserve concurrent session quota atomically.**
+- [x] **P1 / WEB-3 — reserve concurrent session quota atomically.** Completed
+      with global and per-principal in-flight counters reserved before async
+      application construction and released on success, failure, and shutdown.
+      Barrier-controlled loopback tests cover both quota dimensions and failed
+      asynchronous creation.
 - [x] **P1 / WEB-4 — handle nested discarded HTML elements.** Completed with a
       discard stack that retains same-name and mixed nesting, refuses to expose
       malformed mismatched tails, and is exercised through production `/web`
@@ -1768,7 +1772,9 @@ current-release non-goals; the API remains trusted-local only.
       principal, four pending messages and four SSE clients per session, a 256-event/
       256-KiB replay ring, and 128 KiB per slow client. Owners receive stable 410,
       409, or 429 codes; foreign principals still receive 404. Evidence:
-      `tests/web-server.test.ts`.
+      `tests/web-server.test.ts`. Total and per-principal session slots are reserved
+      before asynchronous application construction and released on every settlement,
+      so simultaneous creation cannot over-admit sessions.
 - [x] Expose voice transcription as explicit input to an application session
       without importing voice code from the root/CLI path or requiring ffmpeg at
       install time.

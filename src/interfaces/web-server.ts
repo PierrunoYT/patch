@@ -70,6 +70,8 @@ const DEFAULT_MAX_CLIENT_QUEUE_BYTES = 128 * 1024;
 export class LocalWebServer {
   readonly #options: LocalWebServerOptions;
   readonly #sessions = new Map<string, OwnedSession>();
+  #pendingSessionCreations = 0;
+  readonly #pendingSessionCreationsByPrincipal = new Map<string, number>();
   readonly #expired = new Map<string, string>();
   /** Closes of reclaimed sessions, awaited by `close()` but by no request. */
   readonly #reclaiming = new Set<Promise<void>>();
@@ -210,11 +212,14 @@ export class LocalWebServer {
       }
       if (request.method === "POST" && url.pathname === "/sessions") {
         const limits = this.#limits();
-        const principalSessions = [...this.#sessions.values()].filter(
-          (session) => session.principal === principal,
-        ).length;
+        const principalSessions =
+          [...this.#sessions.values()].filter(
+            (session) => session.principal === principal,
+          ).length +
+          (this.#pendingSessionCreationsByPrincipal.get(principal) ?? 0);
         if (
-          this.#sessions.size >= limits.maxSessions ||
+          this.#sessions.size + this.#pendingSessionCreations >=
+            limits.maxSessions ||
           principalSessions >= limits.maxSessionsPerPrincipal
         )
           return apiError(
@@ -224,28 +229,50 @@ export class LocalWebServer {
             "Session quota exceeded",
           );
         const sessionId = randomUUID();
-        const application = await this.#options.service.createSession({
+        this.#pendingSessionCreations += 1;
+        this.#pendingSessionCreationsByPrincipal.set(
           principal,
-          sessionId,
-        });
-        if (this.#closing) {
-          // Answer rather than returning silently: without a response the
-          // client hangs until close() drops the connection underneath it.
-          await application.close?.();
-          return json(response, 503, { error: "Server closing" });
+          (this.#pendingSessionCreationsByPrincipal.get(principal) ?? 0) + 1,
+        );
+        try {
+          const application = await this.#options.service.createSession({
+            principal,
+            sessionId,
+          });
+          if (this.#closing) {
+            // Answer rather than returning silently: without a response the
+            // client hangs until close() drops the connection underneath it.
+            await application.close?.();
+            return json(response, 503, { error: "Server closing" });
+          }
+          const expiresAt = this.#now() + limits.sessionTtlMs;
+          this.#sessions.set(sessionId, {
+            principal,
+            application,
+            clients: new Set(),
+            events: [],
+            sequence: 0,
+            eventBytes: 0,
+            pendingMessages: 0,
+            expiresAt,
+          });
+          return json(response, 201, {
+            sessionId,
+            status: "active",
+            expiresAt,
+          });
+        } finally {
+          this.#pendingSessionCreations -= 1;
+          const pendingForPrincipal =
+            (this.#pendingSessionCreationsByPrincipal.get(principal) ?? 1) - 1;
+          if (pendingForPrincipal === 0)
+            this.#pendingSessionCreationsByPrincipal.delete(principal);
+          else
+            this.#pendingSessionCreationsByPrincipal.set(
+              principal,
+              pendingForPrincipal,
+            );
         }
-        const expiresAt = this.#now() + limits.sessionTtlMs;
-        this.#sessions.set(sessionId, {
-          principal,
-          application,
-          clients: new Set(),
-          events: [],
-          sequence: 0,
-          eventBytes: 0,
-          pendingMessages: 0,
-          expiresAt,
-        });
-        return json(response, 201, { sessionId, status: "active", expiresAt });
       }
       const match = /^\/sessions\/([0-9a-f-]+)(?:\/(events|messages))?$/u.exec(
         url.pathname,

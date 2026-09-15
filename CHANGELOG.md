@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Made HTTP session quotas atomic across asynchronous application construction.
+  Global and per-principal limits include in-flight reservations, which are
+  released after successful, failed, and shutdown-interrupted creation.
+
 - Kept nested script, style, and media elements out of `/web` model context.
   Same-name and mixed discarded elements now use a stack, and malformed
   mismatched closing tags stay discarded rather than exposing their tail.

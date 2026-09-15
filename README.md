@@ -230,9 +230,10 @@ script/style/media content. Patch intentionally does not detect URLs in prose,
 navigate them in a browser, or load subresources;
 those network side effects require a separate threat model and visible approval
 boundary rather than being an unfinished `/web` path. Web session expiry,
-quotas, bounded SSE replay/backpressure, reclamation, and structured errors are
-enforced. Worktree mutations are serialized in-process, not across separate
-Patch processes. The process-wide lock registry uses weak references so unused
+atomic concurrent-creation quotas, bounded SSE replay/backpressure, reclamation,
+and structured errors are enforced. Worktree mutations are serialized
+in-process, not across separate Patch processes. The process-wide lock registry
+uses weak references so unused
 locks can be garbage-collected; idle sessions keep sharing their existing lock.
 Deterministic loopback tests exercise principal/session event
 isolation, HTTP disconnect cancellation, SSE overflow/replay, concrete

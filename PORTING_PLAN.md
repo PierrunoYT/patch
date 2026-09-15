@@ -907,9 +907,11 @@ passed both supported PTY jobs at implementation revision
       commands, or output.
 - [x] Define session expiry, quotas, bounded event/backpressure policy, and
       reclamation. Sessions expire after bounded idle time; total, per-principal,
-      message, and SSE-client quotas reject excess work; event replay and each slow
+      message, and SSE-client quotas reject excess work; total and per-principal
+      slots include in-flight asynchronous construction. Event replay and each slow
       client's pending bytes are bounded. Loopback HTTP tests directly verify
-      disconnect cancellation and overflow recovery.
+      concurrent creation, failure release, disconnect cancellation, and overflow
+      recovery.
 - [x] Keep a browser GUI out of current scope. The loopback HTTP/SSE server is an
       API; a GUI requires its own approval, secret-storage, session/reconnect,
       browser-security, and shared-worktree interaction product contract.
@@ -925,7 +927,7 @@ passed both supported PTY jobs at implementation revision
       spawning. A deterministic real-process test proves the adapter preserves the
       abort reason without creating a child side effect or listener.
 
-**Exit — blocked by `WEB-3` and `VOICE-3`:** package smoke tests assert that
+**Exit — blocked by `VOICE-3`:** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
 mutation phases are serialized in-process. Direct adapter coverage closes the

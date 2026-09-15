@@ -215,6 +215,80 @@ describe("LocalWebServer", () => {
     ).toBe(201);
   });
 
+  it("reserves total and per-principal quota while session creation is pending", async () => {
+    const run = async (
+      tokens: readonly [string, string],
+      options: Partial<LocalWebServerOptions>,
+    ) => {
+      let entered!: () => void;
+      let release!: () => void;
+      const started = new Promise<void>((resolve) => (entered = resolve));
+      const blocked = new Promise<void>((resolve) => (release = resolve));
+      let creations = 0;
+      const applicationService: ApplicationService = {
+        createSession: async () => {
+          creations += 1;
+          entered();
+          await blocked;
+          return {
+            snapshot: () => ({}),
+            submit: async () => ({}),
+          };
+        },
+      };
+      const { base } = await fixture(applicationService, options);
+      const first = request(base, "/sessions", tokens[0], { method: "POST" });
+      await started;
+      const second = await request(base, "/sessions", tokens[1], {
+        method: "POST",
+      });
+      expect(second.status).toBe(429);
+      expect(await second.json()).toMatchObject({
+        code: "session_quota_exceeded",
+      });
+      expect(creations).toBe(1);
+      release();
+      expect((await first).status).toBe(201);
+    };
+
+    await run(["aliceToken", "bobToken"], {
+      maxSessions: 1,
+      maxSessionsPerPrincipal: 1,
+    });
+    await run(["aliceToken", "aliceToken"], {
+      maxSessions: 2,
+      maxSessionsPerPrincipal: 1,
+    });
+  });
+
+  it("releases a session quota reservation when creation fails", async () => {
+    let creations = 0;
+    const applicationService: ApplicationService = {
+      createSession: async () => {
+        creations += 1;
+        await Promise.resolve();
+        if (creations === 1) throw new Error("creation failed");
+        return {
+          snapshot: () => ({}),
+          submit: async () => ({}),
+        };
+      },
+    };
+    const { base } = await fixture(applicationService, {
+      maxSessions: 1,
+      maxSessionsPerPrincipal: 1,
+    });
+
+    expect(
+      (await request(base, "/sessions", "aliceToken", { method: "POST" }))
+        .status,
+    ).toBe(500);
+    expect(
+      (await request(base, "/sessions", "aliceToken", { method: "POST" }))
+        .status,
+    ).toBe(201);
+  });
+
   it("keeps a session whose only client is holding the event stream", async () => {
     let now = 1_000;
     let closed = 0;

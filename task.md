@@ -100,9 +100,10 @@ Baseline for the current findings:
 - [ ] **PROC-3: Bound interactive PTY transcript capture.** Stream sanitized
       output while capping retained result bytes and terminate/drain cleanly on
       overflow or cancellation.
-- [ ] **WEB-3: Reserve session quota atomically across async creation.** Count
-      in-flight reservations so concurrent requests cannot exceed global or
-      per-principal limits, and release reservations on every failure path.
+- [x] **WEB-3: Reserve session quota atomically across async creation.** Global
+      and per-principal limits now include in-flight reservations made before
+      application construction and released in `finally`. Concurrent total,
+      principal, and failed asynchronous creation paths are covered.
 - [x] **WEB-4: Keep nested discarded HTML out of model context.** A stack now
       tracks nested script/style/media elements, and malformed mismatched closes
       stay discarded instead of exposing their tail. Direct and production `/web`
