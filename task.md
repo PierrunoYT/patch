@@ -203,9 +203,11 @@ security rules above.
   `/multiline-mode`, or `/quit`: existing `/run`, explicit path lists, `/drop`
   plus `/clear`, `/chat-mode`, startup multiline configuration, and `/exit` make
   them redundant, while aliases obscure approval or combine state transitions.
-- [ ] **CMD-3:** Decide file/script command breadth (`/git`, `/load`, `/save`,
-  `/editor`, and `/edit`) with containment, per-effect approval, output bounds,
-  cancellation, and queue semantics.
+- [x] **CMD-3:** Keep `/git`, `/load`, `/save`, `/editor`, and `/edit` out of the
+  command surface. `/run git ...` already provides visible approval and bounded
+  execution; command files create hidden compound effects; interactive draft
+  editing already uses Ctrl-X Ctrl-E. Adding aliases would duplicate paths or
+  weaken per-effect authorization, containment, cancellation, and queue clarity.
 - [x] **CMD-4:** Keep offline saved-response and clipboard edit application out
   of Patch: model edits must pass through the composed snapshot, preview,
   authorization, transaction, Git, and recovery lifecycle. A startup-only

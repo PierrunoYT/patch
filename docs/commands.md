@@ -186,6 +186,13 @@ Expansion is contained on every side:
 `/drop` expands the same way so it can undo an `/add` with the same words, but
 it applies no ignore rules: whatever is selected can always be dropped.
 
+Patch does not add `/git`, `/load`, `/save`, `/editor`, or `/edit`. Use
+approval-gated `/run git ...` for an explicit bounded Git subprocess and
+Ctrl-X Ctrl-E for draft editing. Command files are a non-goal: loading multiple
+effects from disk obscures the visible per-effect approval boundary and creates
+partial-execution recovery semantics, while saving them would establish a
+second session persistence format.
+
 `/run` uses the command preview/approval adapter and reports the command, how it
 ended, both streams, and whether output was truncated — a command whose only
 message went to stderr, or that was denied or timed out, is no longer

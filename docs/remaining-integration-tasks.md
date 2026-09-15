@@ -400,11 +400,13 @@ valid only for the specific normalization and recovery cases they name.
   explicit paths; `/drop` plus `/clear`, `/chat-mode`, startup multiline
   configuration, and `/exit` already expose the underlying operations without
   aliases or compound transitions. This preserves parser/completion exactness.
-- [ ] **P2 -- Decide file/script command breadth.** **Status:** unported. Aider
-  exposes `/git`, `/load`, `/save`, `/editor`, and `/edit` at
-  `aider/commands.py:967-992,1465-1523,1569-1579`. These can execute arbitrary
-  Git or command-file content and therefore require explicit authorization,
-  containment, output bounds, and queue/cancellation semantics before any port.
+- [x] **N/A -- Keep file/script command breadth closed.** **Status:** accepted
+  current-release scope. `/git` is redundant with approval-gated, bounded
+  `/run git ...`; `/load` and `/save` introduce command files whose compound
+  effects obscure per-effect approval and partial-failure recovery; `/editor`
+  and `/edit` duplicate the terminal's Ctrl-X Ctrl-E draft editor. Patch retains
+  one contained, cancellable, serialized path for each operation rather than
+  adding aliases or a second persistence format.
 - [x] **N/A -- Keep offline edit application out of Patch and deduplicate
   diagnostic-mode decisions.** **Status:** accepted non-goal and consolidation.
   Aider exposes `--apply`, `--apply-clipboard-edits`, `--exit`,

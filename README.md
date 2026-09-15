@@ -87,9 +87,10 @@ calling a provider.
 inventory and ranking. `/map-refresh` is redundant with that fresh-inventory
 path; `/copy-context` is a privacy non-goal because it would copy raw prompt,
 history, file, map, and media content to the ambient clipboard. Command names
-and arguments remain exact: aliases such as `!` and `/quit`, bare file
-conversion, and compound reset behavior are non-goals because the explicit
-approved commands already expose those operations.
+and arguments remain exact. `/run git ...` and Ctrl-X Ctrl-E are the explicit
+Git and draft-editor paths; `/git`, command-file load/save, and editor aliases
+are non-goals because they duplicate operations or obscure per-effect approval
+and partial-failure recovery.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;

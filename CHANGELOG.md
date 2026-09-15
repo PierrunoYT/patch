@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept `/git`, `/load`, `/save`, `/editor`, and `/edit` out of the current
+  command surface. Approval-gated `/run git ...` and Ctrl-X Ctrl-E remain the
+  single explicit paths; command files and aliases would obscure per-effect
+  authorization or create duplicate persistence/recovery semantics.
+
 - Kept command names and arguments exact. Aider's `!`, bare `/read-only`,
   `/reset`, mode aliases, `/ok`, `/multiline-mode`, and `/quit` are non-goals;
   existing explicit commands expose the operations without obscuring approval
