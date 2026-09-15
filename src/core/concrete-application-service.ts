@@ -908,19 +908,47 @@ class ConcreteApplicationSession implements ApplicationSession {
       [...this.#media.values()],
       this.#profile.main,
     );
+    const rawExamples = [
+      ...COMMON_PROMPTS.exampleMessages,
+      ...definition.examples,
+    ];
+    const exampleText = rawExamples
+      .map((example) =>
+        typeof example.content === "string"
+          ? `## ${example.role.toUpperCase()}: ${example.content}\n`
+          : "",
+      )
+      .join("\n");
+    const system = {
+      role: "system" as const,
+      content:
+        this.#profile.main.examplesAsSystem && exampleText !== ""
+          ? `${definition.systemPrompt}\n# Example conversations:\n\n${exampleText}`.trim()
+          : definition.systemPrompt,
+    };
+    const examples = this.#profile.main.examplesAsSystem ? [] : rawExamples;
     const prompt = {
-      system: [
-        {
-          role: "system" as const,
-          content: definition.systemPrompt,
-        },
-      ],
-      examples: [...COMMON_PROMPTS.exampleMessages, ...definition.examples],
-      readOnlyFiles: fileMessage(
-        COMMON_PROMPTS.readOnlyFilesPrefix,
-        readOnly,
-        fence,
-      ),
+      system: this.#profile.main.capabilities.systemRole
+        ? [system]
+        : [
+            { role: "user" as const, content: system.content },
+            { role: "assistant" as const, content: "Ok." },
+          ],
+      examples,
+      readOnlyFiles:
+        readOnly.length === 0
+          ? []
+          : [
+              ...fileMessage(
+                COMMON_PROMPTS.readOnlyFilesPrefix,
+                readOnly,
+                fence,
+              ),
+              {
+                role: "assistant" as const,
+                content: "Ok, I will use these files as references.",
+              },
+            ],
       repository:
         repositoryContent === ""
           ? []
@@ -932,6 +960,11 @@ class ConcreteApplicationSession implements ApplicationSession {
                     ? CONTEXT_PROMPTS.repositoryPrefix
                     : COMMON_PROMPTS.repoContentPrefix
                 }\n\n${repositoryContent}`,
+              },
+              {
+                role: "assistant" as const,
+                content:
+                  "Ok, I won't try and edit those files without asking first.",
               },
             ],
       editableFiles:
@@ -953,7 +986,11 @@ class ConcreteApplicationSession implements ApplicationSession {
       ...(media === undefined ? {} : { media: [media] }),
       reminder: [
         {
-          role: "system" as const,
+          role:
+            this.#profile.main.capabilities.systemRole &&
+            this.#profile.main.reminderRole === "system"
+              ? ("system" as const)
+              : ("user" as const),
           content: `${definition.reminder}\n${
             definition.allowShellCommands
               ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."

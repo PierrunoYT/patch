@@ -32,6 +32,8 @@ export const ModelSettingsSchema = z
     weakModel: ModelIdentifierSchema.optional(),
     editorModel: ModelIdentifierSchema.optional(),
     useRepoMap: z.boolean().default(false),
+    examplesAsSystem: z.boolean().default(false),
+    reminderRole: z.enum(["system", "user"]).default("user"),
     /**
      * Tag a model wraps its reasoning in inside the ordinary content stream, such
      * as `think`. Providers that deliver reasoning as its own stream do not set

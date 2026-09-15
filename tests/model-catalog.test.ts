@@ -51,12 +51,16 @@ describe("ModelCatalog", () => {
         provider: "openai",
         editFormat: "diff",
         editorEditFormat: "diff",
+        examplesAsSystem: true,
+        reminderRole: "system",
       },
     });
     expect(catalog.resolve("gpt-4o-mini")).toMatchObject({
       settings: {
         editFormat: "whole",
         useRepoMap: false,
+        examplesAsSystem: false,
+        reminderRole: "system",
       },
     });
     expect(catalog.resolve("deepseek")).toMatchObject({
