@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Re-audited Patch `c9c59c6157a60ebcaf890dfbf89b845b67bc1e42` file-for-file
+  against pinned aider `5dc9490bb35f9729ef2c95d00a19ccd30c26339c` and added a
+  current audit/source inventory. Reconciled stale command counts, fixed defect
+  statuses, model defaults/limits, switch summarization, map/terminal/interface
+  dispositions, validation counts, and historical-versus-live evidence links.
+
 - Kept voice as an optional embedding-only package subpath. A built-in CLI
   microphone/device flow is a non-goal because it requires device selection,
   ffmpeg packaging, transcription disclosure, transcript review, and real-device
@@ -498,7 +504,7 @@ dated parity audits for revision-specific evidence.
   colored diff previews, hostile escape stripping, and TTY/`NO_COLOR`/CLI
   no-color behavior without a rendering dependency.
 - An optional native `node-pty` adapter, since composed behind `/run
-  --interactive`, with argv commands, resize,
+--interactive`, with argv commands, resize,
   Ctrl-C, EOF, cancellation cleanup, and stateful child control-sequence
   sanitization while preserving a portable default installation.
 - Bash, Zsh, and Fish completion generation, opt-in bell or argv-command
@@ -1024,7 +1030,7 @@ dated parity audits for revision-specific evidence.
   configuring a command and then seeing nothing no longer resembles a hang.
 - Shell completion is generated from the options the parser registered. The
   inventory was a hand-kept list that had fallen behind, so `patch
-  --shell-completions` omitted `--model`, `--web`, `--watch-files`, and every
+--shell-completions` omitted `--model`, `--web`, `--watch-files`, and every
   other option added since it was written; a test now holds the two level.
 - `--notifications` fires for a provider turn and not for a slash command, which
   answers immediately, and a notification command that fails is reported instead

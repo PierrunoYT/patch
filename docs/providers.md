@@ -148,9 +148,9 @@ through a real application session. Deterministic provider tests repeat that
 shape without credentials. Manual run
 [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
 supplied no provider keys. A local 2026-09-15 run completed the Anthropic
-catalog/factory/application-session turn with positive usage. OpenAI reached the
-same route but was rate-limited, and no DeepSeek key was available. Successful
-OpenAI and DeepSeek runs remain evidence gaps.
+catalog/factory/application-session turn with positive usage; the latest audit
+attempt again reached OpenAI but was rate-limited, and no DeepSeek key was
+available. Successful OpenAI and DeepSeek runs remain evidence gaps.
 
 ## Anthropic Messages
 
@@ -177,11 +177,11 @@ cannot enter diagnostics.
 
 ## Compatibility
 
-| Model provider | Adapter | Streaming | Images | PDFs | Prompt cache markers |
-| --- | --- | --- | --- | --- | --- |
-| `openai` | OpenAI Chat Completions | yes | yes | no | no |
-| `anthropic` | Anthropic Messages | yes | yes | yes | yes |
-| `deepseek` | OpenAI-compatible Chat Completions, `deepseek` dialect | yes | model-dependent | no | no explicit markers |
+| Model provider | Adapter                                                | Streaming | Images          | PDFs | Prompt cache markers |
+| -------------- | ------------------------------------------------------ | --------- | --------------- | ---- | -------------------- |
+| `openai`       | OpenAI Chat Completions                                | yes       | yes             | no   | no                   |
+| `anthropic`    | Anthropic Messages                                     | yes       | yes             | yes  | yes                  |
+| `deepseek`     | OpenAI-compatible Chat Completions, `deepseek` dialect | yes       | model-dependent | no   | no explicit markers  |
 
 `createProvider` is the executable construction boundary. It accepts only the
 providers above, resolves their provider-specific credential names without

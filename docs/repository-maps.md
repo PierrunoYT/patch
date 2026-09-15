@@ -46,11 +46,10 @@ binary and skipped.
 
 Because the map is truncated to a prefix, order decides what survives.
 `filterImportantFiles` ports aider's root-file list — READMEs, licenses,
-manifests, lockfiles, CI definitions, and `.github/workflows/*.yml` — and those
-files are listed before ranked symbols, with the remaining untagged files after.
-Only the repository root counts: a `README.md` beside a source file describes
-that directory, not the project. Rank-only bare-file ordering remains
-incomplete.
+manifests, lockfiles, CI definitions, and `.github/workflows/*.yml` — and lists
+those before ranked symbols, with remaining untagged files last. Only the
+repository root counts. Aider's rank-only bare-file ordering is outside Patch's
+selected deterministic contract.
 
 `TreeContextRenderer` ports the pinned repository-map configuration of
 `grep_ast.TreeContext` for every shipped grammar: it walks generic syntax scopes,

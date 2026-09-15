@@ -144,24 +144,19 @@ checks, staging, or writes; an unselected/new path is rejected when approval is
 absent or denied, and read-only paths remain non-editable.
 
 `switch` atomically replaces `CoderSession`'s model, provider, parser strategy,
-and fence: every argument is validated, and history is rebuilt, before any field
-is assigned, so a rejected switch leaves the session untouched. History is made
-compatible with the replacement model in two steps — assistant output in the
-previous protocol is dropped when the edit format changes, and image or document
-parts are dropped whenever the replacement model lacks that capability, since
-history outlives the model that produced it.
+and fence: every argument and rebuilt history value is validated before a field
+is assigned. On an edit-format change the concrete application first forces
+bounded history summarization through the current weak model with main-model
+fallback and usage accounting. A summary or profile-construction failure leaves
+the old profile and raw history active. The replacement capability filter then
+removes image/document parts the new model cannot accept.
 
-The concrete application rebuilds the rest of the model-derived state in the
-same operation. A `SessionProfile` holds the active main model, the format
-`/chat-mode code` returns to, the strategy definition (system prompt, examples,
-reminder, shell policy), the fence reselected from the files currently in
-context, and the repository map required by the new model's `useRepoMap`. The
-profile is replaced only after `switch` succeeds, so a failed provider
-construction or a rejected switch cannot leave prompts describing a model that
-is no longer active. Production supplies no switch-time history summarizer, so
-an incompatible switch drops assistant messages rather than summarizing them.
-The automatic long-history compaction described above is a separate,
-production-wired path.
+The same operation rebuilds the model-derived `SessionProfile`: active main
+model, the format `/chat-mode code` returns to, prompts/reminder/shell policy,
+fence selected from current files, and repository-map policy. Installation
+happens only after summarization, provider construction, strategy, fence, and map
+preparation succeed, so incompatible history is not silently dropped and a
+failed switch cannot split model and prompt state.
 
 ## Architect/editor handoff
 

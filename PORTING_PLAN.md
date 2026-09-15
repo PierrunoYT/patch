@@ -16,8 +16,8 @@ At this baseline, aider contains approximately 20,285 lines in 80 Python
 product modules and 36 executable test modules. Patch began as a greenfield TypeScript port and now
 contains tested configuration, provider, edit, Git, repository-map, application,
 and adapter components. The installed CLI composes the supported core workflow;
-the unchecked phase items below identify parity that remains partially
-integrated, unsupported, or deliberately deferred.
+the one unchecked item is external live-provider evidence. Omitted aider breadth
+has an explicit partial/non-goal disposition.
 
 The upstream source is Apache-2.0 licensed. Every directly ported file must:
 
@@ -48,12 +48,11 @@ Current implementation priorities live in the consolidated
 [issue and task register](task.md); the
 [integration backlog](docs/remaining-integration-tasks.md) preserves detailed
 evidence and historical context. The latest
-[dated audit](docs/aider-parity-audit-2026-09-15.md) compares Patch
-`1bf2ca6adbc3f4774612590f3f7c59c636a4a6e9` with the pinned aider revision
-above. Its [source inventory](docs/aider-source-inventory-2026-09-15.md)
+[dated audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md) compares Patch
+`c9c59c6157a60ebcaf890dfbf89b845b67bc1e42` with the pinned aider revision.
+Its [source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md)
 classifies every pinned product module, model resource, and Tree-sitter query.
-It supplements the earlier dated audits without rewriting their evidence;
-this plan, task register, and backlog track current status and open work.
+Earlier dated reports remain historical snapshots.
 
 ## Scope decisions
 
@@ -167,29 +166,23 @@ Decision recorded 2026-09-11 against Patch `47ba7f565` and aider
 `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. This supplements, rather than
 replaces, the audit of Patch `58597efc390e8e138b29024871a25d192fb27462` in
 `docs/remaining-integration-tasks.md`. Upstream paths below refer to that pinned
-checkout. *Implement* means committed scope with acceptance work still open;
-*deferred* means wanted but not scheduled; *non-goal* means intentionally absent.
-No runtime behavior changes with this decision.
+checkout. _Implemented_ means selected production scope; _non-goal_ means an
+intentional product difference. Earlier deferred decisions have now been
+settled. No runtime behavior changes with the disposition table itself.
 
-| Family | Disposition | Scope, rationale, and intentional difference |
-| --- | --- | --- |
-| `/help` | Implemented | Lists supported commands and searches six bundled Patch docs locally, returning at most eight bounded line excerpts with source references. It is verified through parser/application tests and the executable installed from a packed tarball, jointly with `/settings` and `/report`. No provider call, embedding download, or network access occurs. This supports offline discovery without the cost and dependencies of aider's model-backed help (`aider/help.py`, `aider/commands.py:1119`). It does not construct aider's help coder. |
-| `/settings` | Implemented | Shows nine explicitly allowlisted, read-only values: bounded current model/mode labels, encoding, Git/hook/generated-message states, lint/test configured states, and whether bootstrap corrected the root. Post-switch and packed-executable tests prove current state is shown. Raw arguments, paths, commands, identities, environment, provider headers/endpoints, model extras, and credentials never enter the renderer; tests require full secrets and suffixes to be absent from terminal output, both histories, and provider requests. Combined terminal tests prove the ancillary commands do not invoke write/path/process approvals. This keeps configuration diagnosable without reproducing `aider/format_settings.py`'s broad dump and partial key masking (`aider/commands.py:1432`). |
-| `/tokens` | Implemented | Rebuilds the same typed prompt chunks used by a production turn and reports category estimates, a composed baseline total, available model limit/cost, and tokenizer provenance. It excludes the not-yet-known next user message, emits no context content, and makes no provider or approval call. Parser, application, renderer, inventory, and installed-package tests cover the command. This adapts `aider/commands.py:445` without claiming provider-native exactness for models that use Patch's conservative fallback. |
-| `/map` | Implemented | Displays the active profile's current unhinted repository map through the same fresh tracked/non-ignored inventory, selected-file exclusion, ranking, budget, and fallback path used for production context. Output is sanitized and capped at 1 MiB; disabled/empty maps are explicit, and no provider or approval call occurs. The next user message can still personalize a turn's map. |
-| Inspection breadth | Scoped | `/settings`, `/diff`, `/tokens`, and `/map` are the complete read-only inspection surface. `/map-refresh` is redundant with the production path's fresh inventory, while `/copy-context` is a privacy non-goal because it would disclose raw prompt/history/file/map/media content to an ambient clipboard. |
-| `/report` | Implemented | Generates a bounded local issue draft with allowlisted Patch/Node/OS/architecture/Git versions and an optional 160-character control-free title that is visibly identified as user-supplied. Malformed metadata becomes `unavailable`, including unavailable Git. Chat, source, paths, environment, credentials, and raw diagnostics cannot enter the renderer. It performs no upload, browser launch, provider call, or network request. Application tests cover safe output, active and queued cancellation, queue order, terminal sanitization, unchanged approvals/history, and the installed packed executable. This trades one extra step for disclosure control compared with `aider/report.py` and `aider/commands.py:1555`. |
-| Browser GUI | Non-goal | The authenticated local HTTP/SSE API remains an API. A GUI would require a second complete approval, secret-storage, reconnect/session, browser-security, and shared-worktree product contract without a current concrete requirement. |
-| Voice UX | Non-goal | Keep the optional library helper, not a production CLI microphone/device flow. Hosts using it own device selection, ffmpeg installation, transcription disclosure, transcript review, and real-device/network evidence. |
-| Analytics | Non-goal | No built-in usage telemetry, analytics identity, or analytics service integration. The privacy and permanent operational cost outweigh product metrics for this terminal tool. Local token/cost accounting is unaffected; it is not analytics collection (`aider/analytics.py`). |
-| Onboarding/OAuth | Non-goal | No automatic provider/model selection, account-tier probes, or browser OAuth/credential-persistence flow. Keep explicit model and credential configuration, supported by setup documentation and actionable validation errors. This avoids provider coupling and implicit network/credential side effects (`aider/onboarding.py`). |
-| Update/release notes | Non-goal | No built-in version probes, self-update, or automatic release-note prompts/browser launch. Updates remain user-managed through npm and release notes remain in the changelog. Upstream throttles ordinary version probes for 24 hours, but even periodic startup networking is unnecessary here (`aider/versioncheck.py`, `aider/main.py`). |
-
-The unchecked command acceptance tasks in
-[the integration backlog](docs/remaining-integration-tasks.md#ancillary-command-implementation-follow-ups)
-must be verified through the installed executable before these commands can be
-advertised as available. Deferred and non-goal families do not block those tasks
-and do not waive existing API safety work or unrelated release blockers.
+| Family               | Disposition | Scope, rationale, and intentional difference                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/help`              | Implemented | Lists supported commands and searches six bundled Patch docs locally, returning at most eight bounded line excerpts with source references. It is verified through parser/application tests and the executable installed from a packed tarball, jointly with `/settings` and `/report`. No provider call, embedding download, or network access occurs. This supports offline discovery without the cost and dependencies of aider's model-backed help (`aider/help.py`, `aider/commands.py:1119`). It does not construct aider's help coder.                                                                                                                                                                                                                                                          |
+| `/settings`          | Implemented | Shows nine explicitly allowlisted, read-only values: bounded current model/mode labels, encoding, Git/hook/generated-message states, lint/test configured states, and whether bootstrap corrected the root. Post-switch and packed-executable tests prove current state is shown. Raw arguments, paths, commands, identities, environment, provider headers/endpoints, model extras, and credentials never enter the renderer; tests require full secrets and suffixes to be absent from terminal output, both histories, and provider requests. Combined terminal tests prove the ancillary commands do not invoke write/path/process approvals. This keeps configuration diagnosable without reproducing `aider/format_settings.py`'s broad dump and partial key masking (`aider/commands.py:1432`). |
+| `/tokens`            | Implemented | Rebuilds the same typed prompt chunks used by a production turn and reports category estimates, a composed baseline total, available model limit/cost, and tokenizer provenance. It excludes the not-yet-known next user message, emits no context content, and makes no provider or approval call. Parser, application, renderer, inventory, and installed-package tests cover the command. This adapts `aider/commands.py:445` without claiming provider-native exactness for models that use Patch's conservative fallback.                                                                                                                                                                                                                                                                         |
+| `/map`               | Implemented | Displays the active profile's current unhinted repository map through the same fresh tracked/non-ignored inventory, selected-file exclusion, ranking, budget, and fallback path used for production context. Output is sanitized and capped at 1 MiB; disabled/empty maps are explicit, and no provider or approval call occurs. The next user message can still personalize a turn's map.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Inspection breadth   | Scoped      | `/settings`, `/diff`, `/tokens`, and `/map` are the complete read-only inspection surface. `/map-refresh` is redundant with the production path's fresh inventory, while `/copy-context` is a privacy non-goal because it would disclose raw prompt/history/file/map/media content to an ambient clipboard.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `/report`            | Implemented | Generates a bounded local issue draft with allowlisted Patch/Node/OS/architecture/Git versions and an optional 160-character control-free title that is visibly identified as user-supplied. Malformed metadata becomes `unavailable`, including unavailable Git. Chat, source, paths, environment, credentials, and raw diagnostics cannot enter the renderer. It performs no upload, browser launch, provider call, or network request. Application tests cover safe output, active and queued cancellation, queue order, terminal sanitization, unchanged approvals/history, and the installed packed executable. This trades one extra step for disclosure control compared with `aider/report.py` and `aider/commands.py:1555`.                                                                   |
+| Browser GUI          | Non-goal    | The authenticated local HTTP/SSE API remains an API. A GUI would require a second complete approval, secret-storage, reconnect/session, browser-security, and shared-worktree product contract without a current concrete requirement.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Voice UX             | Non-goal    | Keep the optional library helper, not a production CLI microphone/device flow. Hosts using it own device selection, ffmpeg installation, transcription disclosure, transcript review, and real-device/network evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Analytics            | Non-goal    | No built-in usage telemetry, analytics identity, or analytics service integration. The privacy and permanent operational cost outweigh product metrics for this terminal tool. Local token/cost accounting is unaffected; it is not analytics collection (`aider/analytics.py`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Onboarding/OAuth     | Non-goal    | No automatic provider/model selection, account-tier probes, or browser OAuth/credential-persistence flow. Keep explicit model and credential configuration, supported by setup documentation and actionable validation errors. This avoids provider coupling and implicit network/credential side effects (`aider/onboarding.py`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Update/release notes | Non-goal    | No built-in version probes, self-update, or automatic release-note prompts/browser launch. Updates remain user-managed through npm and release notes remain in the changelog. Upstream throttles ordinary version probes for 24 hours, but even periodic startup networking is unnecessary here (`aider/versioncheck.py`, `aider/main.py`).                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### Non-goals
 
@@ -216,39 +209,39 @@ CLI/config ──▶ model registry/provider ──▶ Coder conversation loop
 
 The main behavior owners at the pinned revision are:
 
-| Concern | Upstream source | Important behavior |
-| --- | --- | --- |
-| Executable | [`pyproject.toml`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/pyproject.toml#L26-L27), [`aider/__main__.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/__main__.py#L1-L4) | Both entry points call `aider.main:main`. |
-| Startup/config | [`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py#L451-L504) | Provisional Git root, preliminary parse, dotenv loading, then final parse. |
-| CLI options | [`aider/args.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L35-L169) | Config files, `AIDER_*` environment values, model settings, and dynamic edit formats. |
-| Session construction | [`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py#L903-L1007) | Wires repository, commands, summarizer, and coder. |
-| Mode dispatch | [`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py#L1053-L1180) | One-shot operations, messages, interactive loop, and coder switching. |
-| Core session | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L88-L201) | Coder registry/factory and state transfer between modes. |
-| Conversation loop | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L859-L944) | Input preprocessing and bounded reflection loop. |
-| Provider turn | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L1419-L1623) | Streaming, retry, truncation, edit, commit, lint, shell, and test sequence. |
-| Prompt chunks | [`aider/coders/chat_chunks.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/chat_chunks.py#L5-L64) | Stable message ordering and provider cache boundaries. |
-| Edit authorization | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L2175-L2336) | Authorize files, checkpoint dirty files, dry-run, apply, and reflect on malformed output. |
-| Registered modes | [`aider/coders/__init__.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/__init__.py#L1-L34) | Explicit list of coder implementations. |
-| Whole-file edits | [`aider/coders/wholefile_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/wholefile_coder.py#L10-L128) | Fenced block parsing and filename inference. |
-| SEARCH/REPLACE | [`aider/coders/editblock_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/editblock_coder.py#L15-L217) | Exact, indentation-aware, and elided replacement matching. |
-| Unified diff | [`aider/coders/udiff_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/udiff_coder.py#L46-L118) | Unique-context hunk application and diagnostics. |
-| Patch format | [`aider/coders/patch_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/patch_coder.py#L13-L93) | Typed add/delete/update/move actions and fuzzy context. |
-| Model behavior | [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L127-L150) | Capabilities, formats, weak/editor models, caching, and request options. |
-| Model resolution | [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L329-L645) | Alias, metadata, exact setting, heuristic setting, and secondary-model resolution. |
-| Provider bridge | [`aider/llm.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/llm.py#L9-L45), [`aider/sendchat.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/sendchat.py#L5-L61) | LiteLLM loading plus provider-message role repair. |
-| Git | [`aider/repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L52-L126) | Repository discovery and common-root validation. |
-| Git changes | [`aider/repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L201-L417) | Commit attribution, commit messages, staged/unstaged diffs. |
-| Tracked/ignored files | [`aider/repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L433-L602) | Tracked files, `.aiderignore`, and dirty state. |
-| Repository map | [`aider/repomap.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repomap.py#L266-L574) | Tree-sitter tags, reference graph, and PageRank. |
-| Map fitting/rendering | [`aider/repomap.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repomap.py#L629-L784) | Token-budget search and source-context rendering. |
-| Terminal I/O | [`aider/io.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L230-L507) | Prompts, history, confirmations, encoding, newlines, and writes. |
-| Input UX | [`aider/io.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L523-L692) | Completion, multiline editing, and interruption. |
-| Commands | [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203) | Command discovery, dispatch, and mode changes. |
-| Linting | [`aider/linter.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/linter.py#L21-L269) | Configured and language-specific diagnostics. |
-| Commands/processes | [`aider/run_cmd.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/run_cmd.py#L11-L132) | Captured and PTY command execution. |
-| Watch mode | [`aider/watch.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/watch.py#L15-L255) | Ignore rules, `AI!`/`AI?` markers, and input interruption. |
-| Browser UI | [`aider/gui.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/gui.py#L17-L147) | Streamlit adapter around a shared coder session. |
-| Test suites | [`pytest.ini`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/pytest.ini#L1-L12) | Basic, help, browser, and scrape suites with analytics disabled. |
+| Concern               | Upstream source                                                                                                                                                                                                                                            | Important behavior                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Executable            | [`pyproject.toml`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/pyproject.toml#L26-L27), [`aider/__main__.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/__main__.py#L1-L4) | Both entry points call `aider.main:main`.                                                 |
+| Startup/config        | [`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py#L451-L504)                                                                                                                                 | Provisional Git root, preliminary parse, dotenv loading, then final parse.                |
+| CLI options           | [`aider/args.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/args.py#L35-L169)                                                                                                                                  | Config files, `AIDER_*` environment values, model settings, and dynamic edit formats.     |
+| Session construction  | [`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py#L903-L1007)                                                                                                                                | Wires repository, commands, summarizer, and coder.                                        |
+| Mode dispatch         | [`aider/main.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/main.py#L1053-L1180)                                                                                                                               | One-shot operations, messages, interactive loop, and coder switching.                     |
+| Core session          | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L88-L201)                                                                                                        | Coder registry/factory and state transfer between modes.                                  |
+| Conversation loop     | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L859-L944)                                                                                                       | Input preprocessing and bounded reflection loop.                                          |
+| Provider turn         | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L1419-L1623)                                                                                                     | Streaming, retry, truncation, edit, commit, lint, shell, and test sequence.               |
+| Prompt chunks         | [`aider/coders/chat_chunks.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/chat_chunks.py#L5-L64)                                                                                                        | Stable message ordering and provider cache boundaries.                                    |
+| Edit authorization    | [`aider/coders/base_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/base_coder.py#L2175-L2336)                                                                                                     | Authorize files, checkpoint dirty files, dry-run, apply, and reflect on malformed output. |
+| Registered modes      | [`aider/coders/__init__.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/__init__.py#L1-L34)                                                                                                              | Explicit list of coder implementations.                                                   |
+| Whole-file edits      | [`aider/coders/wholefile_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/wholefile_coder.py#L10-L128)                                                                                              | Fenced block parsing and filename inference.                                              |
+| SEARCH/REPLACE        | [`aider/coders/editblock_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/editblock_coder.py#L15-L217)                                                                                              | Exact, indentation-aware, and elided replacement matching.                                |
+| Unified diff          | [`aider/coders/udiff_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/udiff_coder.py#L46-L118)                                                                                                      | Unique-context hunk application and diagnostics.                                          |
+| Patch format          | [`aider/coders/patch_coder.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/coders/patch_coder.py#L13-L93)                                                                                                       | Typed add/delete/update/move actions and fuzzy context.                                   |
+| Model behavior        | [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L127-L150)                                                                                                                             | Capabilities, formats, weak/editor models, caching, and request options.                  |
+| Model resolution      | [`aider/models.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/models.py#L329-L645)                                                                                                                             | Alias, metadata, exact setting, heuristic setting, and secondary-model resolution.        |
+| Provider bridge       | [`aider/llm.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/llm.py#L9-L45), [`aider/sendchat.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/sendchat.py#L5-L61)     | LiteLLM loading plus provider-message role repair.                                        |
+| Git                   | [`aider/repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L52-L126)                                                                                                                                  | Repository discovery and common-root validation.                                          |
+| Git changes           | [`aider/repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L201-L417)                                                                                                                                 | Commit attribution, commit messages, staged/unstaged diffs.                               |
+| Tracked/ignored files | [`aider/repo.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repo.py#L433-L602)                                                                                                                                 | Tracked files, `.aiderignore`, and dirty state.                                           |
+| Repository map        | [`aider/repomap.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repomap.py#L266-L574)                                                                                                                           | Tree-sitter tags, reference graph, and PageRank.                                          |
+| Map fitting/rendering | [`aider/repomap.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/repomap.py#L629-L784)                                                                                                                           | Token-budget search and source-context rendering.                                         |
+| Terminal I/O          | [`aider/io.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L230-L507)                                                                                                                                     | Prompts, history, confirmations, encoding, newlines, and writes.                          |
+| Input UX              | [`aider/io.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/io.py#L523-L692)                                                                                                                                     | Completion, multiline editing, and interruption.                                          |
+| Commands              | [`aider/commands.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/commands.py#L30-L203)                                                                                                                          | Command discovery, dispatch, and mode changes.                                            |
+| Linting               | [`aider/linter.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/linter.py#L21-L269)                                                                                                                              | Configured and language-specific diagnostics.                                             |
+| Commands/processes    | [`aider/run_cmd.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/run_cmd.py#L11-L132)                                                                                                                            | Captured and PTY command execution.                                                       |
+| Watch mode            | [`aider/watch.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/watch.py#L15-L255)                                                                                                                                | Ignore rules, `AI!`/`AI?` markers, and input interruption.                                |
+| Browser UI            | [`aider/gui.py`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/aider/gui.py#L17-L147)                                                                                                                                    | Streamlit adapter around a shared coder session.                                          |
+| Test suites           | [`pytest.ini`](https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/pytest.ini#L1-L12)                                                                                                                                          | Basic, help, browser, and scrape suites with analytics disabled.                          |
 
 ## Target design
 
@@ -291,8 +284,10 @@ Define these before implementing adapters:
 
 ```ts
 interface ModelProvider {
-  stream(request: CompletionRequest, signal?: AbortSignal):
-    AsyncIterable<CompletionEvent>;
+  stream(
+    request: CompletionRequest,
+    signal?: AbortSignal,
+  ): AsyncIterable<CompletionEvent>;
 }
 
 interface EditStrategy {
@@ -370,22 +365,22 @@ events so future adapters do not require changes to the session core.
 Prefer the smallest dependency that preserves behavior. Confirm each package
 before adding it; the table records candidates, not pre-approved dependencies.
 
-| Need | Preferred approach | Notes |
-| --- | --- | --- |
-| CLI | `commander` | Explicit options, negated booleans, and generated help. Test precedence separately. |
-| Validation | `zod` | Validate external config and metadata at boundaries. |
-| YAML/dotenv | `yaml`, `dotenv` | Preserve aider's staged parse and override order. |
-| Providers | official `openai` and `@anthropic-ai/sdk` clients | Start narrow instead of emulating LiteLLM breadth. |
-| Retries | small local policy or `p-retry` | Retry only classified transient failures and honor cancellation. |
-| Git | installed `git` through `execa`/`child_process` | Git CLI is authoritative for worktrees, index, hooks, ignores, and diffs. |
-| Ignore rules | Git CLI `check-ignore` with NUL-delimited standard input | Git evaluates repository and `.aiderignore` patterns without shell expansion. |
-| Terminal | `readline/promises`, `picocolors` | Add a rich TUI only after core behavior stabilizes. |
-| Processes | `execa`; later `node-pty` | Never put untrusted filenames into shell strings when argv is possible. |
-| Diff display | `diff` | Edit protocols need dedicated parsers; do not delegate model output to system `patch`. |
-| Tests | `vitest`, `fast-check` | Unit, real-Git integration, and parser property tests. |
-| Repo map | `web-tree-sitter`; small PageRank implementation | Defer; avoid native packaging initially. |
-| Cache | mtime-keyed files first | Avoid `better-sqlite3` packaging until persistent-cache demands justify it. |
-| Browser later | Fastify, SSE/WebSocket, Playwright | Do not port Streamlit mechanics. |
+| Need          | Preferred approach                                       | Notes                                                                                  |
+| ------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| CLI           | `commander`                                              | Explicit options, negated booleans, and generated help. Test precedence separately.    |
+| Validation    | `zod`                                                    | Validate external config and metadata at boundaries.                                   |
+| YAML/dotenv   | `yaml`, `dotenv`                                         | Preserve aider's staged parse and override order.                                      |
+| Providers     | official `openai` and `@anthropic-ai/sdk` clients        | Start narrow instead of emulating LiteLLM breadth.                                     |
+| Retries       | small local policy or `p-retry`                          | Retry only classified transient failures and honor cancellation.                       |
+| Git           | installed `git` through `execa`/`child_process`          | Git CLI is authoritative for worktrees, index, hooks, ignores, and diffs.              |
+| Ignore rules  | Git CLI `check-ignore` with NUL-delimited standard input | Git evaluates repository and `.aiderignore` patterns without shell expansion.          |
+| Terminal      | `readline/promises`, `picocolors`                        | Add a rich TUI only after core behavior stabilizes.                                    |
+| Processes     | `execa`; later `node-pty`                                | Never put untrusted filenames into shell strings when argv is possible.                |
+| Diff display  | `diff`                                                   | Edit protocols need dedicated parsers; do not delegate model output to system `patch`. |
+| Tests         | `vitest`, `fast-check`                                   | Unit, real-Git integration, and parser property tests.                                 |
+| Repo map      | `web-tree-sitter`; small PageRank implementation         | Defer; avoid native packaging initially.                                               |
+| Cache         | mtime-keyed files first                                  | Avoid `better-sqlite3` packaging until persistent-cache demands justify it.            |
+| Browser later | Fastify, SSE/WebSocket, Playwright                       | Do not port Streamlit mechanics.                                                       |
 
 The staged parser now owns every intended application/interface configuration
 control, including histories, multiline input, notifications, watch, and web.
@@ -402,29 +397,29 @@ packed tarball from a clean temporary project.
 ### Phase 0 — Project and compatibility foundation
 
 - [x] Add `package.json`, lockfile, strict `tsconfig.json`, linting, formatting,
-  Vitest, and Node.js 22 engine requirements.
+      Vitest, and Node.js 22 engine requirements.
 - [x] Add the Apache-2.0 `LICENSE`, upstream attribution in `NOTICE`, and a
-  standard header/template for directly ported files.
+      standard header/template for directly ported files.
 - [x] Record the pinned upstream commit in a machine-readable file.
 - [x] Record every identified direct Aider source/resource derivation in a
-  machine-readable ledger and check per-file path, revision, modification, and
-  Apache evidence for drift; keep generated fixture provenance separate.
+      machine-readable ledger and check per-file path, revision, modification, and
+      Apache evidence for drift; keep generated fixture provenance separate.
 - [x] Add CI for typecheck, lint, tests, build, and `npm pack` smoke testing.
 - [x] Build an upstream fixture exporter outside the shipped package. Capture
-  normalized outputs from pinned aider for config precedence, prompt chunks,
-  edit parsing/application, Git state, and repository maps.
+      normalized outputs from pinned aider for config precedence, prompt chunks,
+      edit parsing/application, Git state, and repository maps.
 - [x] Define schemas for messages, provider events, edits, repository results,
-  command effects, model settings, and session state.
+      command effects, model settings, and session state.
 - [x] Add a deterministic fake provider that can stream text, reasoning,
-  fragmented tool calls, usage, retryable errors, truncation, and cancellation.
+      fragmented tool calls, usage, retryable errors, truncation, and cancellation.
 - [x] Enforce LF line endings in Git checkouts so the Prettier gate behaves the
-  same on Windows, macOS, and Linux, including when `core.autocrlf=true`.
+      same on Windows, macOS, and Linux, including when `core.autocrlf=true`.
 - [x] Scope Vitest to source tests and clean `dist/` before builds so stale
-  generated files cannot execute during validation or leak into packed output.
+      generated files cannot execute during validation or leak into packed output.
 - [x] Make compatibility tests honor native relative-path separators and the
-  documented platform-default newline policy for newly created files.
+      documented platform-default newline policy for newly created files.
 - [x] Give the real-Git bounded-reflection integration test enough time for four
-  complete Windows process/Git cycles without weakening production bounds.
+      complete Windows process/Git cycles without weakening production bounds.
 
 **Exit:** `npm ci`, typecheck, tests, build, pack, clean-install, and `patch
 --help` work without Python. The repository-level line-ending policy keeps the
@@ -439,46 +434,46 @@ invoked the installed `patch --help` entry point without Python.
 ### Phase 1 — Files, configuration, and messages
 
 - [x] Implement safe path resolution that rejects writes outside the selected
-  root after symlink resolution.
+      root after symlink resolution.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
-  replacement.
+      replacement.
 - [x] Bound the text-encoding product contract to UTF-8, UTF-16LE, and Latin-1,
-  with malformed-input, representability, round-trip, BOM, and newline evidence.
-  Arbitrary Python/ICU codec names are a portability non-goal.
+      with malformed-input, representability, round-trip, BOM, and newline evidence.
+      Arbitrary Python/ICU codec names are a portability non-goal.
 - [x] Reject hardlinked/non-regular mutation targets and recheck target and
-  containing-directory identity immediately before replacement or deletion.
-  Preserve mode bits and, where permitted, owner/group; document ACLs, extended
-  attributes, flags, alternate data streams, and the residual race as unsupported.
+      containing-directory identity immediately before replacement or deletion.
+      Preserve mode bits and, where permitted, owner/group; document ACLs, extended
+      attributes, flags, alternate data streams, and the residual race as unsupported.
 - [x] Complete production prompt resources and per-attempt fence selection.
-  All six constructed strategies use format-specific pinned instructions,
-  examples, reminders, and shell policy. The application reselects the shared
-  prompt/context/parser fence from current selected-file snapshots before each
-  initial or reflected provider attempt. Patch retains English-only prompts,
-  explicit command approval, path authorization, and unique-match rejection.
+      All six constructed strategies use format-specific pinned instructions,
+      examples, reminders, and shell policy. The application reselects the shared
+      prompt/context/parser fence from current selected-file snapshots before each
+      initial or reflected provider attempt. Patch retains English-only prompts,
+      explicit command approval, path authorization, and unique-match rejection.
 - [x] Define prompt prose and localization scope. Patch requires compatible
-  format structure, chunk order, fence interpolation, and parser behavior, not
-  byte-identical aider prose; automatic locale detection and `--chat-language`
-  are non-goals for the current English-only product contract.
+      format structure, chunk order, fence interpolation, and parser behavior, not
+      byte-identical aider prose; automatic locale detection and `--chat-language`
+      are non-goals for the current English-only product contract.
 - [x] Implement chat roles and the upstream chunk order: system, examples,
-  read-only files, repository map, old history, editable files, current turn,
-  reminder.
+      read-only files, repository map, old history, editable files, current turn,
+      reminder.
 - [x] Implement provisional Git-root discovery, config search, preliminary CLI
-  parse, dotenv loading, final parse, and true-root correction.
+      parse, dotenv loading, final parse, and true-root correction.
 - [x] Specify and test precedence among defaults, home config, repository
-  config, working-directory config, `.env`, environment, and CLI. In addition to
-  bootstrap unit tests, package smoke now verifies YAML → environment → dotenv →
-  CLI overrides through `/settings` on the actual installed `patch` bin.
+      config, working-directory config, `.env`, environment, and CLI. In addition to
+      bootstrap unit tests, package smoke now verifies YAML → environment → dotenv →
+      CLI overrides through `/settings` on the actual installed `patch` bin.
 - [x] Load and validate model aliases, model settings, and JSON5 metadata from
-  packaged resources.
+      packaged resources.
 - [x] Load bounded custom alias/settings/metadata overlays through staged
-  CLI/environment/YAML precedence and expose provider-free `--list-models` and
-  `/models` discovery with secret-safe summaries.
+      CLI/environment/YAML precedence and expose provider-free `--list-models` and
+      `/models` discovery with secret-safe summaries.
 - [x] Expose typed reasoning-effort and thinking-token startup/runtime controls
-  only for models that declare the matching OpenAI or Anthropic capability;
-  reject unsupported combinations before provider transport.
+      only for models that declare the matching OpenAI or Anthropic capability;
+      reject unsupported combinations before provider transport.
 - [x] Expose independent staged weak/editor role selection and serialized
-  runtime role switching while preserving the main profile and accounting
-  secondary provider usage.
+      runtime role switching while preserving the main profile and accounting
+      secondary provider usage.
 
 **Exit (met for the documented Patch scope):** production prompt composition,
 per-attempt fence selection, staged configuration, packaged resources, and the
@@ -492,17 +487,17 @@ outside the contract.
 
 - [x] Port `ask` as a no-write strategy.
 - [x] Port whole-file fenced blocks, including filename inference and trailing
-  newline behavior.
+      newline behavior.
 - [x] Port SEARCH/REPLACE parsing, shell block separation, exact replacement,
-  leading-whitespace normalization, `...` elision, ambiguity detection, and
-  failure diagnostics.
+      leading-whitespace normalization, `...` elision, ambiguity detection, and
+      failure diagnostics.
 - [x] Add a dry-run resolution pass before authorization or writes.
 - [x] Represent create, update, and delete operations explicitly.
 - [x] Add transactional staging of proposed file contents so parser or
-  validation failures cannot leave a partial multi-file update. Document this
-  intentional safety improvement if it differs from upstream.
+      validation failures cannot leave a partial multi-file update. Document this
+      intentional safety improvement if it differs from upstream.
 - [x] Property-test malformed fences, repeated text, empty files, Unicode,
-  CRLF, duplicate filenames, traversal attempts, and asymmetric replacements.
+      CRLF, duplicate filenames, traversal attempts, and asymmetric replacements.
 
 **Exit:** every selected upstream edit fixture produces the same file contents
 or a documented, safer rejection.
@@ -510,27 +505,27 @@ or a documented, safer rejection.
 ### Phase 3 — Conversation engine
 
 - [x] Implement `CoderSession` using an injected `EditStrategy` rather than a
-  subclass per complete session.
+      subclass per complete session.
 - [x] Implement per-turn initialization, prompt composition, token-budget
-  checks, response assembly, and history transitions.
+      checks, response assembly, and history transitions.
 - [x] Implement streaming events, exponential backoff for classified transient
-  failures, `AbortSignal` cancellation, context overflow, and truncation.
+      failures, `AbortSignal` cancellation, context overflow, and truncation.
 - [x] Buffer a provider attempt's observer events until success. Terminal and
-  HTTP/SSE consumers receive accepted events in provider order after finish;
-  failed-attempt text, reasoning, usage, and retry errors are discarded while
-  billed attempt cost remains accounted.
+      HTTP/SSE consumers receive accepted events in provider order after finish;
+      failed-attempt text, reasoning, usage, and retry errors are discarded while
+      billed attempt cost remains accounted.
 - [x] Implement bounded reflection for lint and test failures. Configured
-  post-write checks, malformed edits, and resolution failures share three
-  reflections, with refreshed disk context and token budgets. Patch currently
-  reflects automatically rather than asking aider's per-failure confirmation.
+      post-write checks, malformed edits, and resolution failures share three
+      reflections, with refreshed disk context and token budgets. Patch currently
+      reflects automatically rather than asking aider's per-failure confirmation.
 - [x] Implement file-mention detection and explicit approval before adding or
-  editing unselected files.
+      editing unselected files.
 - [x] Complete strategy/model switching with state transfer. `/model` and
-  `/chat-mode` rebuild the model, provider, parser, prompts, shell policy,
-  fence, and repository-map policy as one atomic profile. A format change first
-  forces bounded history summarization through the current weak/main fallback;
-  failures preserve the old profile and raw history. Replacement capability
-  filtering removes unsupported media after summarization.
+      `/chat-mode` rebuild the model, provider, parser, prompts, shell policy,
+      fence, and repository-map policy as one atomic profile. A format change first
+      forces bounded history summarization through the current weak/main fallback;
+      failures preserve the old profile and raw history. Replacement capability
+      filtering removes unsupported media after summarization.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
 **Exit:** installed-service acceptance
@@ -554,54 +549,54 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 ### Phase 4 — Real model providers
 
 - [x] Complete the documented OpenAI-compatible production route. Streaming,
-  custom constructor options, post-finish usage, DeepSeek normalization,
-  metadata merging, temperature policy, bounded transient retries, and bounded
-  repeated assistant-prefill continuation are wired. Tool execution and aider's
-  broader LiteLLM provider surface are outside Patch's advertised contract.
+      custom constructor options, post-finish usage, DeepSeek normalization,
+      metadata merging, temperature policy, bounded transient retries, and bounded
+      repeated assistant-prefill continuation are wired. Tool execution and aider's
+      broader LiteLLM provider surface are outside Patch's advertised contract.
 - [x] Bound each history-summary request to the summarizing model's input window
-  with 512 tokens of safety headroom. Complete-request token counting sends only
-  whole messages that fit and retains an unsent head for recursive compaction;
-  models without a limit use aider's 4,096-token fallback.
+      with 512 tokens of safety headroom. Complete-request token counting sends only
+      whole messages that fit and retains an unsent head for recursive compaction;
+      models without a limit use aider's 4,096-token fallback.
 - [x] Fall back from the weak model to the main model as pinned aider does.
-  Every attempted request contributes usage, temporary providers close per
-  attempt, cancellation prevents fallback, and failure of both models leaves
-  completed history unchanged.
-- [ ] Run the protected DeepSeek catalog/factory/session contract successfully on
-  the claimed revision. The gated case now resolves the advertised bundled
-  model, caps output at 16 tokens, constructs the real factory through
-  `ConcreteApplicationService`, and submits a real session turn; deterministic
-  full-path coverage remains credential-free.
+      Every attempted request contributes usage, temporary providers close per
+      attempt, cancellation prevents fallback, and failure of both models leaves
+      completed history unchanged.
+- [ ] Obtain successful credentialed OpenAI and DeepSeek catalog/factory/session
+      evidence on the claimed revision. All three bounded gates are implemented;
+      Anthropic passed locally, the available OpenAI account was rate-limited, and
+      no DeepSeek credential was available. Deterministic full-path coverage remains
+      credential-free.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Expose prompt-cache markers independently from keepalive through paired
-  CLI controls plus environment/YAML precedence. Capable models preserve
-  Patch's existing enabled default; disabling markers also suppresses a positive
-  bounded keepalive setting through the concrete application path.
+      CLI controls plus environment/YAML precedence. Capable models preserve
+      Patch's existing enabled default; disabling markers also suppresses a positive
+      bounded keepalive setting through the concrete application path.
 - [x] Implement main, weak, and editor model selection without recursive
-  construction bugs.
-- [x] Keep model command exposure coupled to its owning model contract. Search,
-  reasoning/thinking, and independent weak/editor commands are not a separate
-  alias milestone and remain unadvertised until their catalog, capability, or
-  atomic-role tasks are implemented and tested.
+      construction bugs.
+- [x] Keep model command exposure coupled to its owning contract. `/models`,
+      reasoning/thinking, and independent weak/editor commands are production-wired
+      with their catalog, capability, and atomic-role tests rather than a duplicate
+      alias milestone.
 - [x] Align `gpt-4o-mini` format/map defaults and DeepSeek Reasoner weak/editor
-  routing with pinned model settings. Catalog/selection assertions and a
-  concrete summary/editor application test cover the production behavior.
+      routing with pinned model settings. Catalog/selection assertions and a
+      concrete summary/editor application test cover the production behavior.
 - [x] Reconcile DeepSeek input/output limits with pinned bundled metadata.
-  Exact catalog assertions cover prompt/map budgets, and concrete application
-  requests carry Chat's 8,192 and Reasoner's 64,000 output limits.
+      Exact catalog assertions cover prompt/map budgets, and concrete application
+      requests carry Chat's 8,192 and Reasoner's 64,000 output limits.
 - [x] Add provider-specific credential diagnostics and supported-capability
-  checks.
+      checks.
 - [x] Add model-aware token counting where reliable and conservative estimates
-  elsewhere.
+      elsewhere.
 - [x] Complete executable usage and cost coverage. Post-finish usage is retained,
-  metadata limits/prices/capabilities merge into session settings, cache reads
-  and writes have distinct prices, and turn/session reports reach the terminal.
-  Every advertised bundled model has validated limits and prices.
+      metadata limits/prices/capabilities merge into session settings, cache reads
+      and writes have distinct prices, and turn/session reports reach the terminal.
+      Every advertised bundled model has validated limits and prices.
 - [x] Publish a provider compatibility table; reject unsupported providers
-  explicitly.
+      explicitly.
 - [x] Define OpenAI, Anthropic, and DeepSeek as the complete current release
-  provider boundary. Do not infer support from OpenAI-wire similarity or
-  LiteLLM's catalog; add future providers individually with explicit credential,
-  capability, error, deterministic, and opt-in live contracts.
+      provider boundary. Do not infer support from OpenAI-wire similarity or
+      LiteLLM's catalog; add future providers individually with explicit credential,
+      capability, error, deterministic, and opt-in live contracts.
 
 **Exit (transport routes met):** separately gated OpenAI and Anthropic contracts
 cover secret-safe
@@ -619,80 +614,79 @@ session. Actual live evidence still depends on configured accounts and models.
 `tests/deepseek-provider.test.ts`; opt-in `tests/live-provider.test.ts` via
 `.github/workflows/live-providers.yml`. Manual run
 [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
-on `88adf8e5c` skipped all seven contracts because no provider secrets were
-available, so it is workflow/skip evidence only. A 2026-09-15 local attempt
-skipped all nine current gates because the orb also had no provider credentials.
+supplied no keys. A local 2026-09-15 run completed Anthropic; OpenAI remained
+rate-limited and DeepSeek had no credential. Those two live evidence gaps remain.
 
 - [x] Keep the current repository-map language set to the eleven shipped entries.
-  Unsupported languages retain lexical-reference participation; each future
-  parser requires a concrete need and independent pinned/package/platform proof.
+      Unsupported languages retain lexical-reference participation; each future
+      parser requires a concrete need and independent pinned/package/platform proof.
 - [x] Keep repository-map token, refresh, multiplier, and diagnostic tuning
-  internal and model-derived. `/map` is the sole bounded display control; public
-  knobs would destabilize budgets and expose cache/ranking implementation state.
+      internal and model-derived. `/map` is the sole bounded display control; public
+      knobs would destabilize budgets and expose cache/ranking implementation state.
 
 ### Phase 5 — Git, authorization, and commands (MVP)
 
 - [x] Discover one common Git worktree for selected paths and reject paths from
-  multiple repositories.
+      multiple repositories.
 - [x] Make repository-relative Git path arguments literal across diff, stage,
-  commit, ignore, and undo operations.
+      commit, ignore, and undo operations.
 - [x] Filter selected and tracked paths through Git and `.aiderignore` rules
-  before snapshots, mention matching, repository maps, or provider requests.
+      before snapshots, mention matching, repository maps, or provider requests.
 - [x] Refresh the tracked repository inventory per turn after service startup.
-  A status failure falls back to the startup inventory, filtered through current
-  ignore rules. Evidence: `tests/application-prompt-context.test.ts`.
+      A status failure falls back to the startup inventory, filtered through current
+      ignore rules. Evidence: `tests/application-prompt-context.test.ts`.
 - [x] Implement the write boundary: preview, deny new/out-of-chat paths unless
-  a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
-  report changed files.
+      a standalone TTY user or embedding caller authorizes them, checkpoint dirty files, apply, and
+      report changed files.
 - [x] Wire the selected production commit policy: configurable hook verification,
-  explicit author/committer/co-author values, and opt-in bounded weak-model
-  commit subjects through CLI/YAML/environment. Checkpoints, model edits,
-  configured checks, and manual commits share the policy, with user-authored
-  commits excluded from model-author attribution. Full Aider option/default
-  parity is not claimed; see `docs/git-repository.md` for deliberate differences.
-  Evidence: `tests/application-lifecycle.test.ts`, `tests/config-bootstrap.test.ts`,
-  and installed `scripts/lifecycle-smoke.mjs`. Undo remains session-owned and
-  refuses root, merge, moved-HEAD, and already-pushed commits.
+      explicit author/committer/co-author values, and opt-in bounded weak-model
+      commit subjects through CLI/YAML/environment. Checkpoints, model edits,
+      configured checks, and manual commits share the policy, with user-authored
+      commits excluded from model-author attribution. Full Aider option/default
+      parity is not claimed; see `docs/git-repository.md` for deliberate differences.
+      Evidence: `tests/application-lifecycle.test.ts`, `tests/config-bootstrap.test.ts`,
+      and installed `scripts/lifecycle-smoke.mjs`. Undo remains session-owned and
+      refuses root, merge, moved-HEAD, and already-pushed commits.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
-  that Git child process.
+      that Git child process.
 - [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/attach`,
-  `/help`, `/settings`, `/report`, `/diff`, `/tokens`, `/map`, `/ls`, `/clear`, `/model`, `/chat-mode`,
-  `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
-  `/exit`. `tests/advertised-commands.test.ts` keeps this 28-command documented
-  inventory equal to the parser's source of truth and executes every production
-  effect in one real-Git application scenario, including safe authority/state
-  failures.
+      `/help`, `/settings`, `/report`, `/diff`, `/tokens`, `/map`, `/ls`, `/clear`, `/model`, `/chat-mode`,
+      `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
+      `/exit`. `tests/advertised-commands.test.ts` keeps this 28-command documented
+      inventory equal to the parser's source of truth and executes every production
+      effect in one real-Git application scenario, including safe authority/state
+      failures.
 - [x] Preserve Windows path separators in `/add`, `/drop`, `/read-only`, and
-  `/attach` through the shared quote-aware splitter. Keep exact command names
-  and arguments: aider's `!`, bare `/read-only`, `/reset`, mode aliases,
-  `/multiline-mode`, and `/quit` are non-goals because existing explicit
-  commands expose the operations without hidden approval or compound state.
+      `/attach` through the shared quote-aware splitter. Keep exact command names
+      and arguments: aider's `!`, bare `/read-only`, `/reset`, mode aliases,
+      `/multiline-mode`, and `/quit` are non-goals because existing explicit
+      commands expose the operations without hidden approval or compound state.
 - [x] Keep `/git`, `/load`, `/save`, `/editor`, and `/edit` out of the current
-  surface. Approval-gated `/run git ...` and Ctrl-X Ctrl-E cover the explicit
-  operations; command files and aliases would duplicate paths or weaken visible
-  per-effect authorization and partial-failure recovery.
+      surface. Approval-gated `/run git ...` and Ctrl-X Ctrl-E cover the explicit
+      operations; command files and aliases would duplicate paths or weaken visible
+      per-effect authorization and partial-failure recovery.
 - [x] Require approval for each model-suggested shell command, show the exact
-  command, run at repository root, cap output, and support timeout/cancellation
-  in the application contract. Standalone interactive TTY input supplies one
-  shared approver for writes, model commands, and `/run`; other interfaces deny
-  without injected approval. See README for exact input-mode restrictions. Every
-  finished command reports its outcome and both streams, so a denied, failed, or
-  stderr-only command is never mistaken for silence.
+      command, run at repository root, cap output, and support timeout/cancellation
+      in the application contract. Standalone interactive TTY input supplies one
+      shared approver for writes, model commands, and `/run`; other interfaces deny
+      without injected approval. See README for exact input-mode restrictions. Every
+      finished command reports its outcome and both streams, so a denied, failed, or
+      stderr-only command is never mistaken for silence.
 - [x] Run exactly one user-configured lint command and one test command; do not
-  infer package-manager/language tools, compile source implicitly, or bundle
-  linters whose flags and environment belong to the repository.
+      infer package-manager/language tools, compile source implicitly, or bundle
+      linters whose flags and environment belong to the repository.
 - [x] Keep noninteractive work to `--message`/`--message-file` through the normal
-  lifecycle. Global dry-run and one-shot commit/lint/test flags are non-goals:
-  arbitrary hooks/children defeat no-write guarantees and slash commands already
-  provide explicit serialized outcomes.
+      lifecycle. Global dry-run and one-shot commit/lint/test flags are non-goals:
+      arbitrary hooks/children defeat no-write guarantees and slash commands already
+      provide explicit serialized outcomes.
 
 - [x] Keep broader Git controls out of current scope. The composed ignore,
-  checkpoint/commit, hook, attribution, selected-diff, and session-owned undo
-  policy remains one safety contract rather than independently disableable parts.
+      checkpoint/commit, hook, attribution, selected-diff, and session-owned undo
+      policy remains one safety contract rather than independently disableable parts.
 - [x] Keep durable/cross-process recovery out of current scope. Structured
-  surviving-state reports and in-process serialization remain the contract;
-  journaling or rollback across filesystem, Git, and arbitrary children requires
-  a separate transaction architecture.
+      surviving-state reports and in-process serialization remain the contract;
+      journaling or rollback across filesystem, Git, and arbitrary children requires
+      a separate transaction architecture.
 
 **Exit — production workflow reached for the selected command surface:** the
 npm-installed binary composes supported providers and edit
@@ -710,29 +704,29 @@ real-repository `tests/git-*.test.ts` suites.
 
 - [x] Port definitions/references extraction with `web-tree-sitter`.
 - [x] Initially support JavaScript, TypeScript, Python, Go, and Rust. Bash,
-  C/C++, C#, Java, and Ruby were added with their upstream queries.
+      C/C++, C#, Java, and Ruby were added with their upstream queries.
 - [x] Keep query files and WASM grammars under `src/resources/repomap/` or use
-  version-pinned npm grammar packages; never place them in `assets/`.
+      version-pinned npm grammar packages; never place them in `assets/`.
 - [x] Build the weighted reference graph and deterministic personalized
-  PageRank.
+      PageRank.
 - [x] Complete the pinned repository-map TreeContext configuration for shipped
-  grammars: generic syntax scopes, shortest parent headers capped at ten lines,
-  top-scope omission, and deterministic elisions without child/margin/last-line
-  context. Production fitting uses the selected tokenizer for recognized OpenAI
-  models and a documented conservative estimate elsewhere. Exact Python and
-  TypeScript fixtures supplement the normalized upstream map.
+      grammars: generic syntax scopes, shortest parent headers capped at ten lines,
+      top-scope omission, and deterministic elisions without child/margin/last-line
+      context. Production fitting uses the selected tokenizer for recognized OpenAI
+      models and a documented conservative estimate elsewhere. Exact Python and
+      TypeScript fixtures supplement the normalized upstream map.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
-  `always`, `files`, and `auto` refresh behavior.
+      `always`, `files`, and `auto` refresh behavior.
 - [x] Add production fallback map requests. An empty selected-file map retries
-  globally with the same filename/identifier hints, then globally without hints,
-  stopping at the first result and reusing the filtered tracked inventory.
+      globally with the same filename/identifier hints, then globally without hints,
+      stopping at the first result and reusing the filtered tracked inventory.
 - [x] Broaden independent map fixtures and executable evidence. Tags for all
-  eleven shipped languages and important-root-file selection are pinned against
-  upstream; an asymmetric personalized scenario pins the complete tag multiset
-  and final numeric definition ranks; exact Python/TypeScript rendering and a
-  Patch-specific lexical-reference case are checked. Packed extraction covers
-  every language, and an actual-bin provider turn requires filtered ranked map
-  context while rejecting an ignored tracked path.
+      eleven shipped languages and important-root-file selection are pinned against
+      upstream; an asymmetric personalized scenario pins the complete tag multiset
+      and final numeric definition ranks; exact Python/TypeScript rendering and a
+      Patch-specific lexical-reference case are checked. Packed extraction covers
+      every language, and an actual-bin provider turn requires filtered ranked map
+      context while rejecting an ignored tracked path.
 
 **Exit (met for documented repository-map scope):** representative multi-
 language tag fixtures and packed-resource tests are in the cross-platform CI
@@ -754,65 +748,65 @@ claimed.
 ### Phase 7 — Advanced edit and orchestration modes
 
 - [x] Align public format schemas, configuration, bundled model settings,
-  `/chat-mode`, and completion with the six constructed modes. Helper-only
-  names are private identities and are rejected before provider creation.
+      `/chat-mode`, and completion with the six constructed modes. Helper-only
+      names are private identities and are rejected before provider creation.
 - [x] Port distinct editor whole/diff/fenced-diff prompts and construct a fresh
-  internal editor through `ApplicationService`. It uses the selected editor
-  model and capabilities, current authorized paths, no repository map, no shell
-  execution, fresh history, shared cancellation, and isolated failure cleanup.
+      internal editor through `ApplicationService`. It uses the selected editor
+      model and capabilities, current authorized paths, no repository map, no shell
+      execution, fresh history, shared cancellation, and isolated failure cleanup.
 - [x] Wire fenced diff's distinct prompt variant over SEARCH/REPLACE. The
-  concrete provider request puts the path inside the active fence while ordinary
-  diff keeps it before the fence; a quadruple-backtick application test proves
-  the selected fence reaches the example and reminder. Canonical prompt
-  resources and per-attempt fence selection are complete in Phase 1.
+      concrete provider request puts the path inside the active fence while ordinary
+      diff keeps it before the fence; a quadruple-backtick application test proves
+      the selected fence reaches the example and reminder. Canonical prompt
+      resources and per-attempt fence selection are complete in Phase 1.
 - [x] Normalize whitespace-only unified-diff lines and deduplicate identical
-  normalized path/search/replacement hunks before resolution.
+      normalized path/search/replacement hunks before resolution.
 - [x] Add indentation and omitted-line unified-diff recovery. Each stage requires
-  one unique match; omitted-line search caps hunks at 100 lines, permits at most
-  20 omitted lines, and stops after 10,000 comparisons.
+      one unique match; omitted-line search caps hunks at 100 lines, permits at most
+      20 omitted lines, and stops after 10,000 comparisons.
 - [x] Complete bounded partial-context unified-diff recovery. Outer unchanged
-  context is reduced over at most 256 exact/indentation candidates; no-final-
-  newline assertions cannot be dropped, and every ambiguous candidate is
-  rejected. Standard markers preserve, add, or remove the final newline
-  according to position, intentionally fixing pinned aider's marker-tolerance
-  behavior.
+      context is reduced over at most 256 exact/indentation candidates; no-final-
+      newline assertions cannot be dropped, and every ambiguous candidate is
+      rejected. Standard markers preserve, add, or remove the final newline
+      according to position, intentionally fixing pinned aider's marker-tolerance
+      behavior.
 - [x] Preserve added/context Markdown fence lines inside unified-diff blocks.
-  Fence discovery now follows pinned aider's physical-line scan, so only an
-  unprefixed line closes the response block. Parser and installed-turn tests
-  cover added, removed, and retained fences.
+      Fence discovery now follows pinned aider's physical-line scan, so only an
+      unprefixed line closes the response block. Parser and installed-turn tests
+      cover added, removed, and retained fences.
 - [x] Apply insertion-only hunks at their validated location or reject them.
-  The parser retains numeric old/new ranges for empty-preimage edits, validates
-  declared counts and cumulative offsets from prior ranged insertions, and
-  application bounds the resulting location against the current snapshot. A
-  preceding content-located hunk makes a later context-free range unvalidated.
-  Missing, inconsistent, unvalidated, and out-of-file locations fail closed;
-  tests cover beginning, middle, end, repeated insertion text, new files, and
-  existing empty files.
+      The parser retains numeric old/new ranges for empty-preimage edits, validates
+      declared counts and cumulative offsets from prior ranged insertions, and
+      application bounds the resulting location against the current snapshot. A
+      preceding content-located hunk makes a later context-free range unvalidated.
+      Missing, inconsistent, unvalidated, and out-of-file locations fail closed;
+      tests cover beginning, middle, end, repeated insertion text, new files, and
+      existing empty files.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
-  update blocks merge with an overlap check, and duplicate/conflicting actions
-  are rejected. The independent pinned format golden covers an exact update;
-  broader upstream Patch behavior is not implied.
+      update blocks merge with an overlap check, and duplicate/conflicting actions
+      are rejected. The independent pinned format golden covers an exact update;
+      broader upstream Patch behavior is not implied.
 - [x] Integrate architect/editor handoff with explicit user acceptance. The
-  application runs a read-only architect over current history/context, records
-  its proposal even when denied, constructs a fresh editor only after approval,
-  and transfers selected paths, cost, commit ownership, cancellation, and the
-  final architect acknowledgement back to the parent session.
+      application runs a read-only architect over current history/context, records
+      its proposal even when denied, constructs a fresh editor only after approval,
+      and transfers selected paths, cost, commit ownership, cancellation, and the
+      final architect acknowledgement back to the parent session.
 - [x] Integrate context mode's repeated file selection with a bounded convergence
-  loop. Each pass force-refreshes an initially expanded map using the original
-  request's identifier hints and the complete provisional file set. A stable set
-  atomically replaces editable paths after approval; cancellation, rejection,
-  and deterministic non-convergence leave the parent selection unchanged.
+      loop. Each pass force-refreshes an initially expanded map using the original
+      request's identifier hints and the complete provisional file set. A stable set
+      atomically replaces editable paths after approval; cancellation, rejection,
+      and deterministic non-convergence leave the parent selection unchanged.
 - [x] Complete media integration. Prompt-cache boundaries and
-  opt-in keepalive are production-wired: only the marked prefix is refreshed at
-  295-second intervals, pings cap at ten, and session shutdown cancels timers and
-  in-flight refreshes. Bounded repeated prefill, including DeepSeek prefix
-  normalization, replaces the prior cumulative prefix and aggregates usage.
-  `/attach` loads explicitly approved, contained, capability-gated image/PDF
-  context with fixed per-file/count/aggregate bounds, signature validation,
-  cancellation, ephemeral history treatment, and `/drop` cleanup.
+      opt-in keepalive are production-wired: only the marked prefix is refreshed at
+      295-second intervals, pings cap at ten, and session shutdown cancels timers and
+      in-flight refreshes. Bounded repeated prefill, including DeepSeek prefix
+      normalization, replaces the prior cumulative prefix and aggregates usage.
+      `/attach` loads explicitly approved, contained, capability-gated image/PDF
+      context with fixed per-file/count/aggregate bounds, signature validation,
+      cancellation, ephemeral history treatment, and `/drop` cleanup.
 - [x] Keep clipboard access text-only. Unlike aider's image-first clipboard
-  probe and external temporary file, Patch requires image/PDF context to enter
-  through a user-named `/attach` path with visible approval and containment.
+      probe and external temporary file, Patch requires image/PDF context to enter
+      through a user-named `/attach` path with visible approval and containment.
 
 **Exit — scoped advanced-workflow contract met:** architect/context stay
 embedding-only application workflows for the current release. Their explicit
@@ -831,58 +825,56 @@ individual edit-strategy suites.
 ### Phase 8 — Rich terminal parity
 
 - [x] Connect command and file completion to the executable. Tab completes
-  command names and files selected at that keystroke, re-read per completion so
-  candidates follow `/add` and `/drop`.
+      command names and files selected at that keystroke, re-read per completion so
+      candidates follow `/add` and `/drop`.
 - [x] Connect approved source-identifier candidates to executable completion.
-  The application refreshes available non-ignored filenames and extracts
-  identifiers only from current editable/read-only source on each completion;
-  ignored, stale-dropped, and out-of-root content cannot become candidates.
+      The application refreshes available non-ignored filenames and extracts
+      identifiers only from current editable/read-only source on each completion;
+      ignored, stale-dropped, and out-of-root content cannot become candidates.
 - [x] Add persistent input/chat history navigation. With
-  `--input-history-file` configured the reader seeds recall from it; without the
-  option nothing is written and nothing is recalled.
+      `--input-history-file` configured the reader seeds recall from it; without the
+      option nothing is written and nothing is recalled.
 - [x] Add Emacs/Vi bindings and external-editor support to the executable.
-  Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
-  draft in the configured editor. Vi modal editing is not implemented, so
-  `--vim` is refused by name rather than accepted and ignored.
+      Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
+      draft in the configured editor. Vi modal editing is not implemented, so
+      `--vim` is refused by name rather than accepted and ignored.
 - [x] Preserve Windows drive, UNC, and relative backslashes in both slash-command
-  paths and configured external-editor commands. Cover spaces, quotes, literal
-  backslashes, and POSIX escaping through parser and editor-command tests. Both
-  consumers now use one quote-aware splitter with focused cases for every form.
+      paths and configured external-editor commands. Cover spaces, quotes, literal
+      backslashes, and POSIX escaping through parser and editor-command tests. Both
+      consumers now use one quote-aware splitter with focused cases for every form.
 - [x] Bound and cancel clipboard utility processes. Cap read/write bytes and
-  duration, forward cancellation, terminate and drain the child, and prove a
-  hung or overproducing utility cannot hold the session queue indefinitely.
-  Defaults are 10 seconds and 1 MiB; focused executable tests cover timeout,
-  cancellation, output overflow, process cleanup, and queue reuse.
+      duration, forward cancellation, terminate and drain the child, and prove a
+      hung or overproducing utility cannot hold the session queue indefinitely.
+      Defaults are 10 seconds and 1 MiB; focused executable tests cover timeout,
+      cancellation, output overflow, process cleanup, and queue reuse.
 - [x] Retain language identifiers for variable-length Markdown fences. The
-  renderer tracks the opening run and language across split chunks, preserves
-  shorter runs as code, and accepts only an at-least-matching bare close.
+      renderer tracks the opening run and language across split chunks, preserves
+      shorter runs as code, and accepts only an at-least-matching bare close.
 - [x] Keep computed edit-preview hunks, Rich-style tables/lists/wrapping and
-  unstable-tail rerendering, and true Vi modal input out of current scope. They
-  require one renderer/line-editor replacement project; isolated toggles would
-  advertise partial behavior. Preserve full previews, Ctrl-X Ctrl-E, sanitizer,
-  and approval boundaries.
+      unstable-tail rerendering, and true Vi modal input out of current scope. They
+      require one renderer/line-editor replacement project; isolated toggles would
+      advertise partial behavior. Preserve full previews, Ctrl-X Ctrl-E, sanitizer,
+      and approval boundaries.
 - [x] Dispatch explicitly requested interactive commands through optional
-  `node-pty`. `/run --interactive` is the only caller; the native package loads
-  at that point and nowhere else, the line reader is released and restored
-  around the child, and an interface with no terminal refuses the command.
+      `node-pty`. `/run --interactive` is the only caller; the native package loads
+      at that point and nowhere else, the line reader is released and restored
+      around the child, and an interface with no terminal refuses the command.
 - [x] Complete shell completions and notification timing/failure handling. The
-  completion script is generated from the options the parser registered, so it
-  cannot fall behind the executable; `--notifications` fires for a provider turn
-  and not for a slash command; and a failing notification command is reported
-  instead of ending the input loop. Clipboard text semantics are settled:
-  `/paste` submits clipboard text as a user turn without reparsing it as a
-  command. Clipboard images remain unread.
+      completion script is generated from the options the parser registered, so it
+      cannot fall behind the executable; `--notifications` fires for a provider turn
+      and not for a slash command; and a failing notification command is reported
+      instead of ending the input loop. Clipboard text semantics are settled:
+      `/paste` submits clipboard text as a user turn without reparsing it as a
+      command. Clipboard images remain unread.
 - [x] Define the maintained shell/input surface as Bash, Zsh, and Fish completion
-  plus one Node readline implementation. Shell-suggestion policy remains
-  strategy-owned and every suggested command remains previewed and approved;
-  untested shell generators and alternate line editors are non-goals.
+      plus one Node readline implementation. Shell-suggestion policy remains
+      strategy-owned and every suggested command remains previewed and approved;
+      untested shell generators and alternate line editors are non-goals.
 
-**Exit:** command/file/source-identifier
-completion, recall, multiline, the external editor, explicit PTY dispatch,
-generated shell completions, and provider-turn-only notifications all run
-through the executable's reader. Variable-length fence coverage closes the
-renderer correctness item. Broader Rich renderer fidelity is a separate
-deferred product decision.
+**Exit:** command/file/source-identifier completion, recall, multiline, external
+editing, explicit PTY dispatch, generated shell completions, notifications, and
+variable-length fences run through the executable. Rich rendering, computed
+previews, and Vi modal input are explicit non-goals rather than deferred parity.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,
@@ -896,39 +888,39 @@ passed both supported PTY jobs at implementation revision
 ### Phase 9 — Optional interfaces
 
 - [x] Feed bounded URL fetching into application context. `/web <url>` fetches
-  one user-typed URL through the SSRF-safe fetcher, converts HTML to readable
-  text without adding a dependency, and adds it to history labeled with the
-  final URL and truncated to a share of the input window. URL detection in prose
-  and the optional Playwright renderer stay out of the command path. This is the
-  maintained security/privacy boundary: browser navigation, subresource loading,
-  and implicit fetches are non-goals unless a separate threat model and visible
-  approval boundary are designed.
+      one user-typed URL through the SSRF-safe fetcher, converts HTML to readable
+      text without adding a dependency, and adds it to history labeled with the
+      final URL and truncated to a share of the input window. URL detection in prose
+      and the optional Playwright renderer stay out of the command path. This is the
+      maintained security/privacy boundary: browser navigation, subresource loading,
+      and implicit fetches are non-goals unless a separate threat model and visible
+      approval boundary are designed.
 - [x] Add supported startup for `AI!`/`AI?` watch mode. `--watch-files` shares
-  the concrete terminal session and Git ignore predicate; question-only turns
-  suppress edits and commands. Node.js local-filesystem notifications are used.
+      the concrete terminal session and Git ignore predicate; question-only turns
+      suppress edits and commands. Node.js local-filesystem notifications are used.
 - [x] Add supported startup for the local authenticated HTTP/SSE server through
-  the real `ApplicationService`. Partial post-write failures return bounded
-  changed paths, a validated commit ID, and command outcomes without raw causes,
-  commands, or output.
+      the real `ApplicationService`. Partial post-write failures return bounded
+      changed paths, a validated commit ID, and command outcomes without raw causes,
+      commands, or output.
 - [x] Define session expiry, quotas, bounded event/backpressure policy, and
-  reclamation. Sessions expire after bounded idle time; total, per-principal,
-  message, and SSE-client quotas reject excess work; event replay and each slow
-  client's pending bytes are bounded. Loopback HTTP tests directly verify
-  disconnect cancellation and overflow recovery.
+      reclamation. Sessions expire after bounded idle time; total, per-principal,
+      message, and SSE-client quotas reject excess work; event replay and each slow
+      client's pending bytes are bounded. Loopback HTTP tests directly verify
+      disconnect cancellation and overflow recovery.
 - [x] Keep a browser GUI out of current scope. The loopback HTTP/SSE server is an
-  API; a GUI requires its own approval, secret-storage, session/reconnect,
-  browser-security, and shared-worktree interaction product contract.
+      API; a GUI requires its own approval, secret-storage, session/reconnect,
+      browser-security, and shared-worktree interaction product contract.
 - [x] Add voice recording/transcription as an optional package subpath and
-  embedding adapter without changing the default install footprint. No CLI
-  `/voice` or device/recording UX is claimed.
+      embedding adapter without changing the default install footprint. No CLI
+      `/voice` or device/recording UX is claimed.
 - [x] Retain containment when media and watch files are read after canonical
-  resolution. The shared no-follow read boundary re-resolves after open, checks
-  handle/path identity and every in-root ancestor, then reads only through the
-  retained handle. Deterministic pre-open ancestor swaps fail without returning
-  media or submitting watch comments.
+      resolution. The shared no-follow read boundary re-resolves after open, checks
+      handle/path identity and every in-root ancestor, then reads only through the
+      retained handle. Deterministic pre-open ancestor swaps fail without returning
+      media or submitting watch comments.
 - [x] Make the exported `FfmpegVoiceRecorder` reject a pre-aborted signal before
-  spawning. A deterministic real-process test proves the adapter preserves the
-  abort reason without creating a child side effect or listener.
+      spawning. A deterministic real-process test proves the adapter preserves the
+      abort reason without creating a child side effect or listener.
 
 **Exit:** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
@@ -1001,21 +993,21 @@ wrong implementation produces a different result.
 
 ## Highest risks
 
-| Risk | Mitigation |
-| --- | --- |
-| LiteLLM provider breadth has no exact Node equivalent | Support named providers explicitly behind a normalized event contract. |
-| Python truthiness, generators, exceptions, and class attributes do not map directly | Use discriminated unions, explicit `undefined` handling, async iterables, typed effects, and instance fields. |
-| Model output is malformed or ambiguous | Dedicated parsers, dry-run resolution, bounded reflection, golden fixtures, and property tests. |
-| Writes escape the repository through `..` or symlinks | Canonicalize parent and target paths and enforce containment immediately before every write. |
-| Media or watch reads escape after an ancestor swap | Open without following the final component, re-resolve and verify handle/path plus ancestor identities, then consume bytes only through the retained handle. |
-| Multi-file apply fails halfway | Compute and validate all resulting contents first; each file replacement is atomic, but cross-file rollback remains unsupported and documented. |
-| Git differs across worktrees, unborn/detached HEAD, hooks, and partial staging | Use the installed Git CLI and real-repository integration tests. |
-| Shell quoting differs across POSIX, PowerShell, and `cmd.exe` | Prefer argv execution, require approval, and test each supported platform explicitly. |
-| Tree-sitter grammar/query versions drift | Pin versions together and test every shipped language in the packed npm artifact. |
-| Repo-map output is nondeterministic | Stable sort graph inputs and tie-breaks; compare normalized ranking fixtures. |
-| Native dependencies make installation fragile | Keep PTY, browser, voice, and native parsers optional and late. |
-| Provider streams interleave with commands/watchers | Serialize session mutations and make every long operation abortable. |
-| History and logs expose secrets | Create no logs by default, document retention, and redact credentials from diagnostics. |
+| Risk                                                                                | Mitigation                                                                                                                                                   |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LiteLLM provider breadth has no exact Node equivalent                               | Support named providers explicitly behind a normalized event contract.                                                                                       |
+| Python truthiness, generators, exceptions, and class attributes do not map directly | Use discriminated unions, explicit `undefined` handling, async iterables, typed effects, and instance fields.                                                |
+| Model output is malformed or ambiguous                                              | Dedicated parsers, dry-run resolution, bounded reflection, golden fixtures, and property tests.                                                              |
+| Writes escape the repository through `..` or symlinks                               | Canonicalize parent and target paths and enforce containment immediately before every write.                                                                 |
+| Media or watch reads escape after an ancestor swap                                  | Open without following the final component, re-resolve and verify handle/path plus ancestor identities, then consume bytes only through the retained handle. |
+| Multi-file apply fails halfway                                                      | Compute and validate all resulting contents first; each file replacement is atomic, but cross-file rollback remains unsupported and documented.              |
+| Git differs across worktrees, unborn/detached HEAD, hooks, and partial staging      | Use the installed Git CLI and real-repository integration tests.                                                                                             |
+| Shell quoting differs across POSIX, PowerShell, and `cmd.exe`                       | Prefer argv execution, require approval, and test each supported platform explicitly.                                                                        |
+| Tree-sitter grammar/query versions drift                                            | Pin versions together and test every shipped language in the packed npm artifact.                                                                            |
+| Repo-map output is nondeterministic                                                 | Stable sort graph inputs and tie-breaks; compare normalized ranking fixtures.                                                                                |
+| Native dependencies make installation fragile                                       | Keep PTY, browser, voice, and native parsers optional and late.                                                                                              |
+| Provider streams interleave with commands/watchers                                  | Serialize session mutations and make every long operation abortable.                                                                                         |
+| History and logs expose secrets                                                     | Create no logs by default, document retention, and redact credentials from diagnostics.                                                                      |
 
 ## Definition of done for parity claims
 

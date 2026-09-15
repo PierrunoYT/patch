@@ -164,13 +164,13 @@ summarize history before an incompatible format switch; failure preserves the
 old profile/history and replacement capability filtering removes unsupported
 media. `/paste` submits clipboard text as a user turn, and an interrupted turn
 reports any edits that survived.
-Historical checklist completions do not establish release readiness. The latest
-[file-for-file parity audit](docs/aider-parity-audit-2026-09-15.md) and
-[pinned source inventory](docs/aider-source-inventory-2026-09-15.md) classify
-every aider product module and runtime resource at their audited revisions. The
-[consolidated task register](task.md) is the deduplicated actionable queue. The
-[detailed integration backlog](docs/remaining-integration-tasks.md) preserves
-completed fixes, historical evidence, and implementation context.
+Historical checklist completions do not establish release readiness. The
+[current parity audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md) and
+[current source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md)
+classify the pinned aider surface against Patch `c9c59c6`; older dated reports
+remain historical. The [task register](task.md) contains the single remaining
+external-evidence item, while the
+[detailed backlog](docs/remaining-integration-tasks.md) preserves history.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
 with import-derived coverage and status-hidden-change tests. Provenance remains
 purposefully split between direct attribution, the dated Git-tree inventory,
@@ -228,10 +228,10 @@ Patch processes. The process-wide lock registry uses weak references so unused
 locks can be garbage-collected; idle sessions keep sharing their existing lock.
 Deterministic loopback tests exercise principal/session event
 isolation, HTTP disconnect cancellation, SSE overflow/replay, concrete
-post-write recovery, and simultaneous terminal/watch/web mutations. See the unchecked items in
-[`task.md`](task.md) for the consolidated remaining scope and
-[`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
-detailed evidence and historical context.
+post-write recovery, and simultaneous terminal/watch/web mutations. The
+[current parity audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md) and
+[task register](task.md) distinguish selected production scope, intentional
+differences, and the remaining live-provider evidence gap.
 
 Implemented foundations include strict TypeScript validation, deterministic
 fake-provider tests, [safe filesystem behavior](docs/filesystem-safety.md),
