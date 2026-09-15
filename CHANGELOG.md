@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept repository-map parsing to the eleven shipped language entries for this
+  release. Unsupported languages retain bounded lexical references; future
+  parsers require concrete demand plus pinned query/grammar, fixture, cache, and
+  packed cross-platform evidence.
+
 - Kept computed preview hunks, Rich-style rendering, and true Vi modal input out
   of current scope. They require one coherent renderer/line-editor replacement;
   full-content previews, streaming Markdown, Ctrl-X Ctrl-E, and sanitization

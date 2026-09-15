@@ -260,9 +260,11 @@ security rules above.
 
 ### Repository maps, Git, recovery, and checks
 
-- [ ] **MAP-1:** Select repository-map languages beyond the shipped eleven. Add
-  a pinned tag fixture, packaged grammar/query evidence, cache fingerprinting,
-  and cross-platform extraction per language.
+- [x] **MAP-1:** Keep the shipped eleven repository-map language entries as the
+  current release set. Unsupported languages still contribute bounded lexical
+  references, so speculative breadth is unnecessary. Add a language only from a
+  concrete user requirement, with its pinned query/grammar, tag fixture, cache
+  fingerprint, extraction tests, and packed cross-platform evidence.
 - [ ] **MAP-2:** Decide whether to expose map token, refresh, multiplier, and
   display controls through configuration and commands.
 - [x] **MAP-3:** Treat exact arbitrary-program and every-language ranking parity

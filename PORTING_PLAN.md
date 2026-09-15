@@ -623,6 +623,9 @@ on `88adf8e5c` skipped all seven contracts because no provider secrets were
 available, so it is workflow/skip evidence only. A 2026-09-15 local attempt
 skipped all nine current gates because the orb also had no provider credentials.
 
+- [x] Keep the current repository-map language set to the eleven shipped entries.
+  Unsupported languages retain lexical-reference participation; each future
+  parser requires a concrete need and independent pinned/package/platform proof.
 ### Phase 5 — Git, authorization, and commands (MVP)
 
 - [x] Discover one common Git worktree for selected paths and reject paths from

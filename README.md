@@ -139,6 +139,9 @@ the dependency-free terminal contract.
 Computed preview hunks, Rich-style rendering, and true Vi modal input are not
 current-release features; they require one coherent renderer/line-editor
 replacement rather than partial compatibility toggles.
+Repository maps keep the eleven shipped language entries for this release;
+unsupported languages still contribute bounded lexical references. New parsers
+require a concrete need and pinned/package/cross-platform evidence.
 Media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;

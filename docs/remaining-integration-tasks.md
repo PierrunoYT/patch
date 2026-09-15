@@ -501,14 +501,14 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Repository maps, Git, filesystem, and recovery
 
-- [ ] **P2 -- Decide repository-map language expansion beyond the shipped
-  eleven.** **Status:** partial. Patch's exact list is in
-  `src/context/repomap-resources.ts:6-17,43-55`; Aider dynamically uses the
-  broader query inventory through `aider/repomap.py:279-363,805-842`, including
-  languages such as C, Clojure, Dart, Elixir, Elm, Gleam, Lua, OCaml, R,
-  Solidity, Swift, and Zig. Add one pinned tag fixture, packaged grammar/query
-  evidence, cache fingerprinting, and cross-platform extraction case per
-  selected language.
+- [x] **N/A -- Keep the shipped eleven repository-map entries.** **Status:**
+  accepted current-release scope. JavaScript, TypeScript, TSX, Python, Go, Rust,
+  Bash, C/C++, C#, Java, and Ruby retain pinned/package extraction evidence.
+  Unsupported languages still contribute bounded lexical references to rank
+  known definitions. Broader query inventory is not selected speculatively;
+  each future language needs a concrete product requirement plus attributed
+  query/grammar, pinned tags, cache fingerprint coverage, focused extraction,
+  and packed cross-platform evidence.
 - [ ] **P2 -- Expose repository-map token, refresh, multiplier, and display
   controls if operationally needed.** **Status:** partial. Patch implements map
   budgets and refresh modes in `src/context/repository-map.ts:15-46,60-188` but

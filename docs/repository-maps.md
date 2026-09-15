@@ -12,11 +12,13 @@ all resources are resolved relative to `import.meta.url`, never the process
 working directory. Branding-only `assets/` remains unchanged.
 
 The shipped extraction set covers JavaScript, TypeScript, TSX, Python, Go,
-Rust, Bash, C/C++, C#, Java, and Ruby. TypeScript and TSX use distinct grammars;
-Patch currently routes `.c` and `.h` through the C++ grammar. The C/C++ golden
-uses a `.cpp` sample, so it does not establish separate C-source/header parity.
-A new language requires a pinned grammar, an attributed tag query,
-compatibility fixtures, extraction tests, and packed-package smoke coverage.
+Rust, Bash, C/C++, C#, Java, and Ruby and is the complete current-release set.
+TypeScript and TSX use distinct grammars; `.c` and `.h` currently route through
+the C++ grammar, so the `.cpp` golden does not establish separate C parity.
+Unsupported languages still contribute bounded lexical references. Add a new
+language only for a concrete requirement, with a pinned grammar, attributed
+query, tag fixture, extraction tests, cache fingerprinting, and packed
+cross-platform evidence.
 
 Production filters selected and raw tracked paths through ordinary Git and root
 `.aiderignore` rules before snapshots, mention matching, map extraction, or
