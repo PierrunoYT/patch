@@ -103,9 +103,9 @@ Baseline for the current findings:
 - [ ] **TERM-1: Preserve language identifiers on variable-length Markdown
   fences.** Cover matching four-or-more-backtick open/close fences, language
   capture, and split stream chunks.
-- [ ] **VOICE-1: Honor pre-aborted signals in `FfmpegVoiceRecorder`.** Check
-  cancellation before spawning and directly test the exported adapter, not only
-  fake recorder handoffs.
+- [x] **VOICE-1: Honor pre-aborted signals in `FfmpegVoiceRecorder`.** The
+  exported adapter checks cancellation before spawning; a real subprocess test
+  proves a pre-aborted call creates no child side effect or abort listener.
 - [ ] **CORE-2: Settle close-only reasoning display behavior.** Current final
   cleanup protects history and edit parsing but cannot retract content already
   emitted to a consumer. Decide whether attempt buffering/reset semantics fully

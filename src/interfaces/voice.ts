@@ -179,6 +179,7 @@ export class FfmpegVoiceRecorder implements VoiceRecorder {
     destination: string,
     options: VoiceRecordOptions,
   ): Promise<void> {
+    options.signal.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       const child = spawn(
         this.#executable,

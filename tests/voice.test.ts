@@ -1,9 +1,12 @@
-import { access, writeFile } from "node:fs/promises";
 import { getEventListeners } from "node:events";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  FfmpegVoiceRecorder,
   VoiceInput,
   VoiceInputError,
   type VoiceRecorder,
@@ -12,6 +15,34 @@ import {
 import type { ApplicationSession } from "../src/core/application-service.js";
 
 describe("optional voice input", () => {
+  it("does not spawn the exported ffmpeg adapter for a pre-aborted signal", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "patch-ffmpeg-abort-"));
+    const marker = join(directory, "spawned");
+    const controller = new AbortController();
+    const reason = new Error("already cancelled");
+    controller.abort(reason);
+    const recorder = new FfmpegVoiceRecorder({
+      executable: process.execPath,
+      inputArguments: [
+        "-e",
+        `require("node:fs").writeFileSync(${JSON.stringify(marker)}, "spawned")`,
+      ],
+    });
+
+    try {
+      await expect(
+        recorder.record(join(directory, "recording.wav"), {
+          durationMs: 100,
+          signal: controller.signal,
+        }),
+      ).rejects.toBe(reason);
+      await expect(access(marker)).rejects.toThrow();
+      expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("records, bounds, transcribes, and removes temporary audio", async () => {
     let recordedPath = "";
     let transcribedPath = "";

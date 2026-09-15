@@ -8,13 +8,7 @@ provider use, support cancellation, and allow transcript review before submissio
 
 Voice support is isolated behind the `@pierrunoyt/patch/voice` package subpath. The default CLI and main library entry point do not import it, and Patch adds no native audio, Playwright, or bundled ffmpeg dependency.
 
-`VoiceInput` composes a `VoiceRecorder` and `VoiceTranscriber`, limits recording duration (five minutes), audio size (25 MiB), and transcript size, forwards cancellation to both operations, and always removes its private temporary directory. `FfmpegVoiceRecorder` is an optional subprocess adapter: callers provide explicit, platform-appropriate input arguments and may select the ffmpeg executable. It uses argv without a shell and caps captured diagnostics. `OpenAiVoiceTranscriber` uses the existing OpenAI SDK and supports a selected transcription model and language.
-
-The exported ffmpeg adapter currently spawns before registering its abort
-listener and does not precheck `signal.aborted`. `VoiceInput.capture()` performs
-that precheck before calling a recorder, but a direct adapter caller can still
-start work after cancellation and miss the signal. This P2 adapter defect needs
-a real subprocess test; the fake-recorder handoff tests do not establish it.
+`VoiceInput` composes a `VoiceRecorder` and `VoiceTranscriber`, limits recording duration (five minutes), audio size (25 MiB), and transcript size, forwards cancellation to both operations, and always removes its private temporary directory. `FfmpegVoiceRecorder` is an optional subprocess adapter: callers provide explicit, platform-appropriate input arguments and may select the ffmpeg executable. It checks pre-aborted signals before process creation, uses argv without a shell, and caps captured diagnostics. `OpenAiVoiceTranscriber` uses the existing OpenAI SDK and supports a selected transcription model and language.
 
 `VoiceInput.captureAndSubmit(session, options)` passes the bounded transcript to
 an explicit `ApplicationSession` using the same abort signal and event callback
@@ -32,11 +26,13 @@ Recorder/transcriber implementations must still honor their signal to interrupt
 work already in progress; Patch cannot force a non-cooperative promise to settle.
 
 `tests/voice.test.ts` uses fake recorders/transcribers/sessions and deterministic
-handoff gates to cover pre-abort, each active stage, late transcription, the
+handoff gates to cover each active stage, late transcription, the
 capture/submission boundary, failure cleanup, and successful listener removal.
-Temporary audio removal is checked; no microphone, ffmpeg, SDK network call, or
-CLI voice path is exercised. Compared again with pinned `aider/voice.py:106–180`,
-this is Patch's async cancellation/cleanup policy, not parity with upstream's
-interactive recording and synchronous transcription flow.
+It also invokes the exported recorder with the Node executable as a deterministic
+ffmpeg stand-in and proves a pre-aborted call creates no child side effect or
+listener. Temporary audio removal is checked; no microphone, actual ffmpeg, SDK
+network call, or CLI voice path is exercised. Compared again with pinned
+`aider/voice.py:106–180`, this is Patch's async cancellation/cleanup policy, not
+parity with upstream's interactive recording and synchronous transcription flow.
 
 Consumers that need microphone capture must install ffmpeg themselves or provide another recorder implementation. Merely installing or running Patch does not probe audio devices, download binaries, or add native build requirements. This is the npm equivalent of pinned aider's optional voice extra, rather than importing `sounddevice`, `soundfile`, `pydub`, and ffmpeg requirements into the default installation.

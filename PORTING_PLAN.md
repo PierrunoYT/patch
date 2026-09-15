@@ -140,7 +140,7 @@ this plan, task register, and backlog track current status and open work.
   reclamation, and concurrent terminal/watch/web work.
   Media/watch reads retain a verified handle after target and ancestor identity
   revalidation, rejecting deterministic pre-open redirection. The exported
-  ffmpeg adapter still misses a pre-aborted signal.
+  ffmpeg adapter rejects pre-aborted calls before process creation.
 - The eight ancillary feature families have explicit dispositions below.
   Offline `/help`, allowlisted `/settings`, and the bounded local `/report` draft
   are implemented and jointly exercised through terminal dispatch and the
@@ -833,14 +833,15 @@ because the provisioned native package fails its spawn contract there.
   handle/path identity and every in-root ancestor, then reads only through the
   retained handle. Deterministic pre-open ancestor swaps fail without returning
   media or submitting watch comments.
-- [ ] Make the exported `FfmpegVoiceRecorder` reject a pre-aborted signal before
-  spawning, and test the actual adapter rather than only fake recorder handoffs.
+- [x] Make the exported `FfmpegVoiceRecorder` reject a pre-aborted signal before
+  spawning. A deterministic real-process test proves the adapter preserves the
+  abort reason without creating a child side effect or listener.
 
-**Exit (blocked for the ffmpeg adapter):** package smoke tests assert that
+**Exit:** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
-mutation phases are serialized in-process. The ffmpeg pre-abort defect above
-must close before the optional-adapter exit is met.
+mutation phases are serialized in-process. Direct adapter coverage closes the
+ffmpeg pre-abort boundary without claiming real-device or CLI voice evidence.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,
 packed concrete-service startup in `scripts/package-smoke.mjs`, `tests/url-fetcher.test.ts`,

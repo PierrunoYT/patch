@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- `FfmpegVoiceRecorder` now rejects a pre-aborted signal before creating a
+  subprocess. A direct deterministic process test proves cancellation preserves
+  its reason without creating a child side effect or leaking an abort listener.
+
 - Restored the pinned DeepSeek contracts: both bundled profiles now use a
   128,000-token input limit, Chat retains an 8,192-token output limit, and
   Reasoner uses 64,000. Exact catalog and concrete provider-request tests keep
