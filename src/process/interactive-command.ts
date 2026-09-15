@@ -15,6 +15,7 @@ export interface InteractiveCommandResult {
   readonly status: "completed" | "cancelled";
   readonly exitCode: number;
   readonly output: string;
+  readonly truncated: boolean;
 }
 
 export interface InteractiveCommandOptions {
@@ -24,6 +25,7 @@ export interface InteractiveCommandOptions {
   /** Receives sanitized child output as it arrives. */
   readonly write: (text: string) => void;
   readonly signal?: AbortSignal;
+  readonly maxOutputBytes?: number;
   readonly columns?: number;
   readonly rows?: number;
   /** Subscribes to terminal resizes and returns the unsubscribe function. */
@@ -123,6 +125,9 @@ export async function runInteractiveCommand(
       onOutput: options.write,
       environment,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.maxOutputBytes === undefined
+        ? {}
+        : { maxOutputBytes: options.maxOutputBytes }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
       ...(options.rows === undefined ? {} : { rows: options.rows }),
       ...(options.loadPty === undefined ? {} : { loadPty: options.loadPty }),
@@ -131,6 +136,7 @@ export async function runInteractiveCommand(
       status: result.status,
       exitCode: result.exitCode,
       output: result.output,
+      truncated: result.truncated,
     };
   } finally {
     queue.end();

@@ -15,17 +15,25 @@ async function* input(events: readonly PtyInput[]): AsyncIterable<PtyInput> {
   yield* events;
 }
 
-function fakePty(output: readonly string[] = ["done"]): {
+function fakePty(
+  output: readonly string[] = ["done"],
+  options: {
+    readonly exitAfterOutput?: boolean;
+    readonly exitOnKill?: boolean;
+  } = {},
+): {
   module: PtyModule;
   writes: string[];
   resizes: Array<[number, number]>;
   kills: string[];
   disposals: string[];
+  exit: (exitCode?: number) => void;
 } {
   const writes: string[] = [];
   const resizes: Array<[number, number]> = [];
   const kills: string[] = [];
   const disposals: string[] = [];
+  let exitProcess: (exitCode?: number) => void = () => undefined;
   const module: PtyModule = {
     spawn: () => {
       let dataListener: (data: string) => void = () => undefined;
@@ -36,10 +44,11 @@ function fakePty(output: readonly string[] = ["done"]): {
         exited = true;
         exitListener({ exitCode });
       };
+      exitProcess = exit;
       setTimeout(() => {
         if (exited) return;
         for (const chunk of output) dataListener(chunk);
-        exit();
+        if (options.exitAfterOutput ?? true) exit();
       }, 10);
       return {
         onData: (listener) => {
@@ -54,12 +63,19 @@ function fakePty(output: readonly string[] = ["done"]): {
         resize: (columns, rows) => resizes.push([columns, rows]),
         kill: (signal) => {
           kills.push(signal ?? "default");
-          queueMicrotask(() => exit(1));
+          if (options.exitOnKill ?? true) queueMicrotask(() => exit(1));
         },
       };
     },
   };
-  return { module, writes, resizes, kills, disposals };
+  return {
+    module,
+    writes,
+    resizes,
+    kills,
+    disposals,
+    exit: (exitCode) => exitProcess(exitCode),
+  };
 }
 
 async function root(): Promise<string> {
@@ -134,6 +150,52 @@ describe("optional PTY lifecycle", () => {
     });
     expect(result.output).toBe("safedone");
     expect(streamed.join("")).toBe("safedone");
+  });
+
+  it("streams output while retaining a bounded UTF-8 prefix and draining after overflow", async () => {
+    const fake = fakePty(["abc", "éZ"], {
+      exitAfterOutput: false,
+      exitOnKill: false,
+    });
+    const streamed: string[] = [];
+    let settled = false;
+    const pending = runPtyCommand("tool", [], {
+      root: await root(),
+      maxOutputBytes: 4,
+      loadPty: async () => fake.module,
+      onOutput: (text) => streamed.push(text),
+    });
+    void pending.then(
+      () => void (settled = true),
+      () => void (settled = true),
+    );
+    for (
+      let attempt = 0;
+      attempt < 100 && fake.kills.length === 0;
+      attempt += 1
+    )
+      await new Promise((resolve) => setTimeout(resolve, 1));
+
+    expect(fake.kills).toEqual(["default"]);
+    expect(settled).toBe(false);
+    fake.exit(1);
+    const result = await pending;
+
+    expect(result).toMatchObject({ output: "abc", truncated: true });
+    expect(Buffer.byteLength(result.output)).toBeLessThanOrEqual(4);
+    expect(streamed.join("")).toBe("abcéZ");
+    expect(fake.disposals).toEqual(["data", "exit"]);
+  });
+
+  it("validates the retained transcript byte limit before starting", async () => {
+    const fake = fakePty();
+    await expect(
+      runPtyCommand("tool", [], {
+        root: await root(),
+        maxOutputBytes: 0,
+        loadPty: async () => fake.module,
+      }),
+    ).rejects.toThrow(/maxOutputBytes must be a positive integer/);
   });
 
   it("reports an unavailable optional native dependency", async () => {

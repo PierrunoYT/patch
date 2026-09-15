@@ -1825,7 +1825,7 @@ class ConcreteApplicationSession implements ApplicationSession {
             // same text so a later turn can report what was shown.
             stdout: interactive.output,
             stderr: "",
-            truncated: false,
+            truncated: interactive.truncated,
           };
         }, options.signal)
       : {

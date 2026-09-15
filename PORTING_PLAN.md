@@ -862,6 +862,8 @@ individual edit-strategy suites.
       `node-pty`. `/run --interactive` is the only caller; the native package loads
       at that point and nowhere else, the line reader is released and restored
       around the child, and an interface with no terminal refuses the command.
+      Sanitized output streams live, retained output has a 1 MiB UTF-8-safe ceiling,
+      and overflow kills and drains the PTY before returning a truncated result.
 - [x] Complete shell completions and notification timing/failure handling. The
       completion script is generated from the options the parser registered, so it
       cannot fall behind the executable; `--notifications` fires for a provider turn
@@ -874,7 +876,7 @@ individual edit-strategy suites.
       strategy-owned and every suggested command remains previewed and approved;
       untested shell generators and alternate line editors are non-goals.
 
-**Exit — blocked by `PROC-3` and `PROC-4`:** command/file/source-identifier completion, recall, multiline, external
+**Exit — blocked by `PROC-4`:** command/file/source-identifier completion, recall, multiline, external
 editing, explicit PTY dispatch, generated shell completions, notifications, and
 variable-length fences run through the executable. Rich rendering, computed
 previews, and Vi modal input are explicit non-goals rather than deferred parity.

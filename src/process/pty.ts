@@ -52,6 +52,7 @@ export interface PtyCommandOptions {
   readonly root: string;
   readonly input?: AsyncIterable<PtyInput>;
   readonly signal?: AbortSignal;
+  readonly maxOutputBytes?: number;
   readonly columns?: number;
   readonly rows?: number;
   readonly environment?: NodeJS.ProcessEnv;
@@ -64,11 +65,14 @@ export interface PtyCommandResult {
   readonly exitCode: number;
   readonly signal?: number;
   readonly output: string;
+  readonly truncated: boolean;
 }
 
 export class PtyUnavailableError extends Error {
   override readonly name = "PtyUnavailableError";
 }
+
+const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
 async function loadNodePty(): Promise<PtyModule> {
   try {
@@ -94,6 +98,21 @@ function dimension(
   return selected;
 }
 
+function utf8Prefix(text: string, maximumBytes: number): string {
+  const bytes = Buffer.from(text);
+  if (bytes.length <= maximumBytes) return text;
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for (let end = maximumBytes; end >= Math.max(0, maximumBytes - 3); end -= 1) {
+    try {
+      return decoder.decode(bytes.subarray(0, end));
+    } catch {
+      // A UTF-8 code point uses at most four bytes, so a complete boundary is
+      // present in this range (possibly the empty prefix).
+    }
+  }
+  return "";
+}
+
 export async function runPtyCommand(
   file: string,
   args: readonly string[],
@@ -102,6 +121,11 @@ export async function runPtyCommand(
   if (file.trim() === "") throw new TypeError("PTY executable cannot be empty");
   const columns = dimension(options.columns, 80, "columns");
   const rows = dimension(options.rows, 24, "rows");
+  const maxOutputBytes = dimension(
+    options.maxOutputBytes,
+    DEFAULT_MAX_OUTPUT_BYTES,
+    "maxOutputBytes",
+  );
   const root = await realpath(options.root);
   const module = await (options.loadPty ?? loadNodePty)();
   let pty: PtyProcess;
@@ -122,16 +146,32 @@ export async function runPtyCommand(
   return new Promise<PtyCommandResult>((resolve, reject) => {
     const sanitizer = new ControlSequenceSanitizer();
     let output = "";
+    let outputBytes = 0;
+    let truncated = false;
     let cancelled = false;
+    let stopping = false;
     let inputError: unknown;
+    const stop = () => {
+      if (stopping) return;
+      stopping = true;
+      pty.kill();
+    };
     const dataListener = pty.onData((data) => {
       const safe = sanitizer.write(data);
-      output += safe;
       if (safe !== "") options.onOutput?.(safe);
+      if (truncated) return;
+      const remaining = maxOutputBytes - outputBytes;
+      const retained = utf8Prefix(safe, remaining);
+      output += retained;
+      outputBytes += Buffer.byteLength(retained);
+      if (retained.length < safe.length) {
+        truncated = true;
+        stop();
+      }
     });
     const cancel = () => {
       cancelled = true;
-      pty.kill();
+      stop();
     };
     options.signal?.addEventListener("abort", cancel, { once: true });
     const exitListener = pty.onExit((event) => {
@@ -145,6 +185,7 @@ export async function runPtyCommand(
           exitCode: event.exitCode,
           ...(event.signal === undefined ? {} : { signal: event.signal }),
           output,
+          truncated,
         });
     });
 
@@ -152,7 +193,7 @@ export async function runPtyCommand(
     void (async () => {
       try {
         for await (const input of options.input ?? []) {
-          if (cancelled) break;
+          if (cancelled || truncated) break;
           if (input.type === "data") pty.write(input.data);
           else if (input.type === "interrupt") pty.write("\u0003");
           else if (input.type === "eof")
@@ -166,7 +207,7 @@ export async function runPtyCommand(
         }
       } catch (error) {
         inputError = error;
-        pty.kill();
+        stop();
       }
     })();
   });

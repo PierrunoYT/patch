@@ -116,6 +116,7 @@ describe("explicit interactive command dispatch", () => {
       exitCode: 0,
       // The window title escape never reaches the terminal.
       output: "ready> ",
+      truncated: false,
     });
     expect(pty.writes).toEqual(["exit\r"]);
     expect(pty.resizes).toEqual([[120, 40]]);
@@ -160,7 +161,12 @@ describe("/run --interactive dispatch", () => {
         options: { root: string },
       ) => {
         calls.push({ command, root: options.root });
-        return { status: "completed", exitCode: 0, output: "session output" };
+        return {
+          status: "completed",
+          exitCode: 0,
+          output: "session output",
+          truncated: true,
+        };
       },
     });
     const session = await application.createSession({
@@ -175,7 +181,9 @@ describe("/run --interactive dispatch", () => {
       }),
     ).resolves.toMatchObject({
       response: "Interactive command exited with 0",
-      commands: [{ status: "completed", stdout: "session output" }],
+      commands: [
+        { status: "completed", stdout: "session output", truncated: true },
+      ],
     });
     expect(calls).toEqual([{ command: "sh", root: application.root }]);
     await application.close();
@@ -188,7 +196,12 @@ describe("/run --interactive dispatch", () => {
       approveCommand: () => false,
       runInteractiveCommand: async () => {
         ran = true;
-        return { status: "completed", exitCode: 0, output: "" };
+        return {
+          status: "completed",
+          exitCode: 0,
+          output: "",
+          truncated: false,
+        };
       },
     });
     const deniedSession = await denied.createSession({

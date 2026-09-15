@@ -97,9 +97,10 @@ Baseline for the current findings:
       4 MiB ceiling. Completed with a pre-read size check and incremental bounded
       hashing that also stops if a file grows; production `RepositoryMap` coverage
       proves the extractor is never invoked for an oversized source.
-- [ ] **PROC-3: Bound interactive PTY transcript capture.** Stream sanitized
-      output while capping retained result bytes and terminate/drain cleanly on
-      overflow or cancellation.
+- [x] **PROC-3: Bound interactive PTY transcript capture.** Sanitized output
+      still streams live, while the retained UTF-8 transcript is capped at 1 MiB.
+      Overflow marks the result truncated, stops input, kills the PTY, and settles
+      only on exit; cancellation shares the same idempotent stop path.
 - [x] **WEB-3: Reserve session quota atomically across async creation.** Global
       and per-principal limits now include in-flight reservations made before
       application construction and released in `finally`. Concurrent total,

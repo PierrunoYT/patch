@@ -213,7 +213,9 @@ non-ignored source. Candidates are refreshed on each Tab press;
 `--input-history-file` also makes earlier input recallable,
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
 `$EDITOR`, and `/run --interactive` hands the terminal to one approved command
-through the optional `node-pty` package. `--vim` is refused rather than ignored;
+through the optional `node-pty` package. Its sanitized output streams live while
+the retained transcript is capped at 1 MiB and overflow terminates and drains the
+PTY. `--vim` is refused rather than ignored;
 Vi modal editing is not implemented. Generated completion supports the
 maintained Bash, Zsh, and Fish targets; Patch uses one Node readline path and
 does not expose suggestion/input toggles that could imply a different approval

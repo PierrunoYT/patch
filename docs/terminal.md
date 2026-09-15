@@ -241,9 +241,11 @@ with `PtyUnavailableError` naming the optional package.
 
 At the helper boundary, commands use executable-plus-argv input and a canonical
 working directory. Data, Ctrl-C, EOF, resize, abort, and capture are modeled.
-Sanitized output is streamed, but the returned transcript currently accumulates
-without a byte cap; `PROC-3` tracks bounding retained output and settling the PTY
-cleanly on overflow.
+Sanitized output streams as it arrives, while the returned UTF-8 transcript keeps
+at most 1 MiB by default. On overflow, Patch retains only a complete-code-point
+prefix, marks the command output truncated, stops accepting input, kills the PTY,
+and waits for its exit event before settling. Cancellation uses the same
+idempotent kill-and-drain path.
 Provisioned contract tests cover Linux and Windows. The pinned native package
 fails its spawn contract on the current macOS runner, so no macOS PTY support is
 claimed.

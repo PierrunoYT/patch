@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Bounded retained interactive PTY transcripts to a 1 MiB UTF-8-safe prefix
+  while preserving live sanitized output. Overflow now marks the result
+  truncated, stops input, kills the PTY, and waits for exit before settlement;
+  cancellation uses the same idempotent stop path.
+
 - Bounded active `FfmpegVoiceRecorder` cancellation. Abort now sends `SIGTERM`,
   escalates to `SIGKILL` after a one-second grace period, waits for child close,
   preserves the caller's abort reason, and cleans up its timer and listener.

@@ -73,7 +73,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Models/providers                 | partial aider breadth; open budget/counting gaps          | Three providers and six profiles are wired; fixed 1,024-token history thresholds and a potentially undercounting fallback diverge from pinned/safe budget behavior. Live OpenAI/DeepSeek evidence remains external.          |
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
-| Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
+| Commands/terminal                | selected scope; open editor bound                         | All 28 commands dispatch, and captured commands, clipboard, and PTY transcripts are bounded. Editor readback is not; opt-in transcripts intentionally include slash commands and returned text.                              |
 | Watch/URL/web/voice/help         | implemented selected scope                               | Watch, bounded URL transport, nesting-aware HTML discards, atomic concurrent session quotas, and bounded ffmpeg cancellation are wired. GUI/device UX remain non-goals.                                                   |
 | Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
 
@@ -93,7 +93,10 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       one exported source ceiling, a retained-handle size check, incremental
       bounded SHA-256, growth detection, and production map coverage that skips
       extraction while retaining the tracked filename.
-- [ ] **P1 / PROC-3 — cap retained PTY transcript output.**
+- [x] **P1 / PROC-3 — cap retained PTY transcript output.** Completed with a
+      validated 1 MiB default, UTF-8-safe prefix retention, live sanitized
+      streaming, overflow termination, exit-event settlement, and production
+      propagation of the truncated result.
 - [x] **P1 / WEB-3 — reserve concurrent session quota atomically.** Completed
       with global and per-principal in-flight counters reserved before async
       application construction and released on success, failure, and shutdown.
@@ -1716,7 +1719,9 @@ previews, and broader Rich rendering are explicit non-goals, not open defects.
       requested and available; keep noninteractive process execution portable.
       `/run --interactive` is the only caller, the optional native package is loaded
       at that point and nowhere else, and an interface without a terminal refuses
-      the command rather than running it unattached.
+      the command rather than running it unattached. Sanitized output continues to
+      stream while retained output is capped at 1 MiB; overflow kills and drains the
+      PTY, and the truncated flag reaches the application command result.
 - [x] Generate shell completions from the real option surface, trigger
       notifications only for provider turns, and make clipboard paste submit text
       through the normal user-turn path. `generateShellCompletion` takes the
