@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -228,6 +229,115 @@ describe("application slash commands", () => {
       }),
     ).rejects.toThrow("both editable and read-only");
     expect(createProvider).not.toHaveBeenCalled();
+  });
+
+  it("shows only literal selected-file Git changes and sanitizes the diff", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-diff-"));
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Patch Tests"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "patch@example.invalid"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "commit.gpgSign", "false"], { cwd: root });
+    await writeFile(join(root, "[ab].txt"), "selected old\n");
+    await writeFile(join(root, "a.txt"), "unselected old\n");
+    execFileSync("git", ["add", "--", "[ab].txt", "a.txt"], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "baseline"], {
+      cwd: root,
+    });
+    await writeFile(
+      join(root, "[ab].txt"),
+      "selected new\u001b]8;;https://unsafe.invalid\u0007spoof\n",
+    );
+    await writeFile(join(root, "a.txt"), "unselected secret\n");
+    const provider = new FakeProvider([]);
+    const approvePath = vi.fn(() => true);
+    const approveCommand = vi.fn(() => true);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--model", "4o", "--edit-format", "ask", "--file", "[ab].txt"],
+      dependencies: { provider, approvePath, approveCommand },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "diff",
+    });
+
+    const shown = (await session.submit("/diff", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    })) as { response: string };
+
+    expect(shown.response).toContain("selected newspoof");
+    expect(shown.response).not.toContain("unselected secret");
+    expect(shown.response).not.toContain("\u001b");
+    expect(provider.requests).toEqual([]);
+    expect(approvePath).not.toHaveBeenCalled();
+    expect(approveCommand).not.toHaveBeenCalled();
+    await service.close();
+  });
+
+  it("bounds selected Git diff output without splitting UTF-8", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-diff-bound-"));
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Patch Tests"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "patch@example.invalid"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "commit.gpgSign", "false"], { cwd: root });
+    await writeFile(join(root, "large.txt"), "old\n");
+    execFileSync("git", ["add", "large.txt"], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "baseline"], {
+      cwd: root,
+    });
+    await writeFile(join(root, "large.txt"), `${"é".repeat(600_000)}\n`);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--model", "4o", "--edit-format", "ask", "--file", "large.txt"],
+      dependencies: { provider: new FakeProvider([]) },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "diff-bound",
+    });
+
+    const shown = (await session.submit("/diff", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    })) as { response: string };
+
+    expect(Buffer.byteLength(shown.response)).toBeLessThanOrEqual(1024 * 1024);
+    expect(shown.response.endsWith("(diff output truncated)")).toBe(true);
+    expect(shown.response).not.toContain("�");
+    await service.close();
+  });
+
+  it("fails /diff safely without Git integration", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-diff-no-git-"));
+    await writeFile(join(root, "one.txt"), "one\n");
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--file", "one.txt"],
+      dependencies: { provider: new FakeProvider([]) },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "diff-no-git",
+    });
+
+    await expect(
+      session.submit("/diff", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      }),
+    ).rejects.toThrow("Diff requires Git integration");
+    await service.close();
   });
 
   it("dispatches selected-file, mode, process, clipboard, history, and exit effects", async () => {

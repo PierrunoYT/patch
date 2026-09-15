@@ -19,6 +19,7 @@ describe("parseCommand", () => {
       { type: "report", title: "Unexpected failure" },
     ],
     ["/settings", { type: "settings" }],
+    ["/diff", { type: "diff" }],
     ["/ls", { type: "ls" }],
     ["/clear", { type: "clear" }],
     ["/models", { type: "models" }],
@@ -112,6 +113,10 @@ describe("parseCommand", () => {
     expect(parseCommand("/copy")).toEqual({ type: "clipboard-copy" });
     expect(parseCommand("/paste")).toEqual({ type: "clipboard-paste" });
     expect(() => parseCommand("/copy now")).toThrow(/does not accept/u);
+  });
+
+  it("rejects arguments to the read-only diff command", () => {
+    expect(() => parseCommand("/diff one.txt")).toThrow(/does not accept/u);
   });
 
   it.each([

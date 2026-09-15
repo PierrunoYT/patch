@@ -28,6 +28,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "clear",
   "commit",
   "copy",
+  "diff",
   "drop",
   "exit",
   "help",
@@ -142,6 +143,7 @@ export function parseCommand(input: string): CommandEffect {
       effect = { type: "report", ...(title === undefined ? {} : { title }) };
       break;
     }
+    case "diff":
     case "ls":
     case "clear":
     case "settings":

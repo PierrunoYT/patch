@@ -82,7 +82,7 @@ unchanged result of any historical audit.
 | Models/providers | partial with scoped parity evidence | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, independent prompt-cache enablement, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. `gpt-4o-mini` format/map behavior, DeepSeek Reasoner weak/editor routing, and exact DeepSeek input/output limits match pinned resources through production paths. Separately gated live contracts remain subject to protected workflow/account variability. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads retain a no-follow handle only after re-resolving the target and verifying opened-file plus every in-root ancestor identity; deterministic pre-open swaps cannot return or submit external content. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
-| Commands/terminal | partial with scoped parity evidence | All 20 named Patch commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Clipboard utilities default to 10 seconds and 1 MiB, inherit session cancellation, terminate their process tree, and release the serialized queue after direct-child stdio closes. Slash-command paths and editor commands share a quote-aware splitter that preserves Windows separators and POSIX escapes. Variable-length fences retain their language across split chunks and require an at-least-matching bare close. Aider's `!` alias and bare `/read-only` conversion are unported. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, `/diff`, and wider command breadth remain outside this surface. |
+| Commands/terminal | partial with scoped parity evidence | All 26 named Patch commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. `/diff` exposes only current selected editable-file changes through literal Git pathspecs, sanitization, and a 1-MiB UTF-8 ceiling. Clipboard utilities default to 10 seconds and 1 MiB, inherit session cancellation, terminate their process tree, and release the serialized queue after direct-child stdio closes. Slash-command paths and editor commands share a quote-aware splitter that preserves Windows separators and POSIX escapes. Variable-length fences retain their language across split chunks and require an at-least-matching bare close. Aider's `!` alias and bare `/read-only` conversion are unported. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, and wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with scoped parity evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, rejects ancestor-swapped reads through a verified retained handle, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. The library-only voice helper and exported ffmpeg recorder have cancellation-boundary and listener-cleanup tests, including direct pre-abort process evidence; GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | implemented Patch scope with separate source inventory | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a 63-entry direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. The separate 2026-09-15 Git-tree inventory classifies every pinned product module/resource because attribution markers cannot prove upstream-source completeness. This is not aider's full option surface or transitive upstream-resource integrity. |
 
@@ -231,14 +231,22 @@ Status meanings in this section:
   highlighting plus shorter-run retention. Pinned aider delegates this behavior
   to Rich Markdown at `aider/mdstream.py:81-139`; Patch retains its bounded,
   dependency-free line renderer.
-- [ ] **P1 -- Remove or implement the documented Git-backed `/diff`
-  operation.** **Status:** defect. This documentation inconsistency is at
-  `docs/terminal.md:140-143`, which
-  names a Git-backed `/diff`, but the complete command inventory in
-  `src/commands/parse.ts:20-41` has no such command. Aider implements `/diff` in
-  `aider/commands.py:657-689`. Correct the statement if it only meant a future
-  distinction, or port the command with tests and add it to the parser-owned
-  inventory.
+- [x] **P1 -- Remove or implement the documented Git-backed `/diff`
+  operation.** **Status:** implemented 2026-09-15. `/diff` is a typed, serialized
+  production effect that displays current staged and unstaged changes only for
+  selected editable files. It uses the repository adapter's literal pathspecs,
+  strips terminal/bidirectional controls, caps complete UTF-8 output at 1 MiB,
+  and reports missing Git, missing selection, and no-change states. Focused
+  tests prove wildcard-like names stay literal, unselected content is absent,
+  hostile controls are removed, multibyte truncation is valid, and no provider
+  or approval hook runs; package smoke drives the installed bin in a real Git
+  repository. Pinned aider's `commands.py:657-689` instead compares commits
+  recorded around the last message. Patch intentionally retains current
+  selected-file disclosure rather than adding repository-wide commit history.
+  Local Linux/Node.js `v26.5.1` `npm run check` passed formatting, lint,
+  typechecking, 63-entry provenance, 752 tests with ten skips, build, and packed
+  installation including the new actual-bin command. This is not new Node 22,
+  macOS, or Windows evidence.
 
 The first three defects were reproduced against the built Patch package and
 compared with executable calls into the pinned Aider checkout. The renderer
@@ -375,12 +383,11 @@ valid only for the specific normalization and recovery cases they name.
 #### Commands and executable workflows
 
 - [ ] **P2 -- Add read-only inspection commands selected for Patch's product
-  scope.** **Status:** unported. Aider provides `/tokens`, `/diff`, `/map`,
+  scope.** **Status:** partial. Aider provides `/tokens`, `/diff`, `/map`,
   `/map-refresh`, `/copy-context`, and broader `/settings` at
-  `aider/commands.py:439-552,657-689,1418-1464,1638-1680`. Patch's complete
-  inventory at `src/commands/parse.ts:20-41` includes none except its bounded
-  `/settings`. Prioritize `/diff` because current docs already imply it; require
-  bounded output, literal paths, sanitization, and actual-bin tests.
+  `aider/commands.py:439-552,657-689,1418-1464,1638-1680`. Patch now has bounded
+  `/settings` and selected-file `/diff`; `/tokens`, map controls, and context
+  copying remain product decisions rather than implied support.
 - [ ] **P2 -- Decide session and mode command breadth.** **Status:** unported.
   Patch's surface is narrower. Aider adds `/reset`, `/ask`, `/code`,
   `/architect`, `/context`, `/ok`, `/multiline-mode`, and `/quit` at
@@ -1436,16 +1443,16 @@ deterministic tests; actual child execution is retained.
 
 ## R3 — Dispatch every advertised slash command
 
-**Status:** Every one of Patch's 20 named commands reaches a concrete effect.
-Windows-safe path tokenization and bounded clipboard execution are now covered;
-bare `/read-only` and aider's `!` alias remain unported, and `/diff` does not
-exist. Switching, undo ownership, bounded selection expansion, and ordinary
-command result reporting remain production-wired.
+**Status:** Every one of Patch's 26 named commands reaches a concrete effect.
+Windows-safe path tokenization, bounded clipboard execution, and selected-file
+`/diff` are covered; bare `/read-only` and aider's `!` alias remain unported.
+Switching, undo ownership, bounded selection expansion, and ordinary command
+result reporting remain production-wired.
 
 - [x] Add an application-owned dispatcher for `/add`, `/attach`, `/drop`,
-  `/read-only`, `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`,
-  `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
-  `/paste`, and `/exit`.
+  `/read-only`, `/help`, `/settings`, `/report`, `/diff`, `/ls`, `/clear`,
+  `/model`, `/chat-mode`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`,
+  `/copy`, `/paste`, and `/exit`.
 - [x] Resolve and authorize command paths through the same containment boundary
   as model edits; never mutate session lists from raw parser strings.
 - [x] Rebuild provider and the complete strategy/prompt state safely for
@@ -1473,9 +1480,10 @@ command result reporting remain production-wired.
 
 **Acceptance:** met only for registration, dispatch, and the exercised
 next-turn cases. `tests/advertised-commands.test.ts` keeps the named inventory
-equal to the parser/completion inventory and drives all 20 effects through one
+equal to the parser/completion inventory and drives all 26 effects through one
 real-Git concrete application, including safe failures. Focused tests separately
-establish Windows path splitting and clipboard subprocess bounds. Aider
+establish `/diff` privacy/bounds/sanitization, Windows path splitting, and
+clipboard subprocess bounds. Aider
 aliases/argument semantics and wider command breadth remain outside this
 acceptance; those findings above control the current status.
 
@@ -1848,10 +1856,10 @@ cover:
   `tests/edit-format-goldens.test.ts`);
 - [x] every named Patch slash command through its exercised application effect
   (`tests/advertised-commands.test.ts` asserts exact docs/parser inventory
-  equality and executes all 20 effects in a real temporary Git repository,
+  equality and executes all 26 effects in a real temporary Git repository,
   including safe containment, denial, refused URL ingestion, and missing-state
-  paths; this does not cover Windows path tokenization, clipboard bounds, aider
-  aliases/argument semantics, or prose-only `/diff`);
+  paths; focused tests separately cover Windows path tokenization, clipboard
+  bounds, and `/diff`; aider aliases/argument semantics remain outside scope);
 - [x] tag extraction from the installed package for every shipped language
   (`scripts/package-smoke.mjs`), not every-language provider-context parity;
 - [x] filtered ranked repository-map context through an actual installed-bin

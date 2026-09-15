@@ -196,6 +196,58 @@ try {
     throw new Error("The packed executable could not render a local report");
   }
 
+  const diffRoot = join(consumerDirectory, "diff-command");
+  mkdirSync(diffRoot);
+  writeFileSync(join(diffRoot, "selected.txt"), "selected old\n");
+  writeFileSync(join(diffRoot, "unselected.txt"), "unselected old\n");
+  execFileSync("git", ["init", "--quiet"], { cwd: diffRoot });
+  for (const [key, value] of [
+    ["user.name", "Patch Package Smoke"],
+    ["user.email", "patch-package-smoke@test.invalid"],
+    ["commit.gpgsign", "false"],
+  ]) {
+    execFileSync("git", ["config", key, value], { cwd: diffRoot });
+  }
+  execFileSync("git", ["add", "."], { cwd: diffRoot });
+  execFileSync("git", ["commit", "--quiet", "-m", "baseline"], {
+    cwd: diffRoot,
+  });
+  writeFileSync(join(diffRoot, "selected.txt"), "selected new\n");
+  writeFileSync(join(diffRoot, "unselected.txt"), "unselected secret\n");
+  const selectedDiff = execFileSync(
+    executable,
+    shellArguments([
+      "--watch-files",
+      "--model",
+      "4o",
+      "--edit-format",
+      "ask",
+      "--file",
+      "selected.txt",
+    ]),
+    {
+      cwd: diffRoot,
+      env: {
+        ...process.env,
+        HOME: diffRoot,
+        USERPROFILE: diffRoot,
+        OPENAI_API_KEY: "package-smoke-not-a-real-key",
+      },
+      input: "/diff\n/exit\n",
+      encoding: "utf8",
+      shell: useShell,
+      timeout: 15000,
+    },
+  );
+  if (
+    !selectedDiff.includes("selected new") ||
+    selectedDiff.includes("unselected secret")
+  ) {
+    throw new Error(
+      "The packed executable did not keep /diff to selected file changes",
+    );
+  }
+
   // Prove configuration precedence through the installed bin itself. These
   // runs stop at /settings, so the placeholder key is never sent anywhere.
   const precedenceRoot = join(consumerDirectory, "precedence");

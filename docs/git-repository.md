@@ -15,6 +15,11 @@ working-directory root.
 `GitRepository` exposes tracked paths, staged/unstaged/untracked status, unborn
 and detached HEAD, combined diffs, dirtiness, ignore checks, and
 repository-relative paths. Machine-readable filename lists use NUL delimiters.
+The executable `/diff` command uses this combined-diff boundary only for the
+session's selected editable paths, sanitizes the response, and caps it at 1 MiB.
+It is ordered against Patch mutations through the shared worktree lock. This
+intentionally differs from aider's since-last-message commit comparison and
+avoids disclosing changes outside the selected context.
 
 Git child commands that accept selected pathspecs receive
 `GIT_LITERAL_PATHSPECS=1`, so selected names containing wildcard or bracket

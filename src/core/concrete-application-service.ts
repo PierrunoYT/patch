@@ -1,5 +1,6 @@
 /**
- * Turn ordering adapted from aider/coders/base_coder.py at revision
+ * Turn ordering and command dispatch adapted from aider/coders/base_coder.py
+ * and aider/commands.py at revision
  * 5dc9490bb35f9729ef2c95d00a19ccd30c26339c.
  * Modified for Patch's composed adapters, serial queue, strict authorization,
  * fresh-snapshot reflection, and explicit partial-write recovery limits.
@@ -75,6 +76,7 @@ import {
 } from "../process/model-command.js";
 import { htmlToReadableText } from "../interfaces/html-text.js";
 import type { FetchedUrl } from "../interfaces/url-fetcher.js";
+import { sanitizeTerminalText } from "../io/sanitize.js";
 import { GitRepository } from "../repository/git.js";
 import { COMMON_PROMPTS } from "../resources/prompts.js";
 import { extractIdentifiers } from "../io/completion.js";
@@ -308,6 +310,28 @@ function portablePath(root: string, absolute: string): string {
  */
 export function urlTokenBudget(maxInputTokens: number | undefined): number {
   return Math.max(1024, Math.floor((maxInputTokens ?? 8192) / 4));
+}
+
+const MAX_DIFF_OUTPUT_BYTES = 1024 * 1024;
+const DIFF_TRUNCATION_NOTICE = "\n\n(diff output truncated)";
+
+function boundedDiffOutput(diff: string): string {
+  const safe = sanitizeTerminalText(diff);
+  if (Buffer.byteLength(safe) <= MAX_DIFF_OUTPUT_BYTES) return safe;
+
+  const bytes = Buffer.from(safe);
+  const limit =
+    MAX_DIFF_OUTPUT_BYTES - Buffer.byteLength(DIFF_TRUNCATION_NOTICE);
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for (let end = limit; end >= Math.max(0, limit - 3); end -= 1) {
+    try {
+      return `${decoder.decode(bytes.subarray(0, end))}${DIFF_TRUNCATION_NOTICE}`;
+    } catch {
+      // A UTF-8 code point is at most four bytes, so one of these boundaries is
+      // complete. Never insert a replacement character into a displayed diff.
+    }
+  }
+  throw new Error("Unable to bound Git diff output");
 }
 
 /** How a finished command ended, in one clause. */
@@ -1364,6 +1388,23 @@ class ConcreteApplicationSession implements ApplicationSession {
             testConfigured: bootstrap.arguments.testCommand !== undefined,
             rootCorrected: bootstrap.rootCorrected,
           }),
+        );
+      }
+      case "diff": {
+        const repository = this.#context.repository;
+        if (repository === undefined)
+          throw new Error("Diff requires Git integration");
+        if (state.editablePaths.length === 0)
+          return result("No editable files selected");
+        const diff = await this.#context.worktree.run(
+          () => repository.diff(state.editablePaths),
+          options.signal,
+        );
+        options.signal.throwIfAborted();
+        return result(
+          diff.patch === ""
+            ? "No selected changes to display"
+            : boundedDiffOutput(diff.patch),
         );
       }
       case "clear":

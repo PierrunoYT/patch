@@ -113,7 +113,9 @@ this plan, task register, and backlog track current status and open work.
   session cancellation, terminate their process tree, and release the queue
   after child stdio closes. Slash paths and editor commands share a
   Windows-safe, POSIX-escape-aware splitter. Variable-length Markdown fences
-  retain their language and require an at-least-matching bare close.
+  retain their language and require an at-least-matching bare close. `/diff`
+  displays at most 1 MiB of sanitized current Git changes for selected editable
+  files through literal pathspecs; it remains separate from edit previews.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
   ignore filtering to actual patterns. Git ignore checks prefix exact paths
@@ -634,9 +636,9 @@ skipped all nine current gates because the orb also had no provider credentials.
 - [x] Never mutate global `process.env` for commit identity; pass environment to
   that Git child process.
 - [x] Implement typed commands for `/add`, `/drop`, `/read-only`, `/attach`,
-  `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`,
+  `/help`, `/settings`, `/report`, `/diff`, `/ls`, `/clear`, `/model`, `/chat-mode`,
   `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
-  `/exit`. `tests/advertised-commands.test.ts` keeps this 20-command documented
+  `/exit`. `tests/advertised-commands.test.ts` keeps this 26-command documented
   inventory equal to the parser's source of truth and executes every production
   effect in one real-Git application scenario, including safe authority/state
   failures.

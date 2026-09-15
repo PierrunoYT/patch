@@ -150,6 +150,9 @@ describe("advertised slash-command surface", () => {
     });
     await submit("/drop image.png");
     await submit("/drop two.txt");
+    await expect(submit("/diff")).resolves.toMatchObject({
+      response: "No selected changes to display",
+    });
     await submit("/model 4o");
     await expect(submit("/models gpt")).resolves.toMatchObject({
       response: expect.stringContaining("gpt-4o"),

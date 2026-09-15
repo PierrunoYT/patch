@@ -161,8 +161,8 @@ versions. There is no LCS, unchanged-context elision, or no-final-newline marker
 Compared with pinned `aider/diffs.py:43–96`, called from
 `aider/coders/wholefile_coder.py:136–140`, Patch does not use the upstream
 `difflib.unified_diff(..., n=5)` rendering path. Real hunk generation remains
-future work. Git-backed `/diff` is also unimplemented; the Git adapter's internal
-diff capability is not a slash command.
+future work. The separate Git-backed `/diff` command displays Git's existing
+patch for selected editable files; it does not change edit-preview rendering.
 
 Untrusted text passes through one shared sanitizer, `ControlSequenceSanitizer`
 in `src/io/sanitize.ts`. It removes C0 controls other than tab, newline, and

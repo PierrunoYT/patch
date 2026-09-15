@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added a read-only `/diff` command for current staged and unstaged changes to
+  selected editable files. It uses literal Git pathspecs, excludes unselected
+  changes, sanitizes terminal controls, caps UTF-8 output at 1 MiB, and is
+  exercised through the packed executable without a provider or approval call.
+
 - Added independent weak/editor startup selection and serialized runtime
   switching. Summarization and generated commits follow the current weak role;
   architect handoff follows the current editor role and format while preserving

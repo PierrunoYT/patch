@@ -8,9 +8,10 @@ This ports the dispatch boundary from
 without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
-`/settings`, `/report`, `/ls`, `/clear`, `/models`, `/model`, `/chat-mode`,
-`/weak-model`, `/editor-model`, `/reasoning-effort`, `/think-tokens`, `/run`,
-`/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
+`/settings`, `/report`, `/diff`, `/ls`, `/clear`, `/models`, `/model`,
+`/chat-mode`, `/weak-model`, `/editor-model`, `/reasoning-effort`,
+`/think-tokens`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
+`/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -94,6 +95,24 @@ resolved and while a report waits in the queue, terminal sanitization, and no
 calls to path, write, or process approval hooks. Package smoke dispatches all
 three through the actual `patch` bin installed from `npm pack`; no fake provider
 response or credential is needed.
+
+`/diff` displays the current staged and unstaged Git diff for selected editable
+files. It does not accept paths: selection remains the disclosure boundary, so
+unselected and read-only changes are not shown. Git receives literal pathspecs,
+including names with wildcard syntax. Inspection is ordered against Patch
+mutations on the same worktree. The command strips terminal control and
+bidirectional sequences, caps the complete UTF-8 response at 1 MiB without
+splitting a code point, and marks truncation. It makes no provider call and asks
+for no path, write, or command approval. Without Git integration it fails rather
+than falling back to filesystem reads; with no selection or no selected changes
+it reports that state explicitly. The packed executable test exercises a real
+repository and proves an unselected change is absent.
+
+Pinned aider's `/diff` compares commits recorded around the preceding message
+and can display repository-wide committed changes. Patch does not maintain that
+commit timeline and intentionally shows only current uncommitted selected-file
+changes, preserving the same selected-diff privacy boundary used by commits and
+generated commit messages.
 
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
@@ -190,9 +209,9 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-25 effects through `ConcreteApplicationService`: selections, media, history, profile
-switching, local ancillary output, captured process/checks, bounded URL content,
-clipboard, commit/owned undo, and exit. It also verifies safe failures for
+26 effects through `ConcreteApplicationService`: selections, media, history,
+profile switching, local ancillary output, captured process/checks, bounded URL
+content, clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL
 ingestion, denied process execution, and submission after exit. No unsupported
 named-command registration was found; the test makes future inventory drift fail.
@@ -241,8 +260,5 @@ surface:
 - `/ls` and file-command matching are narrower than Aider. `/help` deliberately
   uses bounded literal line search over installed Patch docs instead of Aider's
   semantic model-backed help coder.
-- Git-backed `/diff` is not implemented. The repository adapter can produce a
-  diff internally, but there is no command effect or executable dispatch.
-
 `/copy` uses bounded, cancellable text-only platform utilities. `/exit` closes
 the session and stops interactive input cleanly.
