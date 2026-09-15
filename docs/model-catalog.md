@@ -73,14 +73,13 @@ contracts, deterministic application coverage, and opt-in live evidence rather
 than importing aider's LiteLLM-specific catalog wholesale.
 
 `selectModels` resolves main, weak, and editor roles without recursive secondary
-construction. Explicit role overrides are library options, not executable
-controls. The concrete application constructs the main provider/session and
-resolves the active main model's weak model when compacting long history, so a
-model switch also changes subsequent summarization. The internal editor path now
-constructs the selected editor provider and parser on demand with fresh history,
-current selected paths, and the editor model's capabilities. Architect handoff
-uses that path only after explicit acceptance and transfers usage/commit state
-back to the main session. Generated commit-message role selection is unchanged.
+construction. The concrete application constructs the main provider/session;
+secondary providers are constructed only when summarization, generated commit
+messages, or editor work needs them. The internal editor path constructs the
+selected editor provider and parser on demand with fresh history, current
+selected paths, and the editor model's capabilities. Architect handoff uses that
+path only after explicit acceptance and transfers usage/commit state back to the
+main session.
 Weak/editor roles can now be selected independently at startup and changed with
 `/weak-model` and `/editor-model`. The weak role drives summarization and
 generated commit messages; the editor role and validated editor format drive
