@@ -34,8 +34,11 @@ eight matching lines, each limited to 240 characters and labeled with its
 document and line number. Queries are limited to 256 control-free characters;
 no match and missing-document states are reported without a provider fallback.
 Unlike aider's model-backed semantic help, this command makes no provider call,
-downloads no embeddings, uses no network, and does not add help text to chat
-history. The packed executable test verifies search outside the source checkout.
+downloads no embeddings, and uses no network. When opt-in chat-history
+persistence is enabled, the generic terminal recorder stores `/help` and its
+returned text like every other submitted command/response; this transcript is
+not provider-ready session history. The packed executable test verifies search
+outside the source checkout.
 
 `/models [query]` lists at most 50 configured canonical model names with only
 their provider and edit format. The optional query is a bounded, control-free

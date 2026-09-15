@@ -94,6 +94,11 @@ proxy or use it as multi-tenant hosting. Tokens grant access to the configured
 repository and model budget. Library callers may map distinct tokens to
 principals, but that isolates session ownership, not repository files.
 
+Session creation currently checks those quotas before awaiting asynchronous
+application construction and reserves the slot afterward. Concurrent creates
+can therefore exceed total or per-principal limits; `WEB-3` tracks an in-flight
+reservation with failure-path release.
+
 Session creation and snapshots return `status: "active"` and an epoch-millisecond
 `expiresAt`. Stable JSON errors are `session_expired` (410, only to its owner),
 `event_history_unavailable` (409), `session_quota_exceeded`,

@@ -69,6 +69,12 @@ found in an existing file by default; callers may explicitly select LF or CRLF.
 Files without a newline and new files use the platform line ending unless a
 style is selected.
 
+General `readText` calls currently resolve and then read by pathname without a
+byte ceiling. Unlike media, watch, map rendering, and configuration reads, they
+do not retain the verified handle across the read, so an ancestor swap can
+redirect editable/read-only snapshots after resolution. `FS-2` tracks moving
+these production reads onto the bounded retained-handle contract.
+
 A dry run performs path, decoding, encoding, and line-ending resolution and
 returns the prospective byte count without creating a file or directory. A
 real write creates a unique sibling temporary file, flushes and closes it, then

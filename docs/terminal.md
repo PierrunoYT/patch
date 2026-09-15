@@ -118,6 +118,10 @@ rather than submitted, so a final Enter is still required; an editor that fails
 leaves the draft and every held line intact with the reason printed, and the
 temporary file is removed either way.
 
+Editor duration and returned draft size are currently unbounded. Interactive
+editing should not receive an ordinary short subprocess timeout, but `PROC-4`
+tracks a readback byte ceiling and an explicit cancellation contract.
+
 Editor commands use the same quote-aware splitter as slash-command paths.
 Windows drive, UNC, and relative executable paths retain their separators and
 quoted spaces; POSIX whitespace, quote, and literal-backslash escapes remain
@@ -237,6 +241,9 @@ with `PtyUnavailableError` naming the optional package.
 
 At the helper boundary, commands use executable-plus-argv input and a canonical
 working directory. Data, Ctrl-C, EOF, resize, abort, and capture are modeled.
+Sanitized output is streamed, but the returned transcript currently accumulates
+without a byte cap; `PROC-3` tracks bounding retained output and settling the PTY
+cleanly on overflow.
 Provisioned contract tests cover Linux and Windows. The pinned native package
 fails its spawn contract on the current macOS runner, so no macOS PTY support is
 claimed.

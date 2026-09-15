@@ -48,6 +48,10 @@ link target survives only if it is an absolute `http(s)` URL, so no inline
 its text, and an unterminated tag ends the document rather than being read as
 content.
 
+The current discard state records only one tag name. Nested discarded elements
+can clear it too early and expose later script/style text; `WEB-4` tracks a
+nesting-aware fix. The transport and no-subresource boundaries remain intact.
+
 Linear is a load-bearing property, not a description: the separating whitespace
 between pieces of content is held as counters and emitted before the next piece,
 so no step reads back the text produced so far. An earlier version rescanned the

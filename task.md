@@ -3,21 +3,21 @@
 ## Purpose
 
 This is the consolidated queue for unresolved Patch work. It combines the
-[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md), the
-[file inventory audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md), and the
+[current parity audit](docs/aider-parity-audit-2026-09-15-cee39ed.md), its
+[source inventory](docs/aider-source-inventory-2026-09-15-cee39ed.md), and the
 [detailed integration backlog](docs/remaining-integration-tasks.md).
 
-The deep audit compares branch behavior inside the owning aider/Patch modules;
+The parity audit compares branch behavior inside the owning aider/Patch modules;
 the source inventory classifies every pinned product file. Earlier dated audits
 remain historical snapshots. Update this file, detailed evidence, and affected
 subsystem docs together.
 
-Baseline for the deep findings:
+Baseline for the current findings:
 
-- Patch source: `5eecc980833e23e17ab119031ca679fc54d0301d`
+- Patch source: `cee39ed41330eca755b9c7c65084abccefce90aa`
 - aider source: `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`
 - Complete upstream inventory: 80 Python product modules, two model resources,
-  and 58 Tree-sitter queries
+  58 Tree-sitter queries, 36 executable tests, and ten workflows
 
 ## Working rules
 
@@ -74,6 +74,37 @@ Baseline for the deep findings:
 
 ## P1 — supported-surface correctness and safety
 
+- [ ] **PATCH-2: Require a complete Patch response envelope.** Reject a missing
+      `*** Begin Patch`, missing `*** End Patch`, and successfully truncated action
+      output instead of applying the partial batch. Pinned aider tolerates these
+      cases; Patch's malformed-output boundary should fail closed.
+- [ ] **MODEL-8: Derive history budgets from model context size.** Match pinned
+      aider's 1/16 input-window rule clamped to 1,024–8,192 tokens rather than
+      summarizing every bundled model at 1,024 tokens.
+- [ ] **TOKEN-1: Make fallback token enforcement genuinely conservative.** The
+      current UTF-16-length/4 estimate can undercount CJK and other inputs. Use a
+      safe refusal bound or stop presenting the approximation as a protective
+      preflight limit.
+- [ ] **FS-2: Retain containment and bound general text reads.** Read editable,
+      read-only, completion, and transaction snapshots through a verified handle
+      with a byte ceiling; static resolution followed by `readFile(path)` permits
+      an ancestor swap and unbounded allocation.
+- [ ] **MAP-5: Enforce the map source limit before cache hashing.** The tag cache
+      currently reads and hashes the whole file before the extractor applies its
+      4 MiB ceiling.
+- [ ] **PROC-3: Bound interactive PTY transcript capture.** Stream sanitized
+      output while capping retained result bytes and terminate/drain cleanly on
+      overflow or cancellation.
+- [ ] **WEB-3: Reserve session quota atomically across async creation.** Count
+      in-flight reservations so concurrent requests cannot exceed global or
+      per-principal limits, and release reservations on every failure path.
+- [ ] **WEB-4: Keep nested discarded HTML out of model context.** Track nested
+      script/style/media elements; the current single-name state can expose text
+      after the first nested closing tag.
+- [ ] **VOICE-3: Force-settle active ffmpeg cancellation.** Escalate after a
+      grace deadline when the recorder child ignores `SIGTERM`; the existing
+      pre-abort check does not bound an active abort.
+
 - [x] **CORE-1: Make provider retries observer-atomic.** Buffer each attempt's
       text, reasoning, and error events until it succeeds, or add a reset protocol
       implemented by every terminal and HTTP/SSE consumer. Failed-attempt output
@@ -114,6 +145,17 @@ Baseline for the deep findings:
       deterministic pre-open swaps prove media fails and watch submits nothing.
 
 ## P2 — bounded correctness follow-ups
+
+- [ ] **PROC-4: Bound external-editor readback and define cancellation.** Keep
+      interactive editing duration distinct from a byte ceiling on the returned
+      draft, and document how an embedding can stop a stuck editor.
+- [x] **DOC-1: Settle slash-command transcript policy.** The opt-in Markdown
+      transcript intentionally records every submitted command and returned string;
+      `/help` documentation now matches the generic terminal recorder and
+      distinguishes the transcript from provider-ready history.
+- [ ] **EVIDENCE-4: Close CI/package evidence gaps.** Run the provenance check in
+      ordinary CI and make package smoke assert declarations plus the root public
+      package export. These are evidence gaps, not observed runtime failures.
 
 - [x] **TERM-1: Preserve language identifiers on variable-length Markdown
       fences.** The stream tracks the opening run length and language, accepts only
@@ -326,8 +368,8 @@ security rules above.
       Do not add CLI microphone/device UX: it would require cross-platform device
       selection, optional ffmpeg packaging, transcription-provider disclosure,
       transcript review before submission, and real-device/network evidence. The
-      bounded cancellable recorder/transcriber contracts remain available to hosts
-      that own those choices.
+      recorder/transcriber contracts remain available to hosts that own those
+      choices; active ffmpeg termination is tracked separately in `VOICE-3`.
 - [x] **WEB-1:** Keep URL ingestion explicit, DNS-pinned, bounded, and
       no-subresource. Production browser rendering and automatic URL detection are
       security/privacy non-goals unless a separate threat model and approval

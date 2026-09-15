@@ -16,6 +16,14 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Audited clean Patch `cee39ed41330eca755b9c7c65084abccefce90aa`
+  one-for-one against pinned aider
+  `5dc9490bb35f9729ef2c95d00a19ccd30c26339c` in six independent subsystem
+  streams. Added immutable semantic and complete source-inventory snapshots,
+  corrected the pinned workflow count to ten, and recorded nine P1
+  implementation gaps plus three P2 policy/evidence gaps without relabeling
+  intentional provider, command, interface, or packaging breadth as defects.
+
 - Deep-audited Patch `5eecc980833e23e17ab119031ca679fc54d0301d` against pinned
   aider branch behavior. Fixed fail-open context disclosure, switch-summary
   cancellation, prompt role/example/reminder placement, missing prompt wrapper

@@ -110,10 +110,12 @@ application test exercises both secondary routes.
 `countMessageTokens` and `countTextTokens` use `tiktoken` with `o200k_base` or
 `cl100k_base` for recognized OpenAI text-only models. Unknown models, multimodal
 prompts, and raw text for providers without a reliable local tokenizer use a
-conservative UTF-16-length estimate and return `method: "conservative"` so the
-result cannot be mistaken for an exact provider count. `CoderSession` uses the
-message boundary for prompt budgets; repository-map fitting uses the raw-text
-boundary. Callers may still inject a more authoritative counter.
+UTF-16-length estimate and return the historical method label `conservative`.
+That estimate is approximate, not an upper bound: CJK and other inputs can be
+undercounted. `TOKEN-1` tracks replacing it with a safe refusal boundary or a
+non-protective estimate contract. `CoderSession` currently uses the message
+boundary for prompt enforcement; repository-map fitting uses the raw-text
+boundary. Callers may inject a more authoritative counter.
 
 ## Usage and cost
 

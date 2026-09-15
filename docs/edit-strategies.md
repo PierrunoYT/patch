@@ -160,6 +160,12 @@ an unmatched scope is rejected. Upstream retries scope matching a second time
 with identical stripped comparisons and one fuzz point; that pass can never
 match where the first failed, so Patch compares once and adds no scope fuzz.
 
+The parser currently inherits pinned aider's envelope tolerance: it starts from
+an action when `*** Begin Patch` is absent and accepts end-of-input without
+`*** End Patch`. A provider response truncated after a complete-looking action
+can therefore become an edit batch. `PATCH-2` tracks changing this selected
+model-output boundary to require both sentinels and fail closed.
+
 Actions are keyed by path with Aider's rules: repeated `Update File` blocks for
 one path merge into a single edit, each block searching from the file's first
 line; a second `Move to` target, an added path that already has an action, and a

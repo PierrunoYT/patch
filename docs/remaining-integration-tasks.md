@@ -6,10 +6,10 @@ work with the latest audit findings into a deduplicated actionable queue. Keep
 both current when status changes; this file preserves historical findings,
 completed work, revision-specific evidence, and implementation context.
 
-The current [deep semantic audit](aider-deep-audit-2026-09-15-5eecc98.md)
-compares Patch `5eecc980833e23e17ab119031ca679fc54d0301d` with canonical aider
-`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The companion
-[source inventory](aider-source-inventory-2026-09-15-c9c59c6.md) classifies all
+The current [parity audit](aider-parity-audit-2026-09-15-cee39ed.md)
+compares Patch `cee39ed41330eca755b9c7c65084abccefce90aa` with canonical aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Its companion
+[source inventory](aider-source-inventory-2026-09-15-cee39ed.md) classifies all
 80 Python product modules, both model files, and all 58 queries. Earlier reports
 remain historical snapshots; this backlog is live status.
 
@@ -55,31 +55,51 @@ depends on all earlier scope decisions being settled.
 
 ## Pinned Aider parity audits and current status
 
-The current deep pass compared branch behavior inside commands, lifecycle,
-prompts, edit coders, models/providers/configuration, Git/filesystem/processes,
-repository maps, interfaces, packaging, and workflows. It found seven defects
-and one bounded-input gap in selected Patch behavior; all are fixed in the same
-change. External OpenAI/DeepSeek live evidence remains unavailable.
-
-Local verification for this current audit passed `npm run check` on Windows:
-64 direct derivations, 769 tests passed with 11 skips, clean build, packed
-installation, executable help, and installed commit-policy/lifecycle smoke.
-This is not new remote Node 22 or OpenAI/DeepSeek live evidence.
+Six independent streams compared commands, lifecycle, prompts, edit coders,
+models/providers/configuration, Git/filesystem/processes, repository maps,
+interfaces, packaging, tests, and workflows. The current pass found nine P1
+implementation gaps and three P2 policy/evidence gaps inside selected Patch
+behavior. They are listed below; external OpenAI/DeepSeek live evidence also
+remains unavailable.
 
 ### Current parity matrix
 
-This matrix reflects the deep audit boundary `5eecc98`; historical audits retain their own state.
+This matrix reflects the audit boundary `cee39ed`; historical audits retain their own state.
 
 | Area                             | Current classification                                   | Strongest evidence boundary                                                                                                                                                                                                                                                                     |
 | -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Core lifecycle                   | implemented selected scope with explicit recovery limits | Immutable attempt context, queued cancellation, bounded retry/reflection, observer-atomic attempts, weak/main history summaries, cancellable atomic profile switching, private architect/editor/context workflows, and process-local worktree serialization are production-wired.               |
-| Editing                          | implemented selected scope with intentional hardening    | Six public formats have format-specific prompts/fences and independent behavior tests. SEARCH/REPLACE, Patch, and unified diff use bounded ambiguity-rejecting recovery; physical fences, no-newline semantics, and insertion ranges are covered through the packed bin.                        |
-| Models/providers                 | partial aider breadth; implemented selected routes       | OpenAI, Anthropic, and DeepSeek routes, six bundled profiles, strict overlays, prompt placement settings, retry/usage/cache/temperature policy, and capability-gated controls are wired. Live OpenAI/DeepSeek evidence remains external.                                                        |
-| Git/filesystem                   | implemented selected scope with documented limits        | Literal paths, composed ignores, selected commits, index restoration, CAS/session-owned undo, contained reads, metadata checks, and atomic per-file replacement are enforced. Cross-file rollback, durable/cross-process transactions, and portable ACL/xattr/ADS preservation are not claimed. |
-| Repository maps                  | implemented selected scope; partial aider breadth        | Eleven map entries, lexical fallback, model-derived budgets, deterministic ranking/rendering/cache, fallback requests, 4 MiB source bounds, and retained-handle read containment are covered. Broader queries/tuning are non-goals.                                                             |
-| Commands/terminal                | implemented selected scope; partial aider breadth        | All 28 exact commands dispatch through production. Clipboard/process bounds, Windows paths/tree cleanup, completion, history, multiline, editor, notifications, optional PTY, sanitizer, variable fences, and bounded `/web` input are covered. Aider aliases/Rich/Vi breadth are non-goals.    |
-| Watch/URL/web/voice/help         | implemented selected scope; intentional differences      | Watch and HTTP/SSE share contained application paths; explicit `/web` is DNS-pinned, bounded, and no-subresource. API quotas/replay/expiry/redaction are wired. Voice is embedding-only; GUI/device UX are non-goals.                                                                           |
-| Configuration/package/provenance | implemented selected scope; partial aider breadth        | Supported CLI/environment/YAML precedence, race-safe 1 MiB config/dotenv/model resources, packaged docs/runtime assets, 64 direct derivations, and clean-install smoke are wired. Broader aider settings, Python/Docker, telemetry, onboarding, and updater are non-goals.                      |
+| Editing                          | selected scope; open malformed-envelope gap               | Six public formats are wired with bounded ambiguity rejection, but Patch actions currently accept absent sentinels and successfully truncated output.                                                                        |
+| Models/providers                 | partial aider breadth; open budget/counting gaps          | Three providers and six profiles are wired; fixed 1,024-token history thresholds and a potentially undercounting fallback diverge from pinned/safe budget behavior. Live OpenAI/DeepSeek evidence remains external.          |
+| Git/filesystem                   | selected scope; open general-read gap                     | Git ownership and atomic writes are hardened, but general text reads retain neither ancestor identity nor a byte cap. Cross-file/durable recovery and portable metadata preservation remain explicit limits.                |
+| Repository maps                  | selected scope; open cache-bound gap                      | Eleven languages, ranking/rendering, retained-handle extraction, and fitting are wired, but cache hashing reads a complete source before the 4 MiB extractor ceiling.                                                          |
+| Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
+| Watch/URL/web/voice/help         | selected scope; open interface gaps                       | Watch and bounded URL transport are wired, but nested discarded HTML can leak content, async session creation can exceed quotas, and active ffmpeg abort lacks forced settlement. GUI/device UX remain non-goals.             |
+| Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
+
+### Current audit findings — `cee39ed` — 2026-09-15
+
+- [ ] **P1 / PATCH-2 — reject missing Patch sentinels and truncated output.**
+- [ ] **P1 / MODEL-8 — derive history limits from model input windows.**
+- [ ] **P1 / TOKEN-1 — replace or safely bound the undercounting fallback.**
+- [ ] **P1 / FS-2 — retain containment and cap general text reads.**
+- [ ] **P1 / MAP-5 — enforce 4 MiB before tag-cache hashing.**
+- [ ] **P1 / PROC-3 — cap retained PTY transcript output.**
+- [ ] **P1 / WEB-3 — reserve concurrent session quota atomically.**
+- [ ] **P1 / WEB-4 — handle nested discarded HTML elements.**
+- [ ] **P1 / VOICE-3 — force-settle active ffmpeg cancellation.**
+- [ ] **P2 / PROC-4 — bound editor readback and define cancellation.**
+- [x] **P2 / DOC-1 — document slash-command transcript persistence.**
+- [ ] **P2 / EVIDENCE-4 — add provenance and public export/type package checks.**
+
+Exact failure sequences and source comparisons are in the current
+[parity audit](aider-parity-audit-2026-09-15-cee39ed.md). The source inventory
+also corrects the pinned upstream workflow count from nine to ten.
+
+Local Linux/Node.js `v26.5.1` verification passed `npm run check`: formatting,
+lint, typechecking, 64 direct derivations, 770 tests with ten skips, clean build,
+packed installation, installed commit-policy/lifecycle smoke, and executable
+help. This is not new Node 22, remote-platform, or credentialed-provider evidence.
 
 ### Deep semantic re-audit fixes — 2026-09-15
 

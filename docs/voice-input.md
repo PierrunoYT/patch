@@ -11,6 +11,10 @@ Voice support is isolated behind the `@pierrunoyt/patch/voice` package subpath. 
 
 `VoiceInput` composes a `VoiceRecorder` and `VoiceTranscriber`, limits recording duration (five minutes), audio size (25 MiB), and transcript size, forwards cancellation to both operations, and always removes its private temporary directory. `FfmpegVoiceRecorder` is an optional subprocess adapter: callers provide explicit, platform-appropriate input arguments and may select the ffmpeg executable. It checks pre-aborted signals before process creation, uses argv without a shell, and caps captured diagnostics. `OpenAiVoiceTranscriber` uses the existing OpenAI SDK and supports a selected transcription model and language.
 
+For an active recording, abort currently sends only `SIGTERM` and waits for the
+child's close event. A process that ignores the signal can prevent settlement;
+`VOICE-3` tracks grace-period escalation and forced cleanup.
+
 `VoiceInput.captureAndSubmit(session, options)` passes the bounded transcript to
 an explicit `ApplicationSession` using the same abort signal and event callback
 as text submissions. This API is available only from the `voice` subpath; Patch

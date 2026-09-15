@@ -61,7 +61,9 @@ or fail closed when their location/counts are missing or inconsistent. A prior
 content-located hunk makes a later context-free location unvalidated. Focused
 tests cover beginning/middle/end, repeated insertion text, new and existing
 empty files, and the packed executable covers both former P0 paths. Do not treat
-the constructed formats as unrestricted aider parity.
+the constructed formats as unrestricted aider parity. The current audit also
+finds that Patch-action responses still accept missing envelope sentinels and
+successfully truncated output; that fail-closed fix is open.
 Git selection treats leading-colon pathspec syntax as literal filenames during
 ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
 platform filename restrictions still apply.
@@ -142,6 +144,10 @@ replacement rather than partial compatibility toggles.
 Repository maps keep the eleven shipped language entries for this release;
 unsupported languages still contribute bounded lexical references. New parsers
 require a concrete need and pinned/package/cross-platform evidence.
+The extractor's 4 MiB source ceiling currently occurs after the tag cache has
+read and hashed the complete file, so oversized tracked files remain an open
+resource-bound defect. General editable/read-only text snapshots likewise lack
+a retained-handle ancestor check and byte cap.
 Map token budgets, refresh policy, and empty-chat multiplier remain internal and
 model-derived. `/map` is the sole bounded display control.
 Git policy remains composed rather than individually disableable: fixed
@@ -165,10 +171,11 @@ old profile/history and replacement capability filtering removes unsupported
 media. `/paste` submits clipboard text as a user turn, and an interrupted turn
 reports any edits that survived.
 Historical checklist completions do not establish release readiness. The
-[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md),
-[file inventory audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md), and
-[source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md) separate
-branch behavior, file coverage, and intentional differences. The
+[current parity audit](docs/aider-parity-audit-2026-09-15-cee39ed.md) and
+[source inventory](docs/aider-source-inventory-2026-09-15-cee39ed.md) separate
+branch behavior, file coverage, and intentional differences. The audit records
+open model-budget, text-read, map-cache, process, web, voice, and evidence gaps
+inside the selected surface; Patch is not a 1:1 aider replacement. The
 [task register](task.md) contains remaining implementation/evidence work; the
 [detailed backlog](docs/remaining-integration-tasks.md) preserves history.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,

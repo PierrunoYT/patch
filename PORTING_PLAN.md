@@ -15,9 +15,10 @@ submodule.
 At this baseline, aider contains approximately 20,285 lines in 80 Python
 product modules and 36 executable test modules. Patch began as a greenfield TypeScript port and now
 contains tested configuration, provider, edit, Git, repository-map, application,
-and adapter components. The installed CLI composes the supported core workflow;
-the one unchecked item is external live-provider evidence. Omitted aider breadth
-has an explicit partial/non-goal disposition.
+and adapter components. The installed CLI composes the supported core workflow,
+but the current audit records unresolved correctness, resource-bound, and
+evidence gaps in addition to external live-provider evidence. Omitted aider
+breadth has an explicit partial/non-goal disposition.
 
 The upstream source is Apache-2.0 licensed. Every directly ported file must:
 
@@ -48,9 +49,9 @@ Current implementation priorities live in the consolidated
 [issue and task register](task.md); the
 [integration backlog](docs/remaining-integration-tasks.md) preserves detailed
 evidence and history. The latest
-[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md) compares
-Patch `5eecc980833e23e17ab119031ca679fc54d0301d` with pinned aider. The
-[source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md) retains
+[parity audit](docs/aider-parity-audit-2026-09-15-cee39ed.md) compares Patch
+`cee39ed41330eca755b9c7c65084abccefce90aa` with pinned aider. Its
+[source inventory](docs/aider-source-inventory-2026-09-15-cee39ed.md) retains
 complete file coverage. Earlier reports remain historical snapshots.
 
 ## Scope decisions
@@ -498,8 +499,9 @@ outside the contract.
 - [x] Property-test malformed fences, repeated text, empty files, Unicode,
       CRLF, duplicate filenames, traversal attempts, and asymmetric replacements.
 
-**Exit:** every selected upstream edit fixture produces the same file contents
-or a documented, safer rejection.
+**Exit (blocked by `PATCH-2`):** every selected upstream edit fixture produces
+the same file contents or a documented, safer rejection. Patch-action envelope
+truncation is not yet rejected.
 
 ### Phase 3 — Conversation engine
 
@@ -527,7 +529,7 @@ or a documented, safer rejection.
       filtering removes unsupported media after summarization.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit:** installed-service acceptance
+**Exit (blocked by `MODEL-8`, `TOKEN-1`, and `FS-2`):** installed-service acceptance
 covers streamed malformed and unresolvable responses, two-file writes, lint
 reflection, approved commands, tests, and undo with exact Git assertions. Real-
 Git tests inject cancellation at every named lifecycle boundary and assert
@@ -584,8 +586,9 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
       requests carry Chat's 8,192 and Reasoner's 64,000 output limits.
 - [x] Add provider-specific credential diagnostics and supported-capability
       checks.
-- [x] Add model-aware token counting where reliable and conservative estimates
-      elsewhere.
+- [ ] Add model-aware token counting where reliable and a genuinely conservative
+      refusal bound elsewhere. The current UTF-16-length/4 fallback can undercount
+      and must not enforce provider context limits as if it were an upper bound.
 - [x] Complete executable usage and cost coverage. Post-finish usage is retained,
       metadata limits/prices/capabilities merge into session settings, cache reads
       and writes have distinct prices, and turn/session reports reach the terminal.
@@ -727,13 +730,14 @@ real-repository `tests/git-*.test.ts` suites.
       every language, and an actual-bin provider turn requires filtered ranked map
       context while rejecting an ignored tracked path.
 
-**Exit (met for documented repository-map scope):** representative multi-
+**Exit (blocked by `MAP-5`):** representative multi-
 language tag fixtures and packed-resource tests are in the cross-platform CI
 matrix. Production fallbacks cover selected, hinted-global, and unhinted-global
 maps; shipped languages share the pinned parent-header renderer; fitting uses
 the selected tokenizer where reliable; an asymmetric fixture matches upstream
 numeric personalization; and packed-bin smoke proves one filtered provider-
-visible map. This does not establish arbitrary-program/every-language ranking
+visible map. Cache hashing still reads an oversized source before the extractor's
+4 MiB ceiling. This does not establish arbitrary-program/every-language ranking
 parity or expose aider's full map-control surface. Universal ranking equivalence
 is not a finite product requirement; selected languages and behavior changes
 must add independent fixtures and packaged evidence for their scoped contract.
@@ -807,7 +811,7 @@ claimed.
       probe and external temporary file, Patch requires image/PDF context to enter
       through a user-named `/attach` path with visible approval and containment.
 
-**Exit — scoped advanced-workflow contract met:** architect/context stay
+**Exit — blocked by `PATCH-2`:** architect/context stay
 embedding-only application workflows for the current release. Their explicit
 callback approval and atomic recovery contracts are production-tested, but the
 terminal has no complete review UX and does not advertise them as modes. The six
@@ -870,7 +874,7 @@ individual edit-strategy suites.
       strategy-owned and every suggested command remains previewed and approved;
       untested shell generators and alternate line editors are non-goals.
 
-**Exit:** command/file/source-identifier completion, recall, multiline, external
+**Exit — blocked by `PROC-3` and `PROC-4`:** command/file/source-identifier completion, recall, multiline, external
 editing, explicit PTY dispatch, generated shell completions, notifications, and
 variable-length fences run through the executable. Rich rendering, computed
 previews, and Vi modal input are explicit non-goals rather than deferred parity.
@@ -921,7 +925,7 @@ passed both supported PTY jobs at implementation revision
       spawning. A deterministic real-process test proves the adapter preserves the
       abort reason without creating a child side effect or listener.
 
-**Exit:** package smoke tests assert that
+**Exit — blocked by `WEB-3`, `WEB-4`, and `VOICE-3`:** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
 mutation phases are serialized in-process. Direct adapter coverage closes the
