@@ -108,6 +108,13 @@ incomplete response. If earlier attempts already mutated the worktree, history
 retains the exchanges associated with the surviving work; a turn with no
 mutation leaves history unchanged on failure. See [turn recovery](turn-lifecycle.md).
 
+The internal response is reset before a provider retry, but emitted observer
+events are not. If an attempt streams text or reasoning before a retryable error,
+terminal and HTTP/SSE consumers can see that stale prefix followed by the
+successful replacement even though final history and edit parsing contain only
+the replacement. This is an open P1 defect in the structured event contract;
+the current retry guarantee applies to final state, not displayed event state.
+
 Malformed strategy output automatically produces a corrective reflection turn.
 Callers can inject lint and test checks that return diagnostics, allowing the
 same loop to repair failures without letting the session guess or execute

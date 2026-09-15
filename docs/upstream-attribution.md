@@ -17,7 +17,7 @@ Licensed under the Apache License, Version 2.0.
 ## Current audit status
 
 [`direct-derivations.json`](direct-derivations.json) is the authoritative ledger
-for the 61 source files and runtime resources directly ported or behaviorally
+for the 63 source files and runtime resources directly ported or behaviorally
 adapted from the pinned Aider revision. Each entry records the local path, every
 upstream Aider path used in that file, full revision, modification status,
 artifact kind, and Apache-2.0 license. Multiple derivations in one local file are
@@ -34,6 +34,14 @@ an Aider derivation and is deliberately outside this Apache ledger. Generated
 compatibility fixtures remain governed by blob hashes and the separate
 [fixture provenance boundary](compatibility-fixtures.md#what-the-exporter-refuses),
 not by this direct-port ledger.
+
+The ledger is marker-driven and cannot prove that every upstream product file
+has a disposition or that an adaptation missing its marker will be discovered.
+The independent [2026-09-15 source inventory](aider-source-inventory-2026-09-15.md)
+starts from the pinned aider Git tree and classifies all 80 product modules, both
+model resources, and all 58 query files. The ledger answers which Patch files
+identify direct derivation; the inventory answers what happened to each pinned
+upstream file. Neither alone proves semantic equivalence.
 
 When the upstream baseline changes, update `upstream.json`, `NOTICE`, the
 porting plan, compatibility fixture metadata, and affected source headers in the

@@ -105,6 +105,11 @@ rather than submitted, so a final Enter is still required; an editor that fails
 leaves the draft and every held line intact with the reason printed, and the
 temporary file is removed either way.
 
+The current editor-command tokenizer treats backslashes as generic escapes.
+Quoted Windows drive and UNC executable paths can therefore lose separators and
+fail to spawn; this is a P1 defect in `--editor`, `VISUAL`, and `EDITOR`, not a
+supported cross-platform quoting contract.
+
 Ctrl-C abandons what is being typed, held lines included, before the interrupt
 handler runs. Node's readline emits `SIGINT` without touching the buffer, so an
 abandoned line would otherwise reappear in front of the next one. In the
@@ -128,6 +133,11 @@ and from shell completion, because a flag that always fails is not a feature.
 compute differences. The executable uses these renderers for provider text
 and edit previews and honors TTY, `--no-color`, and `NO_COLOR`.
 
+A variable-length opening fence currently matches only its first three
+backticks. Four-backtick blocks are recognized as fenced text, but their language
+identifier is lost, so syntax highlighting is incorrect. Split-chunk and
+matching-close coverage remains open.
+
 `renderEditPreview` produces a **full-content replacement preview**, not a
 computed hunk diff: every old line is prefixed with `-` and every new line with
 `+`, including unchanged lines. Creation shows only the new side and deletion
@@ -140,7 +150,8 @@ versions. There is no LCS, unchanged-context elision, or no-final-newline marker
 Compared with pinned `aider/diffs.py:43–96`, called from
 `aider/coders/wholefile_coder.py:136–140`, Patch does not use the upstream
 `difflib.unified_diff(..., n=5)` rendering path. Real hunk generation remains
-future work; Git-backed `/diff` is a separate operation.
+future work. Git-backed `/diff` is also unimplemented; the Git adapter's internal
+diff capability is not a slash command.
 
 Untrusted text passes through one shared sanitizer, `ControlSequenceSanitizer`
 in `src/io/sanitize.ts`. It removes C0 controls other than tab, newline, and

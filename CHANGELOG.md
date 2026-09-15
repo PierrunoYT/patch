@@ -893,6 +893,15 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Completed a file-for-file parity audit of Patch `1bf2ca6` against pinned aider
+  `5dc9490b`, independently classifying all 80 upstream Python product modules,
+  both model resources, and all 58 Tree-sitter queries. The audit confirms two
+  P0 unified-diff release blockers and records additional supported-surface
+  defects in retry event streaming, advertised model defaults/limits, Windows
+  path/editor parsing, clipboard bounds, media/watch read containment, and the
+  optional ffmpeg adapter. README, phase exits, the live backlog, and affected
+  subsystem docs now expose those limits instead of relying on historical
+  completion wording. No runtime behavior changed.
 - Made the ancestor-swap filesystem tests independent of module-cache and test
   execution order by reloading the application graph after installing their
   filesystem hooks.

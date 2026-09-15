@@ -5,8 +5,7 @@
 Patch will port behavior from the canonical
 [`Aider-AI/aider`](https://github.com/Aider-AI/aider) repository at commit
 [`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`](https://github.com/Aider-AI/aider/tree/5dc9490bb35f9729ef2c95d00a19ccd30c26339c).
-The reference checkout is the sibling directory `../aider-upstream` — on this
-workstation `D:\Github\aider-upstream`, next to `D:\Github\patch`. Set
+The reference checkout is the sibling directory `../aider-upstream`. Set
 `AIDER_CHECKOUT` to use another location; `scripts/export-upstream-fixtures.mjs`
 resolves that variable first and otherwise falls back to the sibling directory,
 and it rejects any checkout whose remote or commit differs from `upstream.json`.
@@ -14,7 +13,7 @@ The checkout must remain outside this repository and must not become a
 submodule.
 
 At this baseline, aider contains approximately 20,285 lines in 80 Python
-modules and 36 test modules. Patch began as a greenfield TypeScript port and now
+product modules and 36 executable test modules. Patch began as a greenfield TypeScript port and now
 contains tested configuration, provider, edit, Git, repository-map, application,
 and adapter components. The installed CLI composes the supported core workflow;
 the unchecked phase items below identify parity that remains partially
@@ -47,11 +46,12 @@ edit-format, option, and interface support must be documented explicitly.
 
 Current implementation priorities live in
 [the integration backlog](docs/remaining-integration-tasks.md). The latest
-[dated audit](docs/aider-parity-audit-2026-09-12.md) compares Patch
-`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with the pinned aider revision above;
-it supplements the earlier audits of Patch `476d1657410bdd47982cc7fddb179ccf83d4a734`
-and `58597efc390e8e138b29024871a25d192fb27462`. Dated reports preserve their
-original evidence; this plan and the backlog track current status and open work.
+[dated audit](docs/aider-parity-audit-2026-09-15.md) compares Patch
+`1bf2ca6adbc3f4774612590f3f7c59c636a4a6e9` with the pinned aider revision
+above. Its [source inventory](docs/aider-source-inventory-2026-09-15.md)
+classifies every pinned product module, model resource, and Tree-sitter query.
+It supplements the earlier dated audits without rewriting their evidence;
+this plan and the backlog track current status and open work.
 
 ## Scope decisions
 
@@ -92,6 +92,9 @@ original evidence; this plan and the backlog track current status and open work.
   context recovery are constructed and tested. All six formats have specific
   prompts and independent goldens; generated recovery fixtures match pinned
   aider while Patch intentionally rejects ambiguous reductions.
+  Two P0 defects nevertheless block the phase exit: an added Markdown fence can
+  terminate parsing, and an insertion-only hunk can be moved to EOF after its
+  range is discarded.
   User-facing schemas contain only the six constructed formats. Architect and
   context retain private orchestration identities; help is a local command.
 - Terminal Markdown, full-content replacement previews, explicit history writes, notifications, and
@@ -102,6 +105,8 @@ original evidence; this plan and the backlog track current status and open work.
   refused rather than implemented, and renderer fidelity stays out of scope.
   Edit previews print both complete versions, including unchanged lines; unlike
   pinned `aider/diffs.py`, no computed hunks or unchanged-context elision exist.
+  Windows slash-path and editor-command tokenization, clipboard
+  bounds/cancellation, and variable-fence language rendering remain defective.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
   ignore filtering to actual patterns. Git ignore checks prefix exact paths
@@ -113,6 +118,10 @@ original evidence; this plan and the backlog track current status and open work.
   bounded retries, repeated assistant-prefill continuation, and weak-model
   history compaction are wired. The private editor role, bounded prompt-cache
   keepalive opt-in, and approved ephemeral image/PDF context are production-wired.
+  `gpt-4o-mini` defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek
+  token limits currently disagree with the pinned model resources. A retry after
+  partial streamed output also exposes stale attempt events to interfaces even
+  though completed history keeps only the successful attempt.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock. The root registry uses weak references and
   guarded finalizers to reclaim unreachable locks without evicting live idle
@@ -121,6 +130,9 @@ original evidence; this plan and the backlog track current status and open work.
   tests cover HTTP disconnect cancellation, principal/session isolation,
   structured partial-turn recovery, expiry, quotas, bounded replay/backpressure,
   reclamation, and concurrent terminal/watch/web work.
+  Static path containment is checked, but media/watch reads can be redirected by
+  an ancestor swap after resolution; the exported ffmpeg adapter also misses a
+  pre-aborted signal.
 - The eight ancillary feature families have explicit dispositions below.
   Offline `/help`, allowlisted `/settings`, and the bounded local `/report` draft
   are implemented and jointly exercised through terminal dispatch and the
@@ -462,6 +474,10 @@ or a documented, safer rejection.
   checks, response assembly, and history transitions.
 - [x] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.
+- [ ] Buffer a provider attempt's observer events until success or define a
+  reset event every terminal/HTTP consumer implements. A retry after partial
+  text/reasoning currently exposes stale output even though final history and
+  edit parsing keep only the successful attempt.
 - [x] Implement bounded reflection for lint and test failures. Configured
   post-write checks, malformed edits, and resolution failures share three
   reflections, with refreshed disk context and token budgets. Patch currently
@@ -476,7 +492,7 @@ or a documented, safer rejection.
   budget is summarized automatically with the weak model before the next turn.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit (met for the documented Patch lifecycle):** installed-service acceptance
+**Exit (blocked for streamed retry consistency):** installed-service acceptance
 covers streamed malformed and unresolvable responses, two-file writes, lint
 reflection, approved commands, tests, and undo with exact Git assertions. Real-
 Git tests inject cancellation at every named lifecycle boundary and assert
@@ -484,7 +500,8 @@ surviving state and a reusable queue. An interrupted turn whose writes or commit
 survive reconciles its history and reports a structured partial outcome. Patch
 automatically reflects configured failures instead of asking aider's per-failure
 question; arbitrary child-command side effects and interruption inside Git stay
-outside the recovery contract.
+outside the recovery contract. The unchecked observer-event item above prevents
+a complete lifecycle exit even though final turn state remains coherent.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
 `tests/application-prompt-context.test.ts`, `tests/application-lifecycle.test.ts`,
@@ -515,6 +532,12 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
+- [ ] Align `gpt-4o-mini` format/map defaults and DeepSeek Reasoner weak/editor
+  routing with pinned model settings, or document and test intentional
+  divergences through production selection.
+- [ ] Reconcile DeepSeek input/output limits with pinned bundled metadata, or
+  document an independently sourced newer-vendor contract. Exact limits must be
+  tested because they control prompt refusal, map sizing, and provider output.
 - [x] Add provider-specific credential diagnostics and supported-capability
   checks.
 - [x] Add model-aware token counting where reliable and conservative estimates
@@ -526,16 +549,16 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
-**Exit (met for documented OpenAI/Anthropic routes; provider parity remains
-partial):** separately gated OpenAI and Anthropic contracts cover secret-safe
+**Exit (transport routes met; advertised catalog correctness blocked):**
+separately gated OpenAI and Anthropic contracts cover secret-safe
 credential preflight, minimal streaming, positive usage, natural stop reasons,
 timeout/cancellation, OpenAI image input, and Anthropic cache-control input. A
 protected manual workflow exists; ordinary CI skips all live cases and requires
 no credentials or network. Package smoke also drives one-shot, two-turn history,
 and malformed OpenAI-wire responses through the actual installed bin using a
 preloaded in-process `fetch` fake. DeepSeek's protected live path remains
-unchecked above; actual live evidence still depends on configured accounts and
-models.
+unchecked above; the two bundled-profile/limit items also remain open. Actual
+live evidence still depends on configured accounts and models.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
 `tests/anthropic-provider.test.ts`; deterministic full-path DeepSeek coverage in
@@ -577,6 +600,10 @@ available, so it is workflow/skip evidence only.
   inventory equal to the parser's source of truth and executes every production
   effect in one real-Git application scenario, including safe authority/state
   failures.
+- [ ] Preserve Windows path separators in `/add`, `/drop`, `/read-only`, and
+  `/attach`; parser inventory/dispatch evidence does not establish argument
+  correctness. Decide separately whether aider's `!` and bare `/read-only`
+  semantics belong in Patch, and keep any shell alias approval-gated.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation
   in the application contract. Standalone interactive TTY input supplies one
@@ -587,17 +614,13 @@ available, so it is workflow/skip evidence only.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
-**Exit — met for the supported Patch MVP workflow:** the npm-installed binary
-composes supported providers and edit formats, previews selected-file edits,
-commits, runs configured lint/tests, and dispatches Git commands. The packed
-service scenario covers the full lifecycle with injected provider and approval
-adapters; named failure/cancellation boundaries assert exact state in real Git
-repositories. `tests/terminal-approval.test.ts` separately exercises the
-executable's program path with real readline input, fake TTY streams, the
-concrete service, fake provider, and real filesystem/process effects. Automatic
-bounded reflection is Patch's documented noninteractive-safe policy instead of
-aider's per-failure question. This does not establish aider's broader command,
-option/default, or arbitrary child-side-effect recovery parity.
+**Exit — production workflow reached, cross-platform command correctness
+blocked:** the npm-installed binary composes supported providers and edit
+formats, previews selected-file edits, commits, runs configured lint/tests, and
+dispatches Git commands in the exercised scenarios. The packed service and
+terminal approval evidence remains valid. The Windows path item above blocks the
+phase exit; broader aider command/default parity and arbitrary child-side-effect
+recovery are still outside the claim.
 
 **Evidence:** `tests/application-lifecycle.test.ts`,
 `tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the
@@ -670,6 +693,14 @@ require a green matrix on the revision being claimed.
   rejected. Standard markers preserve, add, or remove the final newline
   according to position, intentionally fixing pinned aider's marker-tolerance
   behavior.
+- [ ] **P0:** preserve added/context Markdown fence lines inside unified-diff
+  blocks. The current non-line-anchored block terminator silently truncates the
+  hunk at a plus-prefixed triple-backtick line or equivalent context line. Add
+  parser and installed-turn regressions for added, removed, and retained fences.
+- [ ] **P0:** apply insertion-only hunks at their validated location or reject
+  them. The parser currently discards `@@` ranges and an empty preimage appends
+  at EOF, which can silently move a beginning/middle insertion. Cover beginning,
+  middle, end, ambiguity, new files, and existing empty files.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. The independent pinned format golden covers an exact update;
@@ -693,12 +724,11 @@ require a green matrix on the revision being claimed.
   context with fixed per-file/count/aggregate bounds, signature validation,
   cancellation, ephemeral history treatment, and `/drop` cleanup.
 
-**Exit (met for documented advanced workflows):** architect/context identities
-remain private rather than advertised CLI modes. The six constructed formats
-have independent golden/property evidence; generated fixtures cover unified-
-diff indentation, omitted-line, and partial-context recovery; and packed-bin
-smoke applies a recovered edit. This is bounded, ambiguity-rejecting Patch scope,
-not unrestricted aider recovery parity.
+**Exit (blocked):** architect/context identities remain private rather than
+advertised CLI modes, and their application workflows retain production
+evidence. The six constructed formats have independent golden/property evidence
+for their covered cases. Phase 7 cannot exit until both P0 unified-diff defects
+above are fixed and verified through the installed production path.
 
 **Production evidence:** `tests/application-architect.test.ts`,
 `tests/application-editor.test.ts`, and `tests/application-context.test.ts`.
@@ -722,6 +752,14 @@ individual edit-strategy suites.
   Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
   draft in the configured editor. Vi modal editing is not implemented, so
   `--vim` is refused by name rather than accepted and ignored.
+- [ ] Preserve Windows drive, UNC, and relative backslashes in both slash-command
+  paths and configured external-editor commands. Cover spaces, quotes, literal
+  backslashes, and POSIX escaping through parser and executable tests.
+- [ ] Bound and cancel clipboard utility processes. Cap read/write bytes and
+  duration, forward cancellation, terminate and drain the child, and prove a
+  hung or overproducing utility cannot hold the session queue indefinitely.
+- [ ] Retain language identifiers for variable-length Markdown fences, including
+  split stream chunks and matching close fences.
 - [ ] Deferred parity: replace the lightweight renderer if product scope later
   requires Aider-style tables, full lists/wrapping, unstable-tail rerendering, or
   computed edit-preview hunks. One stateful sanitizer already covers every
@@ -738,13 +776,12 @@ individual edit-strategy suites.
   `/paste` submits clipboard text as a user turn without reparsing it as a
   command. Clipboard images remain unread.
 
-**Exit (met for the documented minimal terminal surface):** command/file/source-
-identifier completion, recall, multiline, the external editor, explicit PTY
-dispatch, generated shell completions, and provider-turn-only notifications all
-run through the executable's reader. Provisioned PTY contract tests cover Ctrl-C,
-EOF, resize, cleanup, and hostile child sequences on Linux and Windows. The
-renderer deliberately remains smaller than Aider's Rich renderer; the deferred
-item above is not part of the first-release terminal contract.
+**Exit (blocked for cross-platform correctness):** command/file/source-identifier
+completion, recall, multiline, the external editor, explicit PTY dispatch,
+generated shell completions, and provider-turn-only notifications all run
+through the executable's reader. The Windows tokenization, clipboard bounds,
+and variable-fence items above remain open. Broader Rich renderer fidelity is a
+separate deferred product decision.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,
@@ -774,14 +811,17 @@ because the provisioned native package fails its spawn contract there.
 - [x] Add voice recording/transcription as an optional package subpath and
   embedding adapter without changing the default install footprint. No CLI
   `/voice` or device/recording UX is claimed.
+- [ ] Retain containment when media and watch files are read after canonical
+  resolution. Static symlink rejection is insufficient when an ancestor can be
+  swapped before a pathname is opened or read.
+- [ ] Make the exported `FfmpegVoiceRecorder` reject a pre-aborted signal before
+  spawning, and test the actual adapter rather than only fake recorder handoffs.
 
-**Exit (met for the documented adapters):** package smoke tests
-assert that optional native/browser/audio dependencies do not enter a normal
-install. Watch, local API startup, and `/web` ingestion work. A deterministic
-concurrent test drives terminal, actual watch submission, and loopback HTTP
-through one concrete service and proves their mutation phases do not overlap.
-Interface flags are CLI-only and web
-cannot run alongside terminal/watch input in the same executable instance.
+**Exit (blocked for the affected adapters):** package smoke tests assert that
+optional native/browser/audio dependencies do not enter a normal install.
+Watch, local API startup, and `/web` ingestion are production-wired, and their
+mutation phases are serialized in-process. The read-containment and ffmpeg
+pre-abort defects above must close before the optional-adapter exit is met.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,
 packed concrete-service startup in `scripts/package-smoke.mjs`, `tests/url-fetcher.test.ts`,

@@ -40,6 +40,13 @@ it, verified as a regular file, bounded before allocation, and read through an
 keeps only approved relative labels outside the private attachment map; base64
 bytes are never placed in session snapshots, completed history, or diagnostics.
 
+This currently establishes static containment only. `O_NOFOLLOW` protects the
+final component, but the read path does not pin or revalidate every ancestor
+between canonical resolution and `open`; an untrusted local process able to swap
+an ancestor during that interval can redirect the read outside the root. Media
+read containment is therefore an open P1 hardening defect. The mutation adapter's
+ancestor identity checks below do not automatically protect this separate path.
+
 ## Text files and replacement
 
 `FileSystemAdapter` reads and writes text through the resolver. It supports

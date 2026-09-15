@@ -9,9 +9,10 @@ Current parity is uneven. All six constructed formats have their pinned
 format-specific system instructions, examples, reminders, shell policy, and
 per-attempt fence. Unified-diff file transitions and Patch scopes/repeated
 actions are implemented as described below, and each format has independent
-pinned golden and asymmetric hardening evidence. Broader unified-diff recovery
-remains incomplete. Constructing a format is not a release-readiness or full
-parity claim.
+pinned golden and asymmetric hardening evidence. Bounded indentation,
+omitted-line, and partial-context recovery are implemented, but two P0 parsing/
+placement defects remain below. Constructing a format is not a release-readiness
+or full parity claim.
 
 `EditFormatSchema` intentionally contains only those six names and is shared by
 model settings, startup configuration, slash-command parsing, and completion.
@@ -130,6 +131,15 @@ context and tries at most 256 exact or indentation-normalized candidates.
 Candidates may not discard a no-final-newline assertion. Ambiguity at every
 stage is rejected; pinned aider can modify multiple matches in some reduced-
 context cases, which Patch intentionally refuses.
+
+Two supported-surface defects block the current Phase 7 exit. First, the fenced
+block expression is not line-anchored, so a valid plus-prefixed or context
+Markdown triple-backtick line can terminate parsing and silently truncate the
+remaining hunk. Second, `@@` ranges are discarded; a hunk with no old/context
+lines therefore becomes an empty-search replacement that application places at
+EOF, even when the range named the beginning or middle of an existing file.
+Patch must preserve and validate location or fail closed. The covered recovery
+algorithms above do not mitigate either defect.
 
 ## Patch actions
 

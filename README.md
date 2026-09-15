@@ -46,8 +46,10 @@ examples, reminder, shell policy, and a fence reselected from the current files
 before every provider attempt. Each format also has an independently authored
 pinned golden plus asymmetric property, malformed, ambiguity/conflict,
 partial-write, and cancellation evidence. Unified-diff recovery includes bounded
-unique indentation, omitted-line, and partial-context stages; constructed
-formats are still not a release-readiness or unrestricted parity claim.
+unique indentation, omitted-line, and partial-context stages. Two P0 defects
+still block that format: a plus-prefixed Markdown fence can truncate parsing,
+and an insertion-only hunk can be moved to EOF after its range is discarded.
+Do not treat the constructed formats as release-ready or unrestricted parity.
 Git selection treats leading-colon pathspec syntax as literal filenames during
 ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
 platform filename restrictions still apply.
@@ -60,9 +62,11 @@ fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
 the installed acceptance evidence and intentional differences from aider.
 The parser-owned inventory and `docs/commands.md` are checked against each other,
-and one real-Git application scenario executes all 20 advertised command effects
-plus contained/denied/missing-state failures. This proves the advertised Patch
-surface, not aider's wider command set.
+and one real-Git application scenario executes all 20 named Patch command effects
+plus contained/denied/missing-state failures. This proves registration and the
+exercised effects, not Windows path correctness, clipboard process bounds,
+aider's `!` alias/bare `/read-only` semantics, `/diff`, or aider's wider command
+set.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;
@@ -96,15 +100,17 @@ unsupported.
 This is not yet a release-readiness or Aider-parity claim. Repository mutations
 are serialized across every session in this process that shares a worktree — a
 second `patch` process is ordered only by Git's own index lock — all untrusted
-terminal output passes through one stateful control-sequence sanitizer, and
+text on the enumerated production terminal output paths passes through one
+stateful control-sequence sanitizer, and
 replacement preserves the metadata Node can carry portably while refusing a
 swapped ancestor;
 `/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
 submits clipboard text as a user turn, and a turn interrupted after its edits
 landed reconciles history and reports surviving work through the terminal.
 Historical checklist completions do not establish release readiness. The latest
-[parity audit](docs/aider-parity-audit-2026-09-12.md) rechecks every Phase 0–9
-item at its audited revision. The
+[file-for-file parity audit](docs/aider-parity-audit-2026-09-15.md) and
+[pinned source inventory](docs/aider-source-inventory-2026-09-15.md) classify
+every aider product module and runtime resource at their audited revisions. The
 [live backlog](docs/remaining-integration-tasks.md) reconciles completed fixes,
 remaining integration work, and deferred product scope.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
@@ -124,9 +130,11 @@ this uses local tracking refs, not a fresh remote fetch.
 Failed checkpoint/edit/check commits likewise restore selected paths to their
 prior index entries, including partial staging, while retaining working-file
 content and unrelated staged/unstaged changes.
-Cancellation is checked at every editing lifecycle boundary. Completed atomic
-file replacements and Patch commits remain valid and are reported explicitly;
-pending edits are cleared and the same session queue can accept a fresh retry.
+Cancellation is checked at every named, instrumented editing lifecycle
+boundary. Completed atomic file replacements and Patch commits remain valid and
+are reported explicitly; pending edits are cleared and the same session queue
+can accept a fresh retry. Interruption inside Git and arbitrary child side
+effects remain outside that transaction contract.
 Long completed histories use summary requests capped to each attempted model's
 input window while retaining unsent messages for later compaction. Patch tries
 the weak model first and then the main model, charging both attempts and leaving
@@ -244,12 +252,17 @@ glob selects the files it covers, contained by the repository boundary, with
 symbolic links skipped, ignored files dropped, and the selection bounded; a
 named path that does not exist yet stays selectable. An exact existing name is
 checked before glob interpretation, so glob metacharacters in a filename remain
-literal. External read-only files are not supported.
+literal. External read-only files are not supported. Slash-command path parsing
+currently corrupts Windows drive, UNC, and relative backslashes; use the CLI
+selection options rather than `/add`, `/attach`, `/drop`, or `/read-only` for
+those forms until the P1 fix lands.
 Use `/attach <path...>` to add up to four approved, contained images or PDFs as
 read-only model context. Attachments are limited to 5 MiB each and 10 MiB total,
 must match an allowlisted extension and file signature, and are available only
 when the selected model declares the matching capability. `/drop` removes them;
-their encoded bytes are never copied into chat history or diagnostics.
+their encoded bytes are never copied into chat history or diagnostics. Static
+symlink containment is enforced, but an untrusted local process that swaps an
+ancestor between resolution and open can still redirect the read.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. This same six-value set drives configuration, model settings,
@@ -266,6 +279,8 @@ Unified-diff input honors standard `\ No newline at end of file` markers,
 including transitions that add or remove the final newline. Whitespace-only hunk
 lines normalize to blank lines, identical normalized hunks apply once, and
 unique indentation/omitted-line recovery is bounded and ambiguity-rejecting.
+Those covered algorithms do not close the Markdown-fence truncation or
+insertion-only placement P0s described above.
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 

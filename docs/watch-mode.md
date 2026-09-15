@@ -17,6 +17,12 @@ root `.aiderignore` checks. Ignore-command failures abort the affected batch
 rather than exposing a file and reach the submission error reporter described
 below.
 
+“Contained” currently means canonical resolution rejects static traversal and
+escaping symlinks. The watcher then stats and reads the resolved pathname in
+separate operations; an untrusted local process that swaps an ancestor in that
+interval can redirect the read and inject external comments. This P1 hardening
+gap is not covered by existing static-symlink tests.
+
 A changed file carrying an actionable marker triggers the turn, and the turn
 then refreshes AI comments from every selected file, as Aider does: a comment
 written earlier in another file already in the chat rides along instead of being

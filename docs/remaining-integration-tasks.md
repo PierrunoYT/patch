@@ -1,15 +1,16 @@
 # Remaining integration tasks
 
 This is the live implementation backlog, not a frozen audit report. The current
-repository-wide audit below compares Patch
-`e10467b3dc787bb78bb2528339e52f4aa36c95bf` with canonical aider
-`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The latest preserved
-[dated audit](aider-parity-audit-2026-09-12.md) compares Patch
-`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with the same aider revision;
+file-for-file [dated audit](aider-parity-audit-2026-09-15.md) compares Patch
+`1bf2ca6adbc3f4774612590f3f7c59c636a4a6e9` with canonical aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`; its independent
+[source inventory](aider-source-inventory-2026-09-15.md) classifies all 80
+Python product modules, both model data files, and all 58 Tree-sitter queries.
+The 2026-09-12 audit compares Patch
+`bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with the same aider revision, and
 earlier audits compared Patch `476d1657410bdd47982cc7fddb179ccf83d4a734`
-and `58597efc390e8e138b29024871a25d192fb27462`. The current matrix and
-follow-ups reconcile those findings without rewriting any dated audit's
-evidence boundary.
+and `58597efc390e8e138b29024871a25d192fb27462`. Dated reports preserve their
+evidence boundaries; this matrix and the follow-ups below are live status.
 
 This backlog distinguishes tested components from features that work through
 the installed `patch` executable. Completing an isolated adapter or parser is
@@ -53,13 +54,14 @@ depends on all earlier scope decisions being settled.
 
 ## Pinned Aider parity audits and current status
 
-The 2026-09-10, 2026-09-11, and 2026-09-12 audits preserve their historical
-revision boundaries. The repository-wide 2026-09-14 pass rechecked current
-Patch `e10467b3` against the same pinned aider source, inventoried the complete
-product and test surfaces, ran both feasible validation suites, and found three
-product correctness defects plus one renderer defect that the earlier scoped
-audit did not cover. No audit ran credentialed providers, current-revision
-remote CI, or non-Linux platform jobs. Existing tests are evidence only for the
+The 2026-09-10 through 2026-09-14 passes preserve their historical revision
+boundaries. The 2026-09-15 pass rechecked Patch `1bf2ca6` against the same pinned
+aider source using an independent Git-tree manifest rather than Patch's
+attribution markers. It confirmed the 2026-09-14 defects and found additional
+supported-surface defects in retry streaming, model defaults/limits, clipboard
+and editor integration, read containment, and the optional ffmpeg adapter. No
+audit ran credentialed providers, current-revision remote CI, non-Linux
+platform jobs, or real audio devices. Existing tests are evidence only for the
 cases they exercise.
 
 ### Current parity matrix
@@ -69,14 +71,89 @@ unchanged result of any historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | implemented Patch scope; partial aider parity | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Summarizer requests are input-bounded with weak-to-main fallback; recovery from arbitrary child/Git side effects remains incomplete. |
+| Core lifecycle | partial aider parity with one open correctness defect | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. A retry after partial streamed output resets internal response state but cannot retract events already delivered to terminal/HTTP consumers. Recovery from arbitrary child/Git side effects also remains incomplete. |
 | Editing | partial aider parity with two open correctness defects | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented, but the current unified-diff parser truncates added Markdown fence lines and misplaces insertion-only hunks whose search body is empty. The P0 tasks below supersede any broader completed-recovery wording. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
-| Models/providers | partial | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, bundled limits/prices, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. Separately gated live contracts cover streaming, usage, stop, timeout/cancellation, OpenAI images, and Anthropic cache markers; the DeepSeek gate now traverses bundled catalog, factory, and application-session boundaries with a 16-token output cap. Successful external evidence remains subject to protected workflow/account variability. Prompt-cache keepalive is an explicit bounded executable opt-in with prefix-only requests and lifecycle cleanup. The internal editor role uses isolated prompts/history and no map/shell; approved contained image/PDF media is request-only and bounded. |
-| Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Configurable hook verification, explicit attribution, and opt-in bounded weak-model commit subjects are production-wired; full Aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
+| Models/providers | partial with advertised-profile defects | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. However, `gpt-4o-mini` format/map defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek token limits disagree with pinned resources without a documented intentional divergence. Separately gated live contracts remain subject to protected workflow/account variability. |
+| Git/filesystem | partial with intentional hardening and read-containment gaps | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads, however, resolve and later reopen/read by pathname and do not retain containment if an ancestor is swapped between those operations. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
-| Commands/terminal | partial with two open correctness defects | All 20 advertised commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Media attachment, profile switching, paste, rich input, live approved source-identifier completion, explicit PTY, literal-first expansion, command outcomes, and all three ancillary commands are wired. Slash-command path tokenization corrupts Windows backslashes, and quadruple fences lose their language identifier in the lightweight renderer. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, and Aider's wider command breadth remain outside this surface. |
-| Watch/URL/web/voice/help | partial with interface evidence | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Loopback tests cover isolation, disconnects, overflow, partial failure, and simultaneous terminal/watch/web work. The library-only voice helper has cancellation-boundary and listener-cleanup tests; GUI and CLI voice UX are deferred. |
-| Configuration/package/provenance | implemented Patch scope with direct-port evidence | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a machine-readable direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. This is not aider's full option surface or transitive upstream-resource integrity. |
+| Commands/terminal | partial with correctness and bound defects | All 20 named Patch commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Slash-command paths and editor commands corrupt Windows backslashes, clipboard utilities are unbounded and uncancellable, and quadruple fences lose their language identifier. Aider's `!` alias and bare `/read-only` conversion are unported. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, `/diff`, and wider command breadth remain outside this surface. |
+| Watch/URL/web/voice/help | partial with interface and adapter defects | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Watch reads have the ancestor-swap containment gap above. The library-only voice helper has cancellation-boundary and listener-cleanup tests, but its exported ffmpeg recorder misses a pre-aborted signal; GUI and CLI voice UX are deferred. |
+| Configuration/package/provenance | implemented Patch scope with separate source inventory | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a 63-entry direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. The separate 2026-09-15 Git-tree inventory classifies every pinned product module/resource because attribution markers cannot prove upstream-source completeness. This is not aider's full option surface or transitive upstream-resource integrity. |
+
+### File-for-file re-audit additions — 2026-09-15
+
+The complete evidence and cross-references are in the
+[dated audit](aider-parity-audit-2026-09-15.md) and
+[source inventory](aider-source-inventory-2026-09-15.md). The two unchecked P0
+unified-diff items in the 2026-09-14 section remain the immediate release
+blockers. This section adds findings that pass did not represent.
+
+- [ ] **P1 — Do not expose output from a failed provider attempt as accepted
+  turn output.** **Status:** defect. `src/core/coder-session.ts:861-891` forwards
+  events before an attempt succeeds, while retry reset at `:964-979` changes
+  only internal response state. Terminal and HTTP/SSE consumers can observe a
+  failed attempt's text/reasoning/error followed by successful replacement text
+  even though history contains only the replacement. Buffer each attempt or add
+  a reset contract understood by every consumer; test partial-text and reasoning
+  retries through production interfaces. Pinned aider has the same display
+  weakness at `aider/coders/base_coder.py:1457-1488,1783-1791,1954-1972`, which
+  Patch should not retain in a structured event API.
+- [ ] **P1 — Correct or explicitly justify advertised model defaults.**
+  **Status:** defect. Patch gives `gpt-4o-mini` `diff` plus a map instead of
+  pinned `whole`/no-map defaults, and reuses DeepSeek Reasoner for weak/editor
+  roles instead of routing both to DeepSeek Chat. Evidence:
+  `src/resources/model-settings.yml:17-25,68-80`,
+  `src/models/selection.ts:26-57`, and pinned
+  `aider/resources/model-settings.yml:85-88,582-592`. Add exact bundled-profile
+  and production role-selection tests.
+- [ ] **P1 — Reconcile advertised DeepSeek token limits with pinned metadata.**
+  **Status:** defect/documentation error. Patch's 131,072 input and 65,536
+  reasoner-output limits at `src/resources/model-metadata.json5:61-87` differ
+  from pinned 128,000/64,000 values at
+  `aider/resources/model-metadata.json:2-32`. They control prompt refusal, map
+  budgets, and output requests. Restore pinned values or document and source an
+  intentional newer-vendor contract; correct `docs/model-catalog.md` either
+  way.
+- [ ] **P1 — Bound and cancel clipboard utilities.** **Status:** defect.
+  `src/io/integrations.ts:63-83` has no timeout, byte cap, abort signal, or child
+  cleanup while `/paste` waits in the serialized session queue. Add bounded
+  read/write adapters and executable hang/output/cancellation tests.
+- [ ] **P1 — Preserve Windows backslashes in editor commands.** **Status:**
+  defect. `src/io/editor.ts:24-49` independently applies the same generic escape
+  rule as slash paths, corrupting quoted drive/UNC executables from `--editor`,
+  `VISUAL`, or `EDITOR`. Fix and test both tokenizers together.
+- [ ] **P1 — Retain containment across media and watch reads.** **Status:**
+  security-hardening defect. `src/core/media-context.ts:82-106` and
+  `src/interfaces/watch-mode.ts:223-244` resolve and then operate by pathname;
+  swapping an ancestor between those operations can redirect a read outside the
+  root. Static symlink tests are insufficient. Pinned aider is not stronger, so
+  this is hardening rather than compatibility mimicry.
+- [ ] **P2 — Make `FfmpegVoiceRecorder` honor a pre-aborted signal directly.**
+  **Status:** exported-adapter defect. `src/interfaces/voice.ts:178-208` spawns
+  before listener registration and never prechecks the signal. Test the real
+  adapter rather than only fake recorder handoffs.
+- [ ] **P2 — Decide the `!` shell alias and bare `/read-only` semantics.**
+  **Status:** unported. Pinned `aider/commands.py:255-256,312-315` maps `!` to
+  `/run`; `:1328-1337` converts every editable file when `/read-only` has no
+  argument. Patch sends `!` text to the model and requires a path. Any alias must
+  remain previewed and approval-gated.
+- [x] **N/A — Keep implicit OpenRouter metadata fetch/cache out of startup.**
+  **Status:** intentional difference tied to unsupported provider breadth.
+  Pinned `aider/openrouter.py:29-128` downloads a model list and writes a 24-hour
+  home-directory cache. Patch may add explicit OpenRouter support later, but
+  implicit startup networking/persistence remains outside its privacy policy.
+- [ ] **P2 — Describe close-only reasoning cleanup accurately.** **Status:**
+  documentation correction. A complete tagged stream is split before display,
+  history, and parsing. When the opening tag predates the received stream,
+  `src/core/coder-session.ts:953-961` can clean only the completed response for
+  history/parser; already streamed display cannot be retracted.
+
+Local documentation-change validation on Linux/Node.js `v26.5.1` passed
+`npm run check`: 63 direct derivations, 685 tests passed with eight skips, a
+clean build, packed installation, installed commit-policy/lifecycle smoke, and
+executable help. A separate source-manifest check found all 80 product modules,
+both model files, and all 58 queries in the inventory. This is not Node 22 CI,
+credentialed provider, provisioned PTY, macOS/Windows, or real-device evidence.
 
 ### Repository-wide parity inventory -- 2026-09-14
 
@@ -109,8 +186,9 @@ Status meanings in this section:
 - [ ] **P0 -- Preserve added Markdown fences inside unified-diff hunks.**
   **Status:** defect. This is a release blocker. Patch's block expression in
   `src/edits/unified-diff.ts:386` terminates at any ` ``` ` substring, including
-  a valid added diff line such as `+```js`; an executable probe parsed only the
-  content before that line and silently omitted the rest of the replacement.
+  a valid plus-prefixed JavaScript Markdown fence; an executable probe parsed
+  only the content before that line and silently omitted the rest of the
+  replacement.
   Aider's `aider/coders/udiff_coder.py:312-343` ends a block only when the diff
   line itself starts with ` ``` `, so prefixed added/context lines remain in the
   hunk. Add parser and installed-application regressions for Markdown files that
@@ -889,10 +967,11 @@ implementation tasks.
   aider's split-and-recurse algorithm and runs before every turn whose completed
   history exceeds the model's `maxChatHistoryTokens`, summarizing with the active
   model's weak model; a summarizer that fails leaves history untouched rather
-  than failing the turn. `ReasoningTagSplitter` divides a `reasoningTag` model's
-  content stream as it arrives, so the tagged span reaches neither the terminal,
-  history, nor the edit parser, and a response whose closing tag has no opening
-  tag is cleaned once complete. Evidence: `tests/chat-summary.test.ts`,
+  than failing the turn. `ReasoningTagSplitter` divides a complete
+  `reasoningTag` span as it arrives, so that span reaches neither answer display,
+  history, nor the edit parser. A response whose closing tag has no opening tag
+  is cleaned once complete for history and parsing, but content streamed before
+  the closing tag cannot be retracted from display. Evidence: `tests/chat-summary.test.ts`,
   `tests/reasoning-tags.test.ts`, and the summarization case in
   `tests/application-prompt-context.test.ts`.
 - [x] Merge executable metadata limits/prices/capabilities, add temperature
@@ -1182,13 +1261,13 @@ verification result.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
-**Status:** Complete for every named Patch lifecycle boundary. The concrete
-application supplies per-attempt resolution/application to `CoderSession`'s
-bounded loop; installed-service acceptance demonstrates normal ordering and
-exact Git state, and deterministic real-Git tests inject cancellation before and
-after mutation. The limits below are explicit non-transactional boundaries, not
-unchecked claims of full aider lifecycle equivalence. See
-[turn lifecycle](turn-lifecycle.md) for pinned sources and intentional
+**Status:** Complete for every named mutation/cancellation boundary, but not for
+provider-retry observer events. The concrete application supplies per-attempt
+resolution/application to `CoderSession`'s bounded loop; installed-service
+acceptance demonstrates normal ordering and exact Git state, and deterministic
+real-Git tests inject cancellation before and after mutation. The limits below
+and the P1 stale-event finding above prevent a full lifecycle-equivalence claim.
+See [turn lifecycle](turn-lifecycle.md) for pinned sources and intentional
 differences.
 
 - [x] Refactor orchestration so every editing attempt executes in this order:
@@ -1238,9 +1317,9 @@ differences.
   gating. Watch/web/one-shot and other noninteractive contexts keep denial;
   native PTY approval coverage and broader approval policies remain incomplete.
 
-**Acceptance:** met for Patch's documented lifecycle and Git outcomes. This is
-not pinned aider lifecycle equivalence or a cross-process/durable rollback
-contract.
+**Acceptance:** met for final turn state and documented Git outcomes, but not for
+observer-event consistency across provider retries. This is not pinned aider
+lifecycle equivalence or a cross-process/durable rollback contract.
 
 **Delivered evidence:** `scripts/lifecycle-smoke.mjs`, run against the clean
 installed tarball by `scripts/package-smoke.mjs`, additionally includes a dry-run
@@ -1279,11 +1358,12 @@ deterministic tests; actual child execution is retained.
 
 ## R3 — Dispatch every advertised slash command
 
-**Status:** Every advertised command dispatches with its documented effect.
-Switching, `/paste`, undo ownership, selection expansion, and command output
-and status are correct. What remains is breadth rather than correctness: `/ls`
-and file-command matching are narrower than Aider's, and there is no semantic
-command help.
+**Status:** Every one of Patch's 20 named commands reaches a concrete effect,
+but the 2026-09-15 audit supersedes the broader correctness claim. Windows path
+tokenization is defective, clipboard execution is unbounded, bare `/read-only`
+and aider's `!` alias are unported, and `/diff` does not exist. Switching, undo
+ownership, bounded selection expansion, and ordinary command result reporting
+remain production-wired.
 
 - [x] Add an application-owned dispatcher for `/add`, `/attach`, `/drop`,
   `/read-only`, `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`,
@@ -1312,14 +1392,12 @@ command help.
 - [x] Serialize commands and provider turns through the same session queue and
   test commands submitted while a turn is active.
 
-**Acceptance:** met for effect and next-turn evidence. Every advertised command
-has its documented executable effect. `tests/advertised-commands.test.ts` keeps
-the documentation inventory equal to the parser/completion inventory and drives
-all 20 effects through one real-Git concrete application, including safe
-failures. `tests/application-commands.test.ts`, `tests/interface-startup.test.ts`,
-`tests/interactive-command.test.ts`, and `tests/url-ingestion.test.ts` retain
-deeper cases. This exit covers the existing advertised commands, not future
-scope or aider's wider command breadth.
+**Acceptance:** met only for registration, dispatch, and the exercised
+next-turn cases. `tests/advertised-commands.test.ts` keeps the named inventory
+equal to the parser/completion inventory and drives all 20 effects through one
+real-Git concrete application, including safe failures. It does not establish
+Windows path correctness, subprocess bounds, aider aliases/argument semantics,
+or wider command breadth. Those findings above control the current status.
 
 ## R4 — Add opt-in live provider contract tests
 
@@ -1457,15 +1535,19 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   `tests/coder-session.test.ts` covers incompatible-history removal. These are
   format-contract cases, not full upstream recovery parity.
 
-**Acceptance:** each Phase 7 checkbox is reachable from a constructed session,
-and its exit is backed by independent golden/property and switching tests.
+**Acceptance:** superseded. Each listed advanced-workflow component is reachable
+from a constructed session and retains its focused evidence, but Phase 7 cannot
+exit while the two P0 unified-diff defects can silently truncate or misplace an
+edit through that same production format.
 
 ## R7 — Integrate Phase 8 terminal behavior
 
 **Status:** the supported completion, recall, multiline, editor, notification,
-and explicit PTY paths are connected to the interactive CLI. Renderer fidelity,
-true Vi modal editing, and broader platform evidence remain limited as detailed
-below; helper capabilities must not be read as additional executable behavior.
+and explicit PTY paths are connected to the interactive CLI. Windows editor
+tokenization, clipboard bounds/cancellation, and variable-fence language
+rendering are open correctness defects. True Vi modal editing and broader Rich
+renderer fidelity remain deferred; helper capabilities must not be read as
+additional executable behavior.
 
 - [x] Connect command/file completion to the current command inventory and live
   selected paths; candidates follow `/add` and `/drop`.
@@ -1512,21 +1594,21 @@ below; helper capabilities must not be read as additional executable behavior.
   sequences), `tests/render.test.ts` (no-color, hostile provider sequences), and
   `tests/terminal-sanitizer.test.ts`.
 
-**Acceptance:** met for the listed command/file/source-identifier input paths,
-not full renderer fidelity. Recall, multiline, the external editor,
-explicitly requested PTY dispatch, shell
-completions, and notification timing are all reachable through `patch` rather
-than by importing helpers, and the default installation remains native-free. The
-renderer stays smaller than Aider's Rich renderer by choice: tables, lists,
-wrapping, and unstable-tail rerendering are documented as out of scope, so that
-item stays unchecked rather than being closed as done.
+**Acceptance:** production reachability is met for the listed command/file/
+source-identifier input paths, but the terminal exit is blocked by Windows
+editor tokenization, unbounded clipboard processes, and variable-fence language
+rendering. Recall, multiline, explicit PTY dispatch, shell completions, and
+notification timing remain executable rather than helper-only. Broader Rich
+renderer fidelity remains a separate deferred item.
 
 ## R8 — Expose Phase 9 adapters through ApplicationService
 
-**Status:** Complete for the documented optional adapters. Watch and local
-HTTP/SSE startup construct concrete application contracts, `/web` ingests one
-user-typed URL, and bounded session/replay/backpressure policy is enforced. The
-API remains for trusted local clients, not public or multi-tenant hosting.
+**Status:** Production-wired but partial. Watch and local HTTP/SSE startup
+construct concrete application contracts, `/web` ingests one user-typed URL,
+and bounded session/replay/backpressure policy is enforced. Watch read
+containment remains vulnerable to an ancestor swap after resolution, and the
+exported ffmpeg recorder misses pre-aborted signals. The API remains for trusted
+local clients, not public or multi-tenant hosting.
 
 - [x] Feed fetched URL content through bounded application context with explicit
   user intent, source labeling, and token limits; keep Playwright separately
@@ -1564,8 +1646,10 @@ API remains for trusted local clients, not public or multi-tenant hosting.
   three writes survive. Evidence: `tests/web-server.test.ts`,
   `tests/interface-startup.test.ts`, and `tests/worktree-serialization.test.ts`.
 
-**Acceptance:** Phase 9 adapters drive the same session behavior as the CLI;
-they do not merely compile against an interface that has no implementation.
+**Acceptance:** watch, web, URL, and voice helpers drive real application
+contracts rather than merely compiling against interfaces. This production
+reachability does not close the read-containment and ffmpeg-adapter defects
+listed above or establish browser/CLI-voice parity.
 
 ## R9 — Correct stale plans and product documentation
 
@@ -1585,13 +1669,14 @@ they do not merely compile against an interface that has no implementation.
   Git, move, undo, switching, paste, and history blockers were fixed. Both exits
   now describe the production-wired Patch contract and its non-transactional
   limits rather than requiring aider's per-failure prompt.
-- [x] Correct Phase 6/7 parity claims. They remain partial: broader independent
-  map rendering/ranking/fallback evidence and unified-diff recovery are explicit
-  P1 tasks even though advanced application roles are production-wired.
+- [x] Correct Phase 6/7 parity claims. Advanced application roles and scoped map/
+  edit recovery retain production evidence, but the 2026-09-15 audit reopens the
+  Phase 7 exit for two P0 unified-diff defects.
 - [x] Correct Phase 8/9 checkboxes after terminal sanitization, rich input, web
-  coordination, and interface policy completed. Phase 8 is met only for the
-  documented minimal terminal; richer rendering is deferred. Phase 9 is met for
-  trusted local adapters, not browser/public-hosting/CLI-voice parity.
+  coordination, and interface policy completed. The 2026-09-15 audit reopens
+  their exits for Windows/clipboard/renderer correctness, read containment, and
+  the ffmpeg pre-abort contract; richer rendering, GUI, and CLI voice remain
+  deferred.
 - [x] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
   “support” and “parity” for safe behavior reachable through a documented
   interface. The current audit entry records no runtime change and points to the
@@ -1601,11 +1686,15 @@ they do not merely compile against an interface that has no implementation.
   modification, and Apache-2.0 provenance. The automated scan rejects marker,
   ledger, per-file, and package drift while leaving generated fixtures on their
   independent blob-hash contract.
+- [x] Add an independent pinned Git-tree inventory that classifies every aider
+  product module, model resource, and Tree-sitter query. This complements rather
+  than overstates the marker-driven direct-derivation ledger.
 
-**Acceptance:** met for the current-HEAD documentation truth pass. The dated
-audit, live matrix, plan exits, README, changelog, and contributor guidance now
-share one evidence boundary. This closes stale documentation only; the P1 parity
-work and current-revision external evidence above remain open.
+**Acceptance:** superseded by the 2026-09-15 file-for-file audit. The dated
+audit, source inventory, live matrix, plan exits, README, changelog, and affected
+subsystem docs are reconciled in that documentation change. This closes stale
+claims only; every unchecked P0/P1/P2 implementation and external-evidence item
+above remains open.
 
 ## Continuous integration jobs
 
@@ -1663,11 +1752,12 @@ cover:
 - [x] exact file and Git state after cancellation or every named injected
   lifecycle failure (`tests/application-lifecycle.test.ts` and
   `tests/edit-format-goldens.test.ts`);
-- [x] every advertised slash command through its documented application effect
+- [x] every named Patch slash command through its exercised application effect
   (`tests/advertised-commands.test.ts` asserts exact docs/parser inventory
   equality and executes all 20 effects in a real temporary Git repository,
   including safe containment, denial, refused URL ingestion, and missing-state
-  paths; no unsupported advertising was found);
+  paths; this does not cover Windows path tokenization, clipboard bounds, aider
+  aliases/argument semantics, or prose-only `/diff`);
 - [x] tag extraction from the installed package for every shipped language
   (`scripts/package-smoke.mjs`), not every-language provider-context parity;
 - [x] filtered ranked repository-map context through an actual installed-bin

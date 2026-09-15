@@ -60,6 +60,13 @@ current selected paths, and the editor model's capabilities. Architect handoff
 uses that path only after explicit acceptance and transfers usage/commit state
 back to the main session. Generated commit-message role selection is unchanged.
 
+The current bundled profiles contain two unresolved pinned-source differences.
+Patch gives `gpt-4o-mini` `diff` plus a repository map where pinned aider leaves
+the default `whole` format and no map. Patch also omits DeepSeek Reasoner's
+`deepseek/deepseek-chat` weak/editor defaults, causing both roles to reuse the
+reasoner. These are P1 defects unless a later product decision documents and
+tests them as intentional cost/context tradeoffs.
+
 ## Token counting
 
 `countMessageTokens` and `countTextTokens` use `tiktoken` with `o200k_base` or
@@ -96,13 +103,18 @@ a cent keeps four decimals so it does not display as `$0.00`.
 
 Every advertised bundled model now carries an input limit, an output limit, and
 catalog prices, and `tests/model-metadata-merge.test.ts` fails when an entry is
-added without them. Upstream ships metadata only for the models LiteLLM's data
-misses and reads the rest from LiteLLM at runtime; Patch has no such database,
-so these values come from LiteLLM 1.84.10's
+added without them. Upstream reads most model data from LiteLLM at runtime;
+Patch has no such database, so most bundled values come from LiteLLM 1.84.10's
 `model_prices_and_context_window_backup.json`, the table the pinned aider
 revision resolves them from. They are a snapshot of vendor pricing at that
 version rather than a live quote, and a deployment that needs current prices
 supplies its own metadata file.
+
+DeepSeek is an exception to that rationale: pinned aider explicitly bundles
+both DeepSeek entries. Its resource records 128,000 input tokens and 64,000
+reasoner output tokens, while Patch currently records 131,072 and 65,536. Since
+these limits drive prompt refusal, map sizing, and output requests, they must be
+restored or documented with an independent newer-vendor source and exact tests.
 
 Each value is taken from the row for the transport Patch actually uses. That is
 not always the largest row in the table: `claude-sonnet-4-6` appears with a
