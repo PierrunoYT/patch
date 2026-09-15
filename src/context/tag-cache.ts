@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile, rename, stat, writeFile } from "node:fs/promises";
+import type { Stats } from "node:fs";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { SafePathResolver } from "../io/safe-path.js";
@@ -123,11 +124,15 @@ export class RepoMapTagCache {
   }
 
   async tags(path: string): Promise<readonly RepoMapTag[]> {
-    const absolutePath = await this.#resolver.resolve(path);
-    const [metadata, content] = await Promise.all([
-      stat(absolutePath),
-      readFile(absolutePath),
-    ]);
+    const opened = await this.#resolver.openFileForRead(path);
+    let metadata: Stats;
+    let content: Buffer;
+    try {
+      metadata = await opened.handle.stat();
+      content = await opened.handle.readFile();
+    } finally {
+      await opened.handle.close();
+    }
     if (!metadata.isFile()) return [];
     const hash = createHash("sha256").update(content).digest("hex");
     const cached = this.#entries.get(path);

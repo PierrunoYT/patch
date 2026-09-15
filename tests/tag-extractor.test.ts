@@ -187,6 +187,15 @@ describe("TagExtractor", () => {
     },
   );
 
+  it("skips source files larger than the extraction bound", async () => {
+    const root = await fixture();
+    await writeFile(join(root, "large.ts"), "x".repeat(4 * 1024 * 1024 + 1));
+
+    await expect(
+      (await TagExtractor.create(root)).extract("large.ts"),
+    ).resolves.toEqual([]);
+  });
+
   it("rejects paths outside the selected repository root", async () => {
     const root = await fixture();
     await expect(
