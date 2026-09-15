@@ -150,6 +150,8 @@ session-owned undo retain one disclosure and ownership boundary.
 Recovery is process-local: Patch reports surviving paths/commits/commands and
 serializes same-process worktrees, but does not claim a durable journal,
 cross-process lock, or rollback across filesystem, Git, and arbitrary children.
+Checks remain explicit: one configured lint command and one test command.
+Patch does not guess package-manager/language tools or compile source implicitly.
 Media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;

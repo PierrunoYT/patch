@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept checks to one explicitly configured lint command and one test command.
+  Patch does not infer package-manager or language tools, compile source
+  implicitly, or bundle linters whose flags and environment belong to the
+  repository.
+
 - Kept recovery process-local and explicit. Patch reports surviving state and
   serializes same-process worktrees; durable journaling, cross-process locking,
   and rollback across filesystem, Git, and arbitrary child side effects require

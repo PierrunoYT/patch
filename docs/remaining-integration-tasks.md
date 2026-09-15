@@ -560,13 +560,14 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Lint, tests, commands, and process execution
 
-- [ ] **P2 -- Decide built-in linting and language-specific lint command
-  support.** **Status:** unported. Patch runs only one explicitly configured
-  lint command and one test command at `src/process/configured-checks.ts:43-73`.
-  Aider provides tree-sitter syntax context, Python compile/flake8 checks,
-  language-specific lint commands, auto-lint, auto-test, and one-shot modes at
-  `aider/linter.py:21-168` and `aider/args.py:526-564`. Preserve Patch's rule
-  against guessing arbitrary package-manager commands.
+- [x] **N/A -- Keep checks explicitly configured.** **Status:** accepted
+  current-release scope. Patch runs one bounded `lint-cmd` and one bounded
+  `test-cmd` at the repository root, with automatic reflection after failed
+  edits and explicit `/lint`/`/test` dispatch. It does not inspect manifests to
+  guess package-manager commands, compile languages implicitly, or bundle
+  language-specific linters. Repository scripts own project flags,
+  dependencies, and environment; inference would create unapproved side effects
+  and platform-dependent behavior.
 - [ ] **P2 -- Decide noninteractive dry-run, one-shot commit, lint, and test
   workflows.** **Status:** partial. Patch has internal dry-run resolution and
   slash commands, but no Aider-equivalent CLI `--dry-run`, `--commit`, `--lint`,

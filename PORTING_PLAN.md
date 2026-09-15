@@ -678,8 +678,9 @@ skipped all nine current gates because the orb also had no provider credentials.
   without injected approval. See README for exact input-mode restrictions. Every
   finished command reports its outcome and both streams, so a denied, failed, or
   stderr-only command is never mistaken for silence.
-- [x] Run only user-configured lint/test commands; do not guess package-manager
-  commands in an arbitrary target repository.
+- [x] Run exactly one user-configured lint command and one test command; do not
+  infer package-manager/language tools, compile source implicitly, or bundle
+  linters whose flags and environment belong to the repository.
 
 - [x] Keep broader Git controls out of current scope. The composed ignore,
   checkpoint/commit, hook, attribution, selected-diff, and session-owned undo

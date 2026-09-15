@@ -239,13 +239,13 @@ releases the serialized queue only after both boundaries complete. Pinned
 aider's clipboard helper is unbounded; this is intentional Patch hardening.
 
 `executeModelCommands` processes suggestions serially and stops after timeout
-or cancellation. Configured lint/test commands reuse the bounded executor:
-the concrete application calls `executeModelCommand` under the worktree lock,
-while `createConfiguredChecks` remains the callback adapter for embedding
-callers. Only explicitly configured commands run; Patch never infers a
-package-manager command when `lint-cmd` or `test-cmd` is absent. Configuring a
-check authorizes its execution without a per-run prompt. See
-[turn lifecycle](turn-lifecycle.md) for reflection ordering and failure behavior.
+or cancellation. Configured lint/test commands reuse the bounded executor: the
+concrete application calls `executeModelCommand` under the worktree lock, while
+`createConfiguredChecks` remains the embedding adapter. Patch supports exactly
+one explicit `lint-cmd` and one `test-cmd`; it never guesses package-manager or
+language-specific commands, compiles source implicitly, or bundles linters.
+Configuring a check authorizes that command without a per-run prompt. See
+[turn lifecycle](turn-lifecycle.md) for reflection ordering and failures.
 
 ## Advertised-surface evidence
 

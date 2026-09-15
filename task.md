@@ -288,9 +288,11 @@ security rules above.
   cross-process lock, rollback of completed writes, Git interruption, or
   arbitrary approved-command side effects would require a new transaction
   architecture and cannot be promised safely by the current adapters.
-- [ ] **CHECK-1:** Decide built-in and language-specific linting while retaining
-  the rule that Patch does not guess package-manager commands in an arbitrary
-  repository.
+- [x] **CHECK-1:** Keep linting and testing to one explicitly configured command
+  each. Do not infer package-manager or language-specific tools, compile source
+  implicitly, or bundle linters: repository scripts encode project-specific
+  flags and environments, while guessed execution creates unapproved side
+  effects and platform-dependent behavior.
 - [ ] **CHECK-2:** Decide noninteractive dry-run, one-shot commit, lint, and test
   workflows with no-write guarantees, exact exit statuses, and packed-bin
   tests.
