@@ -92,9 +92,11 @@ Baseline for the current findings:
       an ancestor swap and unbounded allocation. Completed with retained-handle
       reads, a fixed 4 MiB ceiling enforced during chunked reads, deterministic
       ancestor-swap coverage, and oversized read/write-preparation regressions.
-- [ ] **MAP-5: Enforce the map source limit before cache hashing.** The tag cache
+- [x] **MAP-5: Enforce the map source limit before cache hashing.** The tag cache
       currently reads and hashes the whole file before the extractor applies its
-      4 MiB ceiling.
+      4 MiB ceiling. Completed with a pre-read size check and incremental bounded
+      hashing that also stops if a file grows; production `RepositoryMap` coverage
+      proves the extractor is never invoked for an oversized source.
 - [ ] **PROC-3: Bound interactive PTY transcript capture.** Stream sanitized
       output while capping retained result bytes and terminate/drain cleanly on
       overflow or cancellation.

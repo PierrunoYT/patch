@@ -730,14 +730,14 @@ real-repository `tests/git-*.test.ts` suites.
       every language, and an actual-bin provider turn requires filtered ranked map
       context while rejecting an ignored tracked path.
 
-**Exit (blocked by `MAP-5`):** representative multi-
+**Exit (met for documented repository-map scope):** representative multi-
 language tag fixtures and packed-resource tests are in the cross-platform CI
 matrix. Production fallbacks cover selected, hinted-global, and unhinted-global
 maps; shipped languages share the pinned parent-header renderer; fitting uses
 the selected tokenizer where reliable; an asymmetric fixture matches upstream
 numeric personalization; and packed-bin smoke proves one filtered provider-
-visible map. Cache hashing still reads an oversized source before the extractor's
-4 MiB ceiling. This does not establish arbitrary-program/every-language ranking
+visible map. Cache hashing enforces the same 4 MiB ceiling before and during its
+incremental read. This does not establish arbitrary-program/every-language ranking
 parity or expose aider's full map-control surface. Universal ranking equivalence
 is not a finite product requirement; selected languages and behavior changes
 must add independent fixtures and packaged evidence for their scoped contract.

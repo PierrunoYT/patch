@@ -63,7 +63,7 @@ export function languageForPath(path: string): RepoMapLanguage | undefined {
 const LEXICAL_IDENTIFIER = /[\p{L}_][\p{L}\p{N}_]{2,}/gu;
 /** Bounds what one unparsed file can contribute to the ranking graph. */
 const MAX_LEXICAL_REFERENCES = 200;
-const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+export const MAX_REPO_MAP_SOURCE_BYTES = 4 * 1024 * 1024;
 
 /**
  * Identifiers from a file no bundled grammar covers, recorded as references.
@@ -118,7 +118,7 @@ export class TagExtractor {
     const languageName = languageForPath(path);
     const opened = await this.#resolver.openFileForRead(path);
     const metadata = await opened.handle.stat();
-    if (!metadata.isFile() || metadata.size > MAX_SOURCE_BYTES) {
+    if (!metadata.isFile() || metadata.size > MAX_REPO_MAP_SOURCE_BYTES) {
       await opened.handle.close();
       return [];
     }

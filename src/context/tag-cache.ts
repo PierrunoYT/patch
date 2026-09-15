@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import type { Stats } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { SafePathResolver } from "../io/safe-path.js";
-import type { RepoMapTag } from "./tag-extractor.js";
+import { MAX_REPO_MAP_SOURCE_BYTES, type RepoMapTag } from "./tag-extractor.js";
 
 interface CacheEntry {
   readonly mtimeMs: number;
@@ -76,6 +76,21 @@ function parseCache(
   return entries;
 }
 
+async function hashBounded(handle: FileHandle): Promise<string | undefined> {
+  const hash = createHash("sha256");
+  let total = 0;
+  while (true) {
+    const chunk = Buffer.allocUnsafe(
+      Math.min(64 * 1024, MAX_REPO_MAP_SOURCE_BYTES + 1 - total),
+    );
+    const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+    if (bytesRead === 0) return hash.digest("hex");
+    total += bytesRead;
+    if (total > MAX_REPO_MAP_SOURCE_BYTES) return undefined;
+    hash.update(chunk.subarray(0, bytesRead));
+  }
+}
+
 export class RepoMapTagCache {
   readonly #resolver: SafePathResolver;
   readonly #source: TagSource;
@@ -125,16 +140,16 @@ export class RepoMapTagCache {
 
   async tags(path: string): Promise<readonly RepoMapTag[]> {
     const opened = await this.#resolver.openFileForRead(path);
-    let metadata: Stats;
-    let content: Buffer;
+    let hash: string | undefined;
+    const metadata = await opened.handle.stat();
     try {
-      metadata = await opened.handle.stat();
-      content = await opened.handle.readFile();
+      if (!metadata.isFile() || metadata.size > MAX_REPO_MAP_SOURCE_BYTES)
+        return [];
+      hash = await hashBounded(opened.handle);
     } finally {
       await opened.handle.close();
     }
-    if (!metadata.isFile()) return [];
-    const hash = createHash("sha256").update(content).digest("hex");
+    if (hash === undefined) return [];
     const cached = this.#entries.get(path);
     if (
       cached !== undefined &&

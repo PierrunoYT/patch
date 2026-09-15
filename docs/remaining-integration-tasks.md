@@ -72,7 +72,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Editing                          | implemented selected scope with intentional hardening    | Six public formats are wired with bounded ambiguity rejection. Patch actions require both envelope sentinels and reflect truncated output rather than applying a partial batch.                                                   |
 | Models/providers                 | partial aider breadth; open budget/counting gaps          | Three providers and six profiles are wired; fixed 1,024-token history thresholds and a potentially undercounting fallback diverge from pinned/safe budget behavior. Live OpenAI/DeepSeek evidence remains external.          |
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
-| Repository maps                  | selected scope; open cache-bound gap                      | Eleven languages, ranking/rendering, retained-handle extraction, and fitting are wired, but cache hashing reads a complete source before the 4 MiB extractor ceiling.                                                          |
+| Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
 | Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
 | Watch/URL/web/voice/help         | selected scope; open interface gaps                       | Watch and bounded URL transport are wired, but nested discarded HTML can leak content, async session creation can exceed quotas, and active ffmpeg abort lacks forced settlement. GUI/device UX remain non-goals.             |
 | Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
@@ -89,7 +89,10 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       with retained-handle chunked reads capped at 4 MiB, including write
       preparation, deterministic ancestor-swap rejection, and oversized-file
       tests through `FileSystemAdapter` and transaction/application consumers.
-- [ ] **P1 / MAP-5 — enforce 4 MiB before tag-cache hashing.**
+- [x] **P1 / MAP-5 — enforce 4 MiB before tag-cache hashing.** Completed with
+      one exported source ceiling, a retained-handle size check, incremental
+      bounded SHA-256, growth detection, and production map coverage that skips
+      extraction while retaining the tracked filename.
 - [ ] **P1 / PROC-3 — cap retained PTY transcript output.**
 - [ ] **P1 / WEB-3 — reserve concurrent session quota atomically.**
 - [ ] **P1 / WEB-4 — handle nested discarded HTML elements.**

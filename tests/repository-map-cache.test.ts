@@ -12,7 +12,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RepositoryMap, TagExtractor, repoMapTokens } from "../src/index.js";
+import {
+  MAX_REPO_MAP_SOURCE_BYTES,
+  RepositoryMap,
+  TagExtractor,
+  repoMapTokens,
+} from "../src/index.js";
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
@@ -81,6 +86,34 @@ describe("RepositoryMap cache", () => {
     await utimes(path, originalTime, originalTime);
     await (await RepositoryMap.create(options)).getMap(request);
     expect(calls).toBe(3);
+  });
+
+  it("skips an oversized source before cache hashing or extraction", async () => {
+    const root = await fixture();
+    await writeFile(
+      join(root, "oversized.py"),
+      Buffer.alloc(MAX_REPO_MAP_SOURCE_BYTES + 1, 0x61),
+    );
+    let calls = 0;
+    const map = await RepositoryMap.create({
+      root,
+      maxTokens: 100,
+      countTokens,
+      refresh: "always",
+      tagSource: {
+        extract: async () => {
+          calls += 1;
+          return [];
+        },
+      },
+    });
+
+    // Untagged tracked paths remain visible by filename, but no source content
+    // reaches hashing or extraction.
+    await expect(
+      map.getMap({ chatPaths: [], otherPaths: ["oversized.py"] }),
+    ).resolves.toContain("oversized.py");
+    expect(calls).toBe(0);
   });
 
   it.each([

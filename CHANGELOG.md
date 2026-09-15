@@ -241,6 +241,10 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Enforced the repository-map 4 MiB source ceiling before and during tag-cache
+  hashing. Oversized or growing files no longer enter an unbounded cache read or
+  reach extraction, while their tracked filenames can remain in the map.
+
 - Required complete `*** Begin Patch`/`*** End Patch` envelopes for Patch-action
   responses. Missing sentinels, trailing content, and successfully truncated
   actions now enter bounded reflection instead of producing a partial edit batch;

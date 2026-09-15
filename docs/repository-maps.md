@@ -35,9 +35,10 @@ capped at 4 MiB; oversized, empty, unreadable, or unsupported files contribute
 no parsed tags. Unsupported text formats may still contribute bounded lexical
 references. Symlink escapes and traversal outside the root are rejected.
 
-The tag cache currently opens safely but reads and hashes the complete source
-before invoking `TagExtractor`, so the 4 MiB ceiling does not yet bound cache
-work. `MAP-5` tracks checking file size before that cache read.
+The tag cache checks the retained handle's size before reading and hashes in
+bounded chunks. It stops at the same 4 MiB ceiling if a source grows during the
+read, so cache validation cannot allocate or hash an unbounded tracked file
+before `TagExtractor` applies its own limit.
 
 Ranking implements the principal Aider weighted graph/PageRank formula with
 deterministic ordering.

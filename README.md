@@ -144,10 +144,10 @@ replacement rather than partial compatibility toggles.
 Repository maps keep the eleven shipped language entries for this release;
 unsupported languages still contribute bounded lexical references. New parsers
 require a concrete need and pinned/package/cross-platform evidence.
-The extractor's 4 MiB source ceiling currently occurs after the tag cache has
-read and hashed the complete file, so oversized tracked files remain an open
-resource-bound defect. General editable/read-only text snapshots now use a
-retained verified handle and a 4 MiB chunked-read ceiling.
+The extractor, renderer, and tag-cache hash path all apply a 4 MiB source
+ceiling through retained verified handles; cache hashing is incremental and
+stops if a file grows. General editable/read-only text snapshots use the same
+4 MiB chunked-read policy.
 Map token budgets, refresh policy, and empty-chat multiplier remain internal and
 model-derived. `/map` is the sole bounded display control.
 Git policy remains composed rather than individually disableable: fixed
