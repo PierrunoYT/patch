@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept executable line endings on preserve: existing files retain their observed
+  style and new/no-newline files use the platform default. Global LF/CRLF
+  conversion remains embedding-only because a session-wide override can rewrite
+  unrelated files and inflate diffs.
+
 - Limited persistence to opt-in input recall and rendered Markdown chat history.
   Provider-ready restoration, raw LLM wire logging, and command-file replay are
   privacy/authorization non-goals because they retain secrets/media or bypass

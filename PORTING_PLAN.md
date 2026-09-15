@@ -75,6 +75,9 @@ this plan, task register, and backlog track current status and open work.
 - Persistence is opt-in and human-facing: input recall and rendered Markdown
   chat history only. Provider-ready restoration, wire logging, and command-file
   replay are privacy/authorization non-goals.
+- Executable writes preserve existing line-ending style and use the platform
+  default for new/no-newline files. Global LF/CRLF conversion is embedding-only
+  to avoid unrelated rewrites and inflated diffs.
 
 ### Current staged parity
 

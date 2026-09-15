@@ -125,9 +125,10 @@ and `/attach` media all prompt with the reason. A path you named in the command
 you just typed is not asked about again. Per-failure reflection prompts remain
 unsupported.
 
-This is not yet a release-readiness or Aider-parity claim. Repository mutations
-are serialized across every session in this process that shares a worktree — a
-second `patch` process is ordered only by Git's own index lock — all untrusted
+text editing supports UTF-8, UTF-16LE, and Latin-1 with strict decoding,
+representability, and BOM handling. Executable writes preserve existing line
+endings and use the platform default for new/no-newline files; global conversion
+is embedding-only to avoid unrelated rewrites and inflated diffs;
 text on the enumerated production terminal output paths passes through one
 stateful control-sequence sanitizer, and
 replacement preserves the metadata Node can carry portably while refusing a

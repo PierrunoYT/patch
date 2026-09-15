@@ -227,8 +227,11 @@ security rules above.
   load/save command files: those retain secrets/raw media or replay effects.
   Existing history is opt-in, owner-private where supported, append-only,
   corruption-tolerant for recall, unredacted, and user-retained/deleted.
-- [ ] **CONFIG-2:** Expose preserve/LF/CRLF policy only with full configuration
-  precedence and packed cross-platform tests.
+- [x] **CONFIG-2:** Keep executable line endings on `preserve`. Existing files
+  retain their first observed style; new/no-newline files use the platform
+  default. Global LF/CRLF conversion remains a library option, not a CLI/config
+  control, because a session-wide override can rewrite unrelated selected files
+  and inflate diffs without an explicit per-file conversion workflow.
 - [x] **CONFIG-3:** Keep the executable encoding contract to UTF-8, UTF-16LE,
   and Latin-1. These codecs have fatal decode or exact representability checks,
   round-trip writes, BOM retention where applicable, and newline tests.

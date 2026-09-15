@@ -132,8 +132,10 @@ is rechecked after the write and before the rename.
 Patch also does not promise directory-fsync or crash-durability guarantees.
 
 The encoding and newline adapter is stricter than Aider and intentionally
-supports only the documented codecs. Explicit LF/CRLF conversion is currently a
-library option; the executable exposes encoding but not line-ending policy.
+supports only the documented codecs. The executable always uses `preserve`:
+existing files keep their observed style, while new/no-newline files use the
+platform default. Explicit LF/CRLF conversion remains an embedding option; a
+global executable override could rewrite unrelated files and inflate diffs.
 Static containment, full-batch staging, and sibling temporary replacement remain
 intentional safety improvements over Aider's direct truncating writes, subject
 to the metadata and concurrency limits above.

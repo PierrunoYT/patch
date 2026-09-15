@@ -442,12 +442,14 @@ valid only for the specific normalization and recovery cases they name.
   are non-goals because they persist provider payloads, tool data, secrets, and
   raw media; command-file load/save is excluded with the command-breadth decision
   because replay obscures per-effect approval and partial failure.
-- [ ] **P2 -- Expose an explicit line-ending policy if cross-platform users need
-  it.** **Status:** partial. Patch's filesystem supports preserve/LF/CRLF at
-  `src/io/filesystem.ts:12-20`, but bootstrap passes only encoding at
-  `src/core/concrete-application-service.ts:2082-2084`. Aider exposes
-  `--line-endings` at `aider/args.py:778-787`. Add config precedence and packed
-  Windows tests before making this public.
+- [x] **N/A -- Keep executable line endings on preserve.** **Status:** accepted
+  current-release scope. Existing files retain their first observed LF/CRLF
+  style; new files and files with no newline use the platform default.
+  `FileSystemAdapter` retains explicit LF/CRLF options for embedding callers,
+  but CLI/YAML/environment controls are a non-goal: a session-wide conversion
+  can rewrite unrelated selected files and inflate diffs without a visible
+  per-file conversion operation. This intentionally differs from aider's global
+  `--line-endings` option.
 - [x] **N/A -- Keep text encoding to UTF-8, UTF-16LE, and Latin-1.**
   **Status:** accepted intentional difference. Patch validates exactly those
   encodings in `src/io/filesystem.ts:12-20`; Aider passes a configured Python

@@ -89,6 +89,9 @@ controls. See
 CLI, environment, and YAML. Arbitrary Python/ICU codec names are intentionally
 unsupported so decoding, representability, BOM, and newline behavior stays
 deterministic across the Node/npm platforms.
+Line endings are not configurable at bootstrap. The executable preserves an
+existing file's observed style and uses the platform default for new/no-newline
+files; explicit LF/CRLF conversion remains an embedding-only adapter option.
 
 History and interface controls are also staged: `input-history-file`,
 `chat-history-file`, `multiline`, `notifications`, `notifications-command`,
