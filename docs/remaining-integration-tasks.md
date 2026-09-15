@@ -377,12 +377,16 @@ valid only for the specific normalization and recovery cases they name.
   `aider/commands.py:967-992,1465-1523,1569-1579`. These can execute arbitrary
   Git or command-file content and therefore require explicit authorization,
   containment, output bounds, and queue/cancellation semantics before any port.
-- [ ] **P3 -- Decide offline apply and diagnostic CLI workflows.**
-  **Status:** unported. Aider exposes `--apply`, `--apply-clipboard-edits`, `--exit`,
-  `--show-repo-map`, and `--show-prompts` at `aider/args.py:669-697`. Patch has
-  internal pure edit resolution and package smoke utilities but no matching
-  executable modes at `src/program.ts:157-348`. If selected, require dry-run,
-  authorization, input-size, clipboard, and secret-redaction contracts.
+- [x] **N/A -- Keep offline edit application out of Patch and deduplicate
+  diagnostic-mode decisions.** **Status:** accepted non-goal and consolidation.
+  Aider exposes `--apply`, `--apply-clipboard-edits`, `--exit`,
+  `--show-repo-map`, and `--show-prompts` at `aider/args.py:669-697`. Patch does
+  not accept stored model output or clipboard contents as edits because that
+  would bypass the composed turn's immutable snapshot, preview, explicit path
+  and write approval, transactional application, Git, and partial-failure
+  accounting. A startup-only `--exit` is redundant with existing one-shot
+  modes. Read-only prompt/map diagnostics remain open under the P2 inspection
+  command and map-control items rather than being duplicated here.
 - [ ] **P3 -- Decide model-search and reasoning command aliases.**
   **Status:** unported. Aider exposes `/models`, `/think-tokens`, `/reasoning-effort`, and
   role-specific model commands at `aider/commands.py:87-217,1580-1637`. This

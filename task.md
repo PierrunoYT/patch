@@ -185,10 +185,12 @@ security rules above.
 - [ ] **CMD-3:** Decide file/script command breadth (`/git`, `/load`, `/save`,
   `/editor`, and `/edit`) with containment, per-effect approval, output bounds,
   cancellation, and queue semantics.
-- [ ] **CMD-4:** Decide offline apply and diagnostic CLI modes such as
-  `--apply`, clipboard edit application, `--show-repo-map`, and
-  `--show-prompts`; require bounded inputs, dry-run/authorization contracts,
-  redaction, and exact exit statuses.
+- [x] **CMD-4:** Keep offline saved-response and clipboard edit application out
+  of Patch: model edits must pass through the composed snapshot, preview,
+  authorization, transaction, Git, and recovery lifecycle. A startup-only
+  `--exit` debug flag is redundant with Patch's one-shot modes. Read-only prompt
+  and repository-map diagnostics remain tracked by `CMD-1` and `MAP-2` instead
+  of duplicating those decisions here.
 - [ ] **CMD-5:** Add model-search, role-model, reasoning-effort, and thinking
   aliases only after the corresponding model-control decisions above.
 

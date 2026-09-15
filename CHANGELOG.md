@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Closed the offline-apply scope decision: saved model responses and clipboard
+  contents will not bypass Patch's snapshot, preview, approval, transaction,
+  Git, and recovery lifecycle. Existing one-shot message modes replace an
+  aider-style startup-only exit; read-only prompt/map diagnostics remain tracked
+  by their dedicated command and map decisions.
+
 - Defined prompt compatibility as format structure, chunk order, fence
   interpolation, and parser behavior rather than byte-identical aider prose.
   Automatic locale detection and multilingual prompt control are explicit

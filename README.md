@@ -213,6 +213,10 @@ Each editing attempt uses one immutable provider-visible snapshot and selection
 context through parsing, dry-run resolution, authorization, writes, configured
 checks/reflection, commits, and final history/result accounting. A reflected
 attempt captures fresh disk context before its next provider request.
+Patch does not apply saved model responses or clipboard contents as edits:
+offline edit modes would bypass that composed preview, approval, transaction,
+Git, and recovery boundary. Use `--message` or `--message-file` for supported
+one-shot turns.
 
 The [ancillary feature scope](PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
 includes offline `/help`, which now lists commands and performs bounded search

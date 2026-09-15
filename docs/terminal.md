@@ -22,6 +22,15 @@ for asynchronous Node.js streams:
   be combined with each other. See [watch mode](watch-mode.md) and
   [the web interface](web-interface.md).
 
+Patch intentionally has no aider-style `--apply` or
+`--apply-clipboard-edits` mode. Stored model output and clipboard contents do
+not bypass the normal turn lifecycle: edits require current file snapshots, a
+visible preview, explicit path/write approval, transactional application, Git,
+and partial-failure accounting. `--message` and `--message-file` are the
+supported one-shot modes; a startup-only debug `--exit` adds no separate product
+behavior. Read-only prompt and repository-map diagnostics remain future command
+scope rather than implicit edit paths.
+
 Package smoke verifies both provider-bearing terminal modes through the actual
 `patch` bin after packing and clean installation. A preloaded deterministic
 `fetch` replacement returns OpenAI-compatible SSE entirely in-process: one run

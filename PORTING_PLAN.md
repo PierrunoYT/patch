@@ -950,7 +950,11 @@ a documented intentional difference.
 The original first slice—package/legal infrastructure, safe text/path adapters,
 provider-neutral contracts, SEARCH/REPLACE behavior, and pinned fixtures—is
 complete. Its proposed saved-response `--dry-run` CLI was never implemented and
-is no longer recommended: dry-run resolution belongs inside the composed turn
-lifecycle, where it now runs before authorization and writes. Current work is
-tracked by `docs/remaining-integration-tasks.md` rather than this historical
-bootstrap sequence.
+is no longer recommended, nor are aider-style saved-response or clipboard edit
+application modes: dry-run resolution belongs inside the composed turn
+lifecycle, where current snapshots, preview, authorization, transaction, Git,
+and recovery accounting surround it. Existing one-shot message modes replace a
+startup-only debug exit. Read-only prompt/map diagnostics remain tracked under
+their command and map decisions. Current work is tracked by
+`docs/remaining-integration-tasks.md` rather than this historical bootstrap
+sequence.
