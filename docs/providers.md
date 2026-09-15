@@ -185,10 +185,15 @@ callers; the executable bootstrap does not expose them.
 ## Capability-aware context and continuation
 
 `CoderSession` adds ephemeral prompt-cache boundaries only for models declaring
-`promptCaching`. A positive `--cache-keepalive-pings` (or matching environment/
-YAML setting) arms production keepalive; zero is the default, so startup adds no
-background network requests. Each accepted foreground prompt replaces the prior
-schedule, waits 295 seconds, and makes at most `--cache-keepalive-pings`
+`promptCaching` and while `--cache-prompts` remains enabled. Foreground markers
+are enabled by default for capable models to preserve Patch's existing behavior;
+`--no-cache-prompts`, `PATCH_CACHE_PROMPTS=false`, or `cache-prompts: false`
+removes them without changing model metadata and also disables keepalive. A
+positive `--cache-keepalive-pings` (or matching environment/YAML setting) arms
+production keepalive only while markers are enabled; zero is the default, so
+startup adds no background network requests. Each accepted foreground prompt
+replaces the prior schedule, waits 295 seconds, and makes at most
+`--cache-keepalive-pings`
 one-token refresh requests at that interval, ten being the largest value the
 option accepts. The bound is per schedule, not per turn: replacing the schedule
 restarts the count, so a turn that reflects several times arms a fresh run of

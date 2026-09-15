@@ -65,6 +65,8 @@ export interface CoderSessionOptions {
     messages: readonly ChatMessage[],
     signal?: AbortSignal,
   ) => readonly ChatMessage[] | Promise<readonly ChatMessage[]>;
+  /** Enables provider-neutral cache markers for capable models. */
+  readonly promptCacheEnabled?: boolean;
   readonly promptCacheKeepalive?: {
     readonly pings: number;
     readonly intervalMs?: number;
@@ -409,6 +411,7 @@ export class CoderSession {
   readonly #approvePath: PathApproval | undefined;
   readonly #tokenCounter: MessageTokenCounter;
   readonly #summarizeHistory: CoderSessionOptions["summarizeHistory"];
+  readonly #promptCacheEnabled: boolean;
   readonly #promptCachePings: number;
   readonly #promptCacheIntervalMs: number;
   #promptCacheTimer: ReturnType<typeof setTimeout> | undefined;
@@ -452,6 +455,7 @@ export class CoderSession {
       options.tokenCounter ??
       ((messages, model) => countMessageTokens(messages, model).tokens);
     this.#summarizeHistory = options.summarizeHistory;
+    this.#promptCacheEnabled = options.promptCacheEnabled ?? true;
     this.#promptCachePings = options.promptCacheKeepalive?.pings ?? 0;
     this.#promptCacheIntervalMs =
       options.promptCacheKeepalive?.intervalMs ?? 295_000;
@@ -729,7 +733,7 @@ export class CoderSession {
       reminder: prompt.reminder,
     });
     const messages = (
-      this.#config.model.capabilities.promptCaching
+      this.#promptCacheEnabled && this.#config.model.capabilities.promptCaching
         ? chunks.withCacheControl()
         : chunks
     ).allMessages();
@@ -1191,7 +1195,10 @@ export class CoderSession {
                 ],
                 reminder: prompt.reminder,
               });
-        if (this.#config.model.capabilities.promptCaching)
+        if (
+          this.#promptCacheEnabled &&
+          this.#config.model.capabilities.promptCaching
+        )
           chunks = chunks?.withCacheControl();
         request = CompletionRequestSchema.parse({
           ...request,
@@ -1270,6 +1277,7 @@ export class CoderSession {
   #schedulePromptCache(request: CompletionRequest): void {
     this.#cancelPromptCache();
     if (
+      !this.#promptCacheEnabled ||
       this.#promptCachePings === 0 ||
       !this.#config.model.capabilities.promptCaching
     )

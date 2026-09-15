@@ -44,6 +44,10 @@ observer-atomic: terminal and HTTP/SSE consumers receive its ordered events only
 after an accepted finish, while failed-attempt text, reasoning, usage, and retry
 errors remain private. This deliberately trades token-by-token display latency
 for a structured event stream that never presents discarded output as accepted.
+Capable models retain foreground prompt-cache markers by default. Users can
+disable both markers and any configured background refresh with
+`--no-cache-prompts`, `PATCH_CACHE_PROMPTS=false`, or `cache-prompts: false`;
+bounded keepalive remains a separate, zero-by-default opt-in.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Each receives its pinned format-specific system instructions,
 examples, reminder, shell policy, and a fence reselected from the current files

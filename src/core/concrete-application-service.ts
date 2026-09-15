@@ -535,6 +535,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         return context.approvePath?.(path, reason) ?? false;
       },
       summarizeHistory: (messages, signal) => this.#summarize(messages, signal),
+      promptCacheEnabled: context.bootstrap.arguments.cachePrompts,
       promptCacheKeepalive: {
         pings: context.bootstrap.arguments.cacheKeepalivePings,
       },

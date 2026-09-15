@@ -541,6 +541,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   `ConcreteApplicationService`, and submits a real session turn; deterministic
   full-path coverage remains credential-free.
 - [x] Implement Anthropic streaming and system/cache-control differences.
+- [x] Expose prompt-cache markers independently from keepalive through paired
+  CLI controls plus environment/YAML precedence. Capable models preserve
+  Patch's existing enabled default; disabling markers also suppresses a positive
+  bounded keepalive setting through the concrete application path.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
 - [x] Align `gpt-4o-mini` format/map defaults and DeepSeek Reasoner weak/editor

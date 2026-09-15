@@ -65,6 +65,7 @@ interface ProgramOptions {
   readonly git?: boolean;
   readonly gitCommitVerify?: boolean;
   readonly generateCommitMessages?: boolean;
+  readonly cachePrompts?: boolean;
   readonly cacheKeepalivePings?: string;
   readonly commitAuthorName?: string;
   readonly commitCommitterName?: string;
@@ -137,6 +138,10 @@ function bootstrapArguments(
       options.generateCommitMessages
         ? "--generate-commit-messages"
         : "--no-generate-commit-messages",
+    );
+  if (command.getOptionValueSource("cachePrompts") === "cli")
+    argv.push(
+      options.cachePrompts === true ? "--cache-prompts" : "--no-cache-prompts",
     );
   if (options.git === false) argv.push("--no-git");
   for (const [name, enabled, option] of [
@@ -226,6 +231,14 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "co-author trailer for Patch-authored edits",
       )
       .option("--model <name>", "model name")
+      .option(
+        "--cache-prompts",
+        "enable prompt-cache markers for capable models (default: enabled)",
+      )
+      .option(
+        "--no-cache-prompts",
+        "disable prompt-cache markers and keepalive requests",
+      )
       .option(
         "--cache-keepalive-pings <count>",
         "refresh a supported prompt cache up to 10 times (default: 0)",

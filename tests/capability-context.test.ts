@@ -38,10 +38,17 @@ describe("capability-aware context", () => {
       provider: new FakeProvider([]),
       strategy: new AskEditStrategy(),
     }).prepareTurn("now", prompt);
+    const disabled = new CoderSession({
+      config: { root: "/repo", model: model({ promptCaching: true }) },
+      provider: new FakeProvider([]),
+      strategy: new AskEditStrategy(),
+      promptCacheEnabled: false,
+    }).prepareTurn("now", prompt);
     expect(cached.request.messages[0]?.content).toEqual([
       { type: "text", text: "stable", cacheControl: { type: "ephemeral" } },
     ]);
     expect(plain.request.messages[0]?.content).toBe("stable");
+    expect(disabled.request.messages[0]?.content).toBe("stable");
   });
 
   it("continues truncated output with assistant prefill when supported", async () => {
@@ -253,14 +260,22 @@ describe("capability-aware context", () => {
   it("does not schedule without capability, opt-in pings, or a cache boundary", async () => {
     vi.useFakeTimers();
     const cases = [
-      { capabilities: {}, pings: 1, prompt: { system: [] } },
       {
         capabilities: { promptCaching: true },
+        enabled: false,
+        pings: 1,
+        prompt: { system: [{ role: "system" as const, content: "stable" }] },
+      },
+      { capabilities: {}, enabled: true, pings: 1, prompt: { system: [] } },
+      {
+        capabilities: { promptCaching: true },
+        enabled: true,
         pings: 0,
         prompt: { system: [{ role: "system" as const, content: "stable" }] },
       },
       {
         capabilities: { promptCaching: true },
+        enabled: true,
         pings: 1,
         prompt: { system: [] },
       },
@@ -271,6 +286,7 @@ describe("capability-aware context", () => {
         config: { root: "/repo", model: model(item.capabilities) },
         provider,
         strategy: new AskEditStrategy(),
+        promptCacheEnabled: item.enabled,
         promptCacheKeepalive: { pings: item.pings, intervalMs: 1_000 },
       });
       await session.runTurn("current", { prompt: item.prompt });

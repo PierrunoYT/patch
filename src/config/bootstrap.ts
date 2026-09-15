@@ -40,6 +40,7 @@ const ConfigurationFileSchema = z
     git: z.boolean().optional(),
     "git-commit-verify": z.boolean().optional(),
     "generate-commit-messages": z.boolean().optional(),
+    "cache-prompts": z.boolean().optional(),
     "cache-keepalive-pings": z.number().int().min(0).max(10).optional(),
     "commit-author-name": CommitIdentitySchema.optional(),
     "commit-committer-name": CommitIdentitySchema.optional(),
@@ -73,6 +74,7 @@ export interface BootstrapArguments {
   readonly git: boolean;
   readonly gitCommitVerify: boolean;
   readonly generateCommitMessages: boolean;
+  readonly cachePrompts: boolean;
   readonly cacheKeepalivePings: number;
   readonly commitAuthorName: string | undefined;
   readonly commitCommitterName: string | undefined;
@@ -122,6 +124,7 @@ interface ParsedCommandLine {
   git: boolean | undefined;
   gitCommitVerify: boolean | undefined;
   generateCommitMessages: boolean | undefined;
+  cachePrompts: boolean | undefined;
   cacheKeepalivePings: string | undefined;
   commitAuthorName: string | undefined;
   commitCommitterName: string | undefined;
@@ -204,6 +207,7 @@ function parseCommandLine(
     git: undefined,
     gitCommitVerify: undefined,
     generateCommitMessages: undefined,
+    cachePrompts: undefined,
     cacheKeepalivePings: undefined,
     commitAuthorName: undefined,
     commitCommitterName: undefined,
@@ -254,15 +258,17 @@ function parseCommandLine(
       continue;
     }
     const booleanTarget =
-      argument === "--multiline" || argument === "--no-multiline"
-        ? "multiline"
-        : argument === "--notifications" || argument === "--no-notifications"
-          ? "notifications"
-          : argument === "--watch-files" || argument === "--no-watch-files"
-            ? "watchFiles"
-            : argument === "--web" || argument === "--no-web"
-              ? "web"
-              : undefined;
+      argument === "--cache-prompts" || argument === "--no-cache-prompts"
+        ? "cachePrompts"
+        : argument === "--multiline" || argument === "--no-multiline"
+          ? "multiline"
+          : argument === "--notifications" || argument === "--no-notifications"
+            ? "notifications"
+            : argument === "--watch-files" || argument === "--no-watch-files"
+              ? "watchFiles"
+              : argument === "--web" || argument === "--no-web"
+                ? "web"
+                : undefined;
     if (booleanTarget !== undefined) {
       parsed[booleanTarget] = !argument?.startsWith("--no-");
       continue;
@@ -461,6 +467,14 @@ function resolveArguments(
       ) ??
       configuration["generate-commit-messages"] ??
       false,
+    cachePrompts:
+      commandLine.cachePrompts ??
+      environmentBoolean(
+        environment.PATCH_CACHE_PROMPTS,
+        "PATCH_CACHE_PROMPTS",
+      ) ??
+      configuration["cache-prompts"] ??
+      true,
     cacheKeepalivePings,
     commitAuthorName: identity(
       commandLine.commitAuthorName ??

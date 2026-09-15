@@ -160,6 +160,31 @@ describe("CLI", () => {
     ).rejects.toThrow(/--vim is not implemented/u);
   });
 
+  it("forwards an explicit prompt-cache disable through Commander", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-cli-cache-"));
+    let cachePrompts: boolean | undefined;
+    await createProgram({
+      cwd: root,
+      environment: { PATCH_CACHE_PROMPTS: "true" },
+      writeOutput: () => undefined,
+      createApplication: async (options) => {
+        cachePrompts = options.bootstrap?.arguments.cachePrompts;
+        return {
+          createSession: () => ({
+            snapshot: () => ({}),
+            submit: () =>
+              Promise.resolve({ kind: "turn", response: "answered" }),
+          }),
+          close: () => undefined,
+        } as never;
+      },
+    }).parseAsync(
+      ["--no-git", "--model", "4o", "--no-cache-prompts", "--message", "hello"],
+      { from: "user" },
+    );
+    expect(cachePrompts).toBe(false);
+  });
+
   it("notifies after a completed response when explicitly enabled", async () => {
     let output = "";
     await createProgram({

@@ -869,6 +869,41 @@ describe("application interface startup", () => {
     vi.useRealTimers();
   });
 
+  it("production-wires disabling prompt markers and keepalive", async () => {
+    const root = await fixture();
+    const provider = new FakeProvider([turn("answer")]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--no-git",
+        "--model",
+        "sonnet",
+        "--edit-format",
+        "ask",
+        "--no-cache-prompts",
+        "--cache-keepalive-pings",
+        "1",
+      ],
+      dependencies: { provider },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "cache-disabled",
+    });
+    vi.useFakeTimers();
+    await session.submit("private user turn", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+    expect(JSON.stringify(provider.requests[0])).not.toContain("cacheControl");
+    await vi.advanceTimersByTimeAsync(295_000);
+    expect(provider.requests).toHaveLength(1);
+    await service.close();
+    vi.useRealTimers();
+  });
+
   it("continues repeated assistant prefill through the executable session", async () => {
     const root = await fixture();
     const provider = new FakeProvider([

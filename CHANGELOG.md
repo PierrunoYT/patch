@@ -48,6 +48,12 @@ dated parity audits for revision-specific evidence.
 
 ### Added
 
+- Executable prompt-cache enablement through `--cache-prompts`/
+  `--no-cache-prompts`, `PATCH_CACHE_PROMPTS`, and `cache-prompts` YAML. Capable
+  models retain Patch's prior enabled default, while disabling markers also
+  suppresses configured keepalive requests; production-path tests cover both
+  the foreground request and background timer.
+
 - A protected DeepSeek live contract that resolves the advertised bundled model,
   applies a 16-token contract-only output cap, constructs the real provider
   factory through `ConcreteApplicationService`, and submits through an

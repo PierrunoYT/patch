@@ -146,8 +146,13 @@ security rules above.
 - [ ] **MODEL-6:** Decide whether the executable should select and switch main,
   weak, and editor models independently while preserving atomic profile changes,
   cleanup, compatible history, and cost accounting.
-- [ ] **MODEL-7:** Decide whether prompt-cache markers need an executable
-  enable/disable control separate from bounded keepalive pings.
+- [x] **MODEL-7:** Expose prompt-cache markers independently from bounded
+  keepalive. `--cache-prompts`/`--no-cache-prompts`, `PATCH_CACHE_PROMPTS`, and
+  `cache-prompts` YAML use normal CLI-over-environment-over-file precedence.
+  Markers remain enabled by default for capable models to preserve Patch's
+  existing foreground behavior; disabling them also suppresses a configured
+  keepalive schedule. Focused bootstrap, session, and production application
+  tests cover precedence, marker removal, and the no-background-request path.
 
 ### Edit strategies and orchestration
 
