@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Close-only reasoning tags are now normalized before accepted attempt events
+  reach terminal or HTTP observers. The hidden prefix becomes reasoning while
+  display, results, continued output, history, and edit parsing retain the same
+  answer-only text.
+
 - Streaming Markdown now retains syntax languages on variable-length backtick
   fences, including delimiters split across provider chunks. Shorter runs stay
   inside the code block, and only an at-least-matching bare run closes it.

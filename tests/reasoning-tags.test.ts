@@ -89,6 +89,96 @@ describe("removeReasoningContent", () => {
 });
 
 describe("a session whose model reasons in the content stream", () => {
+  it("reclassifies a close-only prefix before publishing the accepted attempt", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: {
+        root,
+        model: {
+          name: "test/reasoner",
+          provider: "fake",
+          editFormat: "ask",
+          reasoningTag: "think",
+        },
+      },
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "private " },
+            { type: "text-delta", text: "thoughts</thi" },
+            { type: "text-delta", text: "nk>The answer" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+    const shown: CompletionEvent[] = [];
+
+    const completed = await session.runTurn("question", {
+      onEvent: (event) => shown.push(event),
+    });
+
+    expect(completed.response).toBe("The answer");
+    expect(completed.reasoning).toBe("private thoughts");
+    expect(shown).toEqual([
+      { type: "reasoning-delta", text: "private thoughts" },
+      { type: "text-delta", text: "The answer" },
+      { type: "finish", reason: "stop" },
+    ]);
+    expect(completed.events).toEqual(shown);
+    expect(session.snapshot().messages).toContainEqual({
+      role: "assistant",
+      content: "The answer",
+      reasoning: "private thoughts",
+    });
+  });
+
+  it("preserves an accepted continuation prefix before close-only reasoning", async () => {
+    const root = await temporaryDirectory();
+    const session = new CoderSession({
+      config: {
+        root,
+        model: {
+          name: "test/reasoner",
+          provider: "fake",
+          editFormat: "ask",
+          reasoningTag: "think",
+          capabilities: { assistantPrefill: true },
+        },
+      },
+      provider: new FakeProvider([
+        {
+          actions: [
+            { type: "text-delta", text: "prefix" },
+            { type: "finish", reason: "length" },
+          ],
+        },
+        {
+          actions: [
+            { type: "text-delta", text: "private</think>answer" },
+            { type: "finish", reason: "stop" },
+          ],
+        },
+      ]),
+      strategy: new AskEditStrategy(),
+    });
+    const shown: CompletionEvent[] = [];
+
+    const completed = await session.runTurn("question", {
+      onEvent: (event) => shown.push(event),
+    });
+
+    expect(completed.response).toBe("prefixanswer");
+    expect(completed.reasoning).toBe("private");
+    expect(
+      shown
+        .filter(({ type }) => type === "text-delta")
+        .map((event) => (event.type === "text-delta" ? event.text : ""))
+        .join(""),
+    ).toBe("prefixanswer");
+  });
+
   it("keeps the tagged text out of display, history, and parsing", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({

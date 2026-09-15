@@ -77,7 +77,7 @@ unchanged result of any historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | implemented Patch scope with intentional recovery limits | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, observer-atomic provider retries, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Failed provider-attempt events are withheld from terminal/HTTP consumers while billed cost remains accounted. Recovery from arbitrary child/Git side effects remains incomplete. |
+| Core lifecycle | implemented Patch scope with intentional recovery limits | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, observer-atomic provider retries, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Failed provider-attempt events are withheld from terminal/HTTP consumers while billed cost remains accounted; close-only reasoning prefixes are reclassified before accepted events reach either interface. Recovery from arbitrary child/Git side effects remains incomplete. |
 | Editing | implemented Patch scope with intentional recovery differences | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented. Unified-diff fence discovery now scans physical lines so prefixed Markdown fences remain data; insertion-only hunks retain and validate numeric ranges or fail closed. Focused tests cover beginning/middle/end, malformed ranges, new and empty files, and repeated insertion text; packed-bin smoke covers both former P0 paths. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
 | Models/providers | partial with scoped parity evidence | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. `gpt-4o-mini` format/map behavior, DeepSeek Reasoner weak/editor routing, and exact DeepSeek input/output limits match pinned resources through production paths. Separately gated live contracts remain subject to protected workflow/account variability. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads retain a no-follow handle only after re-resolving the target and verifying opened-file plus every in-root ancestor identity; deterministic pre-open swaps cannot return or submit external content. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
@@ -157,11 +157,14 @@ below. This section adds findings that pass did not represent.
   Pinned `aider/openrouter.py:29-128` downloads a model list and writes a 24-hour
   home-directory cache. Patch may add explicit OpenRouter support later, but
   implicit startup networking/persistence remains outside its privacy policy.
-- [ ] **P2 — Describe close-only reasoning cleanup accurately.** **Status:**
-  documentation correction. A complete tagged stream is split before display,
-  history, and parsing. When the opening tag predates the received stream,
-  `src/core/coder-session.ts:953-961` can clean only the completed response for
-  history/parser; already streamed display cannot be retracted.
+- [x] **P2 — Normalize close-only reasoning before observer publication.**
+  **Status:** fixed 2026-09-15. A complete tagged stream is split incrementally.
+  When the opening tag predates the received stream, attempt-atomic buffering
+  now reclassifies the prefix as one reasoning event and publishes only the
+  answer as text. The result, continued-output prefix, history, and parser use
+  that same answer. Focused tests split the close across provider deltas and
+  cover an assistant-prefill continuation. Pinned aider strips the prefix only
+  from its final response; Patch's structured observer contract is stronger.
 
 Local documentation-change validation on Linux/Node.js `v26.5.1` passed
 `npm run check`: 63 direct derivations, 685 tests passed with eight skips, a
@@ -978,8 +981,9 @@ implementation tasks.
   than failing the turn. `ReasoningTagSplitter` divides a complete
   `reasoningTag` span as it arrives, so that span reaches neither answer display,
   history, nor the edit parser. A response whose closing tag has no opening tag
-  is cleaned once complete for history and parsing, but content streamed before
-  the closing tag cannot be retracted from display. Evidence: `tests/chat-summary.test.ts`,
+  is reclassified while the accepted attempt remains observer-buffered, so the
+  prefix becomes reasoning and only the answer reaches display, continued
+  output, history, and parsing. Evidence: `tests/chat-summary.test.ts`,
   `tests/reasoning-tags.test.ts`, and the summarization case in
   `tests/application-prompt-context.test.ts`.
 - [x] Merge executable metadata limits/prices/capabilities, add temperature

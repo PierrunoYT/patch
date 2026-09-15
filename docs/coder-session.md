@@ -103,11 +103,14 @@ deltas as they arrive — holding back only text that could still begin the tag,
 so a tag broken across deltas is still recognized — and the tagged span is
 re-emitted as `reasoning-delta`. Display, history, and the edit parser therefore
 all see the answer alone. A closing tag with no opening tag means reasoning
-began before the first delta, which streaming cannot detect in time to keep off
-the screen; the finished response is checked once more with
-`removeReasoningContent` so history and parsing are still clean, matching
-upstream. `deepseek/deepseek-reasoner`, aliased `r1`, is the bundled model that
-uses this.
+began before the first delta, which the splitter cannot classify incrementally.
+Provider-attempt events remain private until finish, however, so the session
+reclassifies that prefix as reasoning before publishing the accepted event
+buffer. Display, the returned event list, continued-output prefixes, history,
+and edit parsing all receive the same answer-only text. Pinned aider strips the
+prefix from its final response but cannot retract direct streaming output;
+Patch's observer-atomic contract intentionally closes that gap.
+`deepseek/deepseek-reasoner`, aliased `r1`, is the bundled model that uses this.
 Classified retryable errors use bounded exponential backoff; context-window
 errors bypass retries. Cancellation, missing finish events, and output-limit
 truncation preserve diagnostic partial text and do not parse or stage that

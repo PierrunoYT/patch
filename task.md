@@ -107,10 +107,10 @@ Baseline for the current findings:
 - [x] **VOICE-1: Honor pre-aborted signals in `FfmpegVoiceRecorder`.** The
   exported adapter checks cancellation before spawning; a real subprocess test
   proves a pre-aborted call creates no child side effect or abort listener.
-- [ ] **CORE-2: Settle close-only reasoning display behavior.** Current final
-  cleanup protects history and edit parsing but cannot retract content already
-  emitted to a consumer. Decide whether attempt buffering/reset semantics fully
-  resolve this case and add the corresponding stream contract tests.
+- [x] **CORE-2: Settle close-only reasoning display behavior.** Attempt
+  buffering now reclassifies a prefix before publishing accepted events, so
+  display, result, continuation, history, and parsing retain one normalized
+  answer. Stream-contract tests cover split close tags and continued output.
 
 ## Release and compatibility evidence
 

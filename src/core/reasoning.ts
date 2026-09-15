@@ -21,9 +21,9 @@ function escapeForPattern(tag: string): string {
  * Removes a complete `<tag>…</tag>` span from finished text.
  *
  * A closing tag with no opening tag means the model began reasoning before the
- * first delta, so everything up to it is reasoning. Streaming cannot detect that
- * case in time to keep it off the screen, which is why the whole response is
- * checked again once it is complete.
+ * first delta, so everything up to it is reasoning. A splitter cannot detect
+ * that case incrementally; the session checks the complete accepted attempt
+ * while its observer events are still buffered.
  */
 export function removeReasoningContent(text: string, tag: string): string {
   if (tag === "") return text;

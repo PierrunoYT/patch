@@ -129,7 +129,9 @@ this plan, task register, and backlog track current status and open work.
   DeepSeek input/output limits now match pinned model resources. Provider
   retry events are attempt-atomic: failed text/reasoning/usage/error events are
   withheld from interfaces, while accepted events are delivered in order after
-  finish and completed history keeps the same accepted output.
+  finish and completed history keeps the same accepted output. The same buffer
+  reclassifies close-only reasoning prefixes before interfaces see them, keeping
+  display, continuation, history, and parsing consistent.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock. The root registry uses weak references and
   guarded finalizers to reclaim unreachable locks without evicting live idle

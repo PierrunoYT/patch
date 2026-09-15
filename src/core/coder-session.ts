@@ -302,6 +302,41 @@ function combineUsage(
   };
 }
 
+/**
+ * Replaces stream text for a close-only reasoning response after the accepted
+ * attempt is complete. Provider attempts are observer-buffered, so this
+ * normalization happens before any consumer sees the misleading prefix.
+ */
+function replaceAttemptText(
+  events: CompletionEvent[],
+  reasoning: string,
+  content: string,
+): void {
+  const firstText = events.findIndex(
+    ({ type }) => type === "text-delta" || type === "reasoning-delta",
+  );
+  if (firstText === -1) return;
+  const replacement: CompletionEvent[] = [
+    ...(reasoning === ""
+      ? []
+      : [{ type: "reasoning-delta" as const, text: reasoning }]),
+    ...(content === "" ? [] : [{ type: "text-delta" as const, text: content }]),
+  ];
+  const rewritten: CompletionEvent[] = [];
+  let inserted = false;
+  for (const event of events) {
+    if (event.type === "text-delta" || event.type === "reasoning-delta") {
+      if (!inserted) {
+        rewritten.push(...replacement);
+        inserted = true;
+      }
+      continue;
+    }
+    rewritten.push(event);
+  }
+  events.splice(0, events.length, ...rewritten);
+}
+
 function defaultSleep(
   milliseconds: number,
   signal?: AbortSignal,
@@ -852,6 +887,8 @@ export class CoderSession {
           let finished = false;
           let accountedAttemptCost = 0;
           let attemptUsage: UsageReport | undefined;
+          let attemptResponse = "";
+          let attemptReasoning = "";
           response = responsePrefix;
           reasoning = reasoningPrefix;
           const reasoningTag = this.#config.model.reasoningTag;
@@ -887,6 +924,7 @@ export class CoderSession {
                 };
                 attemptEvents.push(thought);
                 reasoning += split.reasoning;
+                attemptReasoning += split.reasoning;
               }
               if (split.content === "") continue;
               event = { type: "text-delta", text: split.content };
@@ -895,6 +933,7 @@ export class CoderSession {
             switch (event.type) {
               case "text-delta":
                 response += event.text;
+                attemptResponse += event.text;
                 this.#state = SessionStateSchema.parse({
                   ...this.#state,
                   partialResponse: response,
@@ -902,6 +941,7 @@ export class CoderSession {
                 break;
               case "reasoning-delta":
                 reasoning += event.text;
+                attemptReasoning += event.text;
                 break;
               case "usage": {
                 attemptUsage = reportUsage(this.#config.model, event);
@@ -956,12 +996,34 @@ export class CoderSession {
           if (splitter !== undefined) {
             const rest = splitter.flush();
             reasoning += rest.reasoning;
+            attemptReasoning += rest.reasoning;
             response += rest.content;
+            attemptResponse += rest.content;
             // A closing tag with no opening tag means reasoning began before the
-            // first delta. Streaming cannot know that in time to keep it off the
-            // screen, so the finished text is checked once more for history and
-            // edit parsing, as upstream does.
-            response = removeReasoningContent(response, reasoningTag ?? "");
+            // first delta. The splitter cannot classify the prefix incrementally,
+            // but attempt events are still private here, so normalize both the
+            // result and observer stream before accepting the attempt.
+            const closing = `</${reasoningTag ?? ""}>`;
+            const closingIndex = attemptResponse.indexOf(closing);
+            if (closingIndex !== -1) {
+              const hidden = attemptResponse.slice(0, closingIndex).trim();
+              const visible = removeReasoningContent(
+                attemptResponse,
+                reasoningTag ?? "",
+              );
+              reasoning += hidden;
+              attemptReasoning += hidden;
+              replaceAttemptText(attemptEvents, attemptReasoning, visible);
+              // A close-only tag belongs to this provider segment. Preserve an
+              // accepted assistant-prefill prefix from an earlier length stop.
+              response = `${responsePrefix}${visible}`.trim();
+            } else {
+              response = removeReasoningContent(response, reasoningTag ?? "");
+            }
+            this.#state = SessionStateSchema.parse({
+              ...this.#state,
+              partialResponse: response,
+            });
           }
 
           if (retry) {
