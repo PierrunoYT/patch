@@ -2,21 +2,19 @@
 
 ## Purpose
 
-This is the consolidated, deduplicated queue for unresolved Patch work. It
-combines the [current parity audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md)
-with open implementation and evidence work from the
+This is the consolidated queue for unresolved Patch work. It combines the
+[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md), the
+[file inventory audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md), and the
 [detailed integration backlog](docs/remaining-integration-tasks.md).
 
-The current audit and its
-[source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md) compare
-clean source trees after the product-scope decisions were reconciled. Earlier
-dated audits and inventories remain historical snapshots. Update this file when
-an issue changes state; update detailed evidence and affected subsystem docs in
-the same change.
+The deep audit compares branch behavior inside the owning aider/Patch modules;
+the source inventory classifies every pinned product file. Earlier dated audits
+remain historical snapshots. Update this file, detailed evidence, and affected
+subsystem docs together.
 
-Baseline for the current findings:
+Baseline for the deep findings:
 
-- Patch source: `c9c59c6157a60ebcaf890dfbf89b845b67bc1e42`
+- Patch source: `5eecc980833e23e17ab119031ca679fc54d0301d`
 - aider source: `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`
 - Complete upstream inventory: 80 Python product modules, two model resources,
   and 58 Tree-sitter queries
@@ -55,6 +53,24 @@ Baseline for the current findings:
       locations fail closed.
       Beginning, middle, end, repeated text, new-file, existing-empty-file, and
       installed middle-insertion cases are covered.
+
+## Deep-audit correctness fixes
+
+- [x] **CTX-1: Deny model-selected context disclosure without an approver.**
+      `selectContext` now fails before a newly selected file reaches the next pass.
+- [x] **SWITCH-1: Forward cancellation into switch-time summarization.** Model,
+      mode, reasoning, and thinking switches preserve the prior profile/history.
+- [x] **PROMPT-2: Honor model prompt placement settings.** Construction now
+      supports no-system preambles, system examples, model-selected reminder roles,
+      and pinned read-only/repository acknowledgements.
+- [x] **MAP-4: Retain containment through map source reads.** Tag extraction and
+      rendering use verified handles, reject ancestor swaps, and cap reads at 4 MiB.
+- [x] **CONFIG-4: Bound startup resource files.** Config, dotenv, and custom
+      model resources use race-safe 1 MiB reads before parsing.
+- [x] **PROC-2: Await Windows command-tree termination.** Timed-out/cancelled
+      commands settle after `taskkill /T /F`, not direct-child close alone.
+- [x] **WEB-2: Bound explicit URL command input.** `/web` rejects URLs over
+      4,096 characters before network parsing or dispatch.
 
 ## P1 — supported-surface correctness and safety
 

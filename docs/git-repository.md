@@ -71,13 +71,13 @@ current ignore rules. See [watch mode](watch-mode.md) and
 Checkpoints, model-edit commits, configured-check commits, and `/commit` share
 one policy resolved through CLI, YAML, and `PATCH_*` configuration:
 
-| CLI option / YAML key | Environment | Default and effect |
-| --- | --- | --- |
-| `--git-commit-verify` / `git-commit-verify` | `PATCH_GIT_COMMIT_VERIFY` | `false`; when true, omit Git's `--no-verify`. |
-| `--generate-commit-messages` / `generate-commit-messages` | `PATCH_GENERATE_COMMIT_MESSAGES` | `false`; when true, generate a subject from the selected diff. |
-| `--commit-author-name` / `commit-author-name` | `PATCH_COMMIT_AUTHOR_NAME` | Unset; overrides the author name only for model-edit commits. |
-| `--commit-committer-name` / `commit-committer-name` | `PATCH_COMMIT_COMMITTER_NAME` | Unset; overrides the committer name for all Patch commits. |
-| `--commit-co-author` / `commit-co-author` | `PATCH_COMMIT_CO_AUTHOR` | Unset; adds a `Co-authored-by: <value>` trailer only for model-edit commits. |
+| CLI option / YAML key                                     | Environment                      | Default and effect                                                           |
+| --------------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| `--git-commit-verify` / `git-commit-verify`               | `PATCH_GIT_COMMIT_VERIFY`        | `false`; when true, omit Git's `--no-verify`.                                |
+| `--generate-commit-messages` / `generate-commit-messages` | `PATCH_GENERATE_COMMIT_MESSAGES` | `false`; when true, generate a subject from the selected diff.               |
+| `--commit-author-name` / `commit-author-name`             | `PATCH_COMMIT_AUTHOR_NAME`       | Unset; overrides the author name only for model-edit commits.                |
+| `--commit-committer-name` / `commit-committer-name`       | `PATCH_COMMIT_COMMITTER_NAME`    | Unset; overrides the committer name for all Patch commits.                   |
+| `--commit-co-author` / `commit-co-author`                 | `PATCH_COMMIT_CO_AUTHOR`         | Unset; adds a `Co-authored-by: <value>` trailer only for model-edit commits. |
 
 Both booleans have `--no-…` counterparts. Names and trailer values must be
 nonempty, at most 256 characters, and contain no control characters. Names are
@@ -146,8 +146,12 @@ unrelated index entry remain untouched. This preserves partially staged
 selected files and restores a newly added path to untracked. If restoration
 itself fails, the error reports both failures and the user must inspect the
 index. Index flags such as `assume-unchanged`/`skip-worktree` are outside this
-guarantee. Hooks and configured/approved commands can independently modify any
-file or Git state, and Patch does not reverse those arbitrary side effects.
+guarantee.
+
+Approved/model/configured commands are separately bounded and cancellable. On
+Windows, timeout/cancellation completion waits for `taskkill /T /F`, so the
+reported outcome cannot precede process-tree termination. Hooks and commands can
+still modify arbitrary files or Git state; Patch does not reverse those effects.
 
 Evidence: `tests/config-bootstrap.test.ts` checks precedence and malformed
 configuration; `tests/application-lifecycle.test.ts` exercises the executable

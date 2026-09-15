@@ -6,13 +6,12 @@ work with the latest audit findings into a deduplicated actionable queue. Keep
 both current when status changes; this file preserves historical findings,
 completed work, revision-specific evidence, and implementation context.
 
-The current file-for-file [dated audit](aider-parity-audit-2026-09-15-c9c59c6.md)
-compares Patch `c9c59c6157a60ebcaf890dfbf89b845b67bc1e42` with canonical aider
-`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`; its independent
+The current [deep semantic audit](aider-deep-audit-2026-09-15-5eecc98.md)
+compares Patch `5eecc980833e23e17ab119031ca679fc54d0301d` with canonical aider
+`5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. The companion
 [source inventory](aider-source-inventory-2026-09-15-c9c59c6.md) classifies all
-80 Python product modules, both model data files, and all 58 Tree-sitter queries.
-The `1bf2ca6`, 2026-09-12, and earlier reports remain historical snapshots.
-This matrix and the follow-ups below are live status.
+80 Python product modules, both model files, and all 58 queries. Earlier reports
+remain historical snapshots; this backlog is live status.
 
 This backlog distinguishes tested components from features that work through
 the installed `patch` executable. Completing an isolated adapter or parser is
@@ -56,40 +55,59 @@ depends on all earlier scope decisions being settled.
 
 ## Pinned Aider parity audits and current status
 
-The 2026-09-10 through `1bf2ca6` reports preserve their historical boundaries.
-The current `c9c59c6` pass rechecked the same pinned aider source after all
-supported-surface defects and product-scope decisions were reconciled. It found
-no open P0/P1 defect. The only unresolved task is successful credentialed
-OpenAI and DeepSeek production-route evidence; Anthropic passed locally, OpenAI
-was rate-limited, and no DeepSeek credential was available. Existing tests are
-evidence only for the cases they exercise.
+The current deep pass compared branch behavior inside commands, lifecycle,
+prompts, edit coders, models/providers/configuration, Git/filesystem/processes,
+repository maps, interfaces, packaging, and workflows. It found seven defects
+and one bounded-input gap in selected Patch behavior; all are fixed in the same
+change. External OpenAI/DeepSeek live evidence remains unavailable.
 
 Local verification for this current audit passed `npm run check` on Windows:
-64 direct derivations, 758 tests passed with 11 skips, clean build, packed
+64 direct derivations, 769 tests passed with 11 skips, clean build, packed
 installation, executable help, and installed commit-policy/lifecycle smoke.
 This is not new remote Node 22 or OpenAI/DeepSeek live evidence.
 
 ### Current parity matrix
 
-This matrix reflects Patch `c9c59c6`; historical audits retain their own state.
+This matrix reflects the deep audit boundary `5eecc98`; historical audits retain their own state.
 
-| Area                             | Current classification                                        | Strongest evidence boundary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Core lifecycle                   | implemented Patch scope with intentional recovery limits      | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, observer-atomic provider retries, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Failed provider-attempt events are withheld from terminal/HTTP consumers while billed cost remains accounted; close-only reasoning prefixes are reclassified before accepted events reach either interface. Recovery from arbitrary child/Git side effects remains incomplete. |
-| Editing                          | implemented Patch scope with intentional recovery differences | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented. Unified-diff fence discovery now scans physical lines so prefixed Markdown fences remain data; insertion-only hunks retain and validate numeric ranges or fail closed. Focused tests cover beginning/middle/end, malformed ranges, new and empty files, and repeated insertion text; packed-bin smoke covers both former P0 paths. Patch intentionally rejects ambiguous reductions that pinned aider may apply.                                                                                                                                                                                        |
-| Models/providers                 | partial with scoped parity evidence                           | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, independent prompt-cache enablement, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. `gpt-4o-mini` format/map behavior, DeepSeek Reasoner weak/editor routing, and exact DeepSeek input/output limits match pinned resources through production paths. Separately gated live contracts remain subject to protected workflow/account variability.                                                                                                                                            |
-| Git/filesystem                   | partial with intentional hardening                            | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads retain a no-follow handle only after re-resolving the target and verifying opened-file plus every in-root ancestor identity; deterministic pre-open swaps cannot return or submit external content. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints.                                                                                                                                                          |
-| Repository maps                  | implemented selected scope; partial aider breadth             | Eleven shipped language entries refresh tracked inventory per turn and have pinned/package evidence; unsupported languages retain lexical references. Sizing, refresh, and empty-chat multiplication remain bounded/model-derived, with `/map` the sole display control. Aider's broader query/control surface is an explicit non-goal, not unfinished selected behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Commands/terminal                | implemented selected scope; partial aider breadth             | All 28 exact Patch commands dispatch through production and remain synchronized with docs/completion. Clipboard, Windows paths, completion, recall, multiline, editor, notifications, optional PTY, sanitizer, and variable fences are covered. Aider has 43 `cmd_*` methods plus aliases and Rich/Vi breadth; omitted aliases, command files, Rich rendering, computed previews, and Vi are non-goals.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Watch/URL/web/voice/help         | implemented selected scope; intentional interface differences | Watch and authenticated HTTP/SSE are production-wired with contained reads, quotas, replay/backpressure, expiry, partial-result redaction, and in-process worktree serialization. `/web` is explicit, DNS-pinned, bounded, and no-subresource. Voice is an optional embedding subpath; browser GUI and CLI/device voice are non-goals.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Configuration/package/provenance | implemented selected scope; partial aider breadth             | Bootstrap stages the supported CLI/environment/YAML surface. Patch packages docs/resources, six model profiles, 64 direct derivations, and clean-install smoke. It intentionally omits provider-ready history restoration, wire logging, command scripts, broad display/map/Git controls, Python/Docker, telemetry, onboarding, and updater behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Area                             | Current classification                                   | Strongest evidence boundary                                                                                                                                                                                                                                                                     |
+| -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core lifecycle                   | implemented selected scope with explicit recovery limits | Immutable attempt context, queued cancellation, bounded retry/reflection, observer-atomic attempts, weak/main history summaries, cancellable atomic profile switching, private architect/editor/context workflows, and process-local worktree serialization are production-wired.               |
+| Editing                          | implemented selected scope with intentional hardening    | Six public formats have format-specific prompts/fences and independent behavior tests. SEARCH/REPLACE, Patch, and unified diff use bounded ambiguity-rejecting recovery; physical fences, no-newline semantics, and insertion ranges are covered through the packed bin.                        |
+| Models/providers                 | partial aider breadth; implemented selected routes       | OpenAI, Anthropic, and DeepSeek routes, six bundled profiles, strict overlays, prompt placement settings, retry/usage/cache/temperature policy, and capability-gated controls are wired. Live OpenAI/DeepSeek evidence remains external.                                                        |
+| Git/filesystem                   | implemented selected scope with documented limits        | Literal paths, composed ignores, selected commits, index restoration, CAS/session-owned undo, contained reads, metadata checks, and atomic per-file replacement are enforced. Cross-file rollback, durable/cross-process transactions, and portable ACL/xattr/ADS preservation are not claimed. |
+| Repository maps                  | implemented selected scope; partial aider breadth        | Eleven map entries, lexical fallback, model-derived budgets, deterministic ranking/rendering/cache, fallback requests, 4 MiB source bounds, and retained-handle read containment are covered. Broader queries/tuning are non-goals.                                                             |
+| Commands/terminal                | implemented selected scope; partial aider breadth        | All 28 exact commands dispatch through production. Clipboard/process bounds, Windows paths/tree cleanup, completion, history, multiline, editor, notifications, optional PTY, sanitizer, variable fences, and bounded `/web` input are covered. Aider aliases/Rich/Vi breadth are non-goals.    |
+| Watch/URL/web/voice/help         | implemented selected scope; intentional differences      | Watch and HTTP/SSE share contained application paths; explicit `/web` is DNS-pinned, bounded, and no-subresource. API quotas/replay/expiry/redaction are wired. Voice is embedding-only; GUI/device UX are non-goals.                                                                           |
+| Configuration/package/provenance | implemented selected scope; partial aider breadth        | Supported CLI/environment/YAML precedence, race-safe 1 MiB config/dotenv/model resources, packaged docs/runtime assets, 64 direct derivations, and clean-install smoke are wired. Broader aider settings, Python/Docker, telemetry, onboarding, and updater are non-goals.                      |
+
+### Deep semantic re-audit fixes — 2026-09-15
+
+- [x] **P1 — Fail closed on context-selected disclosure without an approver.**
+      A model-selected file can reach a later context pass only after explicit path
+      approval; absent callback now denies before content disclosure.
+- [x] **P1 — Carry cancellation through switch-time summarization.** Model/mode
+      and reasoning/thinking switches pass their queued signal into weak/main
+      summary calls and preserve the previous profile/history on cancellation.
+- [x] **P1 — Retain containment and bounds for repository-map reads.** Tag
+      extraction and tree rendering consume verified handles, reject ancestor swaps,
+      and skip source above 4 MiB.
+- [x] **P1 — Bound startup configuration resources.** Config, dotenv, and custom
+      model documents use retained-handle 1 MiB reads before parsing.
+- [x] **P1 — Honor prompt placement capabilities.** No-system preambles,
+      examples-as-system, reminder roles, and pinned read-only/repository assistant
+      acknowledgements now reach production requests.
+- [x] **P1 — Await Windows command-tree termination.** Timeout/cancellation
+      waits for `taskkill /T /F`, preventing descendants from outliving completion.
+- [x] **P2 — Bound `/web` URL input.** The command rejects more than 4,096
+      characters before URL parsing/network dispatch.
 
 ### File-for-file re-audit additions — 2026-09-15
 
-The complete current evidence and cross-references are in the
-[current audit](aider-parity-audit-2026-09-15-c9c59c6.md) and
-[source inventory](aider-source-inventory-2026-09-15-c9c59c6.md). The historical
-`1bf2ca6` findings below are retained with their original source references.
+Current evidence is in the
+[deep audit](aider-deep-audit-2026-09-15-5eecc98.md), file-for-file
+[audit](aider-parity-audit-2026-09-15-c9c59c6.md), and
+[source inventory](aider-source-inventory-2026-09-15-c9c59c6.md).
 
 - [x] **P1 — Do not expose output from a failed provider attempt as accepted
       turn output.** **Status:** fixed 2026-09-15. `CoderSession` buffers every
@@ -680,10 +698,9 @@ Evidence still unavailable or deliberately excluded:
 
 ### Dated audit follow-ups — 2026-09-12
 
-The [current audit](aider-parity-audit-2026-09-15-c9c59c6.md) finds no open
-P0/P1 implementation item. Historical fixes below retain their original source
-and validation boundaries; only credentialed OpenAI/DeepSeek evidence remains
-open in the live task register.
+The [deep audit](aider-deep-audit-2026-09-15-5eecc98.md) found supported-surface
+defects beyond the earlier feature inventory; all are fixed in its accompanying
+change. Historical fixes below retain their original evidence boundaries.
 
 - [x] **Bound history-summary input.** Each request reserves 512 tokens from the
       summarizing model's input window, counts the complete labeled request, sends
@@ -1772,10 +1789,9 @@ defect listed above or establish browser/CLI-voice parity.
       product module, model resource, and Tree-sitter query. This complements rather
       than overstates the marker-driven direct-derivation ledger.
 
-**Acceptance:** superseded by the current `c9c59c6` file-for-file audit. The
-current audit, source inventory, live matrix, plan, README, changelog, and
-subsystem docs are reconciled. Only external OpenAI/DeepSeek live evidence is
-unchecked in the task register.
+**Acceptance:** superseded by the deep `5eecc98` semantic audit. Audit,
+inventory, matrix, plan, README, changelog, task register, and subsystem docs
+are reconciled; remaining items are explicit external evidence or new findings.
 
 ## Continuous integration jobs
 

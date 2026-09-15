@@ -17,6 +17,10 @@ Patch is a substantial, production-wired TypeScript port of aider's core workflo
 
 The remaining release evidence gap is external: Anthropic completed a credentialed catalog/factory/application turn; the available OpenAI account returned rate-limit errors and no DeepSeek credential was available. Deterministic tests cover all three production routes, but they are not live-provider evidence.
 
+> Superseded for semantic findings by the
+> [deep audit at Patch `5eecc98`](aider-deep-audit-2026-09-15-5eecc98.md).
+> This snapshot remains the file-inventory boundary before those fixes.
+
 ## Feature and porting-state comparison
 
 | Area                         | Pinned aider                                                                                                  | Patch at `c9c59c6`                                                                                                                                 | Classification                                                                                                             |

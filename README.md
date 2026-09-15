@@ -165,11 +165,11 @@ old profile/history and replacement capability filtering removes unsupported
 media. `/paste` submits clipboard text as a user turn, and an interrupted turn
 reports any edits that survived.
 Historical checklist completions do not establish release readiness. The
-[current parity audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md) and
-[current source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md)
-classify the pinned aider surface against Patch `c9c59c6`; older dated reports
-remain historical. The [task register](task.md) contains the single remaining
-external-evidence item, while the
+[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md),
+[file inventory audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md), and
+[source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md) separate
+branch behavior, file coverage, and intentional differences. The
+[task register](task.md) contains remaining implementation/evidence work; the
 [detailed backlog](docs/remaining-integration-tasks.md) preserves history.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
 with import-derived coverage and status-hidden-change tests. Provenance remains
@@ -229,9 +229,9 @@ locks can be garbage-collected; idle sessions keep sharing their existing lock.
 Deterministic loopback tests exercise principal/session event
 isolation, HTTP disconnect cancellation, SSE overflow/replay, concrete
 post-write recovery, and simultaneous terminal/watch/web mutations. The
-[current parity audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md) and
-[task register](task.md) distinguish selected production scope, intentional
-differences, and the remaining live-provider evidence gap.
+[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md) and
+[task register](task.md) distinguish supported behavior, newly found fixes,
+intentional differences, and external evidence gaps.
 
 Implemented foundations include strict TypeScript validation, deterministic
 fake-provider tests, [safe filesystem behavior](docs/filesystem-safety.md),
