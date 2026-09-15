@@ -116,8 +116,9 @@ Baseline for the current findings:
 
 - [ ] **EVIDENCE-1: Run low-cost credentialed OpenAI and Anthropic contracts
   through catalog, factory, and application-session boundaries.** Retain direct
-  adapter tests, but do not cite them as executable-route evidence. Include the
-  advertised DeepSeek full path in the successful protected run.
+  adapter tests, but do not cite them as executable-route evidence. All three
+  advertised providers now have gated full-path turns; a successful protected
+  run remains blocked on provider credentials.
 - [ ] **EVIDENCE-2: Obtain current-revision Node 22 package evidence on Linux,
   macOS, and Windows.** Include the packed executable and every shipped
   repository-map language; run provisioned PTY contracts on supported Linux and

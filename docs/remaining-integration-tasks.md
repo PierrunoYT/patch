@@ -248,14 +248,17 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Models, providers, and model controls
 
-- [ ] **P1 -- Route live OpenAI and Anthropic contracts through catalog,
-  factory, and application session boundaries.** **Status:** partial. Test
-  coverage at `tests/live-provider.test.ts:116-213` constructs provider adapters
-  directly, while only DeepSeek traverses the production boundaries at
-  `tests/live-provider.test.ts:215-268`. Preserve the adapter-level timeout and
-  cancellation tests, but add one low-cost credentialed full-path turn for each
-  advertised provider. Aider's requests route through the model abstraction and
-  LiteLLM in `aider/models.py:249-260` and `aider/llm.py:21-45`.
+- [x] **P1 -- Route live OpenAI and Anthropic contracts through catalog,
+  factory, and application session boundaries.** **Status:** implemented and
+  gated. `tests/live-provider.test.ts` retains the direct adapter capability,
+  timeout, and cancellation contracts and adds one bounded turn per advertised
+  provider through `ModelCatalog`, `createProvider`, and
+  `ConcreteApplicationService`. OpenAI, Anthropic, and DeepSeek share the same
+  16-output-token application-path helper. Aider's requests route through the
+  model abstraction and LiteLLM in `aider/models.py:249-260` and
+  `aider/llm.py:21-45`. Successful credentialed evidence remains a separate P2
+  item because neither the audit orb nor the protected GitHub environment
+  currently supplies provider secrets.
 - [ ] **P2 -- Decide provider breadth beyond OpenAI, Anthropic, and DeepSeek.**
   **Status:** unported. This work is unscheduled. Patch explicitly rejects every other
   provider in `src/providers/factory.ts:50-60`; Aider accepts LiteLLM's provider
@@ -616,9 +619,11 @@ Validation executed from the clean pinned checkouts during the 2026-09-14 pass:
 Evidence still unavailable or deliberately excluded:
 
 - [ ] **P2 -- Obtain successful credentialed live-provider evidence for the
-  current implementation revision.** **Status:** evidence gap. No provider keys
-  were available, so the seven gated live contracts could not execute. Never add
-  credentials to the default suite or logs.
+  current implementation revision.** **Status:** evidence gap. On 2026-09-15,
+  neither the audit orb nor GitHub's protected `live-providers` environment had
+  provider keys. Enabling all three provider groups therefore skipped all nine
+  gated contracts, including the new OpenAI and Anthropic full-path turns.
+  Never add credentials to the default suite or logs.
 - [ ] **P2 -- Obtain current-revision macOS and Windows package evidence.**
   **Status:** evidence gap. The local audit ran on Linux. Existing CI evidence at
   `88adf8e5c` predates current `e10467b3`; rerun package/platform jobs before a
@@ -699,6 +704,10 @@ claims.
   output cap, constructs the real factory through `ConcreteApplicationService`,
   and submits a real session turn. Deterministic full-path coverage runs without
   credentials in `tests/deepseek-provider.test.ts`.
+- [x] **Route OpenAI and Anthropic live contracts through production
+  boundaries.** Their gated turns now use the same bounded catalog, factory, and
+  `ConcreteApplicationService` helper as DeepSeek while preserving their direct
+  image/cache-control, timeout, cancellation, usage, and stop-state contracts.
 - [ ] **P2 — Close current-revision live-provider evidence.** CI run
   [`34717847304`](https://github.com/PierrunoYT/patch/actions/runs/34717847304)
   is green on implementation revision `88adf8e5c` for Node 22, Linux/macOS/
@@ -706,7 +715,8 @@ claims.
   [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
   checked out the same revision but skipped all seven live contracts because the
   environment supplied no provider secrets. A successful credentialed protected
-  run remains required before citing live provider behavior.
+  run remains required before citing live provider behavior. A 2026-09-15 local
+  attempt skipped all nine current gates because the orb also had no credentials.
 - [ ] **Deferred product scope — richer terminal rendering.** Computed edit
   hunks, Rich-style tables/lists/wrapping and unstable-tail rerendering, and true
   Vi input remain unscheduled and do not block the documented minimal terminal
@@ -1815,10 +1825,11 @@ cover:
   provider turn, including exclusion of a tracked `.aiderignore` match
   (`scripts/package-smoke.mjs`);
 - [ ] credentialed live provider contracts through catalog, factory, and session
-  boundaries. Protected run
+  boundaries. All three full-path gates are implemented, but protected run
   [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
-  on `88adf8e5c` skipped all seven contracts because no provider keys were
-  available;
+  on `88adf8e5c` skipped the seven gates present then, and the 2026-09-15 local
+  attempt skipped all nine current gates because no provider keys were available
+  in either environment;
 - [x] green Linux, macOS, and Windows package/platform jobs for implementation
   revision `88adf8e5c` in run
   [`34717847304`](https://github.com/PierrunoYT/patch/actions/runs/34717847304);

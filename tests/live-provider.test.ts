@@ -113,6 +113,62 @@ function assertSecretSafeDiagnostic(
   expect(JSON.stringify(result)).not.toContain(secret);
 }
 
+async function runApplicationContract(
+  provider: "openai" | "anthropic" | "deepseek",
+  environmentVariable:
+    "OPENAI_API_KEY" | "ANTHROPIC_API_KEY" | "DEEPSEEK_API_KEY",
+  apiKey: string,
+  requestedModel: string,
+) {
+  const root = await mkdtemp(join(tmpdir(), `patch-live-${provider}-`));
+  const metadata = join(root, "metadata.json5");
+  const baseCatalog = await ModelCatalog.load();
+  const canonicalName = baseCatalog.resolve(requestedModel).canonicalName;
+  await writeFile(
+    metadata,
+    JSON.stringify({ [canonicalName]: { maxOutputTokens: 16 } }),
+  );
+  const catalog = await ModelCatalog.load({ metadata: [metadata] });
+  expect(catalog.resolve(canonicalName).settings).toMatchObject({
+    provider,
+    maxOutputTokens: 16,
+  });
+  let service: ConcreteApplicationService | undefined;
+  try {
+    service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: { [environmentVariable]: apiKey },
+      argv: ["--no-git", "--model", canonicalName, "--edit-format", "ask"],
+      dependencies: {
+        catalog,
+        createProvider: (model, options) =>
+          createProvider(model, { ...options, timeout: 30_000 }),
+      },
+    });
+    const session = await service.createSession({
+      principal: "live-contract",
+      sessionId: provider,
+    });
+    const result = (await session.submit("Reply with only OK.", {
+      signal: AbortSignal.timeout(30_000),
+      emit: () => undefined,
+    })) as ApplicationTurnResult;
+    expect(result.kind).toBe("turn");
+    expect(result.response.trim()).not.toBe("");
+    expect(result.changedPaths).toEqual([]);
+    expect(result.usage).toMatchObject({
+      inputTokens: expect.any(Number),
+      outputTokens: expect.any(Number),
+    });
+    expect(result.usage?.inputTokens).toBeGreaterThan(0);
+    expect(result.usage?.outputTokens).toBeGreaterThan(0);
+  } finally {
+    await service?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
 describe.skipIf(!openAIEnabled)("opt-in live OpenAI contract", () => {
   it.skipIf(!process.env.OPENAI_API_KEY)(
     "keeps authentication diagnostics secret-safe and streams image input, usage, and stop state",
@@ -157,6 +213,18 @@ describe.skipIf(!openAIEnabled)("opt-in live OpenAI contract", () => {
         kind: "timeout",
         retryable: true,
       });
+    },
+  );
+
+  it.skipIf(!process.env.OPENAI_API_KEY)(
+    "streams through the advertised catalog, factory, and application session",
+    async () => {
+      await runApplicationContract(
+        "openai",
+        "OPENAI_API_KEY",
+        process.env.OPENAI_API_KEY!,
+        process.env.PATCH_LIVE_OPENAI_MODEL ?? "gpt-4o-mini",
+      );
     },
   );
 });
@@ -210,6 +278,18 @@ describe.skipIf(!anthropicEnabled)("opt-in live Anthropic contract", () => {
       });
     },
   );
+
+  it.skipIf(!process.env.ANTHROPIC_API_KEY)(
+    "streams through the advertised catalog, factory, and application session",
+    async () => {
+      await runApplicationContract(
+        "anthropic",
+        "ANTHROPIC_API_KEY",
+        process.env.ANTHROPIC_API_KEY!,
+        process.env.PATCH_LIVE_ANTHROPIC_MODEL ?? "claude-haiku-4-5",
+      );
+    },
+  );
 });
 
 describe.skipIf(!deepSeekEnabled)("opt-in live DeepSeek contract", () => {
@@ -217,55 +297,12 @@ describe.skipIf(!deepSeekEnabled)("opt-in live DeepSeek contract", () => {
     "streams through the advertised catalog, factory, and application session",
     async () => {
       assertSecretSafeDiagnostic("deepseek");
-      const root = await mkdtemp(join(tmpdir(), "patch-live-deepseek-"));
-      const metadata = join(root, "metadata.json5");
-      const baseCatalog = await ModelCatalog.load();
-      const canonicalName = baseCatalog.resolve(
+      await runApplicationContract(
+        "deepseek",
+        "DEEPSEEK_API_KEY",
+        process.env.DEEPSEEK_API_KEY!,
         process.env.PATCH_LIVE_DEEPSEEK_MODEL ?? "deepseek/deepseek-chat",
-      ).canonicalName;
-      await writeFile(
-        metadata,
-        JSON.stringify({ [canonicalName]: { maxOutputTokens: 16 } }),
       );
-      const catalog = await ModelCatalog.load({ metadata: [metadata] });
-      expect(catalog.resolve(canonicalName).settings).toMatchObject({
-        provider: "deepseek",
-        maxOutputTokens: 16,
-      });
-      let service: ConcreteApplicationService | undefined;
-      try {
-        service = await ConcreteApplicationService.create({
-          cwd: root,
-          home: root,
-          environment: { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY },
-          argv: ["--no-git", "--model", canonicalName, "--edit-format", "ask"],
-          dependencies: {
-            catalog,
-            createProvider: (model, options) =>
-              createProvider(model, { ...options, timeout: 30_000 }),
-          },
-        });
-        const session = await service.createSession({
-          principal: "live-contract",
-          sessionId: "deepseek",
-        });
-        const result = (await session.submit("Reply with only OK.", {
-          signal: AbortSignal.timeout(30_000),
-          emit: () => undefined,
-        })) as ApplicationTurnResult;
-        expect(result.kind).toBe("turn");
-        expect(result.response.trim()).not.toBe("");
-        expect(result.changedPaths).toEqual([]);
-        expect(result.usage).toMatchObject({
-          inputTokens: expect.any(Number),
-          outputTokens: expect.any(Number),
-        });
-        expect(result.usage?.inputTokens).toBeGreaterThan(0);
-        expect(result.usage?.outputTokens).toBeGreaterThan(0);
-      } finally {
-        await service?.close();
-        await rm(root, { recursive: true, force: true });
-      }
     },
   );
 });

@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added bounded opt-in OpenAI and Anthropic live turns through the advertised
+  model catalog, provider factory, and concrete application session, matching
+  the existing DeepSeek production-path gate while retaining direct capability,
+  timeout, and cancellation contracts. All nine live gates remain protected and
+  skip without credentials; no successful credentialed evidence is claimed.
+
 - Defined provenance as three purpose-specific evidence layers: direct Patch
   attribution, a dated complete upstream Git-tree inventory, and direct-import
   hashes for fixture regeneration. Recursive, environment-dependent Python

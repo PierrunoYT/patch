@@ -575,16 +575,16 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
 
-**Exit (transport routes met; advertised catalog correctness blocked):**
-separately gated OpenAI and Anthropic contracts cover secret-safe
+**Exit (transport routes met):** separately gated OpenAI and Anthropic contracts
+cover secret-safe
 credential preflight, minimal streaming, positive usage, natural stop reasons,
 timeout/cancellation, OpenAI image input, and Anthropic cache-control input. A
 protected manual workflow exists; ordinary CI skips all live cases and requires
 no credentials or network. Package smoke also drives one-shot, two-turn history,
 and malformed OpenAI-wire responses through the actual installed bin using a
-preloaded in-process `fetch` fake. DeepSeek's protected live path remains
-unchecked above; the two bundled-profile/limit items also remain open. Actual
-live evidence still depends on configured accounts and models.
+preloaded in-process `fetch` fake. OpenAI, Anthropic, and DeepSeek each have a
+bounded gated turn through the catalog, factory, and concrete application
+session. Actual live evidence still depends on configured accounts and models.
 
 **Evidence:** mocked `tests/openai-provider.test.ts` and
 `tests/anthropic-provider.test.ts`; deterministic full-path DeepSeek coverage in
@@ -592,7 +592,8 @@ live evidence still depends on configured accounts and models.
 `.github/workflows/live-providers.yml`. Manual run
 [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
 on `88adf8e5c` skipped all seven contracts because no provider secrets were
-available, so it is workflow/skip evidence only.
+available, so it is workflow/skip evidence only. A 2026-09-15 local attempt
+skipped all nine current gates because the orb also had no provider credentials.
 
 ### Phase 5 — Git, authorization, and commands (MVP)
 
