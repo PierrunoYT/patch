@@ -126,12 +126,13 @@ without relying on GC timing and tests live reuse after failure/cancellation,
 plus concurrent terminal/watch/web mutation ordering. This registry is Patch's
 Node-specific lifecycle policy, not a port of the pinned Streamlit coder setup
 in `aider/gui.py:70–89` or undo flow in `aider/commands.py:560–644`.
-There is no cross-process Patch lock, durable recovery journal,
-atomic cross-file Git/filesystem transaction, or rollback of completed writes.
-Interruption between undo's two Git commands needs further recovery evidence.
-Approved/configured
-child commands are not sandboxed: they can change unrelated files or Git themselves, and Patch
-cannot promise to preserve that work against arbitrary command side effects.
+There is no cross-process Patch lock, durable recovery journal, atomic
+cross-file Git/filesystem transaction, or rollback of completed writes.
+Interruption between undo's two Git commands remains an explicit manual-inspect
+boundary. Approved/configured child commands are not sandboxed and can change
+unrelated files or Git. Stronger guarantees are a non-goal for the current
+adapters because they require a new transaction architecture spanning the
+filesystem, Git, and arbitrary child processes.
 
 ## Cleanup ownership
 

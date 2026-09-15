@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept recovery process-local and explicit. Patch reports surviving state and
+  serializes same-process worktrees; durable journaling, cross-process locking,
+  and rollback across filesystem, Git, and arbitrary child side effects require
+  a separate transaction architecture and are not current guarantees.
+
 - Kept the current composed Git policy intact. Custom ignore paths, subtree or
   ignored-file bypass, independent commit toggles, custom commit prompts, and
   repository-sanity bypasses are non-goals because they fragment disclosure,

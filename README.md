@@ -147,6 +147,9 @@ model-derived. `/map` is the sole bounded display control.
 Git policy remains composed rather than individually disableable: fixed
 `.aiderignore` plus Git ignores, checkpoints/auto-commit, selected commits, and
 session-owned undo retain one disclosure and ownership boundary.
+Recovery is process-local: Patch reports surviving paths/commits/commands and
+serializes same-process worktrees, but does not claim a durable journal,
+cross-process lock, or rollback across filesystem, Git, and arbitrary children.
 Media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;

@@ -684,6 +684,11 @@ skipped all nine current gates because the orb also had no provider credentials.
 - [x] Keep broader Git controls out of current scope. The composed ignore,
   checkpoint/commit, hook, attribution, selected-diff, and session-owned undo
   policy remains one safety contract rather than independently disableable parts.
+- [x] Keep durable/cross-process recovery out of current scope. Structured
+  surviving-state reports and in-process serialization remain the contract;
+  journaling or rollback across filesystem, Git, and arbitrary children requires
+  a separate transaction architecture.
+
 **Exit — production workflow reached for the selected command surface:** the
 npm-installed binary composes supported providers and edit
 formats, previews selected-file edits, commits, runs configured lint/tests, and

@@ -537,13 +537,14 @@ valid only for the specific normalization and recovery cases they name.
   auto/dirty commit toggles, custom commit prompts/languages, and repository
   sanity bypasses are non-goals because they fragment disclosure/ownership
   invariants or create unsafe combinations.
-- [ ] **P2 -- Define durable recovery for arbitrary approved child/Git side
-  effects and cross-process mutation.** **Status:** partial. Patch serializes
-  in-process mutation and reports structured surviving state, but
-  `docs/turn-lifecycle.md:69-142` excludes arbitrary child side effects,
-  interruption inside Git, and coordination between separate Patch processes.
-  Aider likewise lacks a complete transaction, so this is robustness work rather
-  than a strict parity port.
+- [x] **N/A -- Keep recovery process-local and explicit.** **Status:** accepted
+  current-release boundary. Patch records surviving paths, commit IDs, and
+  command outcomes; reconciles history; leaves the queue reusable; and serializes
+  sessions sharing a worktree inside one process. It does not claim a durable
+  journal, cross-process lock, rollback of completed atomic writes, interruption
+  inside Git, or reversal of arbitrary approved/configured command side effects.
+  Those guarantees require a new transaction architecture spanning filesystem,
+  Git, and child processes, not an incremental recovery toggle.
 - [x] **N/A -- Retain Patch's stronger path, metadata, ignore, and undo
   boundaries.** **Status:** intentional difference. This is security hardening.
   Literal Git pathspecs,

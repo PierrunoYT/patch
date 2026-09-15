@@ -282,9 +282,12 @@ security rules above.
   subtree modes, ignored-file bypass, independent commit toggles, prompt/language
   controls, and repository-sanity bypasses are non-goals because they weaken or
   fragment established safety invariants.
-- [ ] **RECOVERY-1:** Define durable recovery and coordination, if required, for
-  arbitrary approved child/Git side effects, interruption inside Git, and
-  mutation by separate Patch processes.
+- [x] **RECOVERY-1:** Keep recovery process-local and explicit for the current
+  release. Patch reports surviving paths/commits/commands, reconciles history,
+  reuses the queue, and protects in-process worktrees. A durable journal,
+  cross-process lock, rollback of completed writes, Git interruption, or
+  arbitrary approved-command side effects would require a new transaction
+  architecture and cannot be promised safely by the current adapters.
 - [ ] **CHECK-1:** Decide built-in and language-specific linting while retaining
   the rule that Patch does not guess package-manager commands in an arbitrary
   repository.
