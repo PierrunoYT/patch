@@ -139,6 +139,13 @@ repositories with no available map report that state explicitly. Output is
 terminal-sanitized and capped at 1 MiB without splitting UTF-8. The command
 makes no provider request and invokes no path, write, or command approval.
 
+Patch does not expose `/map-refresh`: `/map` and ordinary turns already rebuild
+their view from fresh tracked/non-ignored inventory, while cache-policy controls
+remain outside the command surface. `/copy-context` is a privacy non-goal because
+it would copy raw prompt, history, file, map, and media context into an ambient
+OS clipboard. `/tokens`, `/map`, and `/diff` retain bounded, purpose-specific
+views instead.
+
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather

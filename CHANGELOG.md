@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Closed read-only command scope at `/settings`, `/diff`, `/tokens`, and `/map`.
+  `/map-refresh` is redundant with the fresh production inventory path;
+  `/copy-context` is a privacy non-goal because it would copy raw prompt,
+  history, file, map, and media content to an ambient clipboard.
+
 - Incompatible `/model` and `/chat-mode` switches now force bounded history
   summarization through the current weak/main fallback before atomically
   installing the new profile. Failures preserve the old profile and history;

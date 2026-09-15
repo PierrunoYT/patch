@@ -60,6 +60,8 @@ describe("advertised slash-command surface", () => {
     const provider = new FakeProvider([
       turn("first assistant answer"),
       turn("pasted assistant answer"),
+      turn("I asked you about the earlier turns."),
+      turn("I asked you about the model switch."),
     ]);
     let clipboard = "";
     const fetched: string[] = [];
@@ -207,7 +209,7 @@ describe("advertised slash-command surface", () => {
     await expect(submit("/exit")).resolves.toMatchObject({ exit: true });
 
     expect(exercised).toEqual(new Set(COMMAND_NAMES));
-    expect(provider.requests).toHaveLength(2);
+    expect(provider.requests).toHaveLength(4);
     await expect(session.submit("after exit", options)).rejects.toThrow(
       /closed/u,
     );

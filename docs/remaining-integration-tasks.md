@@ -383,17 +383,16 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Commands and executable workflows
 
-- [ ] **P2 -- Add read-only inspection commands selected for Patch's product
-  scope.** **Status:** partial. Aider provides `/tokens`, `/diff`, `/map`,
-  `/map-refresh`, `/copy-context`, and broader `/settings` at
-  `aider/commands.py:439-552,657-689,1418-1464,1638-1680`. Patch now has bounded
-  `/settings`, selected-file `/diff`, `/tokens`, and `/map`. The token report rebuilds
-  the same prompt chunks production uses, reports only bounded numeric totals,
-  identifies known OpenAI tokenizer versus conservative counting, and performs
-  no provider or approval call. Its baseline excludes the unknown next user
-  message. `/map` displays the sanitized, 1-MiB-bounded current unhinted map
-  through production inventory and ranking. Refresh controls and context copying remain product decisions rather
-  than implied support.
+- [x] **P2 -- Keep read-only inspection to the bounded Patch commands.**
+  **Status:** accepted scope. `/settings`, selected-file `/diff`, `/tokens`, and
+  `/map` are production-wired, provider-free, sanitized/bounded where content is
+  rendered, and covered through the installed package. `/map-refresh` is not a
+  separate command because `/map` and ordinary turns already refresh the
+  tracked/non-ignored inventory through the production map path; explicit cache
+  policy remains a configuration decision under the map-control item.
+  `/copy-context` is a privacy non-goal: it would place raw prompt, history,
+  selected/read-only file, repository-map, and media context into an ambient OS
+  clipboard, bypassing the existing bounded inspection views.
 - [ ] **P2 -- Decide session and mode command breadth.** **Status:** unported.
   Patch's surface is narrower. Aider adds `/reset`, `/ask`, `/code`,
   `/architect`, `/context`, `/ok`, `/multiline-mode`, and `/quit` at

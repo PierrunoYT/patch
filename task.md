@@ -193,14 +193,11 @@ security rules above.
 
 ### Commands and executable workflows
 
-- [ ] **CMD-1:** Select bounded read-only inspection commands such as `/diff`,
-  `/tokens`, `/map`, `/map-refresh`, and `/copy-context`. `/diff` and `/tokens`
-  and `/map` are selected and production-wired. The token report counts the same current
-  prompt chunks used by production, labels tokenizer versus conservative
-  estimates, reports available limits/cost, excludes prompt content and the
-  not-yet-known next user message, and has packed-bin evidence. `/map` exposes
-  only the bounded, sanitized production map for the current unhinted context.
-  Decide refresh controls and context copying individually.
+- [x] **CMD-1:** Keep the read-only inspection surface to `/settings`, `/diff`,
+  `/tokens`, and `/map`. `/map-refresh` is redundant because `/map` already uses
+  fresh tracked/non-ignored production inventory. `/copy-context` would disclose
+  raw prompt, history, file, map, and media content to an ambient OS clipboard;
+  users can inspect bounded numeric/map/diff views without that side effect.
 - [ ] **CMD-2:** Decide command aliases and argument semantics, including
   aider's `!command`, bare `/read-only`, `/reset`, `/ask`, `/code`, `/ok`,
   `/multiline-mode`, and `/quit`. Any shell alias remains previewed and

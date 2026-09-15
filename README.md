@@ -83,10 +83,11 @@ editable files only, with literal pathspecs and installed-bin evidence.
 `/tokens` reports the current production prompt baseline by category, counting
 method, available limit, and estimated input cost without exposing context or
 calling a provider.
-`/map` displays the bounded, sanitized current repository map through the same
-inventory and ranking path used by production turns. Aider's
-`!` alias/bare `/read-only` semantics and wider command set remain outside that
-evidence.
+`/map` displays the bounded, sanitized current repository map through production
+inventory and ranking. `/map-refresh` is redundant with that fresh-inventory
+path; `/copy-context` is a privacy non-goal because it would copy raw prompt,
+history, file, map, and media content to the ambient clipboard. Aider's other
+aliases and wider command set remain outside this evidence.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;
