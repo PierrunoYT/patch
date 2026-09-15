@@ -893,8 +893,14 @@ reports the pinned commit too. The exporter therefore refuses an unclean working
 tree and verifies committed and on-disk blob hashes for the source files listed
 in `upstream.json`. All twelve direct imports now have pinned hashes; Node tests
 check the driver's explicit imports and exercise status-hidden changes against
-the exporter. Transitive imports and resource hashes are not covered. See
-[compatibility fixtures](docs/compatibility-fixtures.md).
+the exporter. This boundary is intentional: direct derivations establish Patch
+attribution, the dated Git-tree inventory establishes upstream-source
+completeness, and direct-import hashes protect fixture regeneration. Transitive
+Python imports vary by environment and executed branch, while blanket resource
+hashes do not prove semantic equivalence. Pin future direct imports and resources
+the driver reads directly; do not claim transitive or blanket integrity. See
+[compatibility fixtures](docs/compatibility-fixtures.md) and
+[upstream attribution](docs/upstream-attribution.md).
 
 Capture at least:
 

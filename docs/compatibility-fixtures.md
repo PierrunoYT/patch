@@ -76,7 +76,13 @@ The manifest now covers all twelve directly imported modules, including
 closing the direct-import gap in the
 [2026-09-11 audit](aider-parity-audit-2026-09-11.md). Their hashes were checked
 against the pinned upstream checkout. This is not a transitive-dependency or
-resource-file integrity guarantee.
+resource-file integrity guarantee. That boundary is intentional: Python's
+transitive graph depends on the installed optional packages and executed code
+paths, while blanket resource hashes would not establish semantic equivalence
+and would duplicate the independent Git-tree source inventory. If the driver
+adds a direct module import, pin it here; if a future driver reads an upstream
+resource directly, pin that resource specifically rather than implying that all
+runtime reads have been discovered.
 
 Adding a scenario that imports another aider module requires adding that module
 to `fixtureSources`. `tests/upstream-fixtures.test.ts` reads the driver's actual

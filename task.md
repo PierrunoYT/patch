@@ -261,9 +261,11 @@ security rules above.
   no-subresource. Production browser rendering and automatic URL detection are
   security/privacy non-goals unless a separate threat model and approval
   boundary are designed.
-- [ ] **PROVENANCE-1:** Decide whether provenance verification should cover
-  transitive upstream imports and resource hashes in addition to the current
-  direct-derivation ledger and source inventory.
+- [x] **PROVENANCE-1:** Keep three explicit evidence boundaries: the
+  direct-derivation ledger for attribution, the dated Git-tree inventory for
+  upstream-source completeness, and direct-import hashes for fixture
+  regeneration. Recursive Python import and blanket resource hashing are not
+  Patch runtime or semantic-parity guarantees.
 
 ## Completion update template
 

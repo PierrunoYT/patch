@@ -43,6 +43,25 @@ model resources, and all 58 query files. The ledger answers which Patch files
 identify direct derivation; the inventory answers what happened to each pinned
 upstream file. Neither alone proves semantic equivalence.
 
+These are intentionally separate evidence boundaries rather than inputs to one
+recursive hash graph:
+
+1. the direct-derivation ledger verifies attribution carried by Patch source and
+   packaged runtime resources;
+2. each dated Git-tree inventory verifies that every upstream product source and
+   resource has a disposition at the audited revisions; and
+3. the fixture manifest verifies the modules imported directly by the
+   regeneration driver against the pinned commit and checked-out bytes.
+
+Patch does not execute aider or Python, so aider's transitive Python import graph
+is not a Patch runtime dependency contract. It also varies with installed
+optional dependencies and exercised branches. Recursively hashing that graph or
+blanket-hashing all upstream resources would not prove behavioral equivalence
+and would duplicate the source inventory without replacing it. A new direct
+fixture import must enter `fixtureSources`; a future driver that directly reads
+an upstream resource must pin that resource specifically. This scoped policy
+does not claim transitive-dependency or general resource-file integrity.
+
 When the upstream baseline changes, update `upstream.json`, `NOTICE`, the
 porting plan, compatibility fixture metadata, and affected source headers in the
 same change.

@@ -134,8 +134,11 @@ every aider product module and runtime resource at their audited revisions. The
 [detailed integration backlog](docs/remaining-integration-tasks.md) preserves
 completed fixes, historical evidence, and implementation context.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
-with import-derived coverage and status-hidden-change tests. This does not
-establish transitive dependency or resource integrity; see the
+with import-derived coverage and status-hidden-change tests. Provenance remains
+purposefully split between direct attribution, the dated Git-tree inventory,
+and fixture regeneration; recursively hashing aider's environment-dependent
+Python import graph would not establish semantic parity. This does not claim
+transitive dependency or blanket resource integrity; see the
 [fixture provenance boundary](docs/compatibility-fixtures.md#what-the-exporter-refuses).
 Hardlinked and non-regular mutation targets are rejected rather than replaced
 or deleted.

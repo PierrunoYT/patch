@@ -627,11 +627,19 @@ Evidence still unavailable or deliberately excluded:
   for scheduled surfaces.** **Status:** evidence gap. PTY passed on Linux, but
   Windows PTY, real microphone, ffmpeg device capture, browser GUI, and
   browser-rendered `/web` were not local audit surfaces.
-- [ ] **P3 -- Decide whether provenance must cover transitive upstream imports
-  and resource hashes.** **Status:** partial. Current
-  `scripts/check-provenance.mjs:26-168` verifies direct derivations;
-  generated/vendor/build/cache files and non-product historical website metadata
-  were excluded from source-parity enumeration.
+- [x] **N/A -- Keep provenance evidence split by purpose rather than recursively
+  hashing aider's Python graph.** **Status:** accepted evidence boundary.
+  `scripts/check-provenance.mjs:26-168` and `docs/direct-derivations.json` verify
+  Patch's direct attribution; the independent 2026-09-15 Git-tree inventory
+  classifies every pinned product module and runtime resource; and fixture
+  regeneration pins the twelve modules its driver imports directly, while also
+  requiring the exact commit and a clean checkout. Transitive imports are
+  environment- and execution-path-dependent, and blanket hashes would neither
+  prove semantic equivalence nor replace the inventory. Add a source to the
+  fixture manifest when the driver imports it directly, and add a targeted
+  resource hash if a future fixture driver reads that resource directly.
+  Generated/vendor/build/cache files and non-product historical website
+  metadata remain outside the source-parity enumeration.
 
 ### Dated audit follow-ups — 2026-09-12
 

@@ -16,6 +16,13 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Defined provenance as three purpose-specific evidence layers: direct Patch
+  attribution, a dated complete upstream Git-tree inventory, and direct-import
+  hashes for fixture regeneration. Recursive, environment-dependent Python
+  import hashing and blanket upstream resource hashing are not runtime or
+  semantic-parity guarantees; future fixtures must pin new direct imports and
+  resources they read directly.
+
 - Kept production URL ingestion explicit: `/web <url>` performs one DNS-pinned,
   bounded, no-subresource fetch. Automatic URL detection, browser navigation,
   and subresource loading are security/privacy non-goals unless they receive a
