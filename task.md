@@ -155,9 +155,10 @@ Baseline for the current findings:
 
 ## P2 — bounded correctness follow-ups
 
-- [ ] **PROC-4: Bound external-editor readback and define cancellation.** Keep
-      interactive editing duration distinct from a byte ceiling on the returned
-      draft, and document how an embedding can stop a stuck editor.
+- [x] **PROC-4: Bound external-editor readback and define cancellation.** Editor
+      duration remains unlimited, but readback is chunked and capped at 1 MiB.
+      The terminal/embedding signal sends `SIGTERM`, escalates to `SIGKILL` after
+      one second, waits for close, and always removes the temporary draft.
 - [x] **DOC-1: Settle slash-command transcript policy.** The opt-in Markdown
       transcript intentionally records every submitted command and returned string;
       `/help` documentation now matches the generic terminal recorder and

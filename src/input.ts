@@ -269,7 +269,7 @@ export class TerminalInput implements AsyncIterable<string> {
       // same way it is for an interactive command. A failure leaves the held
       // lines and the draft exactly as they were.
       edited = await this.suspend(() =>
-        editInExternalEditor(draft, { editor }),
+        editInExternalEditor(draft, { editor, signal: this.#signal }),
       );
     } catch (error) {
       this.#write(

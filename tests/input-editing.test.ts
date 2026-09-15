@@ -1,5 +1,13 @@
 import { existsSync } from "node:fs";
-import { appendFile, mkdtemp, readFile, rm } from "node:fs/promises";
+import { getEventListeners } from "node:events";
+import {
+  appendFile,
+  chmod,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -105,6 +113,68 @@ describe("rich input editing", () => {
       }),
     ).resolves.toBe("start\nedited");
   });
+
+  it("rejects an oversized edited draft and removes its temporary file", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "patch-editor-limit-"));
+    const record = join(directory, "path.txt");
+    const script = `const fs=require("fs");const p=process.argv[1];fs.writeFileSync(${JSON.stringify(record)},p);fs.writeFileSync(p,"large")`;
+
+    try {
+      await expect(
+        editInExternalEditor("draft", {
+          editor: `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`,
+          maxDraftBytes: 4,
+        }),
+      ).rejects.toThrow(/4-byte read limit/u);
+      const used = await readFile(record, "utf8");
+      expect(existsSync(used)).toBe(false);
+      expect(existsSync(dirname(used))).toBe(false);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "force-settles a cancelled editor that ignores SIGTERM",
+    async () => {
+      const directory = await mkdtemp(join(tmpdir(), "patch-editor-cancel-"));
+      const executable = join(directory, "fake-editor");
+      const marker = join(directory, "started");
+      await writeFile(
+        executable,
+        [
+          `#!${process.execPath}`,
+          'const { writeFileSync } = require("node:fs");',
+          `writeFileSync(${JSON.stringify(marker)}, process.argv.at(-1));`,
+          'process.on("SIGTERM", () => undefined);',
+          "setInterval(() => undefined, 10_000);",
+        ].join("\n"),
+      );
+      await chmod(executable, 0o755);
+      const controller = new AbortController();
+      const reason = new Error("stop editing");
+
+      try {
+        const editing = editInExternalEditor("draft", {
+          editor: executable,
+          signal: controller.signal,
+        });
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          if (existsSync(marker)) break;
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        const used = await readFile(marker, "utf8");
+        controller.abort(reason);
+        await expect(editing).rejects.toBe(reason);
+        expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+        expect(existsSync(used)).toBe(false);
+        expect(existsSync(dirname(used))).toBe(false);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+    4_000,
+  );
 });
 
 // Control bytes the terminal sends for these chords, named so the source stays

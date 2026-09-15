@@ -73,7 +73,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Models/providers                 | partial aider breadth; open budget/counting gaps          | Three providers and six profiles are wired; fixed 1,024-token history thresholds and a potentially undercounting fallback diverge from pinned/safe budget behavior. Live OpenAI/DeepSeek evidence remains external.          |
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
-| Commands/terminal                | selected scope; open editor bound                         | All 28 commands dispatch, and captured commands, clipboard, and PTY transcripts are bounded. Editor readback is not; opt-in transcripts intentionally include slash commands and returned text.                              |
+| Commands/terminal                | implemented selected scope                               | All 28 commands dispatch; captured commands, clipboard, PTY transcripts, and editor readback are bounded. Editor duration remains user-controlled; opt-in transcripts include slash commands and returned text.              |
 | Watch/URL/web/voice/help         | implemented selected scope                               | Watch, bounded URL transport, nesting-aware HTML discards, atomic concurrent session quotas, and bounded ffmpeg cancellation are wired. GUI/device UX remain non-goals.                                                   |
 | Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
 
@@ -109,7 +109,10 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 - [x] **P1 / VOICE-3 — force-settle active ffmpeg cancellation.** Completed
       with one-second `SIGTERM` to `SIGKILL` escalation, child-close settlement,
       timer/listener cleanup, and a deterministic process that ignores `SIGTERM`.
-- [ ] **P2 / PROC-4 — bound editor readback and define cancellation.**
+- [x] **P2 / PROC-4 — bound editor readback and define cancellation.** Completed
+      with a 1 MiB precheck plus chunked growth detection, no ordinary duration
+      timeout, application-signal cancellation, one-second force escalation,
+      close-event settlement, listener cleanup, and temporary-file cleanup.
 - [x] **P2 / DOC-1 — document slash-command transcript persistence.**
 - [ ] **P2 / EVIDENCE-4 — add provenance and public export/type package checks.**
 
@@ -1143,6 +1146,8 @@ dispositions. The live task register controls release readiness.
       `--input-history-file` also seeds recall; Alt-Enter holds a line so a message
       spans lines with a bare Enter still submitting; Ctrl-X Ctrl-E edits the whole
       draft in `--editor`/`VISUAL`/`EDITOR` and returns the result to the prompt;
+      editor readback is capped at 1 MiB and the application signal gracefully then
+      forcefully stops a stuck editor without imposing an ordinary editing timeout;
       and `/run --interactive` dispatches one user-typed, approved command through
       `runPtyCommand`, releasing and restoring the line reader around it. Vi modal
       editing is not implemented, so `--vim` is refused by name rather than ignored.

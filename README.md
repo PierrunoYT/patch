@@ -212,8 +212,9 @@ available right now plus identifiers read only from currently selected,
 non-ignored source. Candidates are refreshed on each Tab press;
 `--input-history-file` also makes earlier input recallable,
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
-`$EDITOR`, and `/run --interactive` hands the terminal to one approved command
-through the optional `node-pty` package. Its sanitized output streams live while
+`$EDITOR` with 1 MiB bounded readback and application-signal cancellation, and
+`/run --interactive` hands the terminal to one approved command through the
+optional `node-pty` package. Its sanitized output streams live while
 the retained transcript is capped at 1 MiB and overflow terminates and drains the
 PTY. `--vim` is refused rather than ignored;
 Vi modal editing is not implemented. Generated completion supports the

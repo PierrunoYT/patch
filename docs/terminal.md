@@ -118,9 +118,13 @@ rather than submitted, so a final Enter is still required; an editor that fails
 leaves the draft and every held line intact with the reason printed, and the
 temporary file is removed either way.
 
-Editor duration and returned draft size are currently unbounded. Interactive
-editing should not receive an ordinary short subprocess timeout, but `PROC-4`
-tracks a readback byte ceiling and an explicit cancellation contract.
+Editor duration remains user-controlled; Patch does not apply an ordinary short
+subprocess timeout to an interactive editing session. Returned draft reads are
+prechecked and streamed through a 1 MiB ceiling, including growth after the
+precheck. The terminal's application signal is the explicit stop mechanism:
+abort sends `SIGTERM`, escalates to `SIGKILL` after one second, waits for child
+close, and then removes the private temporary draft. Embeddings call
+`editInExternalEditor` with the same optional signal when they need this control.
 
 Editor commands use the same quote-aware splitter as slash-command paths.
 Windows drive, UNC, and relative executable paths retain their separators and

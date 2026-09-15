@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Bounded external-editor readback to 1 MiB with chunked growth detection while
+  leaving normal interactive editing duration unlimited. Application-signal
+  cancellation now escalates from `SIGTERM` to `SIGKILL` after one second, waits
+  for child close, and preserves temporary-file and listener cleanup.
+
 - Bounded retained interactive PTY transcripts to a 1 MiB UTF-8-safe prefix
   while preserving live sanitized output. Overflow now marks the result
   truncated, stops input, kills the PTY, and waits for exit before settlement;

@@ -840,7 +840,9 @@ individual edit-strategy suites.
 - [x] Add Emacs/Vi bindings and external-editor support to the executable.
       Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
       draft in the configured editor. Vi modal editing is not implemented, so
-      `--vim` is refused by name rather than accepted and ignored.
+      `--vim` is refused by name rather than accepted and ignored. Editor duration
+      remains user-controlled, readback is capped at 1 MiB, and application-signal
+      cancellation escalates after one second and settles on child close.
 - [x] Preserve Windows drive, UNC, and relative backslashes in both slash-command
       paths and configured external-editor commands. Cover spaces, quotes, literal
       backslashes, and POSIX escaping through parser and editor-command tests. Both
@@ -876,7 +878,7 @@ individual edit-strategy suites.
       strategy-owned and every suggested command remains previewed and approved;
       untested shell generators and alternate line editors are non-goals.
 
-**Exit — blocked by `PROC-4`:** command/file/source-identifier completion, recall, multiline, external
+**Exit:** command/file/source-identifier completion, recall, multiline, external
 editing, explicit PTY dispatch, generated shell completions, notifications, and
 variable-length fences run through the executable. Rich rendering, computed
 previews, and Vi modal input are explicit non-goals rather than deferred parity.
