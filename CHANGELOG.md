@@ -389,6 +389,13 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Bounded and cancelled clipboard utilities. `/copy` and `/paste` now default to
+  10 seconds and 1 MiB, reject oversized input/output, inherit the active
+  session signal, terminate the utility process tree, and settle after direct
+  child stdio closes. Executable timeout/cancellation/overflow tests and a
+  cancelled-paste queue-reuse test cover the former indefinite queue and memory
+  risks. This intentionally hardens pinned aider's unbounded clipboard helper.
+
 - Closed the media/watch ancestor-swap containment gap with a shared verified
   read-handle boundary. It opens canonical paths with no-follow semantics,
   re-resolves the request, compares handle/path identity, revalidates every

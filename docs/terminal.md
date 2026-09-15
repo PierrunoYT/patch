@@ -227,6 +227,10 @@ reported and the input loop continues; it cannot end the session.
 `/copy` and `/paste` represent text-only clipboard effects. The adapter uses
 `pbcopy`/`pbpaste`, `clip.exe`/PowerShell, `wl-copy`/`wl-paste`, or `xclip` when
 available. These native utilities are not npm dependencies and missing commands
-produce `ClipboardUnavailableError`. Image clipboard access and richer native
+produce `ClipboardUnavailableError`. Clipboard input and output are capped at
+1 MiB and each utility at 10 seconds by default. The active session's
+`AbortSignal` cancels either command; timeout, cancellation, or overflow
+terminates the utility process tree, drains the direct child's stdio, and
+releases the serialized session queue. Image clipboard access and richer native
 notification APIs remain optional, unsupported enhancements; they do not affect
 the portable default installation.

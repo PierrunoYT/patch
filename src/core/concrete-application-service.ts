@@ -135,8 +135,11 @@ export interface ConcreteApplicationDependencies {
     url: string,
     options: { readonly signal?: AbortSignal },
   ) => Promise<FetchedUrl>;
-  readonly readClipboard?: () => Promise<string>;
-  readonly writeClipboard?: (text: string) => Promise<void>;
+  readonly readClipboard?: (signal?: AbortSignal) => Promise<string>;
+  readonly writeClipboard?: (
+    text: string,
+    signal?: AbortSignal,
+  ) => Promise<void>;
   /** Test/embedder override; production resolves only the report allowlist. */
   readonly reportMetadata?: (signal?: AbortSignal) => Promise<ReportMetadata>;
   /** Synchronous lifecycle instrumentation, also used for deterministic faults. */
@@ -198,8 +201,11 @@ interface ApplicationContext {
     options: { readonly signal?: AbortSignal },
   ) => Promise<FetchedUrl>;
   readonly makeProvider: (model: ModelSettings) => ModelProvider;
-  readonly readClipboard: () => Promise<string>;
-  readonly writeClipboard: (text: string) => Promise<void>;
+  readonly readClipboard: (signal?: AbortSignal) => Promise<string>;
+  readonly writeClipboard: (
+    text: string,
+    signal?: AbortSignal,
+  ) => Promise<void>;
   readonly reportMetadata: (signal?: AbortSignal) => Promise<ReportMetadata>;
   readonly onLifecycleBoundary?: (boundary: LifecycleBoundary) => void;
 }
@@ -811,7 +817,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         // Clipboard text becomes the user turn verbatim. It is never reparsed as
         // a command, so clipboard content a user did not write cannot dispatch
         // `/run`, `/undo`, or any other effect.
-        message = await this.#context.readClipboard();
+        message = await this.#context.readClipboard(options.signal);
         if (message.trim() === "")
           throw new Error("The clipboard has no text to submit");
       } else if (effect.type !== "submit") {
@@ -1480,7 +1486,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           .find((message) => message.role === "assistant")?.content;
         if (typeof content !== "string")
           throw new Error("There is no assistant text to copy");
-        await this.#context.writeClipboard(content);
+        await this.#context.writeClipboard(content, options.signal);
         return result("Copied the last assistant response");
       }
       case "exit":
@@ -2122,9 +2128,13 @@ export class ConcreteApplicationService implements ApplicationService {
       availablePaths,
       fence,
       makeProvider,
-      readClipboard: options.dependencies?.readClipboard ?? readClipboardText,
+      readClipboard:
+        options.dependencies?.readClipboard ??
+        ((signal) => readClipboardText(signal === undefined ? {} : { signal })),
       writeClipboard:
-        options.dependencies?.writeClipboard ?? writeClipboardText,
+        options.dependencies?.writeClipboard ??
+        ((text, signal) =>
+          writeClipboardText(text, signal === undefined ? {} : { signal })),
       reportMetadata:
         options.dependencies?.reportMetadata ?? resolveReportMetadata,
       ...(repositoryMap === undefined ? {} : { repositoryMap }),

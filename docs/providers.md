@@ -75,12 +75,12 @@ attempts, defaults to three, and uses an abort-aware timer. Aider's pinned loop
 does not inspect `Retry-After` and blocks during sleep; Patch intentionally adds
 bounded header support and responsive cancellation.
 
-Retry final-state handling has one open P1 defect: text, reasoning, and error
-events are forwarded to observers before an attempt succeeds. Internal response
-state resets before retry, but terminal and HTTP/SSE consumers cannot retract a
-failed attempt's already delivered prefix. Final history and edit parsing keep
-only the successful attempt; displayed event state may temporarily diverge until
-attempt events are buffered or an explicit reset contract is added.
+Retry observer state is attempt-atomic. Text, reasoning, usage, finish, and error
+events remain in an attempt-local buffer until an accepted finish; a retry drops
+that buffer while retaining billed-cost accounting. Terminal and HTTP/SSE
+consumers therefore receive only the output also retained by final history and
+edit parsing. This intentionally avoids pinned aider's stale displayed prefix by
+delaying visible events until the provider attempt finishes.
 
 All production adapter errors use fixed messages by category. Raw SDK/server
 messages can reflect credentials, custom headers, private endpoints, prompts, or

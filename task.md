@@ -79,10 +79,14 @@ Baseline for the current findings:
   Fix slash-command paths and configured external-editor commands together.
   Cover drive paths, UNC paths, relative paths, spaces, quotes, and literal
   backslashes without regressing POSIX escaping.
-- [ ] **PROC-1: Bound and cancel clipboard utility subprocesses.** Limit time
+- [x] **PROC-1: Bound and cancel clipboard utility subprocesses.** Limit time
   and read/write bytes, forward cancellation, terminate and drain children, and
   prove a hung or overproducing utility cannot hold the serialized session
-  queue.
+  queue. Completed 2026-09-15: clipboard utilities default to a 10-second and
+  1-MiB boundary, reject oversized input/output, receive session cancellation,
+  terminate their process tree, and settle only after the direct child's stdio
+  closes. Executable and serialized-queue tests cover timeout, output overflow,
+  cancellation, cleanup, and queue reuse.
 - [x] **FS-1: Retain containment across media and watch reads.** Prevent an
   ancestor swap between canonical resolution and read/open from redirecting
   content outside the repository. Add deterministic race tests. Pinned aider is

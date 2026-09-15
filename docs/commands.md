@@ -138,10 +138,13 @@ and an `AbortSignal` terminate execution and produce distinct `timed-out` or
 `cancelled` statuses. These bounds are adapter options, not additional CLI
 flags, and do not sandbox an approved command.
 
-Those process bounds do not yet apply to `/copy` and `/paste` system utilities.
-The clipboard adapter has no timeout, byte cap, abort signal, or forced child
-cleanup, so a hung or overproducing optional utility can block the serialized
-session queue. This is an open P1 defect, not part of the bounded command claim.
+The `/copy` and `/paste` system utilities use a separate argv process boundary
+with 10-second and 1-MiB defaults. It rejects oversized write input before spawn,
+caps and drains read output, forwards the active session's `AbortSignal`, and
+terminates the process tree on timeout, cancellation, or overflow. The direct
+child's `close` event (after stdio closes) settles the operation, so a failed
+utility releases the serialized session queue. Pinned aider's clipboard helper
+is unbounded; this is intentional Patch hardening.
 
 `executeModelCommands` processes suggestions serially and stops after timeout
 or cancellation. Configured lint/test commands reuse the bounded executor:
@@ -163,8 +166,9 @@ clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL
 ingestion, denied process execution, and submission after exit. No unsupported
 named-command registration was found; the test makes future inventory drift fail.
-It does not cover Windows backslash correctness, clipboard hangs/output bounds,
-aider aliases/argument semantics, or prose outside the extracted inventory.
+It does not cover Windows backslash correctness, aider aliases/argument
+semantics, or prose outside the extracted inventory. Clipboard bounds and queue
+release have separate executable process and application-session tests.
 
 ## Parity limits
 
@@ -202,5 +206,5 @@ surface:
 - Git-backed `/diff` is not implemented. The repository adapter can produce a
   diff internally, but there is no command effect or executable dispatch.
 
-`/copy` uses text-only platform utilities. `/exit` closes the session and stops
-interactive input cleanly.
+`/copy` uses bounded, cancellable text-only platform utilities. `/exit` closes
+the session and stops interactive input cleanly.

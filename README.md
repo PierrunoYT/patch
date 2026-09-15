@@ -74,7 +74,8 @@ and one real-Git application scenario executes all 20 named Patch command effect
 plus contained/denied/missing-state failures. This proves registration and the
 exercised effects, not Windows path correctness, clipboard process bounds,
 aider's `!` alias/bare `/read-only` semantics, `/diff`, or aider's wider command
-set.
+set. Clipboard process bounds are separately covered by executable child and
+serialized-queue tests.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;

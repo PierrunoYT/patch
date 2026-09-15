@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { access, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   ClipboardUnavailableError,
@@ -6,8 +10,19 @@ import {
   isBrokenPipe,
   notifyUser,
   readClipboardText,
+  runIntegration,
   writeClipboardText,
 } from "../src/io/integrations.js";
+
+const directories: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    directories
+      .splice(0)
+      .map((path) => rm(path, { recursive: true, force: true })),
+  );
+});
 
 describe("terminal integrations", () => {
   it("identifies only broken-pipe output errors", () => {
@@ -84,8 +99,8 @@ describe("terminal integrations", () => {
       "pasted text",
     );
     expect(calls).toEqual([
-      ["pbcopy", [], "copied text"],
-      ["pbpaste", [], undefined],
+      ["pbcopy", [], "copied text", { maxOutputBytes: 1024 * 1024 }],
+      ["pbpaste", [], undefined, { maxOutputBytes: 1024 * 1024 }],
     ]);
   });
 
@@ -109,5 +124,66 @@ describe("terminal integrations", () => {
         },
       }),
     ).rejects.toThrow(ClipboardUnavailableError);
+  });
+
+  it("enforces clipboard input and output byte limits around injected runners", async () => {
+    let calls = 0;
+    const run = async () => {
+      calls += 1;
+      return { stdout: "12345" };
+    };
+
+    await expect(
+      writeClipboardText("oversized", { platform: "darwin", maxBytes: 4, run }),
+    ).rejects.toThrow(/exceeds 4 bytes/u);
+    expect(calls).toBe(0);
+    await expect(
+      readClipboardText({ platform: "darwin", maxBytes: 4, run }),
+    ).rejects.toThrow(ClipboardUnavailableError);
+    expect(calls).toBe(1);
+  });
+
+  it("kills and drains timed-out, cancelled, and overproducing utilities", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-integration-process-"));
+    directories.push(root);
+    const marker = join(root, "survived.txt");
+    const delayedWrite = `setTimeout(() => require("node:fs").writeFileSync(${JSON.stringify(marker)}, "alive"), 250); setInterval(() => {}, 1000)`;
+
+    await expect(
+      runIntegration(process.execPath, ["-e", delayedWrite], undefined, {
+        timeoutMs: 20,
+        maxOutputBytes: 64,
+      }),
+    ).rejects.toThrow(/timed out/u);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await expect(access(marker)).rejects.toMatchObject({ code: "ENOENT" });
+
+    const controller = new AbortController();
+    const cancellation = setTimeout(() => controller.abort(), 20);
+    try {
+      await expect(
+        runIntegration(
+          process.execPath,
+          ["-e", "setInterval(() => {}, 1000)"],
+          undefined,
+          {
+            timeoutMs: 1_000,
+            maxOutputBytes: 64,
+            signal: controller.signal,
+          },
+        ),
+      ).rejects.toMatchObject({ name: "AbortError" });
+    } finally {
+      clearTimeout(cancellation);
+    }
+
+    await expect(
+      runIntegration(
+        process.execPath,
+        ["-e", 'process.stdout.write("x".repeat(4096))'],
+        undefined,
+        { timeoutMs: 1_000, maxOutputBytes: 64 },
+      ),
+    ).rejects.toThrow(/output exceeded 64 bytes/u);
   });
 });

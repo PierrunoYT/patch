@@ -54,27 +54,129 @@ export interface IntegrationResult {
   readonly stdout: string;
 }
 
+export interface IntegrationRunOptions {
+  readonly timeoutMs?: number;
+  readonly maxOutputBytes?: number;
+  readonly signal?: AbortSignal;
+}
+
 export type IntegrationRunner = (
   executable: string,
   args: readonly string[],
   input?: string,
+  options?: IntegrationRunOptions,
 ) => Promise<IntegrationResult>;
 
-async function runIntegration(
+const DEFAULT_INTEGRATION_TIMEOUT_MS = 10_000;
+const DEFAULT_INTEGRATION_MAX_OUTPUT_BYTES = 1024 * 1024;
+export const DEFAULT_CLIPBOARD_MAX_BYTES = 1024 * 1024;
+
+function positiveInteger(value: number, name: string): void {
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new TypeError(`${name} must be a positive integer`);
+}
+
+function cancellationReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("The operation was aborted", "AbortError");
+}
+
+export async function runIntegration(
   executable: string,
   args: readonly string[],
   input?: string,
+  options: IntegrationRunOptions = {},
 ): Promise<IntegrationResult> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_INTEGRATION_TIMEOUT_MS;
+  const maxOutputBytes =
+    options.maxOutputBytes ?? DEFAULT_INTEGRATION_MAX_OUTPUT_BYTES;
+  positiveInteger(timeoutMs, "timeoutMs");
+  positiveInteger(maxOutputBytes, "maxOutputBytes");
+  options.signal?.throwIfAborted();
   return new Promise((resolve, reject) => {
     const child = spawn(executable, [...args], {
+      detached: process.platform !== "win32",
       stdio: ["pipe", "pipe", "ignore"],
       windowsHide: true,
     });
     const output: Buffer[] = [];
-    child.stdout.on("data", (chunk: Buffer) => output.push(chunk));
-    child.once("error", reject);
+    let outputBytes = 0;
+    let failure: Error | undefined;
+    let forceKillTimer: NodeJS.Timeout | undefined;
+
+    const terminate = () => {
+      const pid = child.pid;
+      if (pid === undefined) return;
+      if (process.platform === "win32") {
+        const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        killer.once("error", () => child.kill());
+        return;
+      }
+      try {
+        process.kill(-pid, "SIGTERM");
+        forceKillTimer ??= setTimeout(() => {
+          try {
+            process.kill(-pid, "SIGKILL");
+          } catch {
+            // The integration process group already exited.
+          }
+        }, 1_000);
+        forceKillTimer.unref();
+      } catch {
+        child.kill();
+      }
+    };
+    const stop = (error: Error) => {
+      if (failure !== undefined) return;
+      failure = error;
+      terminate();
+    };
+    const cancel = () =>
+      stop(cancellationReason(options.signal as AbortSignal));
+    const timer = setTimeout(
+      () =>
+        stop(new Error(`${executable} timed out after ${String(timeoutMs)}ms`)),
+      timeoutMs,
+    );
+    options.signal?.addEventListener("abort", cancel, { once: true });
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      const remaining = maxOutputBytes - outputBytes;
+      if (remaining > 0) {
+        const captured = chunk.subarray(0, remaining);
+        output.push(captured);
+        outputBytes += captured.length;
+      }
+      if (chunk.length > remaining)
+        stop(
+          new Error(
+            `${executable} output exceeded ${String(maxOutputBytes)} bytes`,
+          ),
+        );
+    });
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code !== "EPIPE") stop(error);
+    });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
+      options.signal?.removeEventListener("abort", cancel);
+      reject(error);
+    });
     child.once("close", (code) => {
-      if (code === 0)
+      clearTimeout(timer);
+      // Keep the unref'ed SIGKILL fallback armed after a forced stop: the
+      // direct child can close while a descendant in its process group ignores
+      // SIGTERM. Successful utilities need no fallback.
+      if (failure === undefined && forceKillTimer !== undefined)
+        clearTimeout(forceKillTimer);
+      options.signal?.removeEventListener("abort", cancel);
+      if (failure !== undefined) reject(failure);
+      else if (code === 0)
         resolve({ stdout: Buffer.concat(output).toString("utf8") });
       else
         reject(new Error(`${executable} exited with status ${String(code)}`));
@@ -131,6 +233,9 @@ async function clipboard(
     readonly platform?: NodeJS.Platform;
     readonly environment?: NodeJS.ProcessEnv;
     readonly run?: IntegrationRunner;
+    readonly signal?: AbortSignal;
+    readonly timeoutMs?: number;
+    readonly maxBytes?: number;
   },
 ): Promise<string> {
   const [executable, args] = clipboardCommand(
@@ -138,10 +243,32 @@ async function clipboard(
     options.platform ?? process.platform,
     options.environment ?? process.env,
   );
+  const maxBytes = options.maxBytes ?? DEFAULT_CLIPBOARD_MAX_BYTES;
+  positiveInteger(maxBytes, "maxBytes");
+  if (text !== undefined && Buffer.byteLength(text) > maxBytes)
+    throw new ClipboardUnavailableError(
+      `Clipboard text exceeds ${String(maxBytes)} bytes`,
+    );
   try {
-    return (await (options.run ?? runIntegration)(executable, args, text))
-      .stdout;
+    const result = await (options.run ?? runIntegration)(
+      executable,
+      args,
+      text,
+      {
+        maxOutputBytes: maxBytes,
+        ...(options.timeoutMs === undefined
+          ? {}
+          : { timeoutMs: options.timeoutMs }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      },
+    );
+    if (Buffer.byteLength(result.stdout) > maxBytes)
+      throw new Error(
+        `${executable} output exceeded ${String(maxBytes)} bytes`,
+      );
+    return result.stdout;
   } catch (error) {
+    if (options.signal?.aborted) throw cancellationReason(options.signal);
     throw new ClipboardUnavailableError(
       `Clipboard text requires the optional ${executable} system utility`,
       { cause: error },

@@ -109,8 +109,10 @@ this plan, task register, and backlog track current status and open work.
   refused rather than implemented, and renderer fidelity stays out of scope.
   Edit previews print both complete versions, including unchanged lines; unlike
   pinned `aider/diffs.py`, no computed hunks or unchanged-context elision exist.
-  Windows slash-path and editor-command tokenization, clipboard
-  bounds/cancellation, and variable-fence language rendering remain defective.
+  Clipboard utilities are bounded to 10 seconds and 1 MiB by default, inherit
+  session cancellation, terminate their process tree, and release the queue
+  after child stdio closes. Windows slash-path/editor-command tokenization and
+  variable-fence language rendering remain defective.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
   ignore filtering to actual patterns. Git ignore checks prefix exact paths
@@ -767,9 +769,11 @@ individual edit-strategy suites.
 - [ ] Preserve Windows drive, UNC, and relative backslashes in both slash-command
   paths and configured external-editor commands. Cover spaces, quotes, literal
   backslashes, and POSIX escaping through parser and executable tests.
-- [ ] Bound and cancel clipboard utility processes. Cap read/write bytes and
+- [x] Bound and cancel clipboard utility processes. Cap read/write bytes and
   duration, forward cancellation, terminate and drain the child, and prove a
   hung or overproducing utility cannot hold the session queue indefinitely.
+  Defaults are 10 seconds and 1 MiB; focused executable tests cover timeout,
+  cancellation, output overflow, process cleanup, and queue reuse.
 - [ ] Retain language identifiers for variable-length Markdown fences, including
   split stream chunks and matching close fences.
 - [ ] Deferred parity: replace the lightweight renderer if product scope later
@@ -791,9 +795,9 @@ individual edit-strategy suites.
 **Exit (blocked for cross-platform correctness):** command/file/source-identifier
 completion, recall, multiline, the external editor, explicit PTY dispatch,
 generated shell completions, and provider-turn-only notifications all run
-through the executable's reader. The Windows tokenization, clipboard bounds,
-and variable-fence items above remain open. Broader Rich renderer fidelity is a
-separate deferred product decision.
+through the executable's reader. The Windows tokenization and variable-fence
+items above remain open. Broader Rich renderer fidelity is a separate deferred
+product decision.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,

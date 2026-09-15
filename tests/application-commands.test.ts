@@ -342,6 +342,49 @@ describe("application slash commands", () => {
     await expect(readFile(join(root, "pasted.txt"), "utf8")).rejects.toThrow();
   });
 
+  it("cancels clipboard work and releases the serialized session queue", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-clipboard-cancel-"));
+    let entered!: () => void;
+    const clipboardStarted = new Promise<void>(
+      (resolve) => (entered = resolve),
+    );
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: {
+        provider: new FakeProvider([]),
+        readClipboard: (signal) =>
+          new Promise((_resolve, reject) => {
+            entered();
+            const cancel = () => reject(signal?.reason);
+            signal?.addEventListener("abort", cancel, { once: true });
+          }),
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "clipboard-cancel",
+    });
+    const controller = new AbortController();
+    const pending = session.submit("/paste", {
+      signal: controller.signal,
+      emit: () => undefined,
+    });
+
+    await clipboardStarted;
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    await expect(
+      session.submit("/ls", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      }),
+    ).resolves.toMatchObject({ response: expect.stringContaining("Editable") });
+    await service.close();
+  });
+
   it("queues ancillary commands behind a provider turn and cancels a queued draft", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-command-queue-"));
     const provider = new FakeProvider([
