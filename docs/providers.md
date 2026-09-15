@@ -19,6 +19,11 @@ endpoint, capabilities, error normalization, deterministic factory/application
 tests, and opt-in live evidence together. This avoids silently extending network
 and secret-handling behavior through unverified catalog data.
 
+Custom model settings also control prompt placement: `systemRole: false` uses a
+user/assistant preamble, `examplesAsSystem` folds examples into that preamble,
+and `reminderRole` selects system or final-user placement. Bundled profiles carry
+the corresponding pinned aider values.
+
 ## DeepSeek dialect
 
 `OpenAIProvider` takes a `dialect` of `openai` or `deepseek`; `createProvider`

@@ -151,6 +151,8 @@ describe("DeepSeek endpoint normalization", () => {
         editFormat: "diff",
         useRepoMap: false,
         maxChatHistoryTokens: 1024,
+        examplesAsSystem: false,
+        reminderRole: "user",
         useTemperature: true,
         capabilities: {
           streaming: true,

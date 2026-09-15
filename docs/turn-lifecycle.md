@@ -63,6 +63,9 @@ differ. Patch also uses these explicit choices:
   nonzero exit does not trigger model reflection. A command timeout stops the
   remaining suggested commands; configured tests still run. Captured output
   is bounded but is not automatically added to chat history.
+- Model/mode/reasoning/thinking switches share the queued submission signal with
+  any required weak/main history summary. Cancellation closes temporary
+  providers and leaves the prior profile and history active.
 - `/undo` keeps working files and unrelated index entries. It reverts only the
   commit this session recorded, refusing when HEAD has moved, when the commit is
   a root or merge commit, or when its upstream branch already contains it. HEAD

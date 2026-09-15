@@ -111,6 +111,12 @@ describe("parseCommand", () => {
     );
   });
 
+  it("bounds explicit URL input", () => {
+    expect(() =>
+      parseCommand(`/web https://example.com/${"x".repeat(4096)}`),
+    ).toThrow(/at most 4096/u);
+  });
+
   it("parses text clipboard commands without native image behavior", () => {
     expect(parseCommand("/copy")).toEqual({ type: "clipboard-copy" });
     expect(parseCommand("/paste")).toEqual({ type: "clipboard-paste" });

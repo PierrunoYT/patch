@@ -1,0 +1,7 @@
+- name: test/no-system-model
+  provider: openai
+  editFormat: ask
+  useRepoMap: false
+  capabilities:
+    streaming: true
+    systemRole: false

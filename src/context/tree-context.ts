@@ -5,8 +5,6 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { readFile } from "node:fs/promises";
-
 import { Language, Parser, type Node } from "web-tree-sitter";
 
 import { SafePathResolver } from "../io/safe-path.js";
@@ -14,6 +12,7 @@ import { repoMapGrammarPath } from "./repomap-resources.js";
 import { languageForPath } from "./tag-extractor.js";
 
 let parserInitialization: Promise<void> | undefined;
+const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 
 function initializeParser(): Promise<void> {
   parserInitialization ??= Parser.init();
@@ -78,8 +77,18 @@ export class TreeContextRenderer {
     linesOfInterest: ReadonlySet<number>,
   ): Promise<string> {
     if (linesOfInterest.size === 0) return "";
-    const absolutePath = await this.#resolver.resolve(path);
-    const source = await readFile(absolutePath, "utf8");
+    const opened = await this.#resolver.openFileForRead(path);
+    const metadata = await opened.handle.stat();
+    if (!metadata.isFile() || metadata.size > MAX_SOURCE_BYTES) {
+      await opened.handle.close();
+      return "";
+    }
+    let source: string;
+    try {
+      source = await opened.handle.readFile("utf8");
+    } finally {
+      await opened.handle.close();
+    }
     const normalized = source.replace(/\r\n?/gu, "\n");
     const code = normalized.endsWith("\n") ? normalized : `${normalized}\n`;
     const lines = code.split("\n");
