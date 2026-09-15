@@ -86,8 +86,10 @@ calling a provider.
 `/map` displays the bounded, sanitized current repository map through production
 inventory and ranking. `/map-refresh` is redundant with that fresh-inventory
 path; `/copy-context` is a privacy non-goal because it would copy raw prompt,
-history, file, map, and media content to the ambient clipboard. Aider's other
-aliases and wider command set remain outside this evidence.
+history, file, map, and media content to the ambient clipboard. Command names
+and arguments remain exact: aliases such as `!` and `/quit`, bare file
+conversion, and compound reset behavior are non-goals because the explicit
+approved commands already expose those operations.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;

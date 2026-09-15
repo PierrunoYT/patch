@@ -393,12 +393,13 @@ valid only for the specific normalization and recovery cases they name.
   `/copy-context` is a privacy non-goal: it would place raw prompt, history,
   selected/read-only file, repository-map, and media context into an ambient OS
   clipboard, bypassing the existing bounded inspection views.
-- [ ] **P2 -- Decide session and mode command breadth.** **Status:** unported.
-  Patch's surface is narrower. Aider adds `/reset`, `/ask`, `/code`,
-  `/architect`, `/context`, `/ok`, `/multiline-mode`, and `/quit` at
-  `aider/commands.py:411-444,1055-1064,1182-1201,1524-1527`. Patch has `/clear`,
-  `/chat-mode`, and `/exit` only. Define aliases and state transitions without
-  bypassing Patch's exact-command and approval policies.
+- [x] **N/A -- Keep exact command names and explicit arguments.** **Status:**
+  accepted current-release scope. Patch does not port aider's `!`, bare
+  `/read-only`, `/reset`, `/ask`, `/code`, `/ok`, `/multiline-mode`, or `/quit`.
+  `/run` remains visibly previewed and approval-gated; file conversion requires
+  explicit paths; `/drop` plus `/clear`, `/chat-mode`, startup multiline
+  configuration, and `/exit` already expose the underlying operations without
+  aliases or compound transitions. This preserves parser/completion exactness.
 - [ ] **P2 -- Decide file/script command breadth.** **Status:** unported. Aider
   exposes `/git`, `/load`, `/save`, `/editor`, and `/edit` at
   `aider/commands.py:967-992,1465-1523,1569-1579`. These can execute arbitrary

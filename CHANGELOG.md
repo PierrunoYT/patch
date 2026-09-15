@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept command names and arguments exact. Aider's `!`, bare `/read-only`,
+  `/reset`, mode aliases, `/ok`, `/multiline-mode`, and `/quit` are non-goals;
+  existing explicit commands expose the operations without obscuring approval
+  or combining state transitions.
+
 - Wait for Windows `taskkill /T /F` completion before a timed-out, cancelled, or
   overproducing clipboard utility settles. The direct child can close before its
   descendants are dead; queue reuse now follows confirmed tree termination.

@@ -21,9 +21,12 @@ Path tokenization preserves backslashes before ordinary characters and a leading
 UNC pair while supporting quoted spaces and POSIX escapes for whitespace,
 quotes, and literal backslashes. `/add`, `/attach`, `/drop`, and `/read-only`
 therefore share the same Windows-safe contract as configured editor commands.
-Pinned aider's `!command` alias for `/run` and bare `/read-only` conversion of
-every editable file are still unported. Patch sends a leading `!` as ordinary
-model input and requires at least one `/read-only` path.
+Patch intentionally keeps exact command names and explicit arguments. A leading
+`!` remains model input rather than an approval-obscuring `/run` alias, and
+`/read-only` requires paths rather than silently converting every editable file.
+`/reset`, `/ask`, `/code`, `/ok`, `/multiline-mode`, and `/quit` are redundant
+with explicit `/drop` plus `/clear`, `/chat-mode`, startup input configuration,
+and `/exit`, so they are not parser or completion names.
 
 `/help` lists every supported command. `/help <query>` searches an explicit
 allowlist of six Markdown documents installed with Patch and returns at most

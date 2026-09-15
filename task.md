@@ -198,10 +198,11 @@ security rules above.
   fresh tracked/non-ignored production inventory. `/copy-context` would disclose
   raw prompt, history, file, map, and media content to an ambient OS clipboard;
   users can inspect bounded numeric/map/diff views without that side effect.
-- [ ] **CMD-2:** Decide command aliases and argument semantics, including
-  aider's `!command`, bare `/read-only`, `/reset`, `/ask`, `/code`, `/ok`,
-  `/multiline-mode`, and `/quit`. Any shell alias remains previewed and
-  approval-gated.
+- [x] **CMD-2:** Keep exact slash-command names and arguments as the current
+  contract. Do not add `!`, bare `/read-only`, `/reset`, `/ask`, `/code`, `/ok`,
+  `/multiline-mode`, or `/quit`: existing `/run`, explicit path lists, `/drop`
+  plus `/clear`, `/chat-mode`, startup multiline configuration, and `/exit` make
+  them redundant, while aliases obscure approval or combine state transitions.
 - [ ] **CMD-3:** Decide file/script command breadth (`/git`, `/load`, `/save`,
   `/editor`, and `/edit`) with containment, per-effect approval, output bounds,
   cancellation, and queue semantics.

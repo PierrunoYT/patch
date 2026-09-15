@@ -647,10 +647,10 @@ skipped all nine current gates because the orb also had no provider credentials.
   effect in one real-Git application scenario, including safe authority/state
   failures.
 - [x] Preserve Windows path separators in `/add`, `/drop`, `/read-only`, and
-  `/attach` through the shared quote-aware word splitter, with drive, UNC,
-  relative, quoted-space, trailing-root, and POSIX-escape tests. Decide
-  separately whether aider's `!` and bare `/read-only` semantics belong in
-  Patch, and keep any shell alias approval-gated.
+  `/attach` through the shared quote-aware splitter. Keep exact command names
+  and arguments: aider's `!`, bare `/read-only`, `/reset`, mode aliases,
+  `/multiline-mode`, and `/quit` are non-goals because existing explicit
+  commands expose the operations without hidden approval or compound state.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation
   in the application contract. Standalone interactive TTY input supplies one
