@@ -91,6 +91,7 @@ export class MarkdownStream {
   // sequence across chunks, and a per-chunk strip would let the halves rejoin.
   readonly #sanitizer = new ControlSequenceSanitizer();
   #buffer = "";
+  #fenceLength: number | undefined;
   #language: string | undefined;
 
   constructor(
@@ -118,16 +119,25 @@ export class MarkdownStream {
   }
 
   #line(line: string, newline = true): void {
-    const fence = /^```\s*([^\s`]*)/u.exec(line);
-    if (fence !== null) {
-      this.#language =
-        this.#language === undefined ? (fence[1] ?? "") : undefined;
-      return;
+    if (this.#fenceLength === undefined) {
+      const opening = /^(`{3,})[ \t]*([^\s`]*)/u.exec(line);
+      if (opening !== null) {
+        this.#fenceLength = opening[1]?.length;
+        this.#language = opening[2] ?? "";
+        return;
+      }
+    } else {
+      const closing = /^(`{3,})[ \t]*$/u.exec(line);
+      if (closing !== null && (closing[1]?.length ?? 0) >= this.#fenceLength) {
+        this.#fenceLength = undefined;
+        this.#language = undefined;
+        return;
+      }
     }
     const rendered =
-      this.#language === undefined
+      this.#fenceLength === undefined
         ? renderMarkdownLine(line, this.#color)
-        : highlightSyntax(line, this.#language, { color: this.#color });
+        : highlightSyntax(line, this.#language ?? "", { color: this.#color });
     this.#write(`${rendered}${newline ? "\n" : ""}`);
   }
 }

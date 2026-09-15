@@ -28,6 +28,32 @@ describe("terminal rendering", () => {
     expect(output).toContain("\u001b[36mconst");
   });
 
+  it("retains the language across split variable-length fences", () => {
+    let output = "";
+    const stream = new MarkdownStream((chunk) => (output += chunk), {
+      color: true,
+    });
+    stream.write("``");
+    stream.write("``type");
+    stream.write("script\nconst value = 1;\n``");
+    stream.write("``\nAfter\n");
+    stream.end();
+
+    expect(stripAnsi(output)).toBe("const value = 1;\nAfter\n");
+    expect(output).toContain("\u001b[36mconst");
+  });
+
+  it("keeps a shorter backtick run inside a longer fenced block", () => {
+    let output = "";
+    const stream = new MarkdownStream((chunk) => (output += chunk), {
+      color: false,
+    });
+    stream.write("````ts\nbefore\n```\nafter\n````\noutside\n");
+    stream.end();
+
+    expect(output).toBe("before\n```\nafter\noutside\n");
+  });
+
   it("highlights supported syntax without interpreting hostile input escapes", () => {
     const rendered = highlightSyntax(
       'const secret = "x";\u001b]2;owned\u0007',

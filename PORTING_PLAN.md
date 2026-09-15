@@ -112,8 +112,8 @@ this plan, task register, and backlog track current status and open work.
   Clipboard utilities are bounded to 10 seconds and 1 MiB by default, inherit
   session cancellation, terminate their process tree, and release the queue
   after child stdio closes. Slash paths and editor commands share a
-  Windows-safe, POSIX-escape-aware splitter. Variable-fence language rendering
-  remains defective.
+  Windows-safe, POSIX-escape-aware splitter. Variable-length Markdown fences
+  retain their language and require an at-least-matching bare close.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
   ignore filtering to actual patterns. Git ignore checks prefix exact paths
@@ -776,8 +776,9 @@ individual edit-strategy suites.
   hung or overproducing utility cannot hold the session queue indefinitely.
   Defaults are 10 seconds and 1 MiB; focused executable tests cover timeout,
   cancellation, output overflow, process cleanup, and queue reuse.
-- [ ] Retain language identifiers for variable-length Markdown fences, including
-  split stream chunks and matching close fences.
+- [x] Retain language identifiers for variable-length Markdown fences. The
+  renderer tracks the opening run and language across split chunks, preserves
+  shorter runs as code, and accepts only an at-least-matching bare close.
 - [ ] Deferred parity: replace the lightweight renderer if product scope later
   requires Aider-style tables, full lists/wrapping, unstable-tail rerendering, or
   computed edit-preview hunks. One stateful sanitizer already covers every
@@ -794,11 +795,12 @@ individual edit-strategy suites.
   `/paste` submits clipboard text as a user turn without reparsing it as a
   command. Clipboard images remain unread.
 
-**Exit (blocked for cross-platform correctness):** command/file/source-identifier
+**Exit:** command/file/source-identifier
 completion, recall, multiline, the external editor, explicit PTY dispatch,
 generated shell completions, and provider-turn-only notifications all run
-through the executable's reader. The variable-fence item above remains open.
-Broader Rich renderer fidelity is a separate deferred product decision.
+through the executable's reader. Variable-length fence coverage closes the
+renderer correctness item. Broader Rich renderer fidelity is a separate
+deferred product decision.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,

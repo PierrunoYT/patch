@@ -100,9 +100,10 @@ Baseline for the current findings:
 
 ## P2 — bounded correctness follow-ups
 
-- [ ] **TERM-1: Preserve language identifiers on variable-length Markdown
-  fences.** Cover matching four-or-more-backtick open/close fences, language
-  capture, and split stream chunks.
+- [x] **TERM-1: Preserve language identifiers on variable-length Markdown
+  fences.** The stream tracks the opening run length and language, accepts only
+  an at-least-matching bare close, and handles openings/closings split across
+  chunks. Focused tests cover highlighting and shorter nested runs.
 - [x] **VOICE-1: Honor pre-aborted signals in `FfmpegVoiceRecorder`.** The
   exported adapter checks cancellation before spawning; a real subprocess test
   proves a pre-aborted call creates no child side effect or abort listener.

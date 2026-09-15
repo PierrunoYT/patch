@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Streaming Markdown now retains syntax languages on variable-length backtick
+  fences, including delimiters split across provider chunks. Shorter runs stay
+  inside the code block, and only an at-least-matching bare run closes it.
+
 - `FfmpegVoiceRecorder` now rejects a pre-aborted signal before creating a
   subprocess. A direct deterministic process test proves cancellation preserves
   its reason without creating a child side effect or leaking an abort listener.

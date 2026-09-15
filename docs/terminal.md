@@ -134,10 +134,11 @@ and from shell completion, because a flag that always fails is not a feature.
 compute differences. The executable uses these renderers for provider text
 and edit previews and honors TTY, `--no-color`, and `NO_COLOR`.
 
-A variable-length opening fence currently matches only its first three
-backticks. Four-backtick blocks are recognized as fenced text, but their language
-identifier is lost, so syntax highlighting is incorrect. Split-chunk and
-matching-close coverage remains open.
+Variable-length backtick fences retain the opening language identifier and full
+delimiter length even when provider chunks split either delimiter. A bare
+closing run must be at least as long as the opening; shorter runs remain code.
+This matches the fenced-block boundary behavior pinned aider delegates to Rich
+Markdown while preserving Patch's dependency-free line renderer.
 
 `renderEditPreview` produces a **full-content replacement preview**, not a
 computed hunk diff: every old line is prefixed with `-` and every new line with
