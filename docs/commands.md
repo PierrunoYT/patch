@@ -8,7 +8,7 @@ This ports the dispatch boundary from
 without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
-`/settings`, `/report`, `/diff`, `/tokens`, `/ls`, `/clear`, `/models`, `/model`,
+`/settings`, `/report`, `/diff`, `/tokens`, `/map`, `/ls`, `/clear`, `/models`, `/model`,
 `/chat-mode`, `/weak-model`, `/editor-model`, `/reasoning-effort`,
 `/think-tokens`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
 `/paste`, and `/exit`.
@@ -130,6 +130,15 @@ makes no provider request and asks for no path, write, or process approval. This
 differs from pinned aider mainly by naming estimate provenance and matching
 Patch's own prompt chunk order rather than implying provider-native exactness.
 
+`/map` displays the repository map currently available to the active model,
+using the same fresh tracked/non-ignored inventory, selected-file exclusion,
+ranking, token budget, and fallback sequence as production prompt construction.
+It accepts no paths or query: the unknown next user message can personalize a
+later turn's map differently. Models whose profile disables maps and
+repositories with no available map report that state explicitly. Output is
+terminal-sanitized and capped at 1 MiB without splitting UTF-8. The command
+makes no provider request and invokes no path, write, or command approval.
+
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather
@@ -225,7 +234,7 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-27 effects through `ConcreteApplicationService`: selections, media, history,
+28 effects through `ConcreteApplicationService`: selections, media, history,
 profile switching, local ancillary output, captured process/checks, bounded URL
 content, clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL

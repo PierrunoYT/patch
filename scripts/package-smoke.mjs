@@ -207,6 +207,10 @@ try {
   mkdirSync(diffRoot);
   writeFileSync(join(diffRoot, "selected.txt"), "selected old\n");
   writeFileSync(join(diffRoot, "unselected.txt"), "unselected old\n");
+  writeFileSync(
+    join(diffRoot, "mapped.ts"),
+    "export function mappedForPackage(): number { return 1; }\n",
+  );
   execFileSync("git", ["init", "--quiet"], { cwd: diffRoot });
   for (const [key, value] of [
     ["user.name", "Patch Package Smoke"],
@@ -240,18 +244,19 @@ try {
         USERPROFILE: diffRoot,
         OPENAI_API_KEY: "package-smoke-not-a-real-key",
       },
-      input: "/diff\n/exit\n",
+      input: "/map\n/diff\n/exit\n",
       encoding: "utf8",
       shell: useShell,
       timeout: 15000,
     },
   );
   if (
+    !selectedDiff.includes("mappedForPackage") ||
     !selectedDiff.includes("selected new") ||
     selectedDiff.includes("unselected secret")
   ) {
     throw new Error(
-      "The packed executable did not keep /diff to selected file changes",
+      "The packed executable did not expose /map and keep /diff to selected changes",
     );
   }
 

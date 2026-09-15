@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added `/map`, a provider-free view of the current production repository map.
+  It uses fresh tracked/non-ignored inventory and selected-file exclusion,
+  sanitizes terminal controls, caps output at 1 MiB, and is exercised through
+  the installed package.
+
 - Added `/tokens`, a provider-free report over the same current prompt chunks
   used by production. It shows bounded category and baseline token estimates,
   available model limit and input cost, and tokenizer provenance without

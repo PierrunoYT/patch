@@ -34,6 +34,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "help",
   "lint",
   "ls",
+  "map",
   "model",
   "models",
   "weak-model",
@@ -146,6 +147,7 @@ export function parseCommand(input: string): CommandEffect {
     }
     case "diff":
     case "tokens":
+    case "map":
     case "ls":
     case "clear":
     case "settings":

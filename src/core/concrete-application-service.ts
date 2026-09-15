@@ -323,24 +323,37 @@ export function urlTokenBudget(maxInputTokens: number | undefined): number {
 
 const MAX_DIFF_OUTPUT_BYTES = 1024 * 1024;
 const DIFF_TRUNCATION_NOTICE = "\n\n(diff output truncated)";
+const MAX_MAP_OUTPUT_BYTES = 1024 * 1024;
+const MAP_TRUNCATION_NOTICE = "\n\n(repository map truncated)";
 
-function boundedDiffOutput(diff: string): string {
-  const safe = sanitizeTerminalText(diff);
-  if (Buffer.byteLength(safe) <= MAX_DIFF_OUTPUT_BYTES) return safe;
+function boundedTextOutput(
+  text: string,
+  maximumBytes: number,
+  notice: string,
+): string {
+  const safe = sanitizeTerminalText(text);
+  if (Buffer.byteLength(safe) <= maximumBytes) return safe;
 
   const bytes = Buffer.from(safe);
-  const limit =
-    MAX_DIFF_OUTPUT_BYTES - Buffer.byteLength(DIFF_TRUNCATION_NOTICE);
+  const limit = maximumBytes - Buffer.byteLength(notice);
   const decoder = new TextDecoder("utf-8", { fatal: true });
   for (let end = limit; end >= Math.max(0, limit - 3); end -= 1) {
     try {
-      return `${decoder.decode(bytes.subarray(0, end))}${DIFF_TRUNCATION_NOTICE}`;
+      return `${decoder.decode(bytes.subarray(0, end))}${notice}`;
     } catch {
       // A UTF-8 code point is at most four bytes, so one of these boundaries is
-      // complete. Never insert a replacement character into a displayed diff.
+      // complete. Never insert a replacement character into displayed text.
     }
   }
-  throw new Error("Unable to bound Git diff output");
+  throw new Error("Unable to bound text output");
+}
+
+function boundedDiffOutput(diff: string): string {
+  return boundedTextOutput(diff, MAX_DIFF_OUTPUT_BYTES, DIFF_TRUNCATION_NOTICE);
+}
+
+function boundedMapOutput(map: string): string {
+  return boundedTextOutput(map, MAX_MAP_OUTPUT_BYTES, MAP_TRUNCATION_NOTICE);
 }
 
 /** How a finished command ended, in one clause. */
@@ -1467,6 +1480,13 @@ class ConcreteApplicationSession implements ApplicationSession {
       }
       case "tokens":
         return result(await this.#tokenContext(options.signal));
+      case "map": {
+        const map = await this.#repositoryContext("");
+        options.signal.throwIfAborted();
+        return result(
+          map === "" ? "No repository map available" : boundedMapOutput(map),
+        );
+      }
       case "clear":
         this.#session.clearHistory();
         return result("Chat history cleared");

@@ -189,11 +189,12 @@ security rules above.
 
 - [ ] **CMD-1:** Select bounded read-only inspection commands such as `/diff`,
   `/tokens`, `/map`, `/map-refresh`, and `/copy-context`. `/diff` and `/tokens`
-  are selected and production-wired. The token report counts the same current
+  and `/map` are selected and production-wired. The token report counts the same current
   prompt chunks used by production, labels tokenizer versus conservative
   estimates, reports available limits/cost, excludes prompt content and the
-  not-yet-known next user message, and has packed-bin evidence. Decide map
-  controls and context copying individually.
+  not-yet-known next user message, and has packed-bin evidence. `/map` exposes
+  only the bounded, sanitized production map for the current unhinted context.
+  Decide refresh controls and context copying individually.
 - [ ] **CMD-2:** Decide command aliases and argument semantics, including
   aider's `!command`, bare `/read-only`, `/reset`, `/ask`, `/code`, `/ok`,
   `/multiline-mode`, and `/quit`. Any shell alias remains previewed and

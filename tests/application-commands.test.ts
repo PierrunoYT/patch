@@ -423,6 +423,76 @@ describe("application slash commands", () => {
     await service.close();
   });
 
+  it("shows a bounded sanitized repository map without selected-file contents", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-map-"));
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    await writeFile(
+      join(root, "selected.ts"),
+      "export const selectedSecret = 1;\n",
+    );
+    await writeFile(
+      join(root, "mapped.ts"),
+      "export function mappedForDisplay(): number { return 2; }\n",
+    );
+    await writeFile(join(root, "unsafe\u001bname.txt"), "hidden body\n");
+    execFileSync("git", ["add", "."], { cwd: root });
+    const provider = new FakeProvider([]);
+    const approvePath = vi.fn(() => true);
+    const approveCommand = vi.fn(() => true);
+    const authorizeWrite = vi.fn(() => true);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--model", "4o", "--edit-format", "ask", "--file", "selected.ts"],
+      dependencies: { provider, approvePath, approveCommand, authorizeWrite },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "map",
+    });
+
+    const shown = (await session.submit("/map", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    })) as { response: string };
+
+    expect(shown.response).toContain("mapped.ts:");
+    expect(shown.response).toContain("mappedForDisplay");
+    expect(shown.response).toContain("unsafeame.txt");
+    expect(shown.response).not.toContain("\u001b");
+    expect(shown.response).not.toContain("selectedSecret");
+    expect(Buffer.byteLength(shown.response)).toBeLessThanOrEqual(1024 * 1024);
+    expect(provider.requests).toEqual([]);
+    expect(approvePath).not.toHaveBeenCalled();
+    expect(approveCommand).not.toHaveBeenCalled();
+    expect(authorizeWrite).not.toHaveBeenCalled();
+    await service.close();
+  });
+
+  it("reports when the active model has no repository map", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-map-disabled-"));
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "gpt-4o-mini"],
+      dependencies: { provider: new FakeProvider([]) },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "map-disabled",
+    });
+
+    await expect(
+      session.submit("/map", {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      }),
+    ).resolves.toMatchObject({ response: "No repository map available" });
+    await service.close();
+  });
+
   it("dispatches selected-file, mode, process, clipboard, history, and exit effects", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-commands-"));
     await writeFile(join(root, "one.txt"), "one\n");

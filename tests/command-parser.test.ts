@@ -21,6 +21,7 @@ describe("parseCommand", () => {
     ["/settings", { type: "settings" }],
     ["/diff", { type: "diff" }],
     ["/tokens", { type: "tokens" }],
+    ["/map", { type: "map" }],
     ["/ls", { type: "ls" }],
     ["/clear", { type: "clear" }],
     ["/models", { type: "models" }],
@@ -119,6 +120,7 @@ describe("parseCommand", () => {
   it("rejects arguments to the read-only diff command", () => {
     expect(() => parseCommand("/diff one.txt")).toThrow(/does not accept/u);
     expect(() => parseCommand("/tokens now")).toThrow(/does not accept/u);
+    expect(() => parseCommand("/map now")).toThrow(/does not accept/u);
   });
 
   it.each([
