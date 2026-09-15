@@ -74,7 +74,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
 | Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
-| Watch/URL/web/voice/help         | selected scope; open interface gap                        | Watch and bounded URL transport are wired with nesting-aware HTML discards and atomic concurrent session quotas. Active ffmpeg abort still lacks forced settlement; GUI/device UX remain non-goals.                         |
+| Watch/URL/web/voice/help         | implemented selected scope                               | Watch, bounded URL transport, nesting-aware HTML discards, atomic concurrent session quotas, and bounded ffmpeg cancellation are wired. GUI/device UX remain non-goals.                                                   |
 | Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
 
 ### Current audit findings — `cee39ed` — 2026-09-15
@@ -103,7 +103,9 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       discard stack that retains same-name and mixed nesting, refuses to expose
       malformed mismatched tails, and is exercised through production `/web`
       provider context as well as direct converter regressions.
-- [ ] **P1 / VOICE-3 — force-settle active ffmpeg cancellation.**
+- [x] **P1 / VOICE-3 — force-settle active ffmpeg cancellation.** Completed
+      with one-second `SIGTERM` to `SIGKILL` escalation, child-close settlement,
+      timer/listener cleanup, and a deterministic process that ignores `SIGTERM`.
 - [ ] **P2 / PROC-4 — bound editor readback and define cancellation.**
 - [x] **P2 / DOC-1 — document slash-command transcript persistence.**
 - [ ] **P2 / EVIDENCE-4 — add provenance and public export/type package checks.**
@@ -1788,8 +1790,8 @@ current-release non-goals; the API remains trusted-local only.
 
 **Acceptance:** watch, web, URL, and voice helpers drive real application
 contracts rather than merely compiling against interfaces. This production
-reachability and verified read containment do not close the ffmpeg-adapter
-defect listed above or establish browser/CLI-voice parity.
+reachability, verified read containment, and bounded ffmpeg cancellation do not
+establish browser/CLI-voice parity.
 
 ## R9 — Correct stale plans and product documentation
 

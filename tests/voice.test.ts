@@ -1,5 +1,5 @@
 import { getEventListeners } from "node:events";
-import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -42,6 +42,54 @@ describe("optional voice input", () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+
+  it.skipIf(process.platform === "win32")(
+    "force-kills an active ffmpeg adapter that ignores graceful cancellation",
+    async () => {
+      const directory = await mkdtemp(join(tmpdir(), "patch-ffmpeg-cancel-"));
+      const executable = join(directory, "fake-ffmpeg");
+      const marker = join(directory, "started");
+      await writeFile(
+        executable,
+        [
+          `#!${process.execPath}`,
+          'const { writeFileSync } = require("node:fs");',
+          `writeFileSync(${JSON.stringify(marker)}, String(process.pid));`,
+          'process.on("SIGTERM", () => undefined);',
+          "setInterval(() => undefined, 10_000);",
+        ].join("\n"),
+      );
+      await chmod(executable, 0o755);
+      const controller = new AbortController();
+      const reason = new Error("cancel active recording");
+      const recorder = new FfmpegVoiceRecorder({
+        executable,
+        inputArguments: ["ignored-input"],
+      });
+
+      try {
+        const recording = recorder.record(join(directory, "recording.wav"), {
+          durationMs: 100,
+          signal: controller.signal,
+        });
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          try {
+            await access(marker);
+            break;
+          } catch {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+        }
+        await access(marker);
+        controller.abort(reason);
+        await expect(recording).rejects.toBe(reason);
+        expect(getEventListeners(controller.signal, "abort")).toHaveLength(0);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+    4_000,
+  );
 
   it("records, bounds, transcribes, and removes temporary audio", async () => {
     let recordedPath = "";

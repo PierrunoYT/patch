@@ -926,12 +926,16 @@ passed both supported PTY jobs at implementation revision
 - [x] Make the exported `FfmpegVoiceRecorder` reject a pre-aborted signal before
       spawning. A deterministic real-process test proves the adapter preserves the
       abort reason without creating a child side effect or listener.
+- [x] Bound active ffmpeg cancellation. Abort sends `SIGTERM`, escalates to
+      `SIGKILL` after one second, and waits for child close; a deterministic POSIX
+      process that ignores graceful termination proves forced settlement and
+      listener cleanup.
 
-**Exit — blocked by `VOICE-3`:** package smoke tests assert that
+**Exit:** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
 mutation phases are serialized in-process. Direct adapter coverage closes the
-ffmpeg pre-abort boundary without claiming real-device or CLI voice evidence.
+ffmpeg cancellation boundary without claiming real-device or CLI voice evidence.
 CLI voice and browser GUI are current-release non-goals, while browser-rendered
 `/web` remains outside the explicit bounded fetch contract. The optional voice
 subpath retains adapter evidence without implying device or network behavior.

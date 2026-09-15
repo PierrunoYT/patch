@@ -108,9 +108,10 @@ Baseline for the current findings:
       tracks nested script/style/media elements, and malformed mismatched closes
       stay discarded instead of exposing their tail. Direct and production `/web`
       tests prove hidden content never enters the provider request.
-- [ ] **VOICE-3: Force-settle active ffmpeg cancellation.** Escalate after a
-      grace deadline when the recorder child ignores `SIGTERM`; the existing
-      pre-abort check does not bound an active abort.
+- [x] **VOICE-3: Force-settle active ffmpeg cancellation.** Active abort sends
+      `SIGTERM`, escalates to `SIGKILL` after one second, and settles only after
+      child close while preserving the abort reason. A deterministic process
+      regression covers a child that deliberately ignores graceful termination.
 
 - [x] **CORE-1: Make provider retries observer-atomic.** Buffer each attempt's
       text, reasoning, and error events until it succeeds, or add a reset protocol

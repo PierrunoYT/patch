@@ -332,8 +332,9 @@ Bounded [voice recording and transcription](docs/voice-input.md)
 is available through an optional package subpath and can submit to an explicit
 application session without native default dependencies. Cancellation checks
 refuse pre-aborted recording, including direct exported-recorder calls, and late
-transcripts; deterministic helper/process tests cover forwarding and listener
-cleanup, not real devices or a CLI voice UX.
+transcripts; active ffmpeg cancellation escalates from graceful to forced
+termination after one second. Deterministic helper/process tests cover forwarding,
+forced settlement, and listener cleanup, not real devices or a CLI voice UX.
 
 Read [AGENTS.md](AGENTS.md) for repository guidance, including the requirement to
 create or update relevant documentation after every task or code change.

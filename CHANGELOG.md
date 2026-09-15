@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Bounded active `FfmpegVoiceRecorder` cancellation. Abort now sends `SIGTERM`,
+  escalates to `SIGKILL` after a one-second grace period, waits for child close,
+  preserves the caller's abort reason, and cleans up its timer and listener.
+
 - Made HTTP session quotas atomic across asynchronous application construction.
   Global and per-principal limits include in-flight reservations, which are
   released after successful, failed, and shutdown-interrupted creation.

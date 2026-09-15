@@ -19,6 +19,8 @@ import type {
   ApplicationSession,
 } from "../core/application-service.js";
 
+const FFMPEG_TERMINATION_GRACE_MS = 1_000;
+
 export interface VoiceRecordOptions {
   readonly durationMs: number;
   readonly signal: AbortSignal;
@@ -200,14 +202,23 @@ export class FfmpegVoiceRecorder implements VoiceRecorder {
       );
       const diagnostics: Buffer[] = [];
       let diagnosticBytes = 0;
+      let forceKillTimer: NodeJS.Timeout | undefined;
       child.stderr.on("data", (chunk: Buffer) => {
         if (diagnosticBytes >= 16 * 1024) return;
         diagnostics.push(chunk.subarray(0, 16 * 1024 - diagnosticBytes));
         diagnosticBytes += chunk.length;
       });
-      const cancel = () => child.kill("SIGTERM");
+      const cancel = () => {
+        child.kill("SIGTERM");
+        forceKillTimer ??= setTimeout(
+          () => child.kill("SIGKILL"),
+          FFMPEG_TERMINATION_GRACE_MS,
+        );
+        forceKillTimer.unref();
+      };
       options.signal.addEventListener("abort", cancel, { once: true });
       child.once("error", (error) => {
+        if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
         options.signal.removeEventListener("abort", cancel);
         reject(
           new VoiceInputError(`Unable to start ffmpeg: ${error.message}`, {
@@ -216,6 +227,7 @@ export class FfmpegVoiceRecorder implements VoiceRecorder {
         );
       });
       child.once("close", (code, signal) => {
+        if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
         options.signal.removeEventListener("abort", cancel);
         if (options.signal.aborted) return reject(options.signal.reason);
         if (code === 0) return resolve();
