@@ -37,6 +37,34 @@ async function catalogWith(
 }
 
 describe("catalog metadata merging", () => {
+  it("requires explicit provider capabilities for reasoning controls", () => {
+    const base = {
+      name: "test/reasoning",
+      provider: "openai",
+      editFormat: "ask",
+      capabilities: { reasoningEffort: true },
+    };
+    expect(
+      ModelSettingsSchema.parse({ ...base, reasoningEffort: "high" }),
+    ).toMatchObject({ reasoningEffort: "high", useTemperature: true });
+    expect(() =>
+      ModelSettingsSchema.parse({
+        ...base,
+        capabilities: {},
+        reasoningEffort: "high",
+      }),
+    ).toThrow(/does not declare/u);
+    expect(() =>
+      ModelSettingsSchema.parse({
+        ...base,
+        provider: "anthropic",
+        thinkingTokens: 4096,
+        maxOutputTokens: 4096,
+        capabilities: { thinkingTokens: true },
+      }),
+    ).toThrow(/below maxOutputTokens/u);
+  });
+
   it("leaves capabilities a metadata entry does not mention alone", async () => {
     // Metadata states overrides. Parsing its capabilities block with the
     // settings schema's defaults turned every unmentioned capability into an

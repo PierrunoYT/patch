@@ -71,6 +71,18 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("model"), model: z.string().min(1) }).strict(),
   z
     .object({
+      type: z.literal("reasoning-effort"),
+      effort: z.enum(["low", "medium", "high", "off"]).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("think-tokens"),
+      tokens: z.number().int().min(0).max(1_000_000).optional(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("chat-mode"),
       mode: z.union([EditFormatSchema, z.literal("code")]),
     })

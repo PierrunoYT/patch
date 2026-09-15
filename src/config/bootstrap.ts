@@ -40,6 +40,8 @@ const CatalogFileListSchema = z
 const ConfigurationFileSchema = z
   .object({
     model: z.string().min(1).optional(),
+    "reasoning-effort": z.enum(["low", "medium", "high"]).optional(),
+    "thinking-tokens": z.number().int().min(1024).max(1_000_000).optional(),
     "model-alias-files": CatalogFileListSchema.optional(),
     "model-settings-files": CatalogFileListSchema.optional(),
     "model-metadata-files": CatalogFileListSchema.optional(),
@@ -87,6 +89,8 @@ export interface BootstrapArguments {
   readonly commitCommitterName: string | undefined;
   readonly commitCoAuthor: string | undefined;
   readonly model: string | undefined;
+  readonly reasoningEffort: "low" | "medium" | "high" | undefined;
+  readonly thinkingTokens: number | undefined;
   readonly modelAliasFiles: readonly string[];
   readonly modelSettingsFiles: readonly string[];
   readonly modelMetadataFiles: readonly string[];
@@ -140,6 +144,8 @@ interface ParsedCommandLine {
   commitCommitterName: string | undefined;
   commitCoAuthor: string | undefined;
   model: string | undefined;
+  reasoningEffort: string | undefined;
+  thinkingTokens: string | undefined;
   modelAliasFiles: string[];
   modelSettingsFiles: string[];
   modelMetadataFiles: string[];
@@ -226,6 +232,8 @@ function parseCommandLine(
     commitCommitterName: undefined,
     commitCoAuthor: undefined,
     model: undefined,
+    reasoningEffort: undefined,
+    thinkingTokens: undefined,
     modelAliasFiles: [],
     modelSettingsFiles: [],
     modelMetadataFiles: [],
@@ -314,35 +322,39 @@ function parseCommandLine(
             ? "encoding"
             : option === "--model"
               ? "model"
-              : option === "--cache-keepalive-pings"
-                ? "cacheKeepalivePings"
-                : option === "--lint-cmd"
-                  ? "lintCommand"
-                  : option === "--test-cmd"
-                    ? "testCommand"
-                    : option === "--edit-format"
-                      ? "editFormat"
-                      : option === "--input-history-file"
-                        ? "inputHistoryFile"
-                        : option === "--chat-history-file"
-                          ? "chatHistoryFile"
-                          : option === "--notifications-command"
-                            ? "notificationsCommand"
-                            : option === "--web-port"
-                              ? "webPort"
-                              : option === "--web-token-file"
-                                ? "webTokenFile"
-                                : option === "--file"
-                                  ? "file"
-                                  : option === "--read-only"
-                                    ? "readOnlyFile"
-                                    : option === "--model-alias-file"
-                                      ? "modelAliasFile"
-                                      : option === "--model-settings-file"
-                                        ? "modelSettingsFile"
-                                        : option === "--model-metadata-file"
-                                          ? "modelMetadataFile"
-                                          : undefined;
+              : option === "--reasoning-effort"
+                ? "reasoningEffort"
+                : option === "--thinking-tokens"
+                  ? "thinkingTokens"
+                  : option === "--cache-keepalive-pings"
+                    ? "cacheKeepalivePings"
+                    : option === "--lint-cmd"
+                      ? "lintCommand"
+                      : option === "--test-cmd"
+                        ? "testCommand"
+                        : option === "--edit-format"
+                          ? "editFormat"
+                          : option === "--input-history-file"
+                            ? "inputHistoryFile"
+                            : option === "--chat-history-file"
+                              ? "chatHistoryFile"
+                              : option === "--notifications-command"
+                                ? "notificationsCommand"
+                                : option === "--web-port"
+                                  ? "webPort"
+                                  : option === "--web-token-file"
+                                    ? "webTokenFile"
+                                    : option === "--file"
+                                      ? "file"
+                                      : option === "--read-only"
+                                        ? "readOnlyFile"
+                                        : option === "--model-alias-file"
+                                          ? "modelAliasFile"
+                                          : option === "--model-settings-file"
+                                            ? "modelSettingsFile"
+                                            : option === "--model-metadata-file"
+                                              ? "modelMetadataFile"
+                                              : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
@@ -486,6 +498,33 @@ function resolveArguments(
       "cache-keepalive-pings must be an integer from 0 through 10",
     );
   }
+  const reasoningEffortValue =
+    commandLine.reasoningEffort ??
+    environment.PATCH_REASONING_EFFORT ??
+    configuration["reasoning-effort"];
+  const reasoningEffort = z
+    .enum(["low", "medium", "high"])
+    .optional()
+    .safeParse(reasoningEffortValue);
+  if (!reasoningEffort.success)
+    throw new BootstrapArgumentError(
+      "reasoning-effort must be low, medium, or high",
+    );
+  const thinkingTokensValue =
+    commandLine.thinkingTokens ??
+    environment.PATCH_THINKING_TOKENS ??
+    configuration["thinking-tokens"];
+  const thinkingTokens =
+    thinkingTokensValue === undefined ? undefined : Number(thinkingTokensValue);
+  if (
+    thinkingTokens !== undefined &&
+    (!Number.isInteger(thinkingTokens) ||
+      thinkingTokens < 1024 ||
+      thinkingTokens > 1_000_000)
+  )
+    throw new BootstrapArgumentError(
+      "thinking-tokens must be an integer from 1024 through 1000000",
+    );
 
   return {
     configFile: commandLine.configFile ?? environment.PATCH_CONFIG,
@@ -543,6 +582,8 @@ function resolveArguments(
       "commit-co-author",
     ),
     model: commandLine.model ?? environment.PATCH_MODEL ?? configuration.model,
+    reasoningEffort: reasoningEffort.data,
+    thinkingTokens,
     modelAliasFiles: catalogFiles(
       commandLine.modelAliasFiles,
       environment.PATCH_MODEL_ALIAS_FILE,

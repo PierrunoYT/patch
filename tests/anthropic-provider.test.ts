@@ -17,7 +17,8 @@ async function collect(
       },
       { role: "user", content: "hello" },
     ],
-    maxOutputTokens: 50,
+    maxOutputTokens: 4096,
+    thinkingTokens: 2048,
     extraParameters: { top_k: 10 },
   })) {
     events.push(event);
@@ -116,7 +117,8 @@ describe("AnthropicProvider", () => {
         { type: "text", text: "system", cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
-      max_tokens: 50,
+      max_tokens: 4096,
+      thinking: { type: "enabled", budget_tokens: 2048 },
       top_k: 10,
       stream: true,
     });

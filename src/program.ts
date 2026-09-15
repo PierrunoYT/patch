@@ -72,6 +72,8 @@ interface ProgramOptions {
   readonly commitCommitterName?: string;
   readonly commitCoAuthor?: string;
   readonly model?: string;
+  readonly reasoningEffort?: string;
+  readonly thinkingTokens?: string;
   readonly listModels?: string | boolean;
   readonly modelAliasFile?: string[];
   readonly modelSettingsFile?: string[];
@@ -120,6 +122,8 @@ function bootstrapArguments(
   append(argv, "--env-file", options.envFile);
   append(argv, "--encoding", options.encoding);
   append(argv, "--model", options.model);
+  append(argv, "--reasoning-effort", options.reasoningEffort);
+  append(argv, "--thinking-tokens", options.thinkingTokens);
   for (const path of options.modelAliasFile ?? [])
     argv.push("--model-alias-file", path);
   for (const path of options.modelSettingsFile ?? [])
@@ -242,6 +246,14 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "co-author trailer for Patch-authored edits",
       )
       .option("--model <name>", "model name")
+      .option(
+        "--reasoning-effort <level>",
+        "reasoning effort for declared OpenAI models (low, medium, or high)",
+      )
+      .option(
+        "--thinking-tokens <count>",
+        "thinking budget for declared Anthropic models",
+      )
       .option(
         "--list-models [query]",
         "list configured models, optionally filtered by name",

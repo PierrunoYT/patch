@@ -35,6 +35,8 @@ export const COMMAND_NAMES: readonly string[] = [
   "ls",
   "model",
   "models",
+  "reasoning-effort",
+  "think-tokens",
   "paste",
   "read-only",
   "report",
@@ -162,6 +164,34 @@ export function parseCommand(input: string): CommandEffect {
     case "models": {
       const query = optionalModelQuery(argument);
       effect = { type: "models", ...(query === undefined ? {} : { query }) };
+      break;
+    }
+    case "reasoning-effort": {
+      if (argument === "") effect = { type: "reasoning-effort" };
+      else if (["low", "medium", "high", "off"].includes(argument))
+        effect = {
+          type: "reasoning-effort",
+          effort: argument as "low" | "medium" | "high" | "off",
+        };
+      else
+        throw new CommandParseError(
+          "/reasoning-effort accepts low, medium, high, or off",
+        );
+      break;
+    }
+    case "think-tokens": {
+      if (argument === "") effect = { type: "think-tokens" };
+      else if (/^(?:0|[1-9]\d{0,6})$/u.test(argument)) {
+        const tokens = Number(argument);
+        if (tokens !== 0 && (tokens < 1024 || tokens > 1_000_000))
+          throw new CommandParseError(
+            "/think-tokens must be 0 or from 1024 through 1000000",
+          );
+        effect = { type: "think-tokens", tokens };
+      } else
+        throw new CommandParseError(
+          "/think-tokens accepts 0 or an integer token budget",
+        );
       break;
     }
     case "web":

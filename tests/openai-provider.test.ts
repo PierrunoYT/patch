@@ -9,6 +9,7 @@ async function collect(provider: OpenAIProvider): Promise<CompletionEvent[]> {
     messages: [{ role: "user", content: "hello" }],
     maxOutputTokens: 20,
     temperature: 0.2,
+    reasoningEffort: "high",
     extraParameters: { seed: 7 },
   })) {
     events.push(event);
@@ -85,6 +86,7 @@ describe("OpenAIProvider", () => {
       messages: [{ role: "user", content: "hello" }],
       max_completion_tokens: 20,
       temperature: 0.2,
+      reasoning_effort: "high",
       seed: 7,
       stream: true,
       stream_options: { include_usage: true },

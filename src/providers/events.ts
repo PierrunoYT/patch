@@ -8,6 +8,8 @@ export const CompletionRequestSchema = z
     messages: z.array(ChatMessageSchema).min(1),
     maxOutputTokens: z.number().int().positive().optional(),
     temperature: z.number().min(0).max(2).optional(),
+    reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
+    thinkingTokens: z.number().int().min(1024).max(1_000_000).optional(),
     extraParameters: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();

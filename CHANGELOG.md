@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added strict startup and mutable reasoning controls: declared custom OpenAI
+  profiles can use reasoning effort and declared custom Anthropic profiles can
+  use bounded thinking-token budgets. Unsupported capability/provider pairs
+  fail before transport, temperature is omitted while active, and bundled
+  profiles make no unsupported mutable-control claim.
+
 - Added bounded custom model alias, settings, and metadata overlays with strict
   eager validation and CLI-over-environment-over-YAML precedence. New
   provider-free `--list-models [query]` and `/models [query]` discovery renders

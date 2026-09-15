@@ -9,8 +9,8 @@ without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
 `/settings`, `/report`, `/ls`, `/clear`, `/models`, `/model`, `/chat-mode`,
-`/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
-`/exit`.
+`/reasoning-effort`, `/think-tokens`, `/run`, `/web`, `/test`, `/lint`,
+`/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -40,6 +40,17 @@ Aliases participate in matching but output resolves them to canonical names;
 metadata, costs, endpoints, environment values, and credentials are never
 rendered. Startup `--list-models [query]` uses the same renderer and works
 without selecting a model or configuring provider credentials.
+
+`/reasoning-effort [low|medium|high|off]` and `/think-tokens
+[count|0]` inspect or update first-class request controls. A nonzero thinking
+budget is 1,024 through 1,000,000 tokens and must remain below the model's
+output limit. Updates rebuild and atomically install the active profile; `off`
+or `0` removes the corresponding field. A model must explicitly declare the
+matching capability, and Patch additionally confines reasoning effort to the
+OpenAI adapter and thinking budgets to Anthropic. The bundled models declare
+neither capability, so these controls are currently available only to a
+strict custom catalog entry that opts in. Enabling either omits temperature.
+Startup `--reasoning-effort` and `--thinking-tokens` use the same validation.
 
 `/settings` shows the current model and chat mode (including successful
 post-startup switches), encoding, enabled/disabled Git, hook verification and
@@ -170,7 +181,7 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-21 effects through `ConcreteApplicationService`: selections, media, history, profile
+23 effects through `ConcreteApplicationService`: selections, media, history, profile
 switching, local ancillary output, captured process/checks, bounded URL content,
 clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL
@@ -186,11 +197,10 @@ The advertised command set is completely dispatched but is not an aider-parity
 surface:
 
 - Model command breadth follows the model contracts rather than being added as
-  aliases first. `/models` is executable catalog discovery;
-  `/think-tokens` and `/reasoning-effort` remain part of capability-validated
-  provider controls; and weak/editor commands remain part of atomic independent
-  role switching. Those remaining controls are not currently advertised, and
-  deduplicating their command task does not claim the owning model work is complete.
+  aliases first. `/models`, `/think-tokens`, and `/reasoning-effort` now have
+  their bounded underlying contracts; weak/editor commands remain part of
+  atomic independent role switching and are not advertised before that
+  contract exists.
 
 - `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
   parser, system prompt, examples, reminder, shell policy, fence, and

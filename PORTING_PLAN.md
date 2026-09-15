@@ -458,6 +458,9 @@ invoked the installed `patch --help` entry point without Python.
 - [x] Load bounded custom alias/settings/metadata overlays through staged
   CLI/environment/YAML precedence and expose provider-free `--list-models` and
   `/models` discovery with secret-safe summaries.
+- [x] Expose typed reasoning-effort and thinking-token startup/runtime controls
+  only for models that declare the matching OpenAI or Anthropic capability;
+  reject unsupported combinations before provider transport.
 
 **Exit (met for the documented Patch scope):** production prompt composition,
 per-attempt fence selection, staged configuration, packaged resources, and the

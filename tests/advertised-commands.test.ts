@@ -154,6 +154,12 @@ describe("advertised slash-command surface", () => {
     await expect(submit("/models gpt")).resolves.toMatchObject({
       response: expect.stringContaining("gpt-4o"),
     });
+    await expect(submit("/reasoning-effort")).resolves.toMatchObject({
+      response: "Reasoning effort is off",
+    });
+    await expect(submit("/think-tokens")).resolves.toMatchObject({
+      response: "Thinking tokens are off",
+    });
     await submit("/chat-mode ask");
     await expect(
       submit('/run node -e "process.exit(0)"'),

@@ -37,6 +37,36 @@ afterEach(async () => {
 });
 
 describe("bootstrapConfiguration", () => {
+  it("validates reasoning controls with CLI precedence", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "reasoning-effort: low\nthinking-tokens: 2048\n",
+    );
+    const load = (argv: string[] = [], environment = {}) =>
+      bootstrapConfiguration({ cwd: root, home: root, argv, environment });
+
+    expect((await load()).arguments).toMatchObject({
+      reasoningEffort: "low",
+      thinkingTokens: 2048,
+    });
+    expect(
+      (
+        await load(
+          ["--reasoning-effort", "high", "--thinking-tokens", "8192"],
+          {
+            PATCH_REASONING_EFFORT: "medium",
+            PATCH_THINKING_TOKENS: "4096",
+          },
+        )
+      ).arguments,
+    ).toMatchObject({ reasoningEffort: "high", thinkingTokens: 8192 });
+    await expect(load(["--thinking-tokens", "1"])).rejects.toThrow(/1024/u);
+    await expect(
+      load([], { PATCH_REASONING_EFFORT: "secret-invalid-value" }),
+    ).rejects.toThrow(/low, medium, or high/u);
+  });
+
   it("resolves bounded catalog overlays with CLI precedence", async () => {
     const root = await temporaryDirectory();
     await writeFile(

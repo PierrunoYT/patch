@@ -283,13 +283,17 @@ valid only for the specific normalization and recovery cases they name.
   support beyond OpenAI, Anthropic, and DeepSeek. This is the strict local-file
   subset of Aider's model search and resource controls at
   `aider/args.py:113-137,207-228` and `aider/commands.py:205-217`.
-- [ ] **P2 -- Add reasoning-effort and thinking-token controls for models that
-  declare support.** **Status:** unported. Aider exposes and validates these
-  controls at `aider/args.py:139-150,212-218` and
-  `aider/commands.py:1580-1637`. Patch's `ModelSettingsSchema` has no dedicated
-  fields at `src/models/settings.ts:17-59`; callers can only bury provider data
-  in static `extraParameters`. Add capability validation and provider-specific
-  request tests before exposing mutable controls.
+- [x] **P2 -- Add reasoning-effort and thinking-token controls for models that
+  declare support.** **Status:** implemented as a strict provider-scoped
+  subset. Startup CLI/environment/YAML and `/reasoning-effort` and
+  `/think-tokens` validate bounded typed values. Model settings must explicitly
+  declare the matching capability; only OpenAI reasoning effort and Anthropic
+  thinking budgets map to transport fields, and enabling either removes
+  temperature. Atomic command changes, unsupported combinations, adapter request
+  bodies, and startup precedence are tested. No bundled model claims a mutable
+  capability that its current endpoint does not provide. This ports the safe
+  subset of `aider/args.py:139-150,212-218`, `aider/models.py:792-923`, and
+  `aider/commands.py:1580-1637` without LiteLLM/OpenRouter passthrough.
 - [ ] **P2 -- Expose independent main, weak, and editor model selection and
   switching.** **Status:** partial. Patch resolves weak/editor defaults from the
   selected main model in `src/models/selection.ts:26-58`, but its executable exposes

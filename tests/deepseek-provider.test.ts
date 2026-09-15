@@ -160,6 +160,8 @@ describe("DeepSeek endpoint normalization", () => {
           documents: false,
           promptCaching: false,
           assistantPrefill: false,
+          reasoningEffort: false,
+          thinkingTokens: false,
         },
         extraParameters: {},
       },

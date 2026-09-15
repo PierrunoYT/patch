@@ -23,6 +23,10 @@ describe("parseCommand", () => {
     ["/clear", { type: "clear" }],
     ["/models", { type: "models" }],
     ["/models claude", { type: "models", query: "claude" }],
+    ["/reasoning-effort", { type: "reasoning-effort" }],
+    ["/reasoning-effort high", { type: "reasoning-effort", effort: "high" }],
+    ["/think-tokens", { type: "think-tokens" }],
+    ["/think-tokens 8192", { type: "think-tokens", tokens: 8192 }],
     ["/model anthropic/claude", { type: "model", model: "anthropic/claude" }],
     ["/chat-mode ask", { type: "chat-mode", mode: "ask" }],
     ["/chat-mode code", { type: "chat-mode", mode: "code" }],
@@ -80,6 +84,15 @@ describe("parseCommand", () => {
     expect(() => parseCommand("/models unsafe\u001bquery")).toThrow(
       /control characters/u,
     );
+  });
+
+  it("validates mutable reasoning controls", () => {
+    expect(() => parseCommand("/reasoning-effort extreme")).toThrow(/low/u);
+    expect(() => parseCommand("/think-tokens 1")).toThrow(/1024/u);
+    expect(parseCommand("/think-tokens 0")).toEqual({
+      type: "think-tokens",
+      tokens: 0,
+    });
   });
 
   it("bounds and validates local report titles", () => {

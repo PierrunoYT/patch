@@ -47,7 +47,8 @@ The bootstrap parser recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 `--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
 `--cache-prompts`/`--no-cache-prompts`, `--cache-keepalive-pings`, repeated
 `--model-alias-file`, `--model-settings-file`, `--model-metadata-file`,
-`--file`, repeated `--read-only`, and positional editable paths.
+`--reasoning-effort`, `--thinking-tokens`, `--file`, repeated `--read-only`,
+and positional editable paths.
 The executable Commander surface exposes `--no-git`, not a positive `--git`
 flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
@@ -56,6 +57,11 @@ flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 environment names are `PATCH_MODEL_ALIAS_FILE`, `PATCH_MODEL_SETTINGS_FILE`,
 and `PATCH_MODEL_METADATA_FILE`; YAML uses plural arrays named
 `model-alias-files`, `model-settings-files`, and `model-metadata-files`.
+Reasoning controls use `PATCH_REASONING_EFFORT`/`reasoning-effort` and
+`PATCH_THINKING_TOKENS`/`thinking-tokens` with the same CLI-over-environment-
+over-YAML precedence. Their values are validated during bootstrap and again
+against the selected model's declared capability and provider before provider
+construction.
 
 Catalog file precedence is applied independently by kind: a non-empty repeated
 CLI list replaces an environment singleton and YAML list, and environment

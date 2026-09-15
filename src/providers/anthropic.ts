@@ -275,6 +275,14 @@ export class AnthropicProvider implements ModelProvider {
           ...(request.temperature === undefined
             ? {}
             : { temperature: request.temperature }),
+          ...(request.thinkingTokens === undefined
+            ? {}
+            : {
+                thinking: {
+                  type: "enabled" as const,
+                  budget_tokens: request.thinkingTokens,
+                },
+              }),
         },
         { signal },
       );

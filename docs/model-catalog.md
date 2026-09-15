@@ -81,9 +81,20 @@ constructs the selected editor provider and parser on demand with fresh history,
 current selected paths, and the editor model's capabilities. Architect handoff
 uses that path only after explicit acceptance and transfers usage/commit state
 back to the main session. Generated commit-message role selection is unchanged.
-Reasoning/thinking controls and weak/editor switching remain owned by their
-capability and atomic-role tasks; Patch does not expose those command aliases
-before the underlying contracts exist.
+Weak/editor switching remains owned by its atomic-role task; Patch does not
+expose those command aliases before the underlying contract exists.
+
+First-class reasoning controls are now capability gated. A custom OpenAI model
+may declare `capabilities.reasoningEffort: true` and accept only `low`, `medium`,
+or `high`; a custom Anthropic model may declare
+`capabilities.thinkingTokens: true` and accept a 1,024–1,000,000 token budget
+below its output limit. The two adapters map these fields to
+`reasoning_effort` and `thinking: {type: enabled, budget_tokens}` respectively,
+and temperature is omitted while either is active. Other provider/capability
+combinations fail before a request. No bundled profile currently claims either
+capability: GPT-4o has no reasoning-effort API, DeepSeek Reasoner controls its
+own chain of thought, and Patch does not infer a mutable contract from a model
+producing reasoning events.
 
 The bundled profiles retain pinned aider's role behavior: `gpt-4o-mini` uses
 the default `whole` format without a repository map, and DeepSeek Reasoner

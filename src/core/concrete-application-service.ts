@@ -56,7 +56,10 @@ import { isMissingPathError, SafePathResolver } from "../io/safe-path.js";
 import { expandSelection } from "../io/selection.js";
 import { ModelCatalog, renderModelMatches } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
-import { requestTemperature } from "../models/settings.js";
+import {
+  requestTemperature,
+  withReasoningControls,
+} from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
 import { reportUsage, type UsageReport } from "../models/usage.js";
 import {
@@ -544,6 +547,13 @@ class ConcreteApplicationSession implements ApplicationSession {
 
   snapshot() {
     return this.#session.snapshot();
+  }
+
+  #currentEditFormat(): EditFormat {
+    const format = this.#profile.definition.format;
+    return format === "architect" || format === "context"
+      ? this.#profile.main.editFormat
+      : format;
   }
 
   async completionCandidates() {
@@ -1357,6 +1367,48 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result("Chat history cleared");
       case "models":
         return result(renderModelMatches(this.#context.catalog, effect.query));
+      case "reasoning-effort": {
+        if (effect.effort === undefined)
+          return result(
+            this.#profile.main.reasoningEffort === undefined
+              ? "Reasoning effort is off"
+              : `Reasoning effort: ${this.#profile.main.reasoningEffort}`,
+          );
+        const main = withReasoningControls(this.#profile.main, {
+          reasoningEffort: effect.effort === "off" ? null : effect.effort,
+        });
+        await this.#switchProfile(
+          main,
+          this.#currentEditFormat(),
+          this.#profile.codeFormat,
+        );
+        return result(
+          effect.effort === "off"
+            ? "Reasoning effort disabled"
+            : `Reasoning effort: ${effect.effort}`,
+        );
+      }
+      case "think-tokens": {
+        if (effect.tokens === undefined)
+          return result(
+            this.#profile.main.thinkingTokens === undefined
+              ? "Thinking tokens are off"
+              : `Thinking tokens: ${this.#profile.main.thinkingTokens}`,
+          );
+        const main = withReasoningControls(this.#profile.main, {
+          thinkingTokens: effect.tokens === 0 ? null : effect.tokens,
+        });
+        await this.#switchProfile(
+          main,
+          this.#currentEditFormat(),
+          this.#profile.codeFormat,
+        );
+        return result(
+          effect.tokens === 0
+            ? "Thinking tokens disabled"
+            : `Thinking tokens: ${effect.tokens}`,
+        );
+      }
       case "model": {
         const resolved = this.#context.catalog.resolve(effect.model);
         await this.#switchProfile(
@@ -1737,6 +1789,8 @@ class ConcreteApplicationSession implements ApplicationSession {
             model: model.name,
             messages: request,
             temperature: requestTemperature(model),
+            reasoningEffort: model.reasoningEffort,
+            thinkingTokens: model.thinkingTokens,
             extraParameters: model.extraParameters,
             ...(model.maxOutputTokens === undefined
               ? {}
@@ -2085,7 +2139,17 @@ export class ConcreteApplicationService implements ApplicationService {
         settings: bootstrap.arguments.modelSettingsFiles,
         metadata: bootstrap.arguments.modelMetadataFiles,
       }));
-    const models = selectModels(catalog, { main: bootstrap.arguments.model });
+    const selectedModels = selectModels(catalog, {
+      main: bootstrap.arguments.model,
+    });
+    const controlledMain = withReasoningControls(selectedModels.main.settings, {
+      reasoningEffort: bootstrap.arguments.reasoningEffort,
+      thinkingTokens: bootstrap.arguments.thinkingTokens,
+    });
+    const models: ModelSelection = {
+      ...selectedModels,
+      main: { ...selectedModels.main, settings: controlledMain },
+    };
     const requestedFormat =
       bootstrap.arguments.editFormat ?? models.main.settings.editFormat;
     const makeProvider = (model: ModelSettings) =>

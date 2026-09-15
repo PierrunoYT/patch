@@ -18,6 +18,8 @@ export const ModelCapabilitiesSchema = z
     documents: z.boolean().default(false),
     promptCaching: z.boolean().default(false),
     assistantPrefill: z.boolean().default(false),
+    reasoningEffort: z.boolean().default(false),
+    thinkingTokens: z.boolean().default(false),
   })
   .strict();
 
@@ -45,6 +47,8 @@ export const ModelSettingsSchema = z
     useTemperature: z
       .union([z.boolean(), z.number().min(0).max(2)])
       .default(true),
+    reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
+    thinkingTokens: z.number().int().min(1024).max(1_000_000).optional(),
     maxInputTokens: z.number().int().positive().optional(),
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),
@@ -64,13 +68,77 @@ export const ModelSettingsSchema = z
     capabilities: ModelCapabilitiesSchema.prefault({}),
     extraParameters: z.record(z.string(), z.unknown()).default({}),
   })
-  .strict();
+  .strict()
+  .superRefine((model, context) => {
+    if (
+      model.reasoningEffort !== undefined &&
+      !model.capabilities.reasoningEffort
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["reasoningEffort"],
+        message: "model does not declare reasoning-effort support",
+      });
+    if (
+      model.thinkingTokens !== undefined &&
+      !model.capabilities.thinkingTokens
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["thinkingTokens"],
+        message: "model does not declare thinking-token support",
+      });
+    if (model.reasoningEffort !== undefined && model.provider !== "openai")
+      context.addIssue({
+        code: "custom",
+        path: ["reasoningEffort"],
+        message: "reasoning effort is supported only by the OpenAI adapter",
+      });
+    if (model.thinkingTokens !== undefined && model.provider !== "anthropic")
+      context.addIssue({
+        code: "custom",
+        path: ["thinkingTokens"],
+        message: "thinking tokens are supported only by the Anthropic adapter",
+      });
+    if (
+      model.thinkingTokens !== undefined &&
+      model.maxOutputTokens !== undefined &&
+      model.thinkingTokens >= model.maxOutputTokens
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["thinkingTokens"],
+        message: "thinking-token budget must be below maxOutputTokens",
+      });
+  });
 
 export type ModelCapabilities = z.infer<typeof ModelCapabilitiesSchema>;
 export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
 
 /** The temperature a request should carry, or `undefined` to send none. */
 export function requestTemperature(model: ModelSettings): number | undefined {
+  if (model.reasoningEffort !== undefined || model.thinkingTokens !== undefined)
+    return undefined;
   if (model.useTemperature === false) return undefined;
   return model.useTemperature === true ? 0 : model.useTemperature;
+}
+
+export function withReasoningControls(
+  model: ModelSettings,
+  controls: {
+    readonly reasoningEffort?: "low" | "medium" | "high" | null | undefined;
+    readonly thinkingTokens?: number | null | undefined;
+  },
+): ModelSettings {
+  return ModelSettingsSchema.parse({
+    ...model,
+    reasoningEffort:
+      controls.reasoningEffort === null
+        ? undefined
+        : (controls.reasoningEffort ?? model.reasoningEffort),
+    thinkingTokens:
+      controls.thinkingTokens === null
+        ? undefined
+        : (controls.thinkingTokens ?? model.thinkingTokens),
+  });
 }

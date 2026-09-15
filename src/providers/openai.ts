@@ -301,6 +301,9 @@ export class OpenAIProvider implements ModelProvider {
           ...(request.temperature === undefined
             ? {}
             : { temperature: request.temperature }),
+          ...(request.reasoningEffort === undefined
+            ? {}
+            : { reasoning_effort: request.reasoningEffort }),
         },
         { signal },
       );

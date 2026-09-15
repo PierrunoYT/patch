@@ -219,6 +219,12 @@ environment values, or YAML file lists; see the model-catalog documentation for
 strict schemas and precedence. An overlay configures catalog entries only and
 does not add providers beyond OpenAI, Anthropic, and DeepSeek.
 
+Custom catalog models may opt into typed reasoning controls. OpenAI reasoning
+effort accepts `low`, `medium`, or `high`; Anthropic thinking accepts a bounded
+token budget below the output limit. Use startup flags or `/reasoning-effort`
+and `/think-tokens`; undeclared or wrong-provider combinations fail before any
+request. Bundled profiles currently make no mutable reasoning-capability claim.
+
 Configuration for histories, multiline input, notifications, watch mode, and
 the local web interface follows the same staged YAML, environment/dotenv, and
 CLI precedence as model, Git, file, edit, and check controls. Explicit `--no-*`

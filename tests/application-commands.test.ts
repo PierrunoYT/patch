@@ -12,6 +12,60 @@ import {
 import { createProgram } from "../src/program.js";
 
 describe("application slash commands", () => {
+  it("applies declared reasoning controls to later production turns", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-reasoning-controls-"));
+    const settings = join(root, "reasoning.yml");
+    await writeFile(
+      settings,
+      "- name: test/reasoning\n  provider: openai\n  editFormat: ask\n  capabilities:\n    reasoningEffort: true\n",
+    );
+    const catalog = await ModelCatalog.load({ settings: [settings] });
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "answer" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--no-git",
+        "--model",
+        "test/reasoning",
+        "--reasoning-effort",
+        "medium",
+      ],
+      dependencies: { catalog, provider },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "reasoning",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+
+    await expect(
+      session.submit("/reasoning-effort", options),
+    ).resolves.toMatchObject({
+      response: "Reasoning effort: medium",
+    });
+    await expect(
+      session.submit("/reasoning-effort high", options),
+    ).resolves.toMatchObject({
+      response: "Reasoning effort: high",
+    });
+    await session.submit("question", options);
+    expect(provider.requests[0]).toMatchObject({ reasoningEffort: "high" });
+    expect(provider.requests[0]?.temperature).toBeUndefined();
+    await service.close();
+  });
+
   it("closes replaced and active /model providers under session ownership", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-provider-lifetime-"));
     const closed = [vi.fn(), vi.fn(), vi.fn()];

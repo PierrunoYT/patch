@@ -748,6 +748,8 @@ export class CoderSession {
       maxOutputTokens: this.config.model.maxOutputTokens,
       extraParameters: this.config.model.extraParameters,
       temperature: requestTemperature(this.config.model),
+      reasoningEffort: this.config.model.reasoningEffort,
+      thinkingTokens: this.config.model.thinkingTokens,
     });
     const turn = {
       id: this.#nextTurnId,

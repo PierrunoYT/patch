@@ -149,8 +149,11 @@ security rules above.
   bounded and strictly validated before startup. `--list-models [query]` and
   `/models [query]` render only bounded canonical name/provider/edit-format
   summaries and make no provider or network call.
-- [ ] **MODEL-5:** Add reasoning-effort and thinking-token controls only for
-  models/providers that declare and test those capabilities.
+- [x] **MODEL-5:** Add capability-gated reasoning-effort and thinking-token
+  controls. Startup and mutable commands use strict values, omit temperature,
+  and map only declared custom OpenAI reasoning effort or Anthropic thinking
+  budgets to typed adapter fields. Unsupported model/provider combinations fail
+  before transport; no bundled model overclaims either mutable capability.
 - [ ] **MODEL-6:** Decide whether the executable should select and switch main,
   weak, and editor models independently while preserving atomic profile changes,
   cleanup, compatible history, and cost accounting.
