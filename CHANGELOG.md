@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Defined repository-map compatibility as evidence-scoped per selected language
+  and behavior. Exact arbitrary-program/every-language ranking equivalence is an
+  unbounded non-goal; future map expansion still requires independent fixtures,
+  packaged extraction, token ceilings, and unreadable-file isolation.
+
 - Defined Bash, Zsh, and Fish as the maintained generated-completion targets and
   retained one Node readline input path. Shell-suggestion policy remains
   strategy-owned and cannot bypass command preview/approval; untested shell

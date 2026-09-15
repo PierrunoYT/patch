@@ -687,8 +687,11 @@ maps; shipped languages share the pinned parent-header renderer; fitting uses
 the selected tokenizer where reliable; an asymmetric fixture matches upstream
 numeric personalization; and packed-bin smoke proves one filtered provider-
 visible map. This does not establish arbitrary-program/every-language ranking
-parity or expose aider's full map-control surface. Cross-platform release claims
-require a green matrix on the revision being claimed.
+parity or expose aider's full map-control surface. Universal ranking equivalence
+is not a finite product requirement; selected languages and behavior changes
+must add independent fixtures and packaged evidence for their scoped contract.
+Cross-platform release claims require a green matrix on the revision being
+claimed.
 
 **Evidence:** `tests/repo-map-compatibility.test.ts`,
 `tests/repository-map-cache.test.ts`, `scripts/package-smoke.mjs`, and the

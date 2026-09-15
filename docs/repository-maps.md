@@ -115,8 +115,11 @@ definition scores from aider's graph. The numeric case includes upstream's
 line-`-1` lexical fallback references and exposed a duplicate-definition bug in
 Patch while preserving reference multiplicity. Exact Python/TypeScript renderer
 fixtures and a Patch-specific Markdown lexical-reference rendering case complete
-the scoped evidence. These samples still do not establish arbitrary-program,
-cache, or every-language ranking equivalence.
+the scoped evidence. This sample-scoped approach is the product contract:
+arbitrary-program, cache-state, and every-language ranking equivalence are
+unbounded non-goals, not implications of the committed fixtures. Each future
+language or ranking change must add independent evidence for its selected
+surface while preserving token and unreadable-file bounds.
 
 The package smoke installs the tarball and exercises tag extraction for all
 eleven shipped language entries, including TSX. It also runs the actual packed

@@ -232,9 +232,11 @@ security rules above.
   and cross-platform extraction per language.
 - [ ] **MAP-2:** Decide whether to expose map token, refresh, multiplier, and
   display controls through configuration and commands.
-- [ ] **MAP-3:** Extend arbitrary-program ranking/rendering parity only with
-  independent fixtures while retaining strict token ceilings and unreadable-
-  file isolation.
+- [x] **MAP-3:** Treat exact arbitrary-program and every-language ranking parity
+  as an unbounded non-goal. Patch's contract is evidence-scoped: each selected
+  language needs pinned tags and packaged extraction, representative independent
+  ranking/rendering fixtures, strict token ceilings, and unreadable-file
+  isolation. Language and map-control expansion remain under `MAP-1`/`MAP-2`.
 - [ ] **GIT-1:** Select broader Git controls individually without weakening
   literal paths, composed ignore policy, containment, or session-owned undo.
 - [ ] **RECOVERY-1:** Define durable recovery and coordination, if required, for

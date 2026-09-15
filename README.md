@@ -200,8 +200,10 @@ retaining the same filtered tracked inventory. Map rendering uses generic syntax
 parent scopes for shipped grammars and fits with the selected tokenizer when
 Patch has a reliable one, otherwise a documented conservative estimate. Packed-
 bin smoke requires one ranked target to reach a deterministic provider and an
-ignored tracked file to remain absent. An installed copy carries `docs/`, so the
-linked policies are readable offline.
+ignored tracked file to remain absent. This is scoped evidence, not a claim of
+exact ranking for arbitrary programs or every language; each added map surface
+must bring its own independent fixture and packaged extraction evidence. An
+installed copy carries `docs/`, so the linked policies are readable offline.
 There is no published package or stable interface.
 
 Configuration for histories, multiline input, notifications, watch mode, and

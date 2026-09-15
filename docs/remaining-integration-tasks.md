@@ -483,14 +483,17 @@ valid only for the specific normalization and recovery cases they name.
   `--map-refresh`, `--map-multiplier-no-files`, `--show-repo-map`, `/map`, and
   `/map-refresh` at `aider/args.py:246-267,686-691` and
   `aider/commands.py:1418-1430`.
-- [ ] **P3 -- Extend ranking/rendering parity only with independent fixtures.**
-  **Status:** partial. Patch has exact evidence for shipped samples and one
-  asymmetric personalization case, but not arbitrary-program or every-language
-  equivalence. Aider's graph and TreeContext path is in
-  `aider/repomap.py:365-804`; Patch's implementation is under
-  `src/context/repo-graph.ts:30-180`, `src/context/tree-context.ts:18-129`, and
-  `src/context/repo-map-renderer.ts:29-121`. Preserve strict token ceilings and
-  unreadable-file isolation.
+- [x] **N/A -- Keep repository-map parity evidence-scoped rather than claiming
+  arbitrary-program/every-language equivalence.** **Status:** accepted evidence
+  boundary. Patch has exact evidence for shipped tag samples, representative
+  renderer cases, and one asymmetric personalization case. Aider's graph and
+  TreeContext path is in `aider/repomap.py:365-804`; Patch's implementation is
+  under `src/context/repo-graph.ts:30-180`,
+  `src/context/tree-context.ts:18-129`, and
+  `src/context/repo-map-renderer.ts:29-121`. Universal equivalence is not a
+  finite product contract. Each future language or map behavior remains
+  responsible for independent fixtures, packaged evidence, strict token
+  ceilings, and unreadable-file isolation under the P2 language/control tasks.
 - [ ] **P2 -- Decide broader Git policy controls.** **Status:** partial. Patch is
   intentionally narrower. Aider exposes custom ignore paths, subtree-only,
   adding Git-ignored files, auto/dirty commit toggles, commit prompt/language,
