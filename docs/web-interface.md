@@ -21,6 +21,8 @@ normal staged configuration.
 No browser opens and no HTML GUI is shipped. The browser GUI is **deferred**
 (wanted, not scheduled), as recorded in the
 [P2 scope decision](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7).
+It is not selected for the current release scope, so loopback HTTP/SSE tests are
+evidence for the API only and are not browser-GUI or browser-rendering evidence.
 The API is not GUI parity; its session-policy and approval UX work must precede
 a GUI. Watch and one-shot options cannot be combined with `--web`.
 

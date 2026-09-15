@@ -246,7 +246,9 @@ do not bypass file-write or process approvals.
 Browser GUI and CLI voice UX are deferred. Built-in analytics, automatic
 provider/model onboarding and OAuth, and update checks/release-note prompts are
 non-goals: configuration stays explicit, updates stay user-managed, and release
-notes stay in the changelog. Existing `patch --help` is unaffected.
+notes stay in the changelog. Neither deferred interface is selected for the
+current release: voice helper tests are not real-device evidence, and loopback
+web tests are API—not browser-GUI—evidence. Existing `patch --help` is unaffected.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is

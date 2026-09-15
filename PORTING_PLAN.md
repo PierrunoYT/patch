@@ -878,6 +878,9 @@ optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
 mutation phases are serialized in-process. Direct adapter coverage closes the
 ffmpeg pre-abort boundary without claiming real-device or CLI voice evidence.
+CLI voice and browser GUI are not selected for the current release, and
+browser-rendered `/web` is a non-goal; real-device evidence becomes required
+only if the corresponding product decision is reopened.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,
 packed concrete-service startup in `scripts/package-smoke.mjs`, `tests/url-fetcher.test.ts`,

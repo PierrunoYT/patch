@@ -125,10 +125,10 @@ Baseline for the current findings:
   passed the Node 22 suite, packed executable and all eleven map languages on
   Linux/macOS/Windows, and provisioned PTY contracts on Linux/Windows for
   implementation revision `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`.
-- [ ] **EVIDENCE-3: Obtain real-device or optional-interface evidence only for
-  surfaces selected for release.** Do not claim microphone, ffmpeg device,
-  browser GUI, or browser-rendered web behavior from fake adapters or loopback
-  API tests.
+- [x] **EVIDENCE-3: Require real-device evidence only for optional interfaces
+  selected for release.** No microphone/CLI voice or browser GUI is selected;
+  browser-rendered `/web` is a non-goal. Retain fake-adapter and loopback API
+  evidence without relabeling it as device/browser evidence.
 
 ## Product-scope decisions and parity work
 

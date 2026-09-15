@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Closed current optional-interface evidence scope without overstating tests:
+  CLI voice and browser GUI are deferred and not selected for release, while
+  browser-rendered `/web` is a security/privacy non-goal. Fake voice adapters
+  and loopback HTTP tests remain helper/API evidence, not real-device or browser
+  evidence; selecting either interface later reopens those requirements.
+
 - Recorded current cross-platform evidence for implementation revision
   `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`: CI run `34987388922` passed Node
   22, the packed executable and all eleven repository-map languages on Linux,

@@ -3,6 +3,10 @@
 The CLI voice UX is **deferred**, not scheduled or implemented. The
 [P2 scope decision](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
 retains this library helper without treating it as executable voice parity.
+It is not selected for the current release scope, so Patch requires and claims
+no microphone, actual-ffmpeg device, or transcription-network evidence for that
+release. Selecting the UX later must reopen real-device and platform evidence;
+fake adapters cannot satisfy it.
 Any future UX must explicitly disclose microphone capture and transcription
 provider use, support cancellation, and allow transcript review before submission.
 

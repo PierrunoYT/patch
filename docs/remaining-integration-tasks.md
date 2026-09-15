@@ -632,10 +632,16 @@ Evidence still unavailable or deliberately excluded:
   packed executable extraction for all eleven shipped repository-map languages;
   and provisioned PTY jobs on supported Linux and Windows. This does not add
   macOS PTY support or provider/device evidence.
-- [ ] **P2 -- Add current-revision real-device/optional-interface evidence only
-  for scheduled surfaces.** **Status:** evidence gap. PTY passed on Linux, but
-  Windows PTY, real microphone, ffmpeg device capture, browser GUI, and
-  browser-rendered `/web` were not local audit surfaces.
+- [x] **N/A -- Require current-revision real-device/optional-interface evidence
+  only for release-selected surfaces.** **Status:** accepted release boundary.
+  No microphone/CLI voice or browser GUI is selected for release; both remain
+  deferred product decisions. Browser-rendered `/web` and automatic URL
+  detection are security/privacy non-goals. The supported local HTTP/SSE API has
+  loopback production-path tests, explicit PTY has current Linux/Windows CI, and
+  the optional voice helper retains deterministic adapter/cancellation tests.
+  None is relabeled as microphone, actual-ffmpeg, GUI, or browser-rendering
+  evidence. Reopen real-device evidence with the corresponding product decision,
+  packaging, privacy disclosure, and platform matrix.
 - [x] **N/A -- Keep provenance evidence split by purpose rather than recursively
   hashing aider's Python graph.** **Status:** accepted evidence boundary.
   `scripts/check-provenance.mjs:26-168` and `docs/direct-derivations.json` verify
@@ -1852,6 +1858,9 @@ cover:
 - [x] explicitly provisioned PTY suites on Linux and Windows in run
   `34987388922`, plus credential-free optional-interface loopback suites in the
   Node 22 job.
+- [x] no real-device evidence requirement for the current release scope: CLI
+  voice and browser GUI are deferred, and browser-rendered `/web` is a non-goal;
+  helper/loopback tests are not presented as device or browser evidence.
 
 Record the exact test files/workflows next to each corrected phase exit. A green
 unit test for an exported helper is evidence for that helper, not for an
