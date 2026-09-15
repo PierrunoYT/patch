@@ -273,6 +273,20 @@ describe("bootstrapConfiguration", () => {
     await expect(load()).rejects.toBeInstanceOf(ConfigurationFileError);
   });
 
+  it("rejects oversized configuration and dotenv files before parsing", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(join(root, ".patch.conf.yml"), "x".repeat(1024 * 1024 + 1));
+    await expect(
+      bootstrapConfiguration({ cwd: root, home: root, environment: {} }),
+    ).rejects.toBeInstanceOf(ConfigurationFileError);
+
+    await rm(join(root, ".patch.conf.yml"));
+    await writeFile(join(root, ".env"), "x".repeat(1024 * 1024 + 1));
+    await expect(
+      bootstrapConfiguration({ cwd: root, home: root, environment: {} }),
+    ).rejects.toThrow("Dotenv file exceeds 1 MiB");
+  });
+
   it("applies defaults, ordered configs, environment, dotenv, and CLI precedence", async () => {
     const parent = await temporaryDirectory();
     const home = join(parent, "home");

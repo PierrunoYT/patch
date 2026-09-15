@@ -149,6 +149,16 @@ describe("ModelCatalog", () => {
     expect(() => catalog.search("", 101)).toThrow(ModelResourceError);
   });
 
+  it("rejects oversized custom resource files before parsing", async () => {
+    const directory = await temporaryDirectory();
+    const oversized = join(directory, "oversized.yml");
+    await writeFile(oversized, "x".repeat(1024 * 1024 + 1));
+
+    await expect(
+      ModelCatalog.load({ settings: [oversized] }),
+    ).rejects.toBeInstanceOf(ModelResourceError);
+  });
+
   it("bounds override files and resource identifiers", async () => {
     const directory = await temporaryDirectory();
     const invalid = join(directory, "invalid.yml");
