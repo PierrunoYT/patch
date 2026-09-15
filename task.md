@@ -293,9 +293,12 @@ security rules above.
   implicitly, or bundle linters: repository scripts encode project-specific
   flags and environments, while guessed execution creates unapproved side
   effects and platform-dependent behavior.
-- [ ] **CHECK-2:** Decide noninteractive dry-run, one-shot commit, lint, and test
-  workflows with no-write guarantees, exact exit statuses, and packed-bin
-  tests.
+- [x] **CHECK-2:** Keep noninteractive execution to `--message` and
+  `--message-file` through the normal lifecycle. Do not add global dry-run,
+  one-shot commit/lint/test flags: dry-run cannot cover arbitrary hooks or child
+  effects, while `/commit`, `/lint`, and `/test` already provide serialized,
+  explicit outcomes. Dedicated flags would duplicate semantics and invite false
+  no-write guarantees.
 
 ### Optional interfaces and provenance
 

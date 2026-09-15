@@ -152,6 +152,10 @@ serializes same-process worktrees, but does not claim a durable journal,
 cross-process lock, or rollback across filesystem, Git, and arbitrary children.
 Checks remain explicit: one configured lint command and one test command.
 Patch does not guess package-manager/language tools or compile source implicitly.
+Noninteractive work uses `--message` or `--message-file` through the normal turn
+lifecycle. Global dry-run and one-shot commit/lint/test flags are non-goals;
+hooks/children defeat a universal no-write guarantee and slash commands already
+provide explicit serialized outcomes.
 Media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;

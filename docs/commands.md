@@ -247,6 +247,12 @@ language-specific commands, compiles source implicitly, or bundles linters.
 Configuring a check authorizes that command without a per-run prompt. See
 [turn lifecycle](turn-lifecycle.md) for reflection ordering and failures.
 
+Noninteractive work uses `--message` or `--message-file` through the same turn
+lifecycle. Patch does not expose global dry-run or one-shot commit/lint/test
+flags. Dry-run cannot truthfully contain arbitrary hooks or approved child
+commands; the slash commands already provide serialized explicit outcomes.
+
+
 ## Advertised-surface evidence
 
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this

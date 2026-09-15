@@ -681,6 +681,10 @@ skipped all nine current gates because the orb also had no provider credentials.
 - [x] Run exactly one user-configured lint command and one test command; do not
   infer package-manager/language tools, compile source implicitly, or bundle
   linters whose flags and environment belong to the repository.
+- [x] Keep noninteractive work to `--message`/`--message-file` through the normal
+  lifecycle. Global dry-run and one-shot commit/lint/test flags are non-goals:
+  arbitrary hooks/children defeat no-write guarantees and slash commands already
+  provide explicit serialized outcomes.
 
 - [x] Keep broader Git controls out of current scope. The composed ignore,
   checkpoint/commit, hook, attribution, selected-diff, and session-owned undo

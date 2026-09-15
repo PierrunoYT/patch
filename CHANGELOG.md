@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept noninteractive work on `--message` and `--message-file` through the normal
+  lifecycle. Global dry-run and one-shot commit/lint/test flags are non-goals:
+  hooks and child processes defeat universal no-write guarantees, while slash
+  commands already provide explicit serialized outcomes.
+
 - Kept checks to one explicitly configured lint command and one test command.
   Patch does not infer package-manager or language tools, compile source
   implicitly, or bundle linters whose flags and environment belong to the

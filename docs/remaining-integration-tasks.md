@@ -568,12 +568,13 @@ valid only for the specific normalization and recovery cases they name.
   language-specific linters. Repository scripts own project flags,
   dependencies, and environment; inference would create unapproved side effects
   and platform-dependent behavior.
-- [ ] **P2 -- Decide noninteractive dry-run, one-shot commit, lint, and test
-  workflows.** **Status:** partial. Patch has internal dry-run resolution and
-  slash commands, but no Aider-equivalent CLI `--dry-run`, `--commit`, `--lint`,
-  or `--test` exits. Upstream controls are at `aider/args.py:498-564`; Patch's
-  executable options are at `src/program.ts:171-263`. Require exact exit status,
-  no-write guarantees, and packed-bin coverage.
+- [x] **N/A -- Keep noninteractive workflows on the normal lifecycle.**
+  **Status:** accepted current-release scope. `--message` and `--message-file`
+  already run one complete turn and return process status through the installed
+  executable. Global `--dry-run` is a non-goal because arbitrary approved hooks
+  and child commands cannot honor a reliable no-write guarantee. One-shot
+  commit/lint/test flags duplicate serialized `/commit`, `/lint`, and `/test`
+  commands and would create a second exit/status contract without new behavior.
 - [x] **N/A -- Keep model-suggested commands approval-gated and bounded.**
   **Status:** intentional difference. This is security hardening. Patch never
   auto-runs model output, limits output/time, and reserves PTY access for an explicitly typed interactive
