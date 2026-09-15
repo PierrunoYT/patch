@@ -780,13 +780,13 @@ claimed.
   probe and external temporary file, Patch requires image/PDF context to enter
   through a user-named `/attach` path with visible approval and containment.
 
-**Exit — scoped advanced-workflow contract met:** architect/context identities
-remain private rather than advertised CLI modes, and their application
-workflows retain production evidence. The six constructed formats have
-independent golden/property evidence for their covered cases. Physical-line
-Markdown-fence parsing and range-validated insertion-only hunks are both
-verified through the installed production path. This is not full aider mode or
-edit-recovery parity.
+**Exit — scoped advanced-workflow contract met:** architect/context stay
+embedding-only application workflows for the current release. Their explicit
+callback approval and atomic recovery contracts are production-tested, but the
+terminal has no complete review UX and does not advertise them as modes. The six
+constructed formats have independent golden/property evidence for their covered
+cases. Physical-line Markdown-fence parsing and range-validated insertion-only
+hunks are verified through the installed path. This is not full aider parity.
 
 **Production evidence:** `tests/application-architect.test.ts`,
 `tests/application-editor.test.ts`, and `tests/application-context.test.ts`.

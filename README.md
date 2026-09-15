@@ -372,16 +372,15 @@ cannot be combined with each other or one-shot input, and use the same staged
 model/file configuration as terminal startup. This API is for trusted local
 clients, not public or multi-tenant hosting.
 
-The internal editor role is production-wired for architect handoff: it uses the
-configured editor model/parser with editor-only prompts, no repository map, no
-shell commands, and fresh history. `ApplicationSession.runArchitect` now obtains
-a read-only proposal, requires an explicit acceptance callback, then performs
-that handoff and reconciles cost, commit, selected paths, and final architect
-history. `ApplicationSession.selectContext` runs the private context analyst to
-bounded convergence, force-refreshing an expanded repository map with original
-identifier hints on every pass. A stable complete set replaces editable files
-only after all newly selected paths are approved; cancellation, denial, or
-non-convergence leaves the parent selection unchanged.
+The internal editor role is production-wired for embedding-owned architect
+handoff: `ApplicationSession.runArchitect` obtains a read-only proposal,
+requires an explicit acceptance callback, then uses the configured editor
+model/parser and reconciles cost, commit, paths, and history.
+`ApplicationSession.selectContext` runs the private context analyst to bounded
+convergence and replaces editable files only after path approval. Cancellation,
+denial, failure, or non-convergence preserves parent state. These remain
+embedding APIs: the terminal does not have a complete proposal-review or
+iterative-selection UX, so it does not advertise architect/context modes.
 Assistant-prefill continuation is reached inside production `CoderSession` for
 capable models but is not wire-compatible for all advertised routes.
 `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore not

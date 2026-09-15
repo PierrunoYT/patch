@@ -348,15 +348,15 @@ valid only for the specific normalization and recovery cases they name.
   Patch keeps one bounded, tested `udiff` protocol instead of adding a second
   schema value with identical parsing semantics. Function-call coder files
   remain excluded because pinned aider does not register them in `__all__`.
-- [ ] **P2 -- Expose architect and context workflows through the executable.**
-  **Status:** partial. Patch has application implementations and private
-  strategies at `src/edits/types.ts:15-16`, `src/edits/registry.ts:101-121`, and
-  `src/core/concrete-application-service.ts:640-792`, but
-  `src/commands/parse.ts:175-182` rejects them as user modes. Aider exposes
-  `--architect`, `/architect`, and `/context` at
-  `aider/args.py:163-182` and `aider/commands.py:138-203,1182-1201`. Add explicit
-  approval UX, editor selection, cancellation, failure recovery, and installed
-  CLI tests before changing the public mode schema.
+- [x] **N/A -- Keep architect and context as embedding-only workflows.**
+  **Status:** accepted current-release scope. Patch exposes
+  `ApplicationSession.runArchitect` and `selectContext` with explicit plan/path
+  approval, bounded convergence, cancellation, atomic parent-state recovery,
+  editor selection, and production application tests. The terminal does not
+  provide a complete proposal-review or iterative file-selection UX, so
+  `--architect`, `/architect`, and `/context` remain absent rather than
+  advertising callback-only behavior through an installed CLI. Reopen only as
+  a coherent terminal project with interactive approvals and packed-bin tests.
 - [ ] **P2 -- Decide whether incompatible model switches should summarize
   history instead of dropping messages.** **Status:** partial. This behavioral
   divergence is recorded at `docs/commands.md:161-172`: Patch drops assistant

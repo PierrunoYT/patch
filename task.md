@@ -175,9 +175,11 @@ security rules above.
   examples; it adds no parsing capability beyond Patch's constructed `udiff`.
   Maintaining a second public prompt identity would widen schemas, fixtures, and
   support claims without distinct behavior.
-- [ ] **MODE-1:** Decide whether to expose the implemented private architect and
-  context workflows through the CLI. Require approval UX, editor selection,
-  cancellation, recovery, and installed-bin tests before widening the schema.
+- [x] **MODE-1:** Keep architect and context as embedding-only application
+  workflows for the current release. Their callback contracts preserve explicit
+  plan/path approval and cancellation, but the terminal has no complete
+  proposal-review or convergent-selection UX. Public aliases would overclaim
+  recovery and installed-bin support.
 - [ ] **MODE-2:** Decide whether incompatible model switches should summarize
   history instead of dropping incompatible messages. Preserve media filtering
   and atomic failure.

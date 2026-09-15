@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept architect and context as embedding-only application workflows for the
+  current release. Their explicit callback approvals, cancellation, editor
+  routing, bounded convergence, and atomic recovery remain available without
+  overclaiming a terminal review UX or installed-mode support.
+
 - Kept `udiff-simple` out of the public edit-format schema. Pinned aider's
   variant changes only prompt wording while inheriting the ordinary unified-
   diff parser; Patch retains one bounded, independently tested `udiff` contract.
