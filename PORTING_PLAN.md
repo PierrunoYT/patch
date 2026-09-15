@@ -551,6 +551,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   bounded keepalive setting through the concrete application path.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
+- [x] Keep model command exposure coupled to its owning model contract. Search,
+  reasoning/thinking, and independent weak/editor commands are not a separate
+  alias milestone and remain unadvertised until their catalog, capability, or
+  atomic-role tasks are implemented and tested.
 - [x] Align `gpt-4o-mini` format/map defaults and DeepSeek Reasoner weak/editor
   routing with pinned model settings. Catalog/selection assertions and a
   concrete summary/editor application test cover the production behavior.

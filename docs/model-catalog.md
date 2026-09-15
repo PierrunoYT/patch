@@ -59,6 +59,9 @@ constructs the selected editor provider and parser on demand with fresh history,
 current selected paths, and the editor model's capabilities. Architect handoff
 uses that path only after explicit acceptance and transfers usage/commit state
 back to the main session. Generated commit-message role selection is unchanged.
+Executable model search, reasoning/thinking controls, and weak/editor switching
+remain owned by their corresponding catalog, capability, and atomic-role tasks;
+Patch does not expose command aliases before those underlying contracts exist.
 
 The bundled profiles retain pinned aider's role behavior: `gpt-4o-mini` uses
 the default `whole` format without a repository map, and DeepSeek Reasoner

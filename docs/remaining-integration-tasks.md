@@ -387,10 +387,14 @@ valid only for the specific normalization and recovery cases they name.
   accounting. A startup-only `--exit` is redundant with existing one-shot
   modes. Read-only prompt/map diagnostics remain open under the P2 inspection
   command and map-control items rather than being duplicated here.
-- [ ] **P3 -- Decide model-search and reasoning command aliases.**
-  **Status:** unported. Aider exposes `/models`, `/think-tokens`, `/reasoning-effort`, and
-  role-specific model commands at `aider/commands.py:87-217,1580-1637`. This
-  depends on the provider/model-control decisions above.
+- [x] **N/A -- Consolidate model-search, reasoning, and role-model commands with
+  their owning model controls.** **Status:** deduplicated, not implemented.
+  Aider exposes `/models`, `/think-tokens`, `/reasoning-effort`, and
+  role-specific model commands at `aider/commands.py:87-217,1580-1637`. Patch
+  will not add command aliases ahead of their contracts: discovery remains in
+  the P2 custom-catalog item, reasoning/thinking in the P2 capability-control
+  item, and weak/editor switching in the P2 independent-role item. Closing this
+  duplicate P3 entry does not claim any of those owner tasks are complete.
 - [x] **N/A -- Keep `/help`, `/settings`, and `/report` local and bounded.**
   **Status:** intentional difference. Patch's implementations avoid Aider's
   model-backed help, broad settings dump, browser launch, and automatic upload.

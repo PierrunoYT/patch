@@ -191,8 +191,11 @@ security rules above.
   `--exit` debug flag is redundant with Patch's one-shot modes. Read-only prompt
   and repository-map diagnostics remain tracked by `CMD-1` and `MAP-2` instead
   of duplicating those decisions here.
-- [ ] **CMD-5:** Add model-search, role-model, reasoning-effort, and thinking
-  aliases only after the corresponding model-control decisions above.
+- [x] **CMD-5:** Do not track model commands as a separate implementation item.
+  `/models` belongs to `MODEL-4`, reasoning/thinking controls to `MODEL-5`, and
+  weak/editor model commands to `MODEL-6`; each command may be exposed only with
+  its capability, validation, atomic switching, and provider tests. This closes
+  the duplicate low-priority alias task without claiming those P2 controls.
 
 ### Configuration, history, terminal, and clipboard
 

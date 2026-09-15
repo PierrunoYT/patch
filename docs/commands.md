@@ -176,6 +176,13 @@ release have separate executable process and application-session tests.
 The advertised command set is completely dispatched but is not an aider-parity
 surface:
 
+- Model command breadth follows the model contracts rather than being added as
+  aliases first. `/models` remains part of executable catalog discovery;
+  `/think-tokens` and `/reasoning-effort` remain part of capability-validated
+  provider controls; and weak/editor commands remain part of atomic independent
+  role switching. None is currently advertised, and deduplicating their command
+  task does not claim the owning model work is complete.
+
 - `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
   parser, system prompt, examples, reminder, shell policy, fence, and
   repository-map policy — and install it only after the session accepts the

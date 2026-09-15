@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Consolidated model-search, reasoning/thinking, and weak/editor command aliases
+  into their owning catalog, capability, and atomic-role tasks. Patch will not
+  advertise aliases before those model contracts exist; no new command or model
+  parity is claimed.
+
 - Closed the offline-apply scope decision: saved model responses and clipboard
   contents will not bypass Patch's snapshot, preview, approval, transaction,
   Git, and recovery lifecycle. Existing one-shot message modes replace an
