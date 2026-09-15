@@ -165,9 +165,12 @@ security rules above.
 - [ ] **MODE-2:** Decide whether incompatible model switches should summarize
   history instead of dropping incompatible messages. Preserve media filtering
   and atomic failure.
-- [ ] **PROMPT-1:** Reassess byte-level prompt or localization parity only after
-  public modes are settled; current shorter English prompts are intentional and
-  existing fixtures prove structure rather than exact prose.
+- [x] **PROMPT-1:** Keep byte-level prompt and automatic localization parity out
+  of Patch's current product contract. Production prompts remain shorter and
+  English-only; compatibility fixtures prove format-specific structure, chunk
+  order, fence interpolation, and parser behavior rather than exact prose.
+  Reopen localization as a separately designed feature only when public modes
+  and language precedence are specified.
 
 ### Commands and executable workflows
 

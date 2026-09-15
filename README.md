@@ -287,8 +287,10 @@ The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. This same six-value set drives configuration, model settings,
 `/chat-mode` parsing, and terminal completion; helper-only names cannot reach
-provider construction. Ordinary `diff` places each filename before its edit
-fence;
+provider construction. Prompts are shorter and English-only: Patch tests the
+format structure, chunk order, fence interpolation, and parser contract rather
+than claiming byte-identical aider prose or automatic localization. Ordinary
+`diff` places each filename before its edit fence;
 `diff-fenced` places it inside, immediately after the opening fence and
 language, using the fence selected from current file content. See the
 [provider documentation](docs/providers.md) and

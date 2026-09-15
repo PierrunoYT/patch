@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Defined prompt compatibility as format structure, chunk order, fence
+  interpolation, and parser behavior rather than byte-identical aider prose.
+  Automatic locale detection and multilingual prompt control are explicit
+  non-goals for the current English-only product contract.
+
 - Contributor guidance now records the maintainer's end-to-end parity workflow:
   validate an external checkout at the `upstream.json` revision, preserve dated
   file-for-file audit snapshots, reconcile `task.md` with the detailed backlog,

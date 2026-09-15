@@ -340,13 +340,16 @@ valid only for the specific normalization and recovery cases they name.
   summarize from the prior coder in `aider/coders/base_coder.py:128-199` and
   `aider/commands.py:191-203`. Preserve media capability filtering and fail
   atomically if switch-time summarization is added.
-- [ ] **P3 -- Reassess exact prompt and localization parity only after the
-  public behavior above is settled.** **Status:** intentional difference.
+- [x] **N/A -- Keep exact prompt and automatic localization parity out of the
+  current product contract.** **Status:** accepted intentional difference.
   Patch uses shorter English-only production templates in
   `src/resources/strategy-prompts.ts:65-442`; Aider has format-specific prompt
   classes under `aider/coders/*_prompts.py` plus `--chat-language` at
   `aider/args.py:747-757`. Existing format fixtures prove selected structures,
-  not byte-for-byte prompt parity or multilingual replies.
+  chunk order, fence interpolation, and parser behavior, not byte-for-byte prose
+  or multilingual replies. Localization can be reopened as a separate feature
+  only after public modes and language/configuration precedence are specified;
+  it is not an unresolved correctness defect.
 - [x] **N/A -- Preserve ambiguity rejection, authorization, and bounded
   recovery when porting edit behavior.** **Status:** intentional difference.
   This is security hardening.

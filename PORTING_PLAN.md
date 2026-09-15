@@ -437,6 +437,10 @@ invoked the installed `patch --help` entry point without Python.
   prompt/context/parser fence from current selected-file snapshots before each
   initial or reflected provider attempt. Patch retains English-only prompts,
   explicit command approval, path authorization, and unique-match rejection.
+- [x] Define prompt prose and localization scope. Patch requires compatible
+  format structure, chunk order, fence interpolation, and parser behavior, not
+  byte-identical aider prose; automatic locale detection and `--chat-language`
+  are non-goals for the current English-only product contract.
 - [x] Implement chat roles and the upstream chunk order: system, examples,
   read-only files, repository map, old history, editable files, current turn,
   reminder.
