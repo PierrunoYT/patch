@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added bounded custom model alias, settings, and metadata overlays with strict
+  eager validation and CLI-over-environment-over-YAML precedence. New
+  provider-free `--list-models [query]` and `/models [query]` discovery renders
+  only canonical name, provider, and edit format and does not widen the current
+  provider boundary.
+
 - Defined OpenAI, Anthropic, and DeepSeek as the complete provider boundary for
   the current release. Patch does not infer support from OpenAI-wire similarity
   or import LiteLLM's provider breadth; future providers must be selected and

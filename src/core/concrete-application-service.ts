@@ -54,7 +54,7 @@ import { readClipboardText, writeClipboardText } from "../io/integrations.js";
 import { renderCommandResult } from "../io/render.js";
 import { isMissingPathError, SafePathResolver } from "../io/safe-path.js";
 import { expandSelection } from "../io/selection.js";
-import { ModelCatalog } from "../models/catalog.js";
+import { ModelCatalog, renderModelMatches } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
 import { requestTemperature } from "../models/settings.js";
 import { selectModels, type ModelSelection } from "../models/selection.js";
@@ -1355,6 +1355,8 @@ class ConcreteApplicationSession implements ApplicationSession {
       case "clear":
         this.#session.clearHistory();
         return result("Chat history cleared");
+      case "models":
+        return result(renderModelMatches(this.#context.catalog, effect.query));
       case "model": {
         const resolved = this.#context.catalog.resolve(effect.model);
         await this.#switchProfile(
@@ -2077,7 +2079,12 @@ export class ConcreteApplicationService implements ApplicationService {
       ...readOnlyPaths,
     ]);
     const catalog =
-      options.dependencies?.catalog ?? (await ModelCatalog.load());
+      options.dependencies?.catalog ??
+      (await ModelCatalog.load({
+        aliases: bootstrap.arguments.modelAliasFiles,
+        settings: bootstrap.arguments.modelSettingsFiles,
+        metadata: bootstrap.arguments.modelMetadataFiles,
+      }));
     const models = selectModels(catalog, { main: bootstrap.arguments.model });
     const requestedFormat =
       bootstrap.arguments.editFormat ?? models.main.settings.editFormat;

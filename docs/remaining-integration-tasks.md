@@ -271,15 +271,18 @@ valid only for the specific normalization and recovery cases they name.
   deterministic transport/application tests, documentation, and opt-in live
   evidence. OpenRouter's implicit metadata fetch/cache remains a privacy
   non-goal unless OpenRouter itself is selected.
-- [ ] **P2 -- Expose safe executable model discovery and custom catalog
-  overlays.** **Status:** partial. `ModelCatalog` can load supplied aliases,
-  settings, and metadata for embedding callers at
-  `src/models/catalog.ts:64-68,169-203`, but `src/program.ts:228-233` exposes only
-  model name and edit format.
-  Aider exposes model search, settings/metadata files, aliases, and warnings at
-  `aider/args.py:113-137,207-228` and `aider/commands.py:205-217`. Define strict
-  schemas, source precedence, secret-safe diagnostics, package behavior, and
-  `/models` or equivalent discovery before advertising this surface.
+- [x] **P2 -- Expose safe executable model discovery and custom catalog
+  overlays.** **Status:** implemented for Patch's selected providers.
+  `ModelCatalog` eagerly validates bounded alias/settings/metadata overlays;
+  bootstrap exposes repeatable CLI, singular environment, and YAML-list inputs
+  with CLI-over-environment-over-YAML precedence and invocation-directory path
+  resolution. `--list-models [query]` and `/models [query]` render only bounded
+  canonical model/provider/edit-format summaries without a provider or network
+  call. Installed-bin, bootstrap, parser, application, and malformed-resource
+  tests cover the production path. Custom catalog data does not add provider
+  support beyond OpenAI, Anthropic, and DeepSeek. This is the strict local-file
+  subset of Aider's model search and resource controls at
+  `aider/args.py:113-137,207-228` and `aider/commands.py:205-217`.
 - [ ] **P2 -- Add reasoning-effort and thinking-token controls for models that
   declare support.** **Status:** unported. Aider exposes and validates these
   controls at `aider/args.py:139-150,212-218` and

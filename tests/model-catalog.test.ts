@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ModelCatalog,
   ModelResourceError,
+  renderModelMatches,
   UnknownModelError,
 } from "../src/index.js";
 
@@ -116,7 +117,46 @@ describe("ModelCatalog", () => {
       ModelCatalog.load({ settings: [malformed] }),
     ).rejects.toBeInstanceOf(ModelResourceError);
 
-    const catalog = await ModelCatalog.load({ aliases: [aliases] });
-    expect(() => catalog.resolve("first")).toThrow(ModelResourceError);
+    await expect(
+      ModelCatalog.load({ aliases: [aliases] }),
+    ).rejects.toBeInstanceOf(ModelResourceError);
+    await writeFile(aliases, "{ missing: 'not-configured' }");
+    await expect(
+      ModelCatalog.load({ aliases: [aliases] }),
+    ).rejects.toBeInstanceOf(ModelResourceError);
+  });
+
+  it("searches bounded public model fields without exposing metadata", async () => {
+    const catalog = await ModelCatalog.load();
+
+    expect(catalog.search("deepseek")).toMatchObject({
+      total: 2,
+      matches: [
+        { name: "deepseek/deepseek-chat", provider: "deepseek" },
+        { name: "deepseek/deepseek-reasoner", provider: "deepseek" },
+      ],
+    });
+    const rendered = renderModelMatches(catalog, "4o");
+    expect(rendered).toContain("gpt-4o (openai, diff)");
+    expect(rendered).not.toContain("inputCostPerMillion");
+    expect(() => catalog.search("unsafe\u001bquery")).toThrow(
+      ModelResourceError,
+    );
+    expect(() => catalog.search("", 101)).toThrow(ModelResourceError);
+  });
+
+  it("bounds override files and resource identifiers", async () => {
+    const directory = await temporaryDirectory();
+    const invalid = join(directory, "invalid.yml");
+    await writeFile(
+      invalid,
+      '- name: "unsafe\\u0000model"\n  provider: openai\n  editFormat: whole\n',
+    );
+    await expect(
+      ModelCatalog.load({ settings: Array(9).fill(invalid) }),
+    ).rejects.toBeInstanceOf(ModelResourceError);
+    await expect(
+      ModelCatalog.load({ settings: [invalid] }),
+    ).rejects.toBeInstanceOf(ModelResourceError);
   });
 });

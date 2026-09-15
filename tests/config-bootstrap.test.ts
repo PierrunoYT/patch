@@ -37,6 +37,50 @@ afterEach(async () => {
 });
 
 describe("bootstrapConfiguration", () => {
+  it("resolves bounded catalog overlays with CLI precedence", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "model-alias-files: [yaml-aliases.json5]\nmodel-settings-files: [yaml-settings.yml]\nmodel-metadata-files: [yaml-metadata.json5]\n",
+    );
+    const load = (argv: string[] = [], environment = {}) =>
+      bootstrapConfiguration({ cwd: root, home: root, argv, environment });
+
+    expect((await load()).arguments).toMatchObject({
+      modelAliasFiles: [join(root, "yaml-aliases.json5")],
+      modelSettingsFiles: [join(root, "yaml-settings.yml")],
+      modelMetadataFiles: [join(root, "yaml-metadata.json5")],
+    });
+    expect(
+      (
+        await load([], {
+          PATCH_MODEL_ALIAS_FILE: "env-aliases.json5",
+          PATCH_MODEL_SETTINGS_FILE: "env-settings.yml",
+          PATCH_MODEL_METADATA_FILE: "env-metadata.json5",
+        })
+      ).arguments,
+    ).toMatchObject({
+      modelAliasFiles: [join(root, "env-aliases.json5")],
+      modelSettingsFiles: [join(root, "env-settings.yml")],
+      modelMetadataFiles: [join(root, "env-metadata.json5")],
+    });
+    expect(
+      (
+        await load(
+          [
+            "--model-settings-file",
+            "first.yml",
+            "--model-settings-file=second.yml",
+          ],
+          { PATCH_MODEL_SETTINGS_FILE: "ignored.yml" },
+        )
+      ).arguments.modelSettingsFiles,
+    ).toEqual([join(root, "first.yml"), join(root, "second.yml")]);
+    await expect(
+      load(Array(9).fill(["--model-alias-file", "aliases.json5"]).flat()),
+    ).rejects.toThrow(/at most 8/u);
+  });
+
   it("merges prompt-cache policy and bounded keepalive with CLI precedence", async () => {
     const root = await temporaryDirectory();
     await writeFile(

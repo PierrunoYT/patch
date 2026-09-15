@@ -455,6 +455,9 @@ invoked the installed `patch --help` entry point without Python.
   CLI overrides through `/settings` on the actual installed `patch` bin.
 - [x] Load and validate model aliases, model settings, and JSON5 metadata from
   packaged resources.
+- [x] Load bounded custom alias/settings/metadata overlays through staged
+  CLI/environment/YAML precedence and expose provider-free `--list-models` and
+  `/models` discovery with secret-safe summaries.
 
 **Exit (met for the documented Patch scope):** production prompt composition,
 per-attempt fence selection, staged configuration, packaged resources, and the

@@ -46,12 +46,23 @@ from the provisional repository while the application uses the selected one.
 The bootstrap parser recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 `--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
 `--cache-prompts`/`--no-cache-prompts`, `--cache-keepalive-pings`, repeated
+`--model-alias-file`, `--model-settings-file`, `--model-metadata-file`,
 `--file`, repeated `--read-only`, and positional editable paths.
 The executable Commander surface exposes `--no-git`, not a positive `--git`
 flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
 `PATCH_EDIT_FORMAT`, `PATCH_LINT_CMD`, `PATCH_TEST_CMD`, and
-`PATCH_CACHE_PROMPTS`/`PATCH_CACHE_KEEPALIVE_PINGS`.
+`PATCH_CACHE_PROMPTS`/`PATCH_CACHE_KEEPALIVE_PINGS`. Catalog resource
+environment names are `PATCH_MODEL_ALIAS_FILE`, `PATCH_MODEL_SETTINGS_FILE`,
+and `PATCH_MODEL_METADATA_FILE`; YAML uses plural arrays named
+`model-alias-files`, `model-settings-files`, and `model-metadata-files`.
+
+Catalog file precedence is applied independently by kind: a non-empty repeated
+CLI list replaces an environment singleton and YAML list, and environment
+replaces YAML. Paths are resolved from the invocation working directory after
+root correction, each kind is capped at eight files, and strict catalog parsing
+occurs before provider construction. `--list-models [query]` then exits after
+bounded local catalog discovery, without requiring a model or credential.
 
 Prompt-cache markers remain enabled by default for models that declare the
 capability, preserving Patch's existing foreground behavior. The boolean
@@ -130,8 +141,8 @@ in-process bootstrap matrix; it does not claim unsupported configuration keys.
 
 Patch intentionally uses `.patch.conf.yml` and `PATCH_*` rather than Aider's
 names. A model must be selected explicitly even when a provider credential is
-present. OAuth/default-model onboarding, line-ending policy, model resource/
-alias files, secondary roles, custom provider endpoints/timeouts, and most
+present, except for local `--list-models` discovery. OAuth/default-model
+onboarding, line-ending policy, secondary roles, custom provider endpoints/timeouts, and most
 Aider startup one-shots are not executable controls.
 
 The executable uses this bootstrap before opening input. Missing models,

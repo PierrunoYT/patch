@@ -34,6 +34,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "lint",
   "ls",
   "model",
+  "models",
   "paste",
   "read-only",
   "report",
@@ -62,6 +63,16 @@ function optionalHelpQuery(argument: string): string | undefined {
   if (argument.length > 256 || /[\p{Cc}\p{Cf}]/u.test(argument)) {
     throw new CommandParseError(
       "/help query must be at most 256 characters without control characters",
+    );
+  }
+  return argument;
+}
+
+function optionalModelQuery(argument: string): string | undefined {
+  if (argument === "") return undefined;
+  if (argument.length > 256 || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(argument)) {
+    throw new CommandParseError(
+      "/models query must be at most 256 characters without control characters",
     );
   }
   return argument;
@@ -148,6 +159,11 @@ export function parseCommand(input: string): CommandEffect {
     case "model":
       effect = { type: "model", model: requireArgument(command, argument) };
       break;
+    case "models": {
+      const query = optionalModelQuery(argument);
+      effect = { type: "models", ...(query === undefined ? {} : { query }) };
+      break;
+    }
     case "web":
       // One URL, typed by the user: a whitespace-separated list would make it
       // easy to fetch more than was intended.

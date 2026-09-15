@@ -2,6 +2,13 @@ import { z } from "zod";
 
 import { EditFormatSchema } from "../edits/types.js";
 
+export const ModelIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(256)
+  .regex(/^[^\p{Cc}\p{Cf}\u2028\u2029]+$/u);
+
 export const ModelCapabilitiesSchema = z
   .object({
     streaming: z.boolean().default(true),
@@ -16,12 +23,12 @@ export const ModelCapabilitiesSchema = z
 
 export const ModelSettingsSchema = z
   .object({
-    name: z.string().min(1),
-    provider: z.string().min(1),
+    name: ModelIdentifierSchema,
+    provider: ModelIdentifierSchema,
     editFormat: EditFormatSchema,
     editorEditFormat: EditFormatSchema.optional(),
-    weakModel: z.string().min(1).optional(),
-    editorModel: z.string().min(1).optional(),
+    weakModel: ModelIdentifierSchema.optional(),
+    editorModel: ModelIdentifierSchema.optional(),
     useRepoMap: z.boolean().default(false),
     /**
      * Tag a model wraps its reasoning in inside the ordinary content stream, such

@@ -21,6 +21,8 @@ describe("parseCommand", () => {
     ["/settings", { type: "settings" }],
     ["/ls", { type: "ls" }],
     ["/clear", { type: "clear" }],
+    ["/models", { type: "models" }],
+    ["/models claude", { type: "models", query: "claude" }],
     ["/model anthropic/claude", { type: "model", model: "anthropic/claude" }],
     ["/chat-mode ask", { type: "chat-mode", mode: "ask" }],
     ["/chat-mode code", { type: "chat-mode", mode: "code" }],
@@ -67,6 +69,15 @@ describe("parseCommand", () => {
       /at most 256/u,
     );
     expect(() => parseCommand("/help unsafe\u0000query")).toThrow(
+      /control characters/u,
+    );
+  });
+
+  it("bounds and validates local model queries", () => {
+    expect(() => parseCommand(`/models ${"x".repeat(257)}`)).toThrow(
+      /at most 256/u,
+    );
+    expect(() => parseCommand("/models unsafe\u001bquery")).toThrow(
       /control characters/u,
     );
   });

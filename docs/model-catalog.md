@@ -41,9 +41,29 @@ construction policy, not a seventh public format. Helper-only names therefore
 fail catalog loading before provider construction.
 
 Additional resource files can be supplied to `load`; they are applied after
-the bundled files and replace entries with the same alias or model name. Invalid
-or unreadable resources identify their source in `ModelResourceError`. Catalog
-lookups return defensive copies so one caller cannot mutate later resolutions.
+the bundled files and replace entries with the same alias or model name. The
+executable accepts repeatable `--model-alias-file`, `--model-settings-file`, and
+`--model-metadata-file` options, the singular `PATCH_MODEL_ALIAS_FILE`,
+`PATCH_MODEL_SETTINGS_FILE`, and `PATCH_MODEL_METADATA_FILE` environment
+values, and YAML `model-alias-files`, `model-settings-files`, and
+`model-metadata-files` arrays. For each resource kind, a non-empty CLI list
+replaces the environment and YAML lists; otherwise environment replaces YAML.
+Relative paths are resolved from the invocation working directory.
+
+Each kind is capped at eight custom files, each document at 512 entries, and
+model/provider identifiers at 256 control-free characters. Every alias target
+and cycle is validated eagerly before startup. Invalid or unreadable resources
+identify their source in `ModelResourceError` without rendering resource
+contents. Catalog lookups return defensive copies so one caller cannot mutate
+later resolutions. Custom settings can describe only an already implemented
+provider at runtime: an overlay does not expand the OpenAI/Anthropic/DeepSeek
+provider boundary.
+
+`--list-models [query]` and `/models [query]` perform bounded local discovery.
+They render at most 50 canonical names with provider and edit format, report an
+omission count, and expose no metadata, extras, endpoints, environment values,
+or credentials. Startup listing requires neither a selected model nor provider
+credentials and makes no provider/network call.
 
 The build copies these runtime resources into `dist/resources`, and the package
 smoke test loads the catalog from a clean tarball installation. This initial
@@ -61,9 +81,9 @@ constructs the selected editor provider and parser on demand with fresh history,
 current selected paths, and the editor model's capabilities. Architect handoff
 uses that path only after explicit acceptance and transfers usage/commit state
 back to the main session. Generated commit-message role selection is unchanged.
-Executable model search, reasoning/thinking controls, and weak/editor switching
-remain owned by their corresponding catalog, capability, and atomic-role tasks;
-Patch does not expose command aliases before those underlying contracts exist.
+Reasoning/thinking controls and weak/editor switching remain owned by their
+capability and atomic-role tasks; Patch does not expose those command aliases
+before the underlying contracts exist.
 
 The bundled profiles retain pinned aider's role behavior: `gpt-4o-mini` uses
 the default `whole` format without a repository map, and DeepSeek Reasoner

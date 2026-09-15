@@ -27,6 +27,7 @@ import {
 } from "./io/render.js";
 import type { ModelCommandResult } from "./process/model-command.js";
 import type { UsageReport } from "./models/usage.js";
+import { ModelCatalog, renderModelMatches } from "./models/catalog.js";
 import { sanitizedWriter, sanitizeTerminalText } from "./io/sanitize.js";
 import type { EditPreview } from "./edits/write-boundary.js";
 import type { ApplicationSession } from "./core/application-service.js";
@@ -71,6 +72,10 @@ interface ProgramOptions {
   readonly commitCommitterName?: string;
   readonly commitCoAuthor?: string;
   readonly model?: string;
+  readonly listModels?: string | boolean;
+  readonly modelAliasFile?: string[];
+  readonly modelSettingsFile?: string[];
+  readonly modelMetadataFile?: string[];
   readonly editFormat?: string;
   readonly lintCmd?: string;
   readonly testCmd?: string;
@@ -115,6 +120,12 @@ function bootstrapArguments(
   append(argv, "--env-file", options.envFile);
   append(argv, "--encoding", options.encoding);
   append(argv, "--model", options.model);
+  for (const path of options.modelAliasFile ?? [])
+    argv.push("--model-alias-file", path);
+  for (const path of options.modelSettingsFile ?? [])
+    argv.push("--model-settings-file", path);
+  for (const path of options.modelMetadataFile ?? [])
+    argv.push("--model-metadata-file", path);
   append(argv, "--cache-keepalive-pings", options.cacheKeepalivePings);
   append(argv, "--edit-format", options.editFormat);
   append(argv, "--lint-cmd", options.lintCmd);
@@ -232,6 +243,28 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       )
       .option("--model <name>", "model name")
       .option(
+        "--list-models [query]",
+        "list configured models, optionally filtered by name",
+      )
+      .option(
+        "--model-alias-file <path>",
+        "model alias JSON5 overlay (repeatable)",
+        (path, paths: string[]) => [...paths, path],
+        [],
+      )
+      .option(
+        "--model-settings-file <path>",
+        "model settings YAML overlay (repeatable)",
+        (path, paths: string[]) => [...paths, path],
+        [],
+      )
+      .option(
+        "--model-metadata-file <path>",
+        "model metadata JSON5 overlay (repeatable)",
+        (path, paths: string[]) => [...paths, path],
+        [],
+      )
+      .option(
         "--cache-prompts",
         "enable prompt-cache markers for capable models (default: enabled)",
       )
@@ -314,6 +347,22 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
               : { environment: dependencies.environment }),
           });
           const configured = bootstrap.arguments;
+          if (options.listModels !== undefined) {
+            const catalog = await ModelCatalog.load({
+              aliases: configured.modelAliasFiles,
+              settings: configured.modelSettingsFiles,
+              metadata: configured.modelMetadataFiles,
+            });
+            writeOut(
+              `${renderModelMatches(
+                catalog,
+                typeof options.listModels === "string"
+                  ? options.listModels
+                  : "",
+              )}\n`,
+            );
+            return;
+          }
           // Only a command-line request is refused. A persisted `web-port:` or
           // `web-token-file:` is a setting for the runs that do serve HTTP, and
           // reading the merged value here failed every ordinary terminal start

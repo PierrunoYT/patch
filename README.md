@@ -212,6 +212,13 @@ must bring its own independent fixture and packaged extraction evidence. An
 installed copy carries `docs/`, so the linked policies are readable offline.
 There is no published package or stable interface.
 
+Use `patch --list-models [query]` to inspect the local catalog without selecting
+a model or configuring credentials. Bounded custom alias, settings, and metadata
+overlays can be supplied through repeatable CLI files, singular `PATCH_*_FILE`
+environment values, or YAML file lists; see the model-catalog documentation for
+strict schemas and precedence. An overlay configures catalog entries only and
+does not add providers beyond OpenAI, Anthropic, and DeepSeek.
+
 Configuration for histories, multiline input, notifications, watch mode, and
 the local web interface follows the same staged YAML, environment/dotenv, and
 CLI precedence as model, Git, file, edit, and check controls. Explicit `--no-*`

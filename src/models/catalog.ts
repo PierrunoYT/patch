@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import {
   ModelCapabilitiesSchema,
+  ModelIdentifierSchema,
   ModelSettingsSchema,
   type ModelSettings,
 } from "./settings.js";
@@ -40,11 +41,15 @@ const MetadataCapabilitiesSchema = z
   )
   .strict();
 
-const ModelAliasesSchema = z.record(z.string().min(1), z.string().min(1));
-const ModelSettingsFileSchema = z.array(ModelSettingsSchema);
+const ModelAliasesSchema = z
+  .record(ModelIdentifierSchema, ModelIdentifierSchema)
+  .refine((value) => Object.keys(value).length <= 512, {
+    message: "A model alias file may define at most 512 aliases",
+  });
+const ModelSettingsFileSchema = z.array(ModelSettingsSchema).max(512);
 export const ModelMetadataSchema = z
   .object({
-    provider: z.string().min(1),
+    provider: ModelIdentifierSchema,
     maxInputTokens: z.number().int().positive().optional(),
     maxOutputTokens: z.number().int().positive().optional(),
     inputCostPerMillion: z.number().nonnegative().optional(),
@@ -54,10 +59,11 @@ export const ModelMetadataSchema = z
     capabilities: MetadataCapabilitiesSchema.optional(),
   })
   .strict();
-const ModelMetadataFileSchema = z.record(
-  z.string().min(1),
-  ModelMetadataSchema,
-);
+const ModelMetadataFileSchema = z
+  .record(ModelIdentifierSchema, ModelMetadataSchema)
+  .refine((value) => Object.keys(value).length <= 512, {
+    message: "A model metadata file may define at most 512 models",
+  });
 
 export type ModelMetadata = z.infer<typeof ModelMetadataSchema>;
 
@@ -72,6 +78,17 @@ export interface ResolvedModel {
   readonly canonicalName: string;
   readonly settings: ModelSettings;
   readonly metadata: ModelMetadata | undefined;
+}
+
+export interface ModelCatalogMatch {
+  readonly name: string;
+  readonly provider: string;
+  readonly editFormat: ModelSettings["editFormat"];
+}
+
+export interface ModelCatalogSearch {
+  readonly matches: readonly ModelCatalogMatch[];
+  readonly total: number;
 }
 
 export class ModelResourceError extends Error {
@@ -167,6 +184,14 @@ export class ModelCatalog {
   }
 
   static async load(files: ModelCatalogFiles = {}): Promise<ModelCatalog> {
+    for (const [kind, sources] of Object.entries(files)) {
+      if ((sources?.length ?? 0) > 8) {
+        throw new ModelResourceError(
+          `${kind} files`,
+          new Error("A catalog kind may load at most 8 override files"),
+        );
+      }
+    }
     const aliasDocuments = await loadFiles(
       [...bundledFiles.aliases, ...(files.aliases ?? [])],
       (content) => ModelAliasesSchema.parse(JSON5.parse(content)),
@@ -199,7 +224,15 @@ export class ModelCatalog {
       }
     }
 
-    return new ModelCatalog(aliases, settings, metadata);
+    const catalog = new ModelCatalog(aliases, settings, metadata);
+    for (const alias of aliases.keys()) {
+      try {
+        catalog.resolve(alias);
+      } catch (error) {
+        throw new ModelResourceError("model aliases", error);
+      }
+    }
+    return catalog;
   }
 
   resolve(name: string): ResolvedModel {
@@ -232,4 +265,72 @@ export class ModelCatalog {
   list(): string[] {
     return [...this.#settings.keys()].sort();
   }
+
+  search(query = "", limit = 50): ModelCatalogSearch {
+    const parsedQuery = z
+      .string()
+      .trim()
+      .max(256)
+      .regex(/^[^\p{Cc}\p{Cf}\u2028\u2029]*$/u)
+      .safeParse(query);
+    if (
+      !parsedQuery.success ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throw new ModelResourceError(
+        "model search",
+        new Error(
+          "Search must be at most 256 safe characters with a bounded limit",
+        ),
+      );
+    }
+    const normalized = parsedQuery.data.toLocaleLowerCase();
+    const names = new Set(
+      [...this.#settings.keys()].filter((name) =>
+        name.toLocaleLowerCase().includes(normalized),
+      ),
+    );
+    for (const [alias, target] of this.#aliases) {
+      if (
+        alias.toLocaleLowerCase().includes(normalized) ||
+        target.toLocaleLowerCase().includes(normalized)
+      ) {
+        names.add(this.resolve(alias).canonicalName);
+      }
+    }
+    const ordered = [...names].sort((left, right) => left.localeCompare(right));
+    return {
+      matches: ordered.slice(0, limit).map((name) => {
+        const settings = this.resolve(name).settings;
+        return {
+          name,
+          provider: settings.provider,
+          editFormat: settings.editFormat,
+        };
+      }),
+      total: ordered.length,
+    };
+  }
+}
+
+export function renderModelMatches(catalog: ModelCatalog, query = ""): string {
+  const { matches, total } = catalog.search(query);
+  if (matches.length === 0) {
+    return query.trim() === ""
+      ? "No models are configured"
+      : `No models match ${JSON.stringify(query.trim())}`;
+  }
+  const heading =
+    query.trim() === ""
+      ? "Known models:"
+      : `Models matching ${JSON.stringify(query.trim())}:`;
+  const lines = matches.map(
+    ({ name, provider, editFormat }) => `${name} (${provider}, ${editFormat})`,
+  );
+  if (total > matches.length) {
+    lines.push(`… ${total - matches.length} more models omitted`);
+  }
+  return [heading, ...lines].join("\n");
 }

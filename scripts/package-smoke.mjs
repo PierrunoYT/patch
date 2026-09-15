@@ -115,6 +115,14 @@ try {
   if (!help.includes("Usage: patch [options]")) {
     throw new Error("The packed executable did not print Patch help");
   }
+  const listedModels = execFileSync(
+    executable,
+    shellArguments(["--list-models", "gpt"]),
+    { encoding: "utf8", shell: useShell },
+  );
+  if (!listedModels.includes("gpt-4o (openai, diff)")) {
+    throw new Error("The packed executable could not list packaged models");
+  }
 
   const packageRoot = join(
     consumerDirectory,

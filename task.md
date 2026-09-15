@@ -143,9 +143,12 @@ security rules above.
   claim; reopen expansion only for a selected provider with explicit
   credentials, capability contracts, deterministic tests, and opt-in live
   evidence.
-- [ ] **MODEL-4:** Design safe executable model discovery and custom catalog,
-  alias, settings, and metadata overlays with strict schemas and secret-safe
-  precedence/diagnostics.
+- [x] **MODEL-4:** Expose safe executable model discovery and custom catalog
+  overlays. Repeatable CLI files override singular environment files and YAML
+  arrays by resource kind; all resolve from the invocation directory and are
+  bounded and strictly validated before startup. `--list-models [query]` and
+  `/models [query]` render only bounded canonical name/provider/edit-format
+  summaries and make no provider or network call.
 - [ ] **MODEL-5:** Add reasoning-effort and thinking-token controls only for
   models/providers that declare and test those capabilities.
 - [ ] **MODEL-6:** Decide whether the executable should select and switch main,

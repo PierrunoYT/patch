@@ -33,9 +33,16 @@ const CommitIdentitySchema = z
   .min(1)
   .max(256);
 
+const CatalogFileListSchema = z
+  .array(z.string().trim().min(1).max(4096))
+  .max(8);
+
 const ConfigurationFileSchema = z
   .object({
     model: z.string().min(1).optional(),
+    "model-alias-files": CatalogFileListSchema.optional(),
+    "model-settings-files": CatalogFileListSchema.optional(),
+    "model-metadata-files": CatalogFileListSchema.optional(),
     encoding: TextEncodingSchema.optional(),
     git: z.boolean().optional(),
     "git-commit-verify": z.boolean().optional(),
@@ -80,6 +87,9 @@ export interface BootstrapArguments {
   readonly commitCommitterName: string | undefined;
   readonly commitCoAuthor: string | undefined;
   readonly model: string | undefined;
+  readonly modelAliasFiles: readonly string[];
+  readonly modelSettingsFiles: readonly string[];
+  readonly modelMetadataFiles: readonly string[];
   readonly lintCommand: string | undefined;
   readonly testCommand: string | undefined;
   readonly editFormat: ApplicationEditFormat | undefined;
@@ -130,6 +140,9 @@ interface ParsedCommandLine {
   commitCommitterName: string | undefined;
   commitCoAuthor: string | undefined;
   model: string | undefined;
+  modelAliasFiles: string[];
+  modelSettingsFiles: string[];
+  modelMetadataFiles: string[];
   lintCommand: string | undefined;
   testCommand: string | undefined;
   editFormat: string | undefined;
@@ -213,6 +226,9 @@ function parseCommandLine(
     commitCommitterName: undefined,
     commitCoAuthor: undefined,
     model: undefined,
+    modelAliasFiles: [],
+    modelSettingsFiles: [],
+    modelMetadataFiles: [],
     lintCommand: undefined,
     testCommand: undefined,
     editFormat: undefined,
@@ -320,7 +336,13 @@ function parseCommandLine(
                                   ? "file"
                                   : option === "--read-only"
                                     ? "readOnlyFile"
-                                    : undefined;
+                                    : option === "--model-alias-file"
+                                      ? "modelAliasFile"
+                                      : option === "--model-settings-file"
+                                        ? "modelSettingsFile"
+                                        : option === "--model-metadata-file"
+                                          ? "modelMetadataFile"
+                                          : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
@@ -328,6 +350,12 @@ function parseCommandLine(
         parsed.files.push(result.value);
       } else if (target === "readOnlyFile") {
         parsed.readOnlyFiles.push(result.value);
+      } else if (target === "modelAliasFile") {
+        parsed.modelAliasFiles.push(result.value);
+      } else if (target === "modelSettingsFile") {
+        parsed.modelSettingsFiles.push(result.value);
+      } else if (target === "modelMetadataFile") {
+        parsed.modelMetadataFiles.push(result.value);
       } else {
         parsed[target] = result.value;
       }
@@ -376,6 +404,26 @@ function resolveArguments(
   environment: BootstrapEnvironment,
   configuration: ConfigurationFile = {},
 ): BootstrapArguments {
+  const catalogFiles = (
+    commandLineValues: readonly string[],
+    environmentValue: string | undefined,
+    configurationValues: readonly string[] | undefined,
+    name: string,
+  ): string[] => {
+    const values =
+      commandLineValues.length > 0
+        ? [...commandLineValues]
+        : environmentValue === undefined || environmentValue === ""
+          ? [...(configurationValues ?? [])]
+          : [environmentValue];
+    const parsed = CatalogFileListSchema.safeParse(values);
+    if (!parsed.success) {
+      throw new BootstrapArgumentError(
+        `${name} accepts at most 8 non-empty paths of at most 4096 characters`,
+      );
+    }
+    return parsed.data;
+  };
   const identity = (value: string | undefined, name: string) => {
     if (value === undefined) return undefined;
     const parsed = CommitIdentitySchema.safeParse(value);
@@ -495,6 +543,24 @@ function resolveArguments(
       "commit-co-author",
     ),
     model: commandLine.model ?? environment.PATCH_MODEL ?? configuration.model,
+    modelAliasFiles: catalogFiles(
+      commandLine.modelAliasFiles,
+      environment.PATCH_MODEL_ALIAS_FILE,
+      configuration["model-alias-files"],
+      "model-alias-file",
+    ),
+    modelSettingsFiles: catalogFiles(
+      commandLine.modelSettingsFiles,
+      environment.PATCH_MODEL_SETTINGS_FILE,
+      configuration["model-settings-files"],
+      "model-settings-file",
+    ),
+    modelMetadataFiles: catalogFiles(
+      commandLine.modelMetadataFiles,
+      environment.PATCH_MODEL_METADATA_FILE,
+      configuration["model-metadata-files"],
+      "model-metadata-file",
+    ),
     lintCommand:
       commandLine.lintCommand ??
       environment.PATCH_LINT_CMD ??
@@ -833,7 +899,18 @@ export async function bootstrapConfiguration(
     initialGitRoot: first.rootForSearch,
     gitRoot: final.arguments.git ? selectedRoot : undefined,
     rootCorrected,
-    arguments: final.arguments,
+    arguments: {
+      ...final.arguments,
+      modelAliasFiles: final.arguments.modelAliasFiles.map((path) =>
+        resolve(cwd, path),
+      ),
+      modelSettingsFiles: final.arguments.modelSettingsFiles.map((path) =>
+        resolve(cwd, path),
+      ),
+      modelMetadataFiles: final.arguments.modelMetadataFiles.map((path) =>
+        resolve(cwd, path),
+      ),
+    },
     configSearchPaths: final.configSearchPaths,
     configFiles: final.configFiles,
     dotenvSearchPaths: final.dotenvSearchPaths,

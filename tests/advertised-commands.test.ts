@@ -151,6 +151,9 @@ describe("advertised slash-command surface", () => {
     await submit("/drop image.png");
     await submit("/drop two.txt");
     await submit("/model 4o");
+    await expect(submit("/models gpt")).resolves.toMatchObject({
+      response: expect.stringContaining("gpt-4o"),
+    });
     await submit("/chat-mode ask");
     await expect(
       submit('/run node -e "process.exit(0)"'),

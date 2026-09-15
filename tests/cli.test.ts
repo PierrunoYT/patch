@@ -18,6 +18,63 @@ describe("CLI", () => {
     expect(help).toContain("--message-file <path>");
     expect(help).toContain("--input-history-file <path>");
     expect(help).toContain("--chat-history-file <path>");
+    expect(help).toContain("--list-models [query]");
+    expect(help).toContain("--model-settings-file <path>");
+  });
+
+  it("lists bundled and custom models without a provider or model selection", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-cli-model-list-"));
+    const settings = join(root, "custom.yml");
+    await writeFile(
+      settings,
+      "- name: custom/listed\n  provider: openai\n  editFormat: whole\n",
+    );
+    let output = "";
+
+    await createProgram({
+      cwd: root,
+      environment: {},
+      writeOutput: (text) => (output += text),
+    }).parseAsync(
+      ["--model-settings-file", "custom.yml", "--list-models", "custom"],
+      { from: "user" },
+    );
+
+    expect(output).toContain("custom/listed (openai, whole)");
+  });
+
+  it("loads custom catalog files through the production application", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-cli-custom-model-"));
+    await writeFile(
+      join(root, "custom.yml"),
+      "- name: custom/production\n  provider: openai\n  editFormat: ask\n",
+    );
+    await writeFile(
+      join(root, "aliases.json5"),
+      "{ production: 'custom/production' }",
+    );
+    let output = "";
+
+    await createProgram({
+      cwd: root,
+      environment: { OPENAI_API_KEY: "not-a-real-key" },
+      writeOutput: (text) => (output += text),
+    }).parseAsync(
+      [
+        "--no-git",
+        "--model-settings-file",
+        "custom.yml",
+        "--model-alias-file",
+        "aliases.json5",
+        "--model",
+        "production",
+        "--message",
+        "/models custom",
+      ],
+      { from: "user" },
+    );
+
+    expect(output).toContain("custom/production (openai, ask)");
   });
 
   it("persists explicitly configured input and returned chat messages", async () => {

@@ -8,8 +8,9 @@ This ports the dispatch boundary from
 without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
-`/settings`, `/report`, `/ls`, `/clear`, `/model`, `/chat-mode`, `/run`, `/web`,
-`/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
+`/settings`, `/report`, `/ls`, `/clear`, `/models`, `/model`, `/chat-mode`,
+`/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and
+`/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -31,6 +32,14 @@ no match and missing-document states are reported without a provider fallback.
 Unlike aider's model-backed semantic help, this command makes no provider call,
 downloads no embeddings, uses no network, and does not add help text to chat
 history. The packed executable test verifies search outside the source checkout.
+
+`/models [query]` lists at most 50 configured canonical model names with only
+their provider and edit format. The optional query is a bounded, control-free
+literal substring and the command performs no provider or network request.
+Aliases participate in matching but output resolves them to canonical names;
+metadata, costs, endpoints, environment values, and credentials are never
+rendered. Startup `--list-models [query]` uses the same renderer and works
+without selecting a model or configuring provider credentials.
 
 `/settings` shows the current model and chat mode (including successful
 post-startup switches), encoding, enabled/disabled Git, hook verification and
@@ -161,7 +170,7 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-20 effects through `ConcreteApplicationService`: selections, media, history, profile
+21 effects through `ConcreteApplicationService`: selections, media, history, profile
 switching, local ancillary output, captured process/checks, bounded URL content,
 clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL
@@ -177,11 +186,11 @@ The advertised command set is completely dispatched but is not an aider-parity
 surface:
 
 - Model command breadth follows the model contracts rather than being added as
-  aliases first. `/models` remains part of executable catalog discovery;
+  aliases first. `/models` is executable catalog discovery;
   `/think-tokens` and `/reasoning-effort` remain part of capability-validated
   provider controls; and weak/editor commands remain part of atomic independent
-  role switching. None is currently advertised, and deduplicating their command
-  task does not claim the owning model work is complete.
+  role switching. Those remaining controls are not currently advertised, and
+  deduplicating their command task does not claim the owning model work is complete.
 
 - `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
   parser, system prompt, examples, reminder, shell policy, fence, and
