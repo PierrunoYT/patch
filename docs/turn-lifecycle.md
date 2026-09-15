@@ -11,6 +11,12 @@ failures retry after writes and commits; each retry reads fresh file snapshots
 and rechecks the prompt budget. Linter changes to paths edited in this turn are
 committed before reflection. Final results collect changed paths and command
 results across attempts and report the latest commit, including check changes.
+Within one provider retry loop, validated events remain attempt-local until an
+accepted finish. They are then forwarded in order to terminal or HTTP/SSE
+observers; events from failed attempts are discarded, while their billed cost
+still contributes to session accounting. This intentional hardening avoids
+pinned aider's stale displayed-prefix behavior at the cost of delaying visible
+output until the provider attempt finishes.
 
 This is the authoritative production order. A model-selected path absent from
 the pre-request inventory receives one contained `null`/content snapshot after

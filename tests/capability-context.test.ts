@@ -162,20 +162,20 @@ describe("capability-aware context", () => {
       {
         actions: [
           { type: "text-delta", text: " second" },
+          { type: "delay", milliseconds: 1_000 },
           { type: "finish", reason: "stop" },
         ],
       },
     ]);
     const cancelled = build(cancelledProvider);
-    await expect(
-      cancelled.runTurn("answer", {
-        signal: controller.signal,
-        onEvent: (event) => {
-          if (event.type === "text-delta" && event.text === " second")
-            controller.abort();
-        },
-      }),
-    ).rejects.toThrow("cancelled");
+    const cancellation = setTimeout(() => controller.abort(), 10);
+    try {
+      await expect(
+        cancelled.runTurn("answer", { signal: controller.signal }),
+      ).rejects.toThrow("cancelled");
+    } finally {
+      clearTimeout(cancellation);
+    }
     expect(cancelledProvider.requests).toHaveLength(2);
     expect(cancelled.snapshot()).toMatchObject({
       phase: "interrupted",

@@ -39,7 +39,11 @@ remains credential-free and offline.
 Resolved catalog metadata supplies executable limits, capabilities, and pricing.
 Transient 408/409/429/5xx and malformed streams retry at most three attempts;
 validated `Retry-After` delays and exponential backoff are capped at 60 seconds
-and cancellation interrupts backoff.
+and cancellation interrupts backoff. Events from one provider attempt are
+observer-atomic: terminal and HTTP/SSE consumers receive its ordered events only
+after an accepted finish, while failed-attempt text, reasoning, usage, and retry
+errors remain private. This deliberately trades token-by-token display latency
+for a structured event stream that never presents discarded output as accepted.
 The six constructed formats are `ask`, `whole`, `diff`, `diff-fenced`, `udiff`,
 and `patch`. Each receives its pinned format-specific system instructions,
 examples, reminder, shell policy, and a fence reselected from the current files

@@ -95,6 +95,52 @@ describe("ConcreteApplicationService", () => {
     expect(emitted).toEqual(["text-delta", "finish", "text-delta", "finish"]);
   });
 
+  it("forwards only the accepted provider attempt to interface observers", async () => {
+    const root = await fixture();
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "reasoning-delta", text: "stale reasoning" },
+          { type: "text-delta", text: "stale response" },
+          {
+            type: "error",
+            kind: "rate-limit",
+            message: "retry",
+            retryable: true,
+          },
+        ],
+      },
+      completed("accepted response"),
+    ]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o", "--edit-format", "ask"],
+      dependencies: { provider },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "retry-events",
+    });
+    const emitted: Array<{ type: string; data: unknown }> = [];
+
+    const result = await session.submit("retry atomically", {
+      signal: new AbortController().signal,
+      emit: (event) => emitted.push(event),
+    });
+
+    expect(result).toMatchObject({ response: "accepted response" });
+    expect(provider.requests).toHaveLength(2);
+    expect(emitted).toEqual([
+      {
+        type: "text-delta",
+        data: { type: "text-delta", text: "accepted response" },
+      },
+      { type: "finish", data: { type: "finish", reason: "stop" } },
+    ]);
+  });
+
   it("rejects conflicting selections and paths outside the selected root", async () => {
     const root = await fixture();
     const provider = new FakeProvider([]);

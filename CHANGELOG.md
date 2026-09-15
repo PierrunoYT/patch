@@ -389,6 +389,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Made provider retries observer-atomic. `CoderSession` buffers each attempt's
+  validated events until an accepted finish, then forwards them in order;
+  discarded partial text, reasoning, usage, and retry errors can no longer leak
+  into terminal or HTTP/SSE output while history and edit parsing retain only
+  the successful attempt. Failed-attempt billed cost remains accounted. This
+  intentionally hardens pinned aider's stale displayed-prefix behavior and
+  trades token-by-token display latency for consistent structured events.
+
 - Fixed both P0 unified-diff findings from the 2026-09-15 parity audit. Diff
   fences are now discovered by physical response line, preserving added,
   removed, and context Markdown backtick fences instead of truncating the hunk.

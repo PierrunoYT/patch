@@ -62,8 +62,15 @@ is activated. `finalizeTurn` validates the complete response through the
 strategy before adding user/assistant messages; `abandonTurn` clears transient
 state without changing history.
 
-`runTurn` now consumes validated provider events, incrementally assembles text
-and reasoning, reports each event to an optional observer, and records usage.
+`runTurn` now consumes validated provider events and incrementally assembles
+text and reasoning. Events are buffered per provider attempt and reported in
+their original order to the optional observer only after that attempt reaches
+an accepted finish; a failed attempt's text, reasoning, usage, and error events
+are discarded from both observer output and `CompletedTurn.events`. This
+observer-atomic contract deliberately delays display until an attempt finishes
+rather than requiring terminal and HTTP/SSE reset semantics. Billed usage from
+failed attempts still contributes to session cost even though it is not
+accepted turn output.
 The stream is drained past the finish event because OpenAI-compatible endpoints
 deliver final usage in a later chunk; after finish only usage is still
 accounted, so nothing can extend or invalidate a completed response.
@@ -108,12 +115,11 @@ incomplete response. If earlier attempts already mutated the worktree, history
 retains the exchanges associated with the surviving work; a turn with no
 mutation leaves history unchanged on failure. See [turn recovery](turn-lifecycle.md).
 
-The internal response is reset before a provider retry, but emitted observer
-events are not. If an attempt streams text or reasoning before a retryable error,
-terminal and HTTP/SSE consumers can see that stale prefix followed by the
-successful replacement even though final history and edit parsing contain only
-the replacement. This is an open P1 defect in the structured event contract;
-the current retry guarantee applies to final state, not displayed event state.
+The internal response and per-attempt observer buffer are reset before a
+provider retry. Terminal and HTTP/SSE consumers therefore receive the same
+successful-attempt text retained by final history and edit parsing. Pinned aider
+can display a failed attempt's prefix before retrying; Patch intentionally does
+not preserve that weakness in its structured event API.
 
 Malformed strategy output automatically produces a corrective reflection turn.
 Callers can inject lint and test checks that return diagnostics, allowing the

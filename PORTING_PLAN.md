@@ -123,9 +123,10 @@ this plan, task register, and backlog track current status and open work.
   history compaction are wired. The private editor role, bounded prompt-cache
   keepalive opt-in, and approved ephemeral image/PDF context are production-wired.
   `gpt-4o-mini` defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek
-  token limits currently disagree with the pinned model resources. A retry after
-  partial streamed output also exposes stale attempt events to interfaces even
-  though completed history keeps only the successful attempt.
+  token limits currently disagree with the pinned model resources. Provider
+  retry events are attempt-atomic: failed text/reasoning/usage/error events are
+  withheld from interfaces, while accepted events are delivered in order after
+  finish and completed history keeps the same accepted output.
 - Watch and a local authenticated HTTP/SSE API start through the application and
   share one worktree mutation lock. The root registry uses weak references and
   guarded finalizers to reclaim unreachable locks without evicting live idle
@@ -478,10 +479,10 @@ or a documented, safer rejection.
   checks, response assembly, and history transitions.
 - [x] Implement streaming events, exponential backoff for classified transient
   failures, `AbortSignal` cancellation, context overflow, and truncation.
-- [ ] Buffer a provider attempt's observer events until success or define a
-  reset event every terminal/HTTP consumer implements. A retry after partial
-  text/reasoning currently exposes stale output even though final history and
-  edit parsing keep only the successful attempt.
+- [x] Buffer a provider attempt's observer events until success. Terminal and
+  HTTP/SSE consumers receive accepted events in provider order after finish;
+  failed-attempt text, reasoning, usage, and retry errors are discarded while
+  billed attempt cost remains accounted.
 - [x] Implement bounded reflection for lint and test failures. Configured
   post-write checks, malformed edits, and resolution failures share three
   reflections, with refreshed disk context and token budgets. Patch currently
@@ -496,7 +497,7 @@ or a documented, safer rejection.
   budget is summarized automatically with the weak model before the next turn.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit (blocked for streamed retry consistency):** installed-service acceptance
+**Exit:** installed-service acceptance
 covers streamed malformed and unresolvable responses, two-file writes, lint
 reflection, approved commands, tests, and undo with exact Git assertions. Real-
 Git tests inject cancellation at every named lifecycle boundary and assert
@@ -504,8 +505,9 @@ surviving state and a reusable queue. An interrupted turn whose writes or commit
 survive reconciles its history and reports a structured partial outcome. Patch
 automatically reflects configured failures instead of asking aider's per-failure
 question; arbitrary child-command side effects and interruption inside Git stay
-outside the recovery contract. The unchecked observer-event item above prevents
-a complete lifecycle exit even though final turn state remains coherent.
+outside the recovery contract. Provider-retry observers now expose only the
+accepted attempt, with focused concrete-application coverage of stale partial
+text and reasoning.
 
 **Evidence:** `tests/coder-session.test.ts`, `tests/application-service.test.ts`,
 `tests/application-prompt-context.test.ts`, `tests/application-lifecycle.test.ts`,

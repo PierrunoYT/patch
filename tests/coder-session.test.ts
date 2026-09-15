@@ -17,6 +17,7 @@ import {
   WholeFileEditStrategy,
   TruncatedResponseError,
   TurnCancelledError,
+  type CompletionEvent,
   type EditBatch,
   type EditStrategy,
 } from "../src/index.js";
@@ -242,6 +243,9 @@ describe("CoderSession", () => {
     const provider = new FakeProvider([
       {
         actions: [
+          { type: "reasoning-delta", text: "discarded thought" },
+          { type: "text-delta", text: "discarded answer" },
+          { type: "usage", inputTokens: 5, outputTokens: 2, cost: 0.05 },
           {
             type: "error",
             kind: "rate-limit",
@@ -273,10 +277,10 @@ describe("CoderSession", () => {
         },
       },
     });
-    const observed: string[] = [];
+    const observed: CompletionEvent[] = [];
 
     const result = await session.runTurn("question", {
-      onEvent: (event) => observed.push(event.type),
+      onEvent: (event) => observed.push(event),
     });
 
     expect(result).toMatchObject({ response: "answer", reasoning: "think" });
@@ -284,24 +288,25 @@ describe("CoderSession", () => {
     expect(delays).toEqual([400]);
     expect(provider.requests).toHaveLength(2);
     expect(observed).toEqual([
-      "error",
-      "reasoning-delta",
-      "text-delta",
-      "usage",
-      "text-delta",
-      "usage",
-      "finish",
+      { type: "reasoning-delta", text: "think" },
+      { type: "text-delta", text: "ans" },
+      { type: "usage", inputTokens: 12, outputTokens: 1, cost: 0.1 },
+      { type: "text-delta", text: "wer" },
+      { type: "usage", inputTokens: 12, outputTokens: 3, cost: 0.25 },
+      { type: "finish", reason: "stop" },
     ]);
-    expect(session.snapshot()).toMatchObject({
+    expect(result.events).toEqual(observed);
+    const snapshot = session.snapshot();
+    expect(snapshot).toMatchObject({
       phase: "waiting",
       inputTokens: 12,
       outputTokens: 3,
-      totalCost: 0.25,
       messages: [
         { role: "user", content: "question" },
         { role: "assistant", content: "answer", reasoning: "think" },
       ],
     });
+    expect(snapshot.totalCost).toBeCloseTo(0.3);
   });
 
   it("bounds attempts, provider retry delays, and cancellation during backoff", async () => {
@@ -418,17 +423,15 @@ describe("CoderSession", () => {
       ]),
       strategy: new AskEditStrategy(),
     });
+    const cancellation = setTimeout(() => controller.abort(), 10);
 
-    await expect(
-      session.runTurn("question", {
-        signal: controller.signal,
-        onEvent: (event) => {
-          if (event.type === "text-delta") {
-            controller.abort();
-          }
-        },
-      }),
-    ).rejects.toBeInstanceOf(TurnCancelledError);
+    try {
+      await expect(
+        session.runTurn("question", { signal: controller.signal }),
+      ).rejects.toBeInstanceOf(TurnCancelledError);
+    } finally {
+      clearTimeout(cancellation);
+    }
     expect(session.snapshot()).toMatchObject({
       phase: "interrupted",
       partialResponse: "partial",

@@ -843,6 +843,11 @@ export class CoderSession {
           attempt <= this.#retry.maxAttempts;
           attempt += 1
         ) {
+          // An attempt is observer-atomic: consumers cannot retract streamed
+          // text, so publish nothing until this attempt has an accepted finish.
+          // Internal response and billing state still update while the stream
+          // is consumed, and retry cleanup discards only the observer buffer.
+          const attemptEvents: CompletionEvent[] = [];
           let retry = false;
           let finished = false;
           let accountedAttemptCost = 0;
@@ -880,15 +885,13 @@ export class CoderSession {
                   type: "reasoning-delta" as const,
                   text: split.reasoning,
                 };
-                events.push(thought);
-                options.onEvent?.(structuredClone(thought));
+                attemptEvents.push(thought);
                 reasoning += split.reasoning;
               }
               if (split.content === "") continue;
               event = { type: "text-delta", text: split.content };
             }
-            events.push(event);
-            options.onEvent?.(structuredClone(event));
+            attemptEvents.push(event);
             switch (event.type) {
               case "text-delta":
                 response += event.text;
@@ -984,6 +987,9 @@ export class CoderSession {
               "The provider stream ended without a finish event",
             );
           }
+          events.push(...attemptEvents);
+          for (const event of attemptEvents)
+            options.onEvent?.(structuredClone(event));
           if (attemptUsage !== undefined) {
             usage = combineUsage(usage, attemptUsage);
             this.#state = SessionStateSchema.parse({

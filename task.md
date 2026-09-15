@@ -59,11 +59,14 @@ Baseline for the current findings:
 
 ## P1 — supported-surface correctness and safety
 
-- [ ] **CORE-1: Make provider retries observer-atomic.** Buffer each attempt's
+- [x] **CORE-1: Make provider retries observer-atomic.** Buffer each attempt's
   text, reasoning, and error events until it succeeds, or add a reset protocol
   implemented by every terminal and HTTP/SSE consumer. Failed-attempt output
   must not appear as accepted turn output when history and edit parsing retain
-  only the successful attempt.
+  only the successful attempt. Completed 2026-09-15: `CoderSession` now buffers
+  every validated event per provider attempt and forwards it only after an
+  accepted finish; focused session and concrete application tests prove stale
+  text, reasoning, usage, and retry errors never reach result/interface events.
 - [ ] **MODEL-1: Align or explicitly justify bundled model role defaults.**
   Reconcile `gpt-4o-mini` edit-format/map defaults and DeepSeek Reasoner's
   weak/editor routing with pinned aider settings. Add exact resource and

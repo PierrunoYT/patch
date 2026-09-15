@@ -77,7 +77,7 @@ unchanged result of any historical audit.
 
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
-| Core lifecycle | partial aider parity with one open correctness defect | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. A retry after partial streamed output resets internal response state but cannot retract events already delivered to terminal/HTTP consumers. Recovery from arbitrary child/Git side effects also remains incomplete. |
+| Core lifecycle | implemented Patch scope with intentional recovery limits | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, observer-atomic provider retries, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Failed provider-attempt events are withheld from terminal/HTTP consumers while billed cost remains accounted. Recovery from arbitrary child/Git side effects remains incomplete. |
 | Editing | implemented Patch scope with intentional recovery differences | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented. Unified-diff fence discovery now scans physical lines so prefixed Markdown fences remain data; insertion-only hunks retain and validate numeric ranges or fail closed. Focused tests cover beginning/middle/end, malformed ranges, new and empty files, and repeated insertion text; packed-bin smoke covers both former P0 paths. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
 | Models/providers | partial with advertised-profile defects | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. However, `gpt-4o-mini` format/map defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek token limits disagree with pinned resources without a documented intentional divergence. Separately gated live contracts remain subject to protected workflow/account variability. |
 | Git/filesystem | partial with intentional hardening and read-containment gaps | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads, however, resolve and later reopen/read by pathname and do not retain containment if an ancestor is swapped between those operations. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
@@ -94,16 +94,16 @@ The complete evidence and cross-references are in the
 unified-diff items found by that audit are now closed in the 2026-09-14 section
 below. This section adds findings that pass did not represent.
 
-- [ ] **P1 — Do not expose output from a failed provider attempt as accepted
-  turn output.** **Status:** defect. `src/core/coder-session.ts:861-891` forwards
-  events before an attempt succeeds, while retry reset at `:964-979` changes
-  only internal response state. Terminal and HTTP/SSE consumers can observe a
-  failed attempt's text/reasoning/error followed by successful replacement text
-  even though history contains only the replacement. Buffer each attempt or add
-  a reset contract understood by every consumer; test partial-text and reasoning
-  retries through production interfaces. Pinned aider has the same display
-  weakness at `aider/coders/base_coder.py:1457-1488,1783-1791,1954-1972`, which
-  Patch should not retain in a structured event API.
+- [x] **P1 — Do not expose output from a failed provider attempt as accepted
+  turn output.** **Status:** fixed 2026-09-15. `CoderSession` buffers every
+  validated event per provider attempt and publishes the ordered buffer only
+  after an accepted finish. Retry reset discards partial text, reasoning, usage,
+  and error events while preserving billed-cost accounting. Focused session and
+  concrete-application tests prove result and production-interface observers
+  contain only the successful attempt. Pinned aider has the same display
+  weakness at `aider/coders/base_coder.py:1457-1488,1783-1791,1954-1972`; Patch
+  intentionally trades token-by-token display latency for a consistent
+  structured event API.
 - [ ] **P1 — Correct or explicitly justify advertised model defaults.**
   **Status:** defect. Patch gives `gpt-4o-mini` `diff` plus a map instead of
   pinned `whole`/no-map defaults, and reuses DeepSeek Reasoner for weak/editor
@@ -1262,12 +1262,12 @@ verification result.
 
 ## R2 — Implement the correct end-to-end turn lifecycle
 
-**Status:** Complete for every named mutation/cancellation boundary, but not for
-provider-retry observer events. The concrete application supplies per-attempt
+**Status:** Complete for every named mutation/cancellation boundary and
+observer-atomic provider retry. The concrete application supplies per-attempt
 resolution/application to `CoderSession`'s bounded loop; installed-service
 acceptance demonstrates normal ordering and exact Git state, and deterministic
 real-Git tests inject cancellation before and after mutation. The limits below
-and the P1 stale-event finding above prevent a full lifecycle-equivalence claim.
+still prevent a full lifecycle-equivalence claim.
 See [turn lifecycle](turn-lifecycle.md) for pinned sources and intentional
 differences.
 
@@ -1318,9 +1318,9 @@ differences.
   gating. Watch/web/one-shot and other noninteractive contexts keep denial;
   native PTY approval coverage and broader approval policies remain incomplete.
 
-**Acceptance:** met for final turn state and documented Git outcomes, but not for
-observer-event consistency across provider retries. This is not pinned aider
-lifecycle equivalence or a cross-process/durable rollback contract.
+**Acceptance:** met for final turn state, provider-retry observer consistency,
+and documented Git outcomes. This is not pinned aider lifecycle equivalence or
+a cross-process/durable rollback contract.
 
 **Delivered evidence:** `scripts/lifecycle-smoke.mjs`, run against the clean
 installed tarball by `scripts/package-smoke.mjs`, additionally includes a dry-run
