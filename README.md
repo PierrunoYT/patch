@@ -290,6 +290,8 @@ their encoded bytes are never copied into chat history or diagnostics. Before
 reading bytes, Patch re-resolves the target, verifies the opened file identity
 and every in-root ancestor, then reads only through the retained handle. This
 intentionally rejects ancestor-swap redirection that pinned aider does not.
+`/paste` remains text-only and never probes the OS clipboard for images; save
+media and name it explicitly with `/attach` instead.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. This same six-value set drives configuration, model settings,

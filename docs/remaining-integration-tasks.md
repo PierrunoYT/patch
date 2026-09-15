@@ -439,12 +439,13 @@ valid only for the specific normalization and recovery cases they name.
   progressive diffs through `aider/diffs.py:43-102` and Vi mode through
   `aider/args.py:742-746` and `aider/main.py:549-562`. Retain the existing
   sanitizer and approval boundaries in any replacement renderer/input stack.
-- [ ] **P3 -- Decide clipboard image ingestion.** **Status:** partial. Patch's
-  `/paste` submits text only and `/attach` handles explicitly named media;
-  `docs/commands.md:173-176` records the limit. Aider's
-  `aider/commands.py:1278-1327` can ingest clipboard images. Any port must require
-  visible preview/approval and reuse the bounded media path rather than silently
-  reading the clipboard.
+- [x] **N/A -- Keep clipboard access text-only.** **Status:** accepted privacy
+  and containment difference. Patch's `/paste` submits bounded text only, while
+  `/attach` handles explicitly named, approved, repository-contained media.
+  Aider's `aider/commands.py:1278-1327` probes for an image first and writes it
+  to an external temporary directory. Patch will not silently inspect the OS
+  image clipboard or create out-of-root media context; users save an image and
+  select it visibly with `/attach <path...>` instead.
 - [ ] **P3 -- Expand shell completion only for shells with maintained tests.**
   **Status:** partial. Patch generates bash, zsh, and fish completion at
   `src/program.ts:260-284`; Aider delegates the larger supported set to shtab at

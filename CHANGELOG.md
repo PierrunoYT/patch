@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept clipboard access text-only as an explicit privacy and containment
+  decision. Patch will not silently probe image clipboard contents or create
+  external temporary media; saved images and PDFs use the visible, approved,
+  repository-contained `/attach` path.
+
 - Defined UTF-8, UTF-16LE, and Latin-1 as Patch's complete portable text-encoding
   contract. Arbitrary Python/ICU codec names are a non-goal; the supported set
   retains strict malformed-input, representability, round-trip, BOM, and newline

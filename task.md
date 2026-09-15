@@ -214,8 +214,10 @@ security rules above.
 - [ ] **TERM-3:** Schedule computed edit previews, richer Markdown rendering,
   and true Vi input only as a coherent terminal project that retains sanitizer
   and approval boundaries.
-- [ ] **CLIP-1:** Decide visible, approved clipboard-image ingestion through the
-  existing bounded media path.
+- [x] **CLIP-1:** Keep clipboard access text-only. Patch will not silently probe
+  the OS clipboard for images or create out-of-repository temporary media;
+  images and PDFs enter model context only through an explicit, visible
+  `/attach <path...>` command using the bounded, approved, contained media path.
 - [ ] **SHELL-1:** Expand shell completion only for shells with maintained tests;
   decide runtime toggles for shell suggestions and line editing without
   bypassing command approval.

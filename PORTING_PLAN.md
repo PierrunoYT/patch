@@ -753,6 +753,9 @@ require a green matrix on the revision being claimed.
   `/attach` loads explicitly approved, contained, capability-gated image/PDF
   context with fixed per-file/count/aggregate bounds, signature validation,
   cancellation, ephemeral history treatment, and `/drop` cleanup.
+- [x] Keep clipboard access text-only. Unlike aider's image-first clipboard
+  probe and external temporary file, Patch requires image/PDF context to enter
+  through a user-named `/attach` path with visible approval and containment.
 
 **Exit — scoped advanced-workflow contract met:** architect/context identities
 remain private rather than advertised CLI modes, and their application

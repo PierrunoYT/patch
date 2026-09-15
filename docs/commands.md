@@ -198,7 +198,9 @@ surface:
 - `/paste` submits clipboard text as a user turn. The text is used verbatim and
   is never reparsed as a command, so clipboard content the user did not write
   cannot dispatch `/run` or any other effect; an empty clipboard is rejected
-  rather than submitted. Clipboard images are still not read.
+  rather than submitted. Clipboard access is intentionally text-only: Patch
+  does not probe for images or create out-of-repository temporary media. Save an
+  image and use the visible, approved, contained `/attach <path...>` path.
 - `/web <url>` fetches one user-typed URL and adds its readable text to history,
   labeled with the URL redirects ended at and truncated to a share of the input
   window. A URL a model or a page mentions is never followed. See
