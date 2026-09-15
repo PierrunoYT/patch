@@ -51,16 +51,12 @@ describe("ModelCatalog", () => {
         provider: "openai",
         editFormat: "diff",
         editorEditFormat: "diff",
-        examplesAsSystem: true,
-        reminderRole: "system",
       },
     });
     expect(catalog.resolve("gpt-4o-mini")).toMatchObject({
       settings: {
         editFormat: "whole",
         useRepoMap: false,
-        examplesAsSystem: false,
-        reminderRole: "system",
       },
     });
     expect(catalog.resolve("deepseek")).toMatchObject({
@@ -147,16 +143,6 @@ describe("ModelCatalog", () => {
       ModelResourceError,
     );
     expect(() => catalog.search("", 101)).toThrow(ModelResourceError);
-  });
-
-  it("rejects oversized custom resource files before parsing", async () => {
-    const directory = await temporaryDirectory();
-    const oversized = join(directory, "oversized.yml");
-    await writeFile(oversized, "x".repeat(1024 * 1024 + 1));
-
-    await expect(
-      ModelCatalog.load({ settings: [oversized] }),
-    ).rejects.toBeInstanceOf(ModelResourceError);
   });
 
   it("bounds override files and resource identifiers", async () => {

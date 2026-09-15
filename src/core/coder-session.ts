@@ -719,24 +719,10 @@ export class CoderSession {
       throw new Error("A session turn is already active");
     }
     this.#turnMutated = false;
-    let userMessage = ChatMessageSchema.parse({
+    const userMessage = ChatMessageSchema.parse({
       role: "user",
       content: userInput,
     });
-    let reminder = prompt.reminder ?? [];
-    if (
-      (!this.#config.model.capabilities.systemRole ||
-        this.#config.model.reminderRole === "user") &&
-      reminder.length === 1 &&
-      reminder[0]?.role === "user" &&
-      typeof reminder[0].content === "string"
-    ) {
-      userMessage = ChatMessageSchema.parse({
-        role: "user",
-        content: `${userInput}\n\n${reminder[0].content}`,
-      });
-      reminder = [];
-    }
     const chunks = new ChatChunks({
       system: prompt.system,
       examples: prompt.examples,
@@ -745,7 +731,7 @@ export class CoderSession {
       done: this.#state.messages,
       chatFiles: prompt.editableFiles,
       current: [...(prompt.media ?? []), userMessage],
-      reminder,
+      reminder: prompt.reminder,
     });
     const messages = (
       this.#promptCacheEnabled && this.#config.model.capabilities.promptCaching

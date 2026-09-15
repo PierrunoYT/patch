@@ -118,7 +118,6 @@ async function runModelCommand(
     let truncated = false;
     let stopped: "timed-out" | "cancelled" | undefined;
     let forceKillTimer: NodeJS.Timeout | undefined;
-    let termination: Promise<void> | undefined;
 
     const capture = (target: Buffer[], chunk: Buffer) => {
       const remaining = maxOutputBytes - capturedBytes;
@@ -139,16 +138,9 @@ async function runModelCommand(
       const pid = child.pid;
       if (pid === undefined) return;
       if (process.platform === "win32") {
-        let settle!: () => void;
-        termination ??= new Promise<void>((resolve) => {
-          settle = resolve;
-        });
-        const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
+        spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
           stdio: "ignore",
-          windowsHide: true,
         });
-        killer.once("error", settle);
-        killer.once("close", settle);
         return;
       }
       try {
@@ -179,12 +171,10 @@ async function runModelCommand(
         }),
       );
     });
-    child.once("close", async (exitCode) => {
+    child.once("close", (exitCode) => {
       clearTimeout(timer);
-      if (stopped === undefined && forceKillTimer !== undefined)
-        clearTimeout(forceKillTimer);
+      if (forceKillTimer !== undefined) clearTimeout(forceKillTimer);
       options.signal?.removeEventListener("abort", cancel);
-      await termination;
       resolve({
         command,
         status: stopped ?? "completed",

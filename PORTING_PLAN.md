@@ -47,11 +47,12 @@ edit-format, option, and interface support must be documented explicitly.
 Current implementation priorities live in the consolidated
 [issue and task register](task.md); the
 [integration backlog](docs/remaining-integration-tasks.md) preserves detailed
-evidence and history. The latest
-[deep semantic audit](docs/aider-deep-audit-2026-09-15-5eecc98.md) compares
-Patch `5eecc980833e23e17ab119031ca679fc54d0301d` with pinned aider. The
-[source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md) retains
-complete file coverage. Earlier reports remain historical snapshots.
+evidence and historical context. The latest
+[dated audit](docs/aider-parity-audit-2026-09-15-c9c59c6.md) compares Patch
+`c9c59c6157a60ebcaf890dfbf89b845b67bc1e42` with the pinned aider revision.
+Its [source inventory](docs/aider-source-inventory-2026-09-15-c9c59c6.md)
+classifies every pinned product module, model resource, and Tree-sitter query.
+Earlier dated reports remain historical snapshots.
 
 ## Scope decisions
 

@@ -7,7 +7,7 @@
 
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, open, realpath, stat } from "node:fs/promises";
+import { access, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -25,22 +25,6 @@ import { TextEncodingSchema, type TextEncoding } from "../io/filesystem.js";
 const executeFile = promisify(execFile);
 const CONFIG_FILE_NAME = ".patch.conf.yml";
 const DOTENV_FILE_NAME = ".env";
-const MAX_CONFIGURATION_BYTES = 1024 * 1024;
-const MAX_DOTENV_BYTES = 1024 * 1024;
-
-async function readBoundedFile(path: string, maximum: number): Promise<Buffer> {
-  const handle = await open(path, "r");
-  try {
-    const information = await handle.stat();
-    if (information.size > maximum) throw new Error("File exceeds size limit");
-    const buffer = Buffer.allocUnsafe(Math.min(information.size, maximum) + 1);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (bytesRead > maximum) throw new Error("File exceeds size limit");
-    return buffer.subarray(0, bytesRead);
-  } finally {
-    await handle.close();
-  }
-}
 
 const CommitIdentitySchema = z
   .string()
@@ -775,9 +759,8 @@ async function loadConfigurationFiles(
   const merged: ConfigurationFile = {};
   for (const path of paths) {
     try {
-      const content = await readBoundedFile(path, MAX_CONFIGURATION_BYTES);
       const value = ConfigurationFileSchema.parse(
-        parseYaml(content.toString("utf8")),
+        parseYaml(await readFile(path, "utf8")),
       );
       Object.assign(merged, value);
     } catch (error) {
@@ -935,15 +918,11 @@ async function runBootstrapPass(
     ...baseEnvironment,
   };
   for (const path of dotenvFiles) {
-    let bytes: Buffer;
-    try {
-      bytes = await readBoundedFile(path, MAX_DOTENV_BYTES);
-    } catch (error) {
-      throw new BootstrapArgumentError("Dotenv file exceeds 1 MiB", {
-        cause: error,
-      });
-    }
-    const content = decodeDotenv(bytes, preliminaryArguments.encoding, path);
+    const content = decodeDotenv(
+      await readFile(path),
+      preliminaryArguments.encoding,
+      path,
+    );
     Object.assign(environment, parseDotenv(content));
   }
 

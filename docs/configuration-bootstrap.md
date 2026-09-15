@@ -112,15 +112,11 @@ Persistence stays limited to the two explicit history paths. There is no
 restore-chat-history, LLM-wire log, or command-file setting: those would retain
 provider-ready secrets/media or replay effects outside fresh approval.
 
-Configuration, dotenv, and custom model resource documents are each limited to
-1 MiB and read through one retained file handle before parsing. Entry/count and
-identifier bounds remain separate schema checks.
-
 Preserved failure invariants are: malformed booleans and ports fail before any
-interface starts; web still requires a bounded token read from an explicit file;
-web, watch, and one-shot modes remain mutually constrained; root correction
-discards provisional dotenv values; and no configuration path bypasses
-containment, authorization, process bounds, or network isolation.
+interface starts; web still requires a bounded token read from an explicit
+file; web, watch, and one-shot modes remain mutually constrained; root
+correction discards provisional dotenv values; and no configuration path
+bypasses containment, authorization, process bounds, or network isolation.
 
 Commit policy also participates in every bootstrap stage: `git-commit-verify`,
 `generate-commit-messages`, `commit-author-name`, `commit-committer-name`, and

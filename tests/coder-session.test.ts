@@ -162,7 +162,7 @@ describe("CoderSession", () => {
       readOnlyFiles: [{ role: "user", content: "readonly" }],
       repository: [{ role: "user", content: "repo" }],
       editableFiles: [{ role: "user", content: "editable" }],
-      reminder: [{ role: "system", content: "reminder" }],
+      reminder: [{ role: "user", content: "reminder" }],
     });
 
     expect(turn.request.messages.map((message) => message.content)).toEqual([

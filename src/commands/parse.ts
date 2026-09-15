@@ -221,11 +221,8 @@ export function parseCommand(input: string): CommandEffect {
       break;
     }
     case "web":
-      // One bounded URL, typed by the user: accepting arbitrary length or a
-      // whitespace-separated list would widen network intent and memory use.
-      if (argument.length > 4096) {
-        throw new CommandParseError("/web URL must be at most 4096 characters");
-      }
+      // One URL, typed by the user: a whitespace-separated list would make it
+      // easy to fetch more than was intended.
       effect = { type: "web", url: requireArgument(command, argument) };
       break;
     case "chat-mode": {

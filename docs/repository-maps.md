@@ -27,13 +27,11 @@ targets fail before their content is read. A missing, deleted, unreadable, or
 parser-failed tracked file is skipped rather than aborting the turn; surfacing
 the skip to the user as a bounded warning is still missing.
 
-`TagExtractor` resolves each requested file through `SafePathResolver`, retains
-the verified no-follow read handle after target/ancestor identity checks, and
-reads UTF-8 without a shell. Tree rendering uses the same retained-handle policy,
-so an ancestor swap cannot redirect map content. Source extraction/rendering is
-capped at 4 MiB; oversized, empty, unreadable, or unsupported files contribute
-no parsed tags. Unsupported text formats may still contribute bounded lexical
-references. Symlink escapes and traversal outside the root are rejected.
+`TagExtractor` resolves every requested file through `SafePathResolver`, reads
+UTF-8 source without invoking a shell, parses it with `web-tree-sitter`, and
+returns zero-based definition/reference tags. Unsupported extensions and empty
+files return no tags. Symlink escapes and traversal outside the selected root
+are rejected before reading.
 
 Ranking implements the principal Aider weighted graph/PageRank formula with
 deterministic ordering.

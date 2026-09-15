@@ -63,7 +63,6 @@ export function languageForPath(path: string): RepoMapLanguage | undefined {
 const LEXICAL_IDENTIFIER = /[\p{L}_][\p{L}\p{N}_]{2,}/gu;
 /** Bounds what one unparsed file can contribute to the ranking graph. */
 const MAX_LEXICAL_REFERENCES = 200;
-const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 
 /**
  * Identifiers from a file no bundled grammar covers, recorded as references.
@@ -116,18 +115,8 @@ export class TagExtractor {
 
   async extract(path: string): Promise<readonly RepoMapTag[]> {
     const languageName = languageForPath(path);
-    const opened = await this.#resolver.openFileForRead(path);
-    const metadata = await opened.handle.stat();
-    if (!metadata.isFile() || metadata.size > MAX_SOURCE_BYTES) {
-      await opened.handle.close();
-      return [];
-    }
-    let source: string;
-    try {
-      source = await opened.handle.readFile("utf8");
-    } finally {
-      await opened.handle.close();
-    }
+    const absolutePath = await this.#resolver.resolve(path);
+    const source = await readFile(absolutePath, "utf8");
     if (source.length === 0) {
       return [];
     }
@@ -149,7 +138,7 @@ export class TagExtractor {
 
     const query = new Query(language, querySource);
     try {
-      const relativePath = relative(this.#resolver.root, opened.path);
+      const relativePath = relative(this.#resolver.root, absolutePath);
       return query.captures(tree.rootNode).flatMap((capture): RepoMapTag[] => {
         const kind = capture.name.startsWith("name.definition.")
           ? "definition"

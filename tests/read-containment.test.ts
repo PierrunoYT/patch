@@ -36,8 +36,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 // Ensure media and watch mode observe this file's deterministic open hook even
 // when the worker previously loaded the application graph in another suite.
 vi.resetModules();
-const { AiWatchMode, loadReadOnlyMedia, TagExtractor, TreeContextRenderer } =
-  await import("../src/index.js");
+const { AiWatchMode, loadReadOnlyMedia } = await import("../src/index.js");
 
 const directories: string[] = [];
 const png = Buffer.from(
@@ -112,52 +111,5 @@ describe("contained read handles", () => {
 
     expect(requests).toEqual([]);
     await watcher.close();
-  });
-
-  it("rejects tag extraction redirected by an ancestor swap", async () => {
-    const root = await directory("patch-tag-read-race-");
-    const outside = await directory("patch-tag-read-outside-");
-    await mkdir(join(root, "pkg"));
-    await writeFile(
-      join(root, "pkg", "source.ts"),
-      "export const safeName = 1;\n",
-    );
-    await writeFile(
-      join(outside, "source.ts"),
-      "export const injectedName = 2;\n",
-    );
-    beforeOpen = {
-      suffix: join("pkg", "source.ts"),
-      run: () => replaceWithOutsideLink(root, outside),
-    };
-
-    await expect(
-      (await TagExtractor.create(root)).extract("pkg/source.ts"),
-    ).rejects.toThrow(/outside the selected root|changed while opening/u);
-  });
-
-  it("rejects map rendering redirected by an ancestor swap", async () => {
-    const root = await directory("patch-render-read-race-");
-    const outside = await directory("patch-render-read-outside-");
-    await mkdir(join(root, "pkg"));
-    await writeFile(
-      join(root, "pkg", "source.ts"),
-      "export const safeName = 1;\n",
-    );
-    await writeFile(
-      join(outside, "source.ts"),
-      "export const injectedName = 2;\n",
-    );
-    beforeOpen = {
-      suffix: join("pkg", "source.ts"),
-      run: () => replaceWithOutsideLink(root, outside),
-    };
-
-    await expect(
-      (await TreeContextRenderer.create(root)).render(
-        "pkg/source.ts",
-        new Set([0]),
-      ),
-    ).rejects.toThrow(/outside the selected root|changed while opening/u);
   });
 });

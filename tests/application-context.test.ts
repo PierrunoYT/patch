@@ -137,13 +137,9 @@ describe("production context selection", () => {
     expect(JSON.stringify(provider.requests[0]?.messages)).toContain(
       "Act as an expert code analyst",
     );
-    expect(
-      provider.requests[1]?.messages.some(
-        (message) =>
-          typeof message.content === "string" &&
-          message.content.includes("updated the set of files"),
-      ),
-    ).toBe(true);
+    expect(provider.requests[1]?.messages.at(-2)?.content).toContain(
+      "updated the set of files",
+    );
   });
 
   it("keeps the parent selection atomic when a newly selected path is denied", async () => {
@@ -163,25 +159,6 @@ describe("production context selection", () => {
     ]);
     // The denial lands before the pass that would have sent the file, so its
     // contents never reach the provider.
-    expect(JSON.stringify(provider.requests)).not.toContain(
-      "export class RequestWidget",
-    );
-  });
-
-  it("denies model-selected disclosure when the embedding has no approver", async () => {
-    vi.spyOn(RepositoryMap.prototype, "getMap").mockResolvedValue("map");
-    const provider = new FakeProvider([response("b.ts")]);
-    const session = await application(provider);
-
-    await expect(
-      session.selectContext?.("Update RequestWidget", {
-        signal: new AbortController().signal,
-        emit: () => undefined,
-      }),
-    ).rejects.toThrow("Context selection was not approved: b.ts");
-    expect(((await session.snapshot()) as SessionState).editablePaths).toEqual([
-      "a.ts",
-    ]);
     expect(JSON.stringify(provider.requests)).not.toContain(
       "export class RequestWidget",
     );

@@ -827,8 +827,10 @@ class ConcreteApplicationSession implements ApplicationSession {
           for (const path of next) {
             await resolver.resolve(path);
             if (approved.has(path)) continue;
+            // An embedding without an approver has no way to answer, which is
+            // permission to proceed here exactly as it is for `/add`.
             if (
-              this.#context.approvePath === undefined ||
+              this.#context.approvePath !== undefined &&
               !(await this.#context.approvePath(path, "context-selection"))
             ) {
               throw new Error(`Context selection was not approved: ${path}`);
@@ -908,47 +910,19 @@ class ConcreteApplicationSession implements ApplicationSession {
       [...this.#media.values()],
       this.#profile.main,
     );
-    const rawExamples = [
-      ...COMMON_PROMPTS.exampleMessages,
-      ...definition.examples,
-    ];
-    const exampleText = rawExamples
-      .map((example) =>
-        typeof example.content === "string"
-          ? `## ${example.role.toUpperCase()}: ${example.content}\n`
-          : "",
-      )
-      .join("\n");
-    const system = {
-      role: "system" as const,
-      content:
-        this.#profile.main.examplesAsSystem && exampleText !== ""
-          ? `${definition.systemPrompt}\n# Example conversations:\n\n${exampleText}`.trim()
-          : definition.systemPrompt,
-    };
-    const examples = this.#profile.main.examplesAsSystem ? [] : rawExamples;
     const prompt = {
-      system: this.#profile.main.capabilities.systemRole
-        ? [system]
-        : [
-            { role: "user" as const, content: system.content },
-            { role: "assistant" as const, content: "Ok." },
-          ],
-      examples,
-      readOnlyFiles:
-        readOnly.length === 0
-          ? []
-          : [
-              ...fileMessage(
-                COMMON_PROMPTS.readOnlyFilesPrefix,
-                readOnly,
-                fence,
-              ),
-              {
-                role: "assistant" as const,
-                content: "Ok, I will use these files as references.",
-              },
-            ],
+      system: [
+        {
+          role: "system" as const,
+          content: definition.systemPrompt,
+        },
+      ],
+      examples: [...COMMON_PROMPTS.exampleMessages, ...definition.examples],
+      readOnlyFiles: fileMessage(
+        COMMON_PROMPTS.readOnlyFilesPrefix,
+        readOnly,
+        fence,
+      ),
       repository:
         repositoryContent === ""
           ? []
@@ -960,11 +934,6 @@ class ConcreteApplicationSession implements ApplicationSession {
                     ? CONTEXT_PROMPTS.repositoryPrefix
                     : COMMON_PROMPTS.repoContentPrefix
                 }\n\n${repositoryContent}`,
-              },
-              {
-                role: "assistant" as const,
-                content:
-                  "Ok, I won't try and edit those files without asking first.",
               },
             ],
       editableFiles:
@@ -986,11 +955,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       ...(media === undefined ? {} : { media: [media] }),
       reminder: [
         {
-          role:
-            this.#profile.main.capabilities.systemRole &&
-            this.#profile.main.reminderRole === "system"
-              ? ("system" as const)
-              : ("user" as const),
+          role: "system" as const,
           content: `${definition.reminder}\n${
             definition.allowShellCommands
               ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
@@ -1559,7 +1524,6 @@ class ConcreteApplicationSession implements ApplicationSession {
           main,
           this.#currentEditFormat(),
           this.#profile.codeFormat,
-          options.signal,
         );
         return result(
           effect.effort === "off"
@@ -1581,7 +1545,6 @@ class ConcreteApplicationSession implements ApplicationSession {
           main,
           this.#currentEditFormat(),
           this.#profile.codeFormat,
-          options.signal,
         );
         return result(
           effect.tokens === 0
@@ -1595,7 +1558,6 @@ class ConcreteApplicationSession implements ApplicationSession {
           resolved.settings,
           resolved.settings.editFormat,
           resolved.settings.editFormat,
-          options.signal,
         );
         return result(`Model: ${resolved.canonicalName}`);
       }
@@ -1606,7 +1568,6 @@ class ConcreteApplicationSession implements ApplicationSession {
           this.#profile.main,
           format,
           this.#profile.codeFormat,
-          options.signal,
         );
         return result(`Chat mode: ${format}`);
       }
@@ -1862,7 +1823,6 @@ class ConcreteApplicationSession implements ApplicationSession {
     main: ModelSettings,
     format: EditFormat,
     codeFormat: EditFormat,
-    signal: AbortSignal,
   ): Promise<void> {
     const model = { ...main, editFormat: format };
     const provider = this.#context.makeProvider(model);
@@ -1885,7 +1845,8 @@ class ConcreteApplicationSession implements ApplicationSession {
         provider,
         strategy: definition.strategy,
         fence,
-        summarizeHistory: (messages) => this.#summarize(messages, signal, true),
+        summarizeHistory: (messages) =>
+          this.#summarize(messages, undefined, true),
       });
       // Past this point the session is running on the new provider, so nothing
       // below may report the switch as failed or discard it.

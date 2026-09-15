@@ -112,7 +112,7 @@ describe("production architect handoff", () => {
     expect(JSON.stringify(main.requests[0]?.messages)).toContain(
       "expert architect engineer",
     );
-    expect(JSON.stringify(editor.requests[0]?.messages)).toContain(
+    expect(editor.requests[0]?.messages.at(-2)?.content).toBe(
       "Change value.txt from old to new.",
     );
   });

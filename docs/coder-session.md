@@ -199,8 +199,10 @@ call, so rejection, cancellation, or typed bounded non-convergence cannot
 partially alter the parent. Read-only paths are retained and excluded from
 editable candidates.
 
-Those checks run on every pass, not only convergence. A newly named path must
-pass containment, ignore policy, and an explicit path approver before a later
-pass can send its contents. An embedding without an approver fails closed;
-approval is remembered once per selection. Rejection, cancellation, or bounded
-non-convergence leaves the parent selection unchanged.
+Those checks run on every pass, not only on the one that converges. A pass names
+files, and the pass after it sends their contents to the provider, so root
+containment, ignore policy, and the path-approval callback are applied to each
+newly named file before that happens; checking only at convergence meant a
+denied file had already been disclosed. A path is asked about once per
+selection, and an embedding that supplies no approver may proceed, matching
+`/add` rather than treating a missing callback as refusal.

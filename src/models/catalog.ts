@@ -5,7 +5,7 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { open } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 import JSON5 from "json5";
 import { parse as parseYaml } from "yaml";
@@ -114,25 +114,6 @@ const bundledFiles: Required<ModelCatalogFiles> = {
   settings: [new URL("../resources/model-settings.yml", import.meta.url)],
   metadata: [new URL("../resources/model-metadata.json5", import.meta.url)],
 };
-const MAX_MODEL_RESOURCE_BYTES = 1024 * 1024;
-
-async function readModelResource(source: string | URL): Promise<string> {
-  const handle = await open(source, "r");
-  try {
-    const information = await handle.stat();
-    if (information.size > MAX_MODEL_RESOURCE_BYTES)
-      throw new Error("Model resource exceeds 1 MiB");
-    const buffer = Buffer.allocUnsafe(
-      Math.min(information.size, MAX_MODEL_RESOURCE_BYTES) + 1,
-    );
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (bytesRead > MAX_MODEL_RESOURCE_BYTES)
-      throw new Error("Model resource exceeds 1 MiB");
-    return buffer.subarray(0, bytesRead).toString("utf8");
-  } finally {
-    await handle.close();
-  }
-}
 
 async function loadFiles<T>(
   sources: readonly (string | URL)[],
@@ -141,7 +122,7 @@ async function loadFiles<T>(
   const values: T[] = [];
   for (const source of sources) {
     try {
-      values.push(parse(await readModelResource(source)));
+      values.push(parse(await readFile(source, "utf8")));
     } catch (error) {
       throw new ModelResourceError(source, error);
     }

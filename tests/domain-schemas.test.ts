@@ -154,8 +154,6 @@ describe("domain schemas", () => {
   it("applies model defaults at the validation boundary", () => {
     expect(ModelSettingsSchema.parse(model)).toMatchObject({
       useRepoMap: false,
-      examplesAsSystem: false,
-      reminderRole: "user",
       capabilities: {
         streaming: true,
         systemRole: true,

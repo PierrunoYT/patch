@@ -8,8 +8,6 @@
   editorEditFormat: diff
   weakModel: gpt-4o-mini
   useRepoMap: true
-  examplesAsSystem: true
-  reminderRole: system
   capabilities:
     streaming: true
     systemRole: true
@@ -20,7 +18,6 @@
   provider: openai
   editFormat: whole
   useRepoMap: false
-  reminderRole: system
   capabilities:
     streaming: true
     systemRole: true
@@ -34,7 +31,6 @@
   weakModel: claude-haiku-4-5
   editorModel: claude-sonnet-4-6
   useRepoMap: true
-  reminderRole: user
   maxOutputTokens: 64000
   capabilities:
     streaming: true
@@ -48,7 +44,6 @@
   provider: anthropic
   editFormat: diff
   useRepoMap: true
-  reminderRole: user
   capabilities:
     streaming: true
     systemRole: true
@@ -61,8 +56,6 @@
   editFormat: diff
   editorEditFormat: diff
   useRepoMap: true
-  examplesAsSystem: true
-  reminderRole: system
   maxOutputTokens: 8192
   capabilities:
     streaming: true
@@ -79,8 +72,6 @@
   weakModel: deepseek/deepseek-chat
   editorModel: deepseek/deepseek-chat
   useRepoMap: true
-  examplesAsSystem: true
-  reminderRole: user
   maxOutputTokens: 64000
   reasoningTag: think
   # The reasoner rejects a temperature, as upstream records for DeepSeek R1.

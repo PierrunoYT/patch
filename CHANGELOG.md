@@ -16,12 +16,6 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
-- Deep-audited Patch `5eecc980833e23e17ab119031ca679fc54d0301d` against pinned
-  aider branch behavior. Fixed fail-open context disclosure, switch-summary
-  cancellation, prompt role/example/reminder placement, missing prompt wrapper
-  acknowledgements, map read containment/size bounds, unbounded startup resource
-  files, Windows command-tree settlement, and unbounded `/web` URL input.
-
 - Re-audited Patch `c9c59c6157a60ebcaf890dfbf89b845b67bc1e42` file-for-file
   against pinned aider `5dc9490bb35f9729ef2c95d00a19ccd30c26339c` and added a
   current audit/source inventory. Reconciled stale command counts, fixed defect

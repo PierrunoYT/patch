@@ -252,6 +252,7 @@ lifecycle. Patch does not expose global dry-run or one-shot commit/lint/test
 flags. Dry-run cannot truthfully contain arbitrary hooks or approved child
 commands; the slash commands already provide serialized explicit outcomes.
 
+
 ## Advertised-surface evidence
 
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
@@ -297,10 +298,11 @@ surface:
   rather than submitted. Clipboard access is intentionally text-only: Patch
   does not probe for images or create out-of-repository temporary media. Save an
   image and use the visible, approved, contained `/attach <path...>` path.
-- `/web <url>` accepts one explicitly typed URL of at most 4,096 characters and
-  adds bounded readable text to history. A URL a model or page mentions is never
-  followed. See [URL fetching](url-fetching.md) for SSRF, redirect, size, and
-  no-subresource policy.
+- `/web <url>` fetches one user-typed URL and adds its readable text to history,
+  labeled with the URL redirects ended at and truncated to a share of the input
+  window. A URL a model or a page mentions is never followed. See
+  [URL fetching](url-fetching.md) for the SSRF, redirect, size, and
+  no-subresource policy, which is an intentional difference from upstream.
 - `/undo` reverts only the commit this session created, and only while it is
   still HEAD, still carries the Patch marker, has one parent, touches selected
   paths, and has not reached its upstream branch. A session undoes its latest
@@ -308,5 +310,5 @@ surface:
 - `/ls` and file-command matching are narrower than Aider. `/help` deliberately
   uses bounded literal line search over installed Patch docs instead of Aider's
   semantic model-backed help coder.
-  `/copy` uses bounded, cancellable text-only platform utilities. `/exit` closes
-  the session and stops interactive input cleanly.
+`/copy` uses bounded, cancellable text-only platform utilities. `/exit` closes
+the session and stops interactive input cleanly.
