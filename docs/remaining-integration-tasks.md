@@ -528,15 +528,15 @@ valid only for the specific normalization and recovery cases they name.
   finite product contract. Each future language or map behavior remains
   responsible for independent fixtures, packaged evidence, strict token
   ceilings, and unreadable-file isolation under the P2 language/control tasks.
-- [ ] **P2 -- Decide broader Git policy controls.** **Status:** partial. Patch is
-  intentionally narrower. Aider exposes custom ignore paths, subtree-only,
-  adding Git-ignored files, auto/dirty commit toggles, commit prompt/language,
-  one-shot commit, dry-run, and repository sanity controls at
-  `aider/args.py:403-525,748-787`; Patch exposes literal-path Git, one fixed
-  `.aiderignore` composition, configurable hook verification, explicit identity,
-  and generated-subject opt-in through `src/repository/git.ts:71-532` and
-  `src/config/bootstrap.ts:36-63`. Select controls individually without
-  weakening containment or session-owned undo.
+- [x] **N/A -- Keep the existing composed Git policy.** **Status:** accepted
+  current-release scope. Patch retains ordinary Git ignores plus fixed-root
+  `.aiderignore`, literal selected paths, mandatory Git-enabled checkpoints and
+  auto-commits, configurable hook verification, explicit attribution, bounded
+  generated subjects, selected `/commit`, and session-owned `/undo`. Custom
+  ignore paths, subtree-only behavior, ignored-file bypass, independent
+  auto/dirty commit toggles, custom commit prompts/languages, and repository
+  sanity bypasses are non-goals because they fragment disclosure/ownership
+  invariants or create unsafe combinations.
 - [ ] **P2 -- Define durable recovery for arbitrary approved child/Git side
   effects and cross-process mutation.** **Status:** partial. Patch serializes
   in-process mutation and reports structured surviving state, but

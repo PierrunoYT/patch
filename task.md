@@ -275,8 +275,13 @@ security rules above.
   language needs pinned tags and packaged extraction, representative independent
   ranking/rendering fixtures, strict token ceilings, and unreadable-file
   isolation. Language and map-control expansion remain under `MAP-1`/`MAP-2`.
-- [ ] **GIT-1:** Select broader Git controls individually without weakening
-  literal paths, composed ignore policy, containment, or session-owned undo.
+- [x] **GIT-1:** Keep Git controls to the existing composed policy: fixed
+  `.aiderignore` plus Git ignores, mandatory Git-enabled checkpoint/auto-commit,
+  configurable hook verification, explicit attribution, bounded generated
+  subjects, selected `/commit`, and session-owned `/undo`. Custom ignore paths,
+  subtree modes, ignored-file bypass, independent commit toggles, prompt/language
+  controls, and repository-sanity bypasses are non-goals because they weaken or
+  fragment established safety invariants.
 - [ ] **RECOVERY-1:** Define durable recovery and coordination, if required, for
   arbitrary approved child/Git side effects, interruption inside Git, and
   mutation by separate Patch processes.

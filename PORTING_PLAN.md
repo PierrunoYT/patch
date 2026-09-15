@@ -681,6 +681,9 @@ skipped all nine current gates because the orb also had no provider credentials.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
+- [x] Keep broader Git controls out of current scope. The composed ignore,
+  checkpoint/commit, hook, attribution, selected-diff, and session-owned undo
+  policy remains one safety contract rather than independently disableable parts.
 **Exit — production workflow reached for the selected command surface:** the
 npm-installed binary composes supported providers and edit
 formats, previews selected-file edits, commits, runs configured lint/tests, and

@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept the current composed Git policy intact. Custom ignore paths, subtree or
+  ignored-file bypass, independent commit toggles, custom commit prompts, and
+  repository-sanity bypasses are non-goals because they fragment disclosure,
+  checkpoint, ownership, and undo invariants.
+
 - Kept repository-map token budgets, refresh policy, and empty-chat multiplier
   internal and model-derived. `/map` remains the sole bounded display control;
   public tuning would expose cache/ranking state and destabilize prompt budgets.

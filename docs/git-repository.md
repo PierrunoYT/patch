@@ -126,6 +126,12 @@ placeholder commit on generation failure. Independent auto/dirty-commit toggles
 are not exposed; Git-enabled sessions retain both. These are bounded production
 controls, not full Aider commit-policy parity.
 
+This is the complete current Git-control surface. Patch does not expose custom
+ignore paths, subtree-only mode, ignored-file bypass, independent auto/dirty
+commit toggles, custom commit prompts/languages, or repository-sanity bypasses.
+Those controls would fragment the composed ignore, disclosure, checkpoint,
+ownership, and undo invariants into unsafe combinations.
+
 ### Hooks and recovery limits
 
 Enabling verification authorizes the repository's Git hooks to execute without
