@@ -14,6 +14,13 @@ status. Use `task.md` for the consolidated actionable queue,
 `docs/remaining-integration-tasks.md` for detailed historical context, and the
 dated parity audits for revision-specific evidence.
 
+### Fixed
+
+- Bundled model role defaults now match pinned aider: `gpt-4o-mini` uses the
+  `whole` edit format without a repository map, while DeepSeek Reasoner routes
+  weak history summaries and editor work to DeepSeek Chat. Exact resource,
+  selection, and concrete application tests cover both production routes.
+
 ### Added
 
 - A protected DeepSeek live contract that resolves the advertised bundled model,

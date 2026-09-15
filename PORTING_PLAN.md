@@ -125,8 +125,8 @@ this plan, task register, and backlog track current status and open work.
   bounded retries, repeated assistant-prefill continuation, and weak-model
   history compaction are wired. The private editor role, bounded prompt-cache
   keepalive opt-in, and approved ephemeral image/PDF context are production-wired.
-  `gpt-4o-mini` defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek
-  token limits currently disagree with the pinned model resources. Provider
+  `gpt-4o-mini` defaults and DeepSeek Reasoner weak/editor routing now match the
+  pinned model resources; DeepSeek token limits still disagree. Provider
   retry events are attempt-atomic: failed text/reasoning/usage/error events are
   withheld from interfaces, while accepted events are delivered in order after
   finish and completed history keeps the same accepted output.
@@ -541,9 +541,9 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
 - [x] Implement Anthropic streaming and system/cache-control differences.
 - [x] Implement main, weak, and editor model selection without recursive
   construction bugs.
-- [ ] Align `gpt-4o-mini` format/map defaults and DeepSeek Reasoner weak/editor
-  routing with pinned model settings, or document and test intentional
-  divergences through production selection.
+- [x] Align `gpt-4o-mini` format/map defaults and DeepSeek Reasoner weak/editor
+  routing with pinned model settings. Catalog/selection assertions and a
+  concrete summary/editor application test cover the production behavior.
 - [ ] Reconcile DeepSeek input/output limits with pinned bundled metadata, or
   document an independently sourced newer-vendor contract. Exact limits must be
   tested because they control prompt refusal, map sizing, and provider output.

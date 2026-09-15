@@ -14,6 +14,17 @@ describe("selectModels", () => {
     expect(selected.editorEditFormat).toBe("diff");
   });
 
+  it("routes bundled DeepSeek Reasoner secondary work to DeepSeek Chat", async () => {
+    const catalog = await ModelCatalog.load();
+
+    const selected = selectModels(catalog, { main: "r1" });
+
+    expect(selected.main.canonicalName).toBe("deepseek/deepseek-reasoner");
+    expect(selected.weak.canonicalName).toBe("deepseek/deepseek-chat");
+    expect(selected.editor.canonicalName).toBe("deepseek/deepseek-chat");
+    expect(selected.editorEditFormat).toBe("diff");
+  });
+
   it("supports disabled roles and explicit overrides without recursion", async () => {
     const catalog = await ModelCatalog.load();
 

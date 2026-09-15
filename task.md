@@ -67,10 +67,10 @@ Baseline for the current findings:
   every validated event per provider attempt and forwards it only after an
   accepted finish; focused session and concrete application tests prove stale
   text, reasoning, usage, and retry errors never reach result/interface events.
-- [ ] **MODEL-1: Align or explicitly justify bundled model role defaults.**
-  Reconcile `gpt-4o-mini` edit-format/map defaults and DeepSeek Reasoner's
-  weak/editor routing with pinned aider settings. Add exact resource and
-  production role-selection tests for any retained divergence.
+- [x] **MODEL-1: Align bundled model role defaults.** `gpt-4o-mini` now uses
+  pinned aider's `whole` format without a repository map, and DeepSeek Reasoner
+  routes weak/editor work to DeepSeek Chat. Exact catalog, selection, and
+  production summary/editor tests cover the bundled profiles.
 - [ ] **MODEL-2: Reconcile bundled DeepSeek token limits.** Restore pinned
   input/output values or document an independently sourced newer-vendor
   contract. Test the exact values because they control prompt refusal,

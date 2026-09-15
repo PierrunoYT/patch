@@ -37,6 +37,57 @@ const response = (text: string) => ({
 });
 
 describe("production editor role", () => {
+  it("uses bundled DeepSeek Chat for Reasoner summaries and edits", async () => {
+    const directory = await root();
+    const reasoner = new FakeProvider([
+      response("x".repeat(5_000)),
+      response("continued"),
+    ]);
+    const chat = new FakeProvider([
+      response("summary"),
+      response(
+        "value.txt\n<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE\n",
+      ),
+    ]);
+    const constructed: string[] = [];
+    const service = await ConcreteApplicationService.create({
+      cwd: directory,
+      home: directory,
+      environment: {},
+      argv: ["--no-git", "--model", "r1", "--file", "value.txt"],
+      dependencies: {
+        createProvider: (model: ModelSettings) => {
+          constructed.push(model.name);
+          return model.name === "deepseek/deepseek-chat" ? chat : reasoner;
+        },
+      },
+    });
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "deepseek-roles",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+
+    await session.submit("first", options);
+    await session.submit("second", options);
+    await session.runEditor?.("apply the accepted plan", options);
+
+    expect(constructed).toEqual([
+      "deepseek/deepseek-reasoner",
+      "deepseek/deepseek-chat",
+      "deepseek/deepseek-chat",
+    ]);
+    expect(chat.requests.map(({ model }) => model)).toEqual([
+      "deepseek/deepseek-chat",
+      "deepseek/deepseek-chat",
+    ]);
+    expect(await readFile(join(directory, "value.txt"), "utf8")).toBe("new\n");
+    await service.close();
+  });
+
   it("uses its model, distinct prompt, fresh history, no map, and no shell", async () => {
     const directory = await root();
     const editor = new FakeProvider([

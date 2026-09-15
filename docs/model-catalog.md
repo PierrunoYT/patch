@@ -60,12 +60,11 @@ current selected paths, and the editor model's capabilities. Architect handoff
 uses that path only after explicit acceptance and transfers usage/commit state
 back to the main session. Generated commit-message role selection is unchanged.
 
-The current bundled profiles contain two unresolved pinned-source differences.
-Patch gives `gpt-4o-mini` `diff` plus a repository map where pinned aider leaves
-the default `whole` format and no map. Patch also omits DeepSeek Reasoner's
-`deepseek/deepseek-chat` weak/editor defaults, causing both roles to reuse the
-reasoner. These are P1 defects unless a later product decision documents and
-tests them as intentional cost/context tradeoffs.
+The bundled profiles retain pinned aider's role behavior: `gpt-4o-mini` uses
+the default `whole` format without a repository map, and DeepSeek Reasoner
+routes both weak history summaries and editor work to `deepseek/deepseek-chat`.
+Exact catalog/selection tests cover the resource contract, and a concrete
+application test exercises both secondary routes.
 
 ## Token counting
 

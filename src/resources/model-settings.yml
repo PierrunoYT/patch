@@ -16,8 +16,8 @@
 
 - name: gpt-4o-mini
   provider: openai
-  editFormat: diff
-  useRepoMap: true
+  editFormat: whole
+  useRepoMap: false
   capabilities:
     streaming: true
     systemRole: true
@@ -69,6 +69,8 @@
   provider: deepseek
   editFormat: diff
   editorEditFormat: diff
+  weakModel: deepseek/deepseek-chat
+  editorModel: deepseek/deepseek-chat
   useRepoMap: true
   maxOutputTokens: 8192
   reasoningTag: think

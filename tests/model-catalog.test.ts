@@ -52,6 +52,12 @@ describe("ModelCatalog", () => {
         editorEditFormat: "diff",
       },
     });
+    expect(catalog.resolve("gpt-4o-mini")).toMatchObject({
+      settings: {
+        editFormat: "whole",
+        useRepoMap: false,
+      },
+    });
     expect(catalog.resolve("deepseek")).toMatchObject({
       canonicalName: "deepseek/deepseek-chat",
       metadata: {
