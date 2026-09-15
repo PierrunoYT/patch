@@ -624,10 +624,14 @@ Evidence still unavailable or deliberately excluded:
   provider keys. Enabling all three provider groups therefore skipped all nine
   gated contracts, including the new OpenAI and Anthropic full-path turns.
   Never add credentials to the default suite or logs.
-- [ ] **P2 -- Obtain current-revision macOS and Windows package evidence.**
-  **Status:** evidence gap. The local audit ran on Linux. Existing CI evidence at
-  `88adf8e5c` predates current `e10467b3`; rerun package/platform jobs before a
-  release claim.
+- [x] **P2 -- Obtain current-revision macOS and Windows package evidence.**
+  **Status:** complete for implementation revision
+  `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`. CI run
+  [`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)
+  passed the Node 22 suite; package/platform jobs on Linux, macOS, and Windows;
+  packed executable extraction for all eleven shipped repository-map languages;
+  and provisioned PTY jobs on supported Linux and Windows. This does not add
+  macOS PTY support or provider/device evidence.
 - [ ] **P2 -- Add current-revision real-device/optional-interface evidence only
   for scheduled surfaces.** **Status:** evidence gap. PTY passed on Linux, but
   Windows PTY, real microphone, ffmpeg device capture, browser GUI, and
@@ -709,9 +713,10 @@ claims.
   `ConcreteApplicationService` helper as DeepSeek while preserving their direct
   image/cache-control, timeout, cancellation, usage, and stop-state contracts.
 - [ ] **P2 — Close current-revision live-provider evidence.** CI run
-  [`34717847304`](https://github.com/PierrunoYT/patch/actions/runs/34717847304)
-  is green on implementation revision `88adf8e5c` for Node 22, Linux/macOS/
-  Windows package jobs, and provisioned Linux/Windows PTY jobs. Protected run
+  [`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)
+  is green on implementation revision `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`
+  for Node 22, Linux/macOS/Windows package jobs, and provisioned Linux/Windows
+  PTY jobs. Earlier protected run
   [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
   checked out the same revision but skipped all seven live contracts because the
   environment supplied no provider secrets. A successful credentialed protected
@@ -1492,8 +1497,9 @@ acceptance; those findings above control the current status.
   transient categories.
 
 **Acceptance:** met for the documented OpenAI/Anthropic adapter contracts and
-deterministic executable provider path. Protected live tests still construct
-adapters directly; catalog/factory/session live evidence remains P2.
+deterministic executable provider path. All three advertised providers have
+protected catalog/factory/session live gates; successful credentialed evidence
+remains P2.
 
 ## R5 — Add cross-platform CI and package evidence
 
@@ -1517,6 +1523,10 @@ adapters directly; catalog/factory/session live evidence remains P2.
 
 **Acceptance:** platform-sensitive Phase 6 and Phase 8 exit claims have green
 Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
+CI run
+[`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)
+passed all six Node 22, platform/package, and supported PTY jobs for
+implementation revision `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`.
 
 ## R6 — Wire and verify advanced strategies
 
@@ -1769,6 +1779,11 @@ is backed by a local run, not by CI.
 | `.github/workflows/ci.yml` → `pty` (“Explicit PTY dependency”) | `ubuntu-latest`, `windows-latest` | The provisioned `node-pty` contract. macOS is deliberately absent: the pinned native package fails its spawn contract there. |
 | `.github/workflows/live-providers.yml` → `live` (“Protected low-cost contracts”) | `ubuntu-latest`, manual/protected | Opt-in live provider contracts. It never runs for untrusted pull requests and skips without credentials. |
 
+Current remote evidence is CI run
+[`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)
+on implementation revision `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`:
+all six Node 22, platform/package, and supported PTY jobs passed.
+
 The fixture exporter is not a CI job: `npm run fixtures:upstream` needs the
 pinned aider checkout and its Python environment. It refuses a checkout whose
 remote, commit, or working tree differs from `upstream.json`, including a dirty
@@ -1831,11 +1846,11 @@ cover:
   attempt skipped all nine current gates because no provider keys were available
   in either environment;
 - [x] green Linux, macOS, and Windows package/platform jobs for implementation
-  revision `88adf8e5c` in run
-  [`34717847304`](https://github.com/PierrunoYT/patch/actions/runs/34717847304);
+  revision `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0` in run
+  [`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922);
 - [x] default packed installation with no native/browser/audio dependency; and
 - [x] explicitly provisioned PTY suites on Linux and Windows in run
-  `34717847304`, plus credential-free optional-interface loopback suites in the
+  `34987388922`, plus credential-free optional-interface loopback suites in the
   Node 22 job.
 
 Record the exact test files/workflows next to each corrected phase exit. A green

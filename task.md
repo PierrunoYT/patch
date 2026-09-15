@@ -119,10 +119,12 @@ Baseline for the current findings:
   adapter tests, but do not cite them as executable-route evidence. All three
   advertised providers now have gated full-path turns; a successful protected
   run remains blocked on provider credentials.
-- [ ] **EVIDENCE-2: Obtain current-revision Node 22 package evidence on Linux,
-  macOS, and Windows.** Include the packed executable and every shipped
-  repository-map language; run provisioned PTY contracts on supported Linux and
-  Windows jobs.
+- [x] **EVIDENCE-2: Obtain current-revision Node 22 package evidence on Linux,
+  macOS, and Windows.** CI run
+  [`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)
+  passed the Node 22 suite, packed executable and all eleven map languages on
+  Linux/macOS/Windows, and provisioned PTY contracts on Linux/Windows for
+  implementation revision `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`.
 - [ ] **EVIDENCE-3: Obtain real-device or optional-interface evidence only for
   surfaces selected for release.** Do not claim microphone, ffmpeg device,
   browser GUI, or browser-rendered web behavior from fake adapters or loopback

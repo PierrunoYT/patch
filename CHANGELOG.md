@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Recorded current cross-platform evidence for implementation revision
+  `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`: CI run `34987388922` passed Node
+  22, the packed executable and all eleven repository-map languages on Linux,
+  macOS, and Windows, plus provisioned PTY contracts on supported Linux and
+  Windows.
+
 - Added bounded opt-in OpenAI and Anthropic live turns through the advertised
   model catalog, provider factory, and concrete application session, matching
   the existing DeepSeek production-path gate while retaining direct capability,

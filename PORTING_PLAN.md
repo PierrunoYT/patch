@@ -834,7 +834,10 @@ deferred product decision.
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,
 `tests/pty-provisioned.test.ts`, and the `pty`
 Linux/Windows matrix job in `.github/workflows/ci.yml`. macOS PTY is unsupported
-because the provisioned native package fails its spawn contract there.
+because the provisioned native package fails its spawn contract there. CI run
+[`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)
+passed both supported PTY jobs at implementation revision
+`44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`.
 
 ### Phase 9 — Optional interfaces
 
