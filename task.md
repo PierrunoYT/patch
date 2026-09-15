@@ -83,10 +83,13 @@ Baseline for the current findings:
   and read/write bytes, forward cancellation, terminate and drain children, and
   prove a hung or overproducing utility cannot hold the serialized session
   queue.
-- [ ] **FS-1: Retain containment across media and watch reads.** Prevent an
+- [x] **FS-1: Retain containment across media and watch reads.** Prevent an
   ancestor swap between canonical resolution and read/open from redirecting
   content outside the repository. Add deterministic race tests. Pinned aider is
-  not stronger; this is intentional Patch hardening, not mimicry.
+  not stronger; this is intentional Patch hardening, not mimicry. Completed
+  2026-09-15: both paths retain a no-follow file handle only after re-resolving
+  the target and verifying its opened identity plus every in-root ancestor;
+  deterministic pre-open swaps prove media fails and watch submits nothing.
 
 ## P2 — bounded correctness follow-ups
 

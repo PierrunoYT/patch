@@ -135,9 +135,9 @@ this plan, task register, and backlog track current status and open work.
   tests cover HTTP disconnect cancellation, principal/session isolation,
   structured partial-turn recovery, expiry, quotas, bounded replay/backpressure,
   reclamation, and concurrent terminal/watch/web work.
-  Static path containment is checked, but media/watch reads can be redirected by
-  an ancestor swap after resolution; the exported ffmpeg adapter also misses a
-  pre-aborted signal.
+  Media/watch reads retain a verified handle after target and ancestor identity
+  revalidation, rejecting deterministic pre-open redirection. The exported
+  ffmpeg adapter still misses a pre-aborted signal.
 - The eight ancillary feature families have explicit dispositions below.
   Offline `/help`, allowlisted `/settings`, and the bounded local `/report` draft
   are implemented and jointly exercised through terminal dispatch and the
@@ -823,17 +823,19 @@ because the provisioned native package fails its spawn contract there.
 - [x] Add voice recording/transcription as an optional package subpath and
   embedding adapter without changing the default install footprint. No CLI
   `/voice` or device/recording UX is claimed.
-- [ ] Retain containment when media and watch files are read after canonical
-  resolution. Static symlink rejection is insufficient when an ancestor can be
-  swapped before a pathname is opened or read.
+- [x] Retain containment when media and watch files are read after canonical
+  resolution. The shared no-follow read boundary re-resolves after open, checks
+  handle/path identity and every in-root ancestor, then reads only through the
+  retained handle. Deterministic pre-open ancestor swaps fail without returning
+  media or submitting watch comments.
 - [ ] Make the exported `FfmpegVoiceRecorder` reject a pre-aborted signal before
   spawning, and test the actual adapter rather than only fake recorder handoffs.
 
-**Exit (blocked for the affected adapters):** package smoke tests assert that
+**Exit (blocked for the ffmpeg adapter):** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
-mutation phases are serialized in-process. The read-containment and ffmpeg
-pre-abort defects above must close before the optional-adapter exit is met.
+mutation phases are serialized in-process. The ffmpeg pre-abort defect above
+must close before the optional-adapter exit is met.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,
 packed concrete-service startup in `scripts/package-smoke.mjs`, `tests/url-fetcher.test.ts`,
@@ -897,6 +899,7 @@ wrong implementation produces a different result.
 | Python truthiness, generators, exceptions, and class attributes do not map directly | Use discriminated unions, explicit `undefined` handling, async iterables, typed effects, and instance fields. |
 | Model output is malformed or ambiguous | Dedicated parsers, dry-run resolution, bounded reflection, golden fixtures, and property tests. |
 | Writes escape the repository through `..` or symlinks | Canonicalize parent and target paths and enforce containment immediately before every write. |
+| Media or watch reads escape after an ancestor swap | Open without following the final component, re-resolve and verify handle/path plus ancestor identities, then consume bytes only through the retained handle. |
 | Multi-file apply fails halfway | Compute and validate all resulting contents first; each file replacement is atomic, but cross-file rollback remains unsupported and documented. |
 | Git differs across worktrees, unborn/detached HEAD, hooks, and partial staging | Use the installed Git CLI and real-repository integration tests. |
 | Shell quoting differs across POSIX, PowerShell, and `cmd.exe` | Prefer argv execution, require approval, and test each supported platform explicitly. |

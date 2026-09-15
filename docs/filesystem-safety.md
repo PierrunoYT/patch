@@ -35,17 +35,22 @@ atomic replacement.
 
 `/attach` applies the resolver again immediately before opening media. The
 canonical target is opened read-only with no-follow where the platform supports
-it, verified as a regular file, bounded before allocation, and read through an
-`AbortSignal`. Extension and signature/terminator must agree. The application
-keeps only approved relative labels outside the private attachment map; base64
-bytes are never placed in session snapshots, completed history, or diagnostics.
+it. Before consuming bytes, the shared contained-read boundary re-resolves the
+requested target, compares the opened handle with the current pathname, and
+revalidates the device/inode identity of every directory from the canonical root
+to the target's parent. It then retains that verified handle for the bounded,
+abortable read. Any mismatch closes the handle and fails without returning
+content. Extension and signature/terminator must agree. The application keeps
+only approved relative labels outside the private attachment map; base64 bytes
+are never placed in session snapshots, completed history, or diagnostics.
 
-This currently establishes static containment only. `O_NOFOLLOW` protects the
-final component, but the read path does not pin or revalidate every ancestor
-between canonical resolution and `open`; an untrusted local process able to swap
-an ancestor during that interval can redirect the read outside the root. Media
-read containment is therefore an open P1 hardening defect. The mutation adapter's
-ancestor identity checks below do not automatically protect this separate path.
+Node exposes no portable `openat(2)`, so this is identity-based detection rather
+than a directory-descriptor traversal. Retaining the verified file handle closes
+the check-to-read pathname window: a later ancestor change cannot redirect that
+handle. Deterministic tests replace an ancestor with an escaping link immediately
+before `open`; media rejects the read and watch mode submits no external comment.
+Pinned aider performs ordinary pathname reads, so this is intentional Patch
+hardening rather than a compatibility behavior.
 
 ## Text files and replacement
 

@@ -80,10 +80,10 @@ unchanged result of any historical audit.
 | Core lifecycle | implemented Patch scope with intentional recovery limits | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, observer-atomic provider retries, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. Failed provider-attempt events are withheld from terminal/HTTP consumers while billed cost remains accounted. Recovery from arbitrary child/Git side effects remains incomplete. |
 | Editing | implemented Patch scope with intentional recovery differences | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented. Unified-diff fence discovery now scans physical lines so prefixed Markdown fences remain data; insertion-only hunks retain and validate numeric ranges or fail closed. Focused tests cover beginning/middle/end, malformed ranges, new and empty files, and repeated insertion text; packed-bin smoke covers both former P0 paths. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
 | Models/providers | partial with advertised-profile defects | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. However, `gpt-4o-mini` format/map defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek token limits disagree with pinned resources without a documented intentional divergence. Separately gated live contracts remain subject to protected workflow/account variability. |
-| Git/filesystem | partial with intentional hardening and read-containment gaps | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads, however, resolve and later reopen/read by pathname and do not retain containment if an ancestor is swapped between those operations. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
+| Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads retain a no-follow handle only after re-resolving the target and verifying opened-file plus every in-root ancestor identity; deterministic pre-open swaps cannot return or submit external content. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
 | Commands/terminal | partial with correctness and bound defects | All 20 named Patch commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Slash-command paths and editor commands corrupt Windows backslashes, clipboard utilities are unbounded and uncancellable, and quadruple fences lose their language identifier. Aider's `!` alias and bare `/read-only` conversion are unported. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, `/diff`, and wider command breadth remain outside this surface. |
-| Watch/URL/web/voice/help | partial with interface and adapter defects | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. Watch reads have the ancestor-swap containment gap above. The library-only voice helper has cancellation-boundary and listener-cleanup tests, but its exported ffmpeg recorder misses a pre-aborted signal; GUI and CLI voice UX are deferred. |
+| Watch/URL/web/voice/help | partial with an exported-adapter defect | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, rejects ancestor-swapped reads through a verified retained handle, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. The library-only voice helper has cancellation-boundary and listener-cleanup tests, but its exported ffmpeg recorder misses a pre-aborted signal; GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | implemented Patch scope with separate source inventory | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a 63-entry direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. The separate 2026-09-15 Git-tree inventory classifies every pinned product module/resource because attribution markers cannot prove upstream-source completeness. This is not aider's full option surface or transitive upstream-resource integrity. |
 
 ### File-for-file re-audit additions — 2026-09-15
@@ -128,12 +128,13 @@ below. This section adds findings that pass did not represent.
   defect. `src/io/editor.ts:24-49` independently applies the same generic escape
   rule as slash paths, corrupting quoted drive/UNC executables from `--editor`,
   `VISUAL`, or `EDITOR`. Fix and test both tokenizers together.
-- [ ] **P1 — Retain containment across media and watch reads.** **Status:**
-  security-hardening defect. `src/core/media-context.ts:82-106` and
-  `src/interfaces/watch-mode.ts:223-244` resolve and then operate by pathname;
-  swapping an ancestor between those operations can redirect a read outside the
-  root. Static symlink tests are insufficient. Pinned aider is not stronger, so
-  this is hardening rather than compatibility mimicry.
+- [x] **P1 — Retain containment across media and watch reads.** **Status:** fixed
+  2026-09-15. `SafePathResolver.openFileForRead` opens canonical paths with
+  no-follow semantics, then re-resolves the request, compares handle/path
+  identity, and verifies every in-root ancestor before returning the retained
+  handle. Media and watch consume bytes only through it. Deterministic pre-open
+  ancestor swaps make media fail and watch submit nothing. Pinned aider is not
+  stronger, so this is intentional hardening rather than compatibility mimicry.
 - [ ] **P2 — Make `FfmpegVoiceRecorder` honor a pre-aborted signal directly.**
   **Status:** exported-adapter defect. `src/interfaces/voice.ts:178-208` spawns
   before listener registration and never prechecks the signal. Test the real
@@ -1607,10 +1608,10 @@ renderer fidelity remains a separate deferred item.
 
 **Status:** Production-wired but partial. Watch and local HTTP/SSE startup
 construct concrete application contracts, `/web` ingests one user-typed URL,
-and bounded session/replay/backpressure policy is enforced. Watch read
-containment remains vulnerable to an ancestor swap after resolution, and the
-exported ffmpeg recorder misses pre-aborted signals. The API remains for trusted
-local clients, not public or multi-tenant hosting.
+and bounded session/replay/backpressure policy is enforced. Media and watch
+reject ancestor-swapped reads before consuming bytes; the exported ffmpeg
+recorder still misses pre-aborted signals. The API remains for trusted local
+clients, not public or multi-tenant hosting.
 
 - [x] Feed fetched URL content through bounded application context with explicit
   user intent, source labeling, and token limits; keep Playwright separately
@@ -1650,8 +1651,8 @@ local clients, not public or multi-tenant hosting.
 
 **Acceptance:** watch, web, URL, and voice helpers drive real application
 contracts rather than merely compiling against interfaces. This production
-reachability does not close the read-containment and ffmpeg-adapter defects
-listed above or establish browser/CLI-voice parity.
+reachability and verified read containment do not close the ffmpeg-adapter
+defect listed above or establish browser/CLI-voice parity.
 
 ## R9 — Correct stale plans and product documentation
 

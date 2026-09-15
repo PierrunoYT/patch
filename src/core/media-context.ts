@@ -5,8 +5,6 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { constants } from "node:fs";
-import { open } from "node:fs/promises";
 import { extname, relative, sep } from "node:path";
 
 import { SafePathResolver } from "../io/safe-path.js";
@@ -80,12 +78,8 @@ export async function loadReadOnlyMedia(
     throw new MediaContextError("Unsupported media type");
   }
   const resolver = await SafePathResolver.create(root);
-  const absolute = await resolver.resolve(target);
   signal?.throwIfAborted();
-  const handle = await open(
-    absolute,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
+  const { path: absolute, handle } = await resolver.openFileForRead(target);
   try {
     const metadata = await handle.stat();
     if (!metadata.isFile())

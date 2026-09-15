@@ -7,7 +7,6 @@
  */
 
 import { watch, type FSWatcher } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
 import { relative, sep } from "node:path";
 
 import { SerialTaskQueue } from "../core/serial-queue.js";
@@ -234,14 +233,21 @@ export class AiWatchMode {
     )
       return undefined;
     try {
-      const metadata = await stat(absolute);
-      if (
-        !metadata.isFile() ||
-        metadata.size > (this.#options.maxFileBytes ?? 1024 * 1024)
-      )
-        return undefined;
-      const parsed = parseWatchComments(await readFile(absolute, "utf8"));
-      return { path, ...parsed };
+      const opened = await resolver.openFileForRead(requested);
+      try {
+        const metadata = await opened.handle.stat();
+        if (
+          !metadata.isFile() ||
+          metadata.size > (this.#options.maxFileBytes ?? 1024 * 1024)
+        )
+          return undefined;
+        const parsed = parseWatchComments(
+          await opened.handle.readFile({ encoding: "utf8" }),
+        );
+        return { path, ...parsed };
+      } finally {
+        await opened.handle.close();
+      }
     } catch {
       return undefined;
     }

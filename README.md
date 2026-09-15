@@ -112,6 +112,9 @@ text on the enumerated production terminal output paths passes through one
 stateful control-sequence sanitizer, and
 replacement preserves the metadata Node can carry portably while refusing a
 swapped ancestor;
+media and watch reads retain a no-follow handle only after target and ancestor
+identity revalidation, so a pre-open ancestor swap cannot redirect provider
+context outside the repository;
 `/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
 submits clipboard text as a user turn, and a turn interrupted after its edits
 landed reconciles history and reports surviving work through the terminal.
@@ -270,9 +273,10 @@ Use `/attach <path...>` to add up to four approved, contained images or PDFs as
 read-only model context. Attachments are limited to 5 MiB each and 10 MiB total,
 must match an allowlisted extension and file signature, and are available only
 when the selected model declares the matching capability. `/drop` removes them;
-their encoded bytes are never copied into chat history or diagnostics. Static
-symlink containment is enforced, but an untrusted local process that swaps an
-ancestor between resolution and open can still redirect the read.
+their encoded bytes are never copied into chat history or diagnostics. Before
+reading bytes, Patch re-resolves the target, verifies the opened file identity
+and every in-root ancestor, then reads only through the retained handle. This
+intentionally rejects ancestor-swap redirection that pinned aider does not.
 The currently constructed formats are `ask`, `whole`, `diff`, `diff-fenced`,
 `udiff`, and `patch`. Advanced schema values are rejected rather than silently
 accepted. This same six-value set drives configuration, model settings,

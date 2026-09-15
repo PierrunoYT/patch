@@ -17,11 +17,12 @@ root `.aiderignore` checks. Ignore-command failures abort the affected batch
 rather than exposing a file and reach the submission error reporter described
 below.
 
-“Contained” currently means canonical resolution rejects static traversal and
-escaping symlinks. The watcher then stats and reads the resolved pathname in
-separate operations; an untrusted local process that swaps an ancestor in that
-interval can redirect the read and inject external comments. This P1 hardening
-gap is not covered by existing static-symlink tests.
+“Contained” includes the shared read-handle boundary: after canonical resolution,
+the watcher opens with no-follow semantics, re-resolves the requested path,
+checks the opened file identity and every in-root ancestor, and reads through
+that retained handle only. An ancestor swap therefore causes the file to be
+ignored rather than injecting external comments. A deterministic pre-open race
+test covers this intentional hardening beyond pinned aider's pathname read.
 
 A changed file carrying an actionable marker triggers the turn, and the turn
 then refreshes AI comments from every selected file, as Aider does: a comment

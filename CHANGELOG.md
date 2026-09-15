@@ -389,6 +389,14 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Closed the media/watch ancestor-swap containment gap with a shared verified
+  read-handle boundary. It opens canonical paths with no-follow semantics,
+  re-resolves the request, compares handle/path identity, revalidates every
+  in-root ancestor, and consumes bytes only from the retained handle.
+  Deterministic pre-open swap tests prove media returns no bytes and watch mode
+  submits no external comments. This intentionally hardens pinned aider's
+  ordinary pathname reads.
+
 - Made provider retries observer-atomic. `CoderSession` buffers each attempt's
   validated events until an accepted finish, then forwards them in order;
   discarded partial text, reasoning, usage, and retry errors can no longer leak

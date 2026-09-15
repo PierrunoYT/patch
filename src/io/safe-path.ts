@@ -1,4 +1,5 @@
-import { lstat, realpath, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, realpath, stat, type FileHandle } from "node:fs/promises";
 import {
   basename,
   dirname,
@@ -32,6 +33,19 @@ function isContained(root: string, target: string): boolean {
       !pathFromRoot.startsWith(`..${sep}`) &&
       !isAbsolute(pathFromRoot))
   );
+}
+
+interface DirectoryIdentity {
+  readonly path: string;
+  readonly device: number;
+  readonly inode: number;
+}
+
+function sameObject(
+  left: { readonly dev: number; readonly ino: number },
+  right: { readonly dev: number; readonly ino: number },
+): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
 }
 
 async function resolveExistingAncestor(target: string): Promise<string> {
@@ -80,6 +94,21 @@ export class PathOutsideRootError extends Error {
   }
 }
 
+export class PathChangedDuringReadError extends Error {
+  override readonly name = "PathChangedDuringReadError";
+  readonly target: string;
+
+  constructor(target: string) {
+    super(`Path changed while opening a contained read: ${target}`);
+    this.target = target;
+  }
+}
+
+export interface ContainedReadHandle {
+  readonly path: string;
+  readonly handle: FileHandle;
+}
+
 export class SafePathResolver {
   readonly root: string;
 
@@ -112,5 +141,69 @@ export class SafePathResolver {
     }
 
     return canonicalTarget;
+  }
+
+  /**
+   * Opens a file without consuming bytes until the canonical path, opened
+   * object, and every in-root ancestor have been revalidated. Node has no
+   * portable openat(2), so retaining a verified handle is the smallest
+   * cross-platform way to prevent a pathname swap from redirecting the later
+   * read. Callers own and must close the returned handle.
+   */
+  async openFileForRead(target: string): Promise<ContainedReadHandle> {
+    const path = await this.resolve(target);
+    const ancestors = await this.#directoryIdentities(path);
+    const handle = await open(
+      path,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    try {
+      const resolvedAgain = await this.resolve(target);
+      if (resolvedAgain !== path) throw new PathChangedDuringReadError(target);
+      const opened = await handle.stat();
+      const current = await stat(path);
+      if (!sameObject(opened, current))
+        throw new PathChangedDuringReadError(target);
+      await this.#assertDirectoryIdentities(ancestors, target);
+      return { path, handle };
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
+  }
+
+  async #directoryIdentities(target: string): Promise<DirectoryIdentity[]> {
+    const parent = target === this.root ? this.root : dirname(target);
+    if (!isContained(this.root, parent))
+      throw new PathOutsideRootError(this.root, target);
+    const paths: string[] = [];
+    for (let path = parent; ; path = dirname(path)) {
+      paths.push(path);
+      if (path === this.root) break;
+    }
+    paths.reverse();
+    return Promise.all(
+      paths.map(async (path) => {
+        const information = await stat(path);
+        if (!information.isDirectory())
+          throw new PathChangedDuringReadError(target);
+        return { path, device: information.dev, inode: information.ino };
+      }),
+    );
+  }
+
+  async #assertDirectoryIdentities(
+    expected: readonly DirectoryIdentity[],
+    target: string,
+  ): Promise<void> {
+    for (const identity of expected) {
+      const current = await stat(identity.path);
+      if (
+        !current.isDirectory() ||
+        current.dev !== identity.device ||
+        current.ino !== identity.inode
+      )
+        throw new PathChangedDuringReadError(target);
+    }
   }
 }
