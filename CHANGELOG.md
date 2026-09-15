@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Defined Bash, Zsh, and Fish as the maintained generated-completion targets and
+  retained one Node readline input path. Shell-suggestion policy remains
+  strategy-owned and cannot bypass command preview/approval; untested shell
+  generators and alternate line editors are non-goals.
+
 - Kept clipboard access text-only as an explicit privacy and containment
   decision. Patch will not silently probe image clipboard contents or create
   external temporary media; saved images and PDFs use the visible, approved,

@@ -166,8 +166,11 @@ non-ignored source. Candidates are refreshed on each Tab press;
 Alt-Enter continues a message across lines, Ctrl-X Ctrl-E edits the draft in
 `$EDITOR`, and `/run --interactive` hands the terminal to one approved command
 through the optional `node-pty` package. `--vim` is refused rather than ignored;
-Vi modal editing is not implemented. Architect and context are private
-application workflows, not public modes; prompt-cache keepalive is
+Vi modal editing is not implemented. Generated completion supports the
+maintained Bash, Zsh, and Fish targets; Patch uses one Node readline path and
+does not expose suggestion/input toggles that could imply a different approval
+contract. Architect and context are private application workflows, not public
+modes; prompt-cache keepalive is
 production-wired as an explicit bounded opt-in. Capable models repeat
 assistant-prefill continuation up to three times without duplicating prior
 output. `/attach` adds bounded, approved image/PDF context for capable models;

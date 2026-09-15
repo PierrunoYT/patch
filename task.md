@@ -218,9 +218,12 @@ security rules above.
   the OS clipboard for images or create out-of-repository temporary media;
   images and PDFs enter model context only through an explicit, visible
   `/attach <path...>` command using the bounded, approved, contained media path.
-- [ ] **SHELL-1:** Expand shell completion only for shells with maintained tests;
-  decide runtime toggles for shell suggestions and line editing without
-  bypassing command approval.
+- [x] **SHELL-1:** Keep generated completion to Bash, Zsh, and Fish, the shells
+  with deterministic maintained tests. Keep shell-suggestion policy bound to
+  the selected edit strategy and interactive input on the single Node readline
+  implementation; neither changes the requirement to preview and approve model
+  commands. Wider shell support and alternate line editors are non-goals for the
+  current terminal contract.
 
 ### Repository maps, Git, recovery, and checks
 

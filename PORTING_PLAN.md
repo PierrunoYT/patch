@@ -814,6 +814,10 @@ individual edit-strategy suites.
   instead of ending the input loop. Clipboard text semantics are settled:
   `/paste` submits clipboard text as a user turn without reparsing it as a
   command. Clipboard images remain unread.
+- [x] Define the maintained shell/input surface as Bash, Zsh, and Fish completion
+  plus one Node readline implementation. Shell-suggestion policy remains
+  strategy-owned and every suggested command remains previewed and approved;
+  untested shell generators and alternate line editors are non-goals.
 
 **Exit:** command/file/source-identifier
 completion, recall, multiline, the external editor, explicit PTY dispatch,

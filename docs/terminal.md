@@ -230,6 +230,12 @@ claimed.
 `patch --shell-completions bash|zsh|fish` prints a script whose option inventory
 comes from the parser itself, so it cannot fall behind the executable; a test
 holds the two level. Hidden options — today only `--vim` — are excluded.
+These three shells are the complete maintained completion contract; Patch does
+not advertise untested generators for shtab's wider inventory. Interactive
+input likewise uses one Node readline path rather than a `--fancy-input`
+alternate. Shell suggestions remain part of each edit strategy's prompt policy,
+but every suggested command still requires explicit preview and approval; no
+runtime toggle can weaken that boundary.
 
 `--notifications` fires after a provider turn and not after a slash command,
 which answers immediately. A configured notification command that fails is

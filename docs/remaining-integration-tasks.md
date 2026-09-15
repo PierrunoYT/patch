@@ -446,18 +446,21 @@ valid only for the specific normalization and recovery cases they name.
   to an external temporary directory. Patch will not silently inspect the OS
   image clipboard or create out-of-root media context; users save an image and
   select it visibly with `/attach <path...>` instead.
-- [ ] **P3 -- Expand shell completion only for shells with maintained tests.**
-  **Status:** partial. Patch generates bash, zsh, and fish completion at
-  `src/program.ts:260-284`; Aider delegates the larger supported set to shtab at
-  `aider/args.py:853-862`. This is usability work, not core parity.
-- [ ] **P3 -- Decide runtime toggles for shell suggestions and the line editor.**
-  **Status:** partial. Patch's controls are narrower. Aider exposes
+- [x] **N/A -- Keep generated completion to Bash, Zsh, and Fish.**
+  **Status:** accepted supported scope. Patch generates deterministic completion
+  from the live parser inventory at `src/program.ts:260-284`, with maintained
+  tests for exactly those three shells. Aider delegates a larger set to shtab at
+  `aider/args.py:853-862`; untested shell breadth is not part of Patch's current
+  portable terminal contract.
+- [x] **N/A -- Keep shell suggestions strategy-owned and use one Node readline
+  path.** **Status:** accepted supported scope. Aider exposes
   `--suggest-shell-commands` and `--fancy-input` at `aider/args.py:806-817`;
   Patch binds shell suggestion policy
   to the selected edit strategy in
   `src/resources/strategy-prompts.ts:27-32,289-337` and always uses its Node
-  readline path for interactive input. Any toggle must preserve command approval
-  and parser/completion consistency.
+  readline path for interactive input. A model-suggested command remains
+  previewed and approval-gated regardless of strategy. Alternate input stacks
+  and runtime toggles are non-goals for the current terminal contract.
 - [x] **N/A -- Keep history writes opt-in.** **Status:** intentional difference.
   This is a privacy decision. Patch writes input/chat history only when paths are
   configured at `src/program.ts:176-180,349-356`; Aider assigns default history paths at
