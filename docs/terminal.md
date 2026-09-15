@@ -105,10 +105,11 @@ rather than submitted, so a final Enter is still required; an editor that fails
 leaves the draft and every held line intact with the reason printed, and the
 temporary file is removed either way.
 
-The current editor-command tokenizer treats backslashes as generic escapes.
-Quoted Windows drive and UNC executable paths can therefore lose separators and
-fail to spawn; this is a P1 defect in `--editor`, `VISUAL`, and `EDITOR`, not a
-supported cross-platform quoting contract.
+Editor commands use the same quote-aware splitter as slash-command paths.
+Windows drive, UNC, and relative executable paths retain their separators and
+quoted spaces; POSIX whitespace, quote, and literal-backslash escapes remain
+available. The resulting executable and arguments are still spawned directly,
+without a shell.
 
 Ctrl-C abandons what is being typed, held lines included, before the interrupt
 handler runs. Node's readline emits `SIGINT` without touching the buffer, so an

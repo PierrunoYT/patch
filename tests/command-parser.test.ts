@@ -87,6 +87,29 @@ describe("parseCommand", () => {
   });
 
   it.each([
+    [String.raw`/add C:\repo\file.ts`, [String.raw`C:\repo\file.ts`]],
+    [
+      String.raw`/attach "\\server\share\diagram.png"`,
+      [String.raw`\\server\share\diagram.png`],
+    ],
+    [
+      String.raw`/drop .\relative\one.ts ..\other\two.ts`,
+      [String.raw`.\relative\one.ts`, String.raw`..\other\two.ts`],
+    ],
+    [
+      String.raw`/read-only "C:\Program Files\Patch\read me.ts"`,
+      [String.raw`C:\Program Files\Patch\read me.ts`],
+    ],
+    [
+      String.raw`/add src/with\ space.ts docs/quote\"name.md literal\\slash.ts`,
+      ["src/with space.ts", 'docs/quote"name.md', String.raw`literal\slash.ts`],
+    ],
+    ["/add C:\\", ["C:\\"]],
+  ])("preserves Windows paths and POSIX escapes in %s", (input, paths) => {
+    expect(parseCommand(input)).toMatchObject({ paths });
+  });
+
+  it.each([
     "/add",
     "/attach",
     "/read-only",

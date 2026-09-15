@@ -10,6 +10,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { splitQuotedWords, UnterminatedWordQuoteError } from "./word-split.js";
+
 export function discoverEditor(
   environment: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
@@ -22,32 +24,17 @@ export function discoverEditor(
 }
 
 export function splitEditorCommand(command: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let quote: "'" | '"' | undefined;
-  let escaped = false;
-  for (const character of command.trim()) {
-    if (escaped) {
-      current += character;
-      escaped = false;
-    } else if (character === "\\" && quote !== "'") {
-      escaped = true;
-    } else if (quote !== undefined) {
-      if (character === quote) quote = undefined;
-      else current += character;
-    } else if (character === "'" || character === '"') {
-      quote = character;
-    } else if (/\s/u.test(character)) {
-      if (current !== "") result.push(current);
-      current = "";
-    } else {
-      current += character;
+  let result: string[];
+  try {
+    result = splitQuotedWords(command.trim());
+  } catch (error) {
+    if (error instanceof UnterminatedWordQuoteError) {
+      throw new Error("Editor command contains an unterminated quote", {
+        cause: error,
+      });
     }
+    throw error;
   }
-  if (escaped || quote !== undefined) {
-    throw new Error("Editor command contains an unterminated quote or escape");
-  }
-  if (current !== "") result.push(current);
   if (result.length === 0) throw new Error("Editor command cannot be empty");
   return result;
 }

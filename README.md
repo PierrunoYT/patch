@@ -72,10 +72,10 @@ the installed acceptance evidence and intentional differences from aider.
 The parser-owned inventory and `docs/commands.md` are checked against each other,
 and one real-Git application scenario executes all 20 named Patch command effects
 plus contained/denied/missing-state failures. This proves registration and the
-exercised effects, not Windows path correctness, clipboard process bounds,
-aider's `!` alias/bare `/read-only` semantics, `/diff`, or aider's wider command
-set. Clipboard process bounds are separately covered by executable child and
-serialized-queue tests.
+exercised effects; Windows path parsing and clipboard process bounds are covered
+separately by focused parser/editor, executable-child, and serialized-queue
+tests. Aider's `!` alias/bare `/read-only` semantics, `/diff`, and aider's wider
+command set remain outside that evidence.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;
@@ -267,9 +267,9 @@ symbolic links skipped, ignored files dropped, and the selection bounded; a
 named path that does not exist yet stays selectable. An exact existing name is
 checked before glob interpretation, so glob metacharacters in a filename remain
 literal. External read-only files are not supported. Slash-command path parsing
-currently corrupts Windows drive, UNC, and relative backslashes; use the CLI
-selection options rather than `/add`, `/attach`, `/drop`, or `/read-only` for
-those forms until the P1 fix lands.
+preserves Windows drive, UNC, and relative backslashes, including quoted spaces;
+the same splitter handles configured editor commands and retains POSIX escapes
+for whitespace, quotes, and literal backslashes.
 Use `/attach <path...>` to add up to four approved, contained images or PDFs as
 read-only model context. Attachments are limited to 5 MiB each and 10 MiB total,
 must match an allowlisted extension and file signature, and are available only

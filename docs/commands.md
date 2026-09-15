@@ -15,12 +15,13 @@ reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
 typed `submit` effect.
 
-Current path tokenization treats every backslash as an escape. Windows drive,
-UNC, and relative paths can therefore lose separators in `/add`, `/attach`,
-`/drop`, and `/read-only`; use equivalent CLI selection options until this P1
-defect is fixed. Pinned aider's `!command` alias for `/run` and bare
-`/read-only` conversion of every editable file are also unported. Patch sends a
-leading `!` as ordinary model input and requires at least one `/read-only` path.
+Path tokenization preserves backslashes before ordinary characters and a leading
+UNC pair while supporting quoted spaces and POSIX escapes for whitespace,
+quotes, and literal backslashes. `/add`, `/attach`, `/drop`, and `/read-only`
+therefore share the same Windows-safe contract as configured editor commands.
+Pinned aider's `!command` alias for `/run` and bare `/read-only` conversion of
+every editable file are still unported. Patch sends a leading `!` as ordinary
+model input and requires at least one `/read-only` path.
 
 `/help` lists every supported command. `/help <query>` searches an explicit
 allowlist of six Markdown documents installed with Patch and returns at most

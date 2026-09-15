@@ -111,8 +111,9 @@ this plan, task register, and backlog track current status and open work.
   pinned `aider/diffs.py`, no computed hunks or unchanged-context elision exist.
   Clipboard utilities are bounded to 10 seconds and 1 MiB by default, inherit
   session cancellation, terminate their process tree, and release the queue
-  after child stdio closes. Windows slash-path/editor-command tokenization and
-  variable-fence language rendering remain defective.
+  after child stdio closes. Slash paths and editor commands share a
+  Windows-safe, POSIX-escape-aware splitter. Variable-fence language rendering
+  remains defective.
 - File selection checks an exact contained file or directory before interpreting
   glob metacharacters, then applies the same bounded contained expansion and
   ignore filtering to actual patterns. Git ignore checks prefix exact paths
@@ -766,9 +767,10 @@ individual edit-strategy suites.
   Alt-Enter continues a message across lines and Ctrl-X Ctrl-E edits the whole
   draft in the configured editor. Vi modal editing is not implemented, so
   `--vim` is refused by name rather than accepted and ignored.
-- [ ] Preserve Windows drive, UNC, and relative backslashes in both slash-command
+- [x] Preserve Windows drive, UNC, and relative backslashes in both slash-command
   paths and configured external-editor commands. Cover spaces, quotes, literal
-  backslashes, and POSIX escaping through parser and executable tests.
+  backslashes, and POSIX escaping through parser and editor-command tests. Both
+  consumers now use one quote-aware splitter with focused cases for every form.
 - [x] Bound and cancel clipboard utility processes. Cap read/write bytes and
   duration, forward cancellation, terminate and drain the child, and prove a
   hung or overproducing utility cannot hold the session queue indefinitely.
@@ -795,9 +797,8 @@ individual edit-strategy suites.
 **Exit (blocked for cross-platform correctness):** command/file/source-identifier
 completion, recall, multiline, the external editor, explicit PTY dispatch,
 generated shell completions, and provider-turn-only notifications all run
-through the executable's reader. The Windows tokenization and variable-fence
-items above remain open. Broader Rich renderer fidelity is a separate deferred
-product decision.
+through the executable's reader. The variable-fence item above remains open.
+Broader Rich renderer fidelity is a separate deferred product decision.
 
 **Evidence:** `tests/cli.test.ts`, `tests/render.test.ts`,
 `tests/input-editing.test.ts`, `tests/interactive-command.test.ts`,

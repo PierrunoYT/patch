@@ -69,6 +69,30 @@ describe("rich input editing", () => {
       "--name",
       "Patch input",
     ]);
+    expect(
+      splitEditorCommand(
+        String.raw`"C:\Program Files\Editor\editor.exe" --wait`,
+      ),
+    ).toEqual([String.raw`C:\Program Files\Editor\editor.exe`, "--wait"]);
+    expect(
+      splitEditorCommand(String.raw`\\server\share\editor.exe --wait`),
+    ).toEqual([String.raw`\\server\share\editor.exe`, "--wait"]);
+    expect(splitEditorCommand(String.raw`.\tools\editor.exe file.md`)).toEqual([
+      String.raw`.\tools\editor.exe`,
+      "file.md",
+    ]);
+    expect(
+      splitEditorCommand(
+        String.raw`editor path\ with\ spaces --label \"quoted\" literal\\slash`,
+      ),
+    ).toEqual([
+      "editor",
+      "path with spaces",
+      "--label",
+      '"quoted"',
+      String.raw`literal\slash`,
+    ]);
+    expect(splitEditorCommand("C:\\")).toEqual(["C:\\"]);
     expect(() => splitEditorCommand("editor '")).toThrow(/unterminated/u);
   });
 

@@ -389,6 +389,12 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Preserved Windows backslashes in both slash-command paths and configured
+  editor commands. One shared quote-aware splitter now retains drive, UNC, and
+  relative separators plus quoted spaces while preserving POSIX escapes for
+  whitespace, quotes, and literal backslashes. Focused parser/editor tests cover
+  all forms, including a trailing drive-root separator.
+
 - Bounded and cancelled clipboard utilities. `/copy` and `/paste` now default to
   10 seconds and 1 MiB, reject oversized input/output, inherit the active
   session signal, terminate the utility process tree, and settle after direct

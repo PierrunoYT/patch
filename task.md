@@ -75,10 +75,13 @@ Baseline for the current findings:
   input/output values or document an independently sourced newer-vendor
   contract. Test the exact values because they control prompt refusal,
   repository-map budgets, and provider output limits.
-- [ ] **WIN-1: Preserve Windows backslashes in command and editor tokenizers.**
+- [x] **WIN-1: Preserve Windows backslashes in command and editor tokenizers.**
   Fix slash-command paths and configured external-editor commands together.
   Cover drive paths, UNC paths, relative paths, spaces, quotes, and literal
-  backslashes without regressing POSIX escaping.
+  backslashes without regressing POSIX escaping. Completed 2026-09-15: both
+  consumers use one quote-aware word splitter that preserves separators before
+  ordinary characters and UNC prefixes while retaining POSIX whitespace, quote,
+  and literal-backslash escapes; focused tests cover every listed form.
 - [x] **PROC-1: Bound and cancel clipboard utility subprocesses.** Limit time
   and read/write bytes, forward cancellation, terminate and drain children, and
   prove a hung or overproducing utility cannot hold the serialized session

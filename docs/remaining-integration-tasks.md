@@ -82,7 +82,7 @@ unchanged result of any historical audit.
 | Models/providers | partial with advertised-profile defects | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. However, `gpt-4o-mini` format/map defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek token limits disagree with pinned resources without a documented intentional divergence. Separately gated live contracts remain subject to protected workflow/account variability. |
 | Git/filesystem | partial with intentional hardening | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads retain a no-follow handle only after re-resolving the target and verifying opened-file plus every in-root ancestor identity; deterministic pre-open swaps cannot return or submit external content. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
-| Commands/terminal | partial with cross-platform correctness defects | All 20 named Patch commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Clipboard utilities default to 10 seconds and 1 MiB, inherit session cancellation, terminate their process tree, and release the serialized queue after direct-child stdio closes. Slash-command paths and editor commands still corrupt Windows backslashes, and quadruple fences lose their language identifier. Aider's `!` alias and bare `/read-only` conversion are unported. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, `/diff`, and wider command breadth remain outside this surface. |
+| Commands/terminal | partial with one renderer correctness defect | All 20 named Patch commands dispatch through documented application effects, with parser/docs inventory equality and real-Git success plus safe-failure evidence. Clipboard utilities default to 10 seconds and 1 MiB, inherit session cancellation, terminate their process tree, and release the serialized queue after direct-child stdio closes. Slash-command paths and editor commands share a quote-aware splitter that preserves Windows separators and POSIX escapes. Quadruple fences still lose their language identifier. Aider's `!` alias and bare `/read-only` conversion are unported. Edit previews remain full-content replacement blocks; richer rendering, true Vi input, `/diff`, and wider command breadth remain outside this surface. |
 | Watch/URL/web/voice/help | partial with an exported-adapter defect | Watch and local HTTP/SSE share the worktree lock; watch reports submission/ignore failures, rejects ancestor-swapped reads through a verified retained handle, `/web` ingests one bounded user-named page, partial-turn failures return allowlisted recovery metadata, HTTP sessions expire and are reclaimed under explicit quotas, and SSE replay/client pressure are bounded. The library-only voice helper has cancellation-boundary and listener-cleanup tests, but its exported ffmpeg recorder misses a pre-aborted signal; GUI and CLI voice UX are deferred. |
 | Configuration/package/provenance | implemented Patch scope with separate source inventory | Bootstrap stages all intended application/interface options, including packed YAML/environment/dotenv/CLI precedence and root-correction evidence. Parser-derived completion, packaged docs/resources, clean-tree/direct fixture-import checks, a 63-entry direct-derivation ledger with CI drift scanning, and provider-lifetime cleanup are wired. The separate 2026-09-15 Git-tree inventory classifies every pinned product module/resource because attribution markers cannot prove upstream-source completeness. This is not aider's full option surface or transitive upstream-resource integrity. |
 
@@ -128,10 +128,11 @@ below. This section adds findings that pass did not represent.
   Executable timeout/cancellation/overflow/cleanup tests and a cancelled-paste
   queue-reuse test cover the production signal path. Pinned aider remains
   unbounded; this is intentional Patch hardening.
-- [ ] **P1 — Preserve Windows backslashes in editor commands.** **Status:**
-  defect. `src/io/editor.ts:24-49` independently applies the same generic escape
-  rule as slash paths, corrupting quoted drive/UNC executables from `--editor`,
-  `VISUAL`, or `EDITOR`. Fix and test both tokenizers together.
+- [x] **P1 — Preserve Windows backslashes in editor commands.** **Status:** fixed
+  2026-09-15 with the slash-path defect below. `splitEditorCommand` and path
+  commands now use one quote-aware splitter. It preserves drive, UNC, relative,
+  quoted-space, and trailing separators while retaining POSIX whitespace, quote,
+  and literal-backslash escapes. Focused editor-command tests cover every form.
 - [x] **P1 — Retain containment across media and watch reads.** **Status:** fixed
   2026-09-15. `SafePathResolver.openFileForRead` opens canonical paths with
   no-follow semantics, then re-resolves the request, compares handle/path
@@ -209,14 +210,13 @@ Status meanings in this section:
   repeated insertion text, new files, and existing empty files; packed
   actual-bin smoke covers a middle insertion. Pinned aider instead refuses every
   empty preimage.
-- [ ] **P1 -- Preserve Windows backslashes in slash-command paths.**
-  **Status:** defect. `src/commands/parse.ts:76-115` treats every backslash as a
-  generic escape; `/add C:\repo\file.ts` becomes `C:repofile.ts`. The same
-  tokenizer feeds `/attach`, `/drop`, and `/read-only`. Aider's
-  `aider/commands.py:799-805,912-925,1328-1416,1694-1697` preserves backslashes
-  while separating quoted names. Add parser and executable cases for absolute
-  drive paths, UNC paths, relative Windows paths, spaces, quotes, and literal
-  backslashes without regressing POSIX escaping.
+- [x] **P1 -- Preserve Windows backslashes in slash-command paths.**
+  **Status:** fixed 2026-09-15 with the editor-command defect above. `/add`,
+  `/attach`, `/drop`, and `/read-only` use the shared quote-aware splitter.
+  Parser cases cover absolute drive, UNC, relative, quoted-space, trailing-root,
+  escaped-whitespace, escaped-quote, and literal-backslash forms. Aider's
+  `aider/commands.py:799-805,912-925,1328-1416,1694-1697` also preserves
+  backslashes while separating quoted names.
 - [ ] **P2 -- Retain the language identifier for quadruple Markdown fences.**
   **Status:** defect. `src/io/render.ts:121-130` recognizes four
   backticks by matching only the first three, leaving the captured language
@@ -1364,12 +1364,11 @@ deterministic tests; actual child execution is retained.
 
 ## R3 — Dispatch every advertised slash command
 
-**Status:** Every one of Patch's 20 named commands reaches a concrete effect,
-but the 2026-09-15 audit supersedes the broader correctness claim. Windows path
-tokenization is defective, bare `/read-only` and aider's `!` alias are unported,
-and `/diff` does not exist. Clipboard execution is now bounded and cancellable.
-Switching, undo ownership, bounded selection expansion, and ordinary command
-result reporting remain production-wired.
+**Status:** Every one of Patch's 20 named commands reaches a concrete effect.
+Windows-safe path tokenization and bounded clipboard execution are now covered;
+bare `/read-only` and aider's `!` alias remain unported, and `/diff` does not
+exist. Switching, undo ownership, bounded selection expansion, and ordinary
+command result reporting remain production-wired.
 
 - [x] Add an application-owned dispatcher for `/add`, `/attach`, `/drop`,
   `/read-only`, `/help`, `/settings`, `/report`, `/ls`, `/clear`, `/model`,
@@ -1403,9 +1402,10 @@ result reporting remain production-wired.
 **Acceptance:** met only for registration, dispatch, and the exercised
 next-turn cases. `tests/advertised-commands.test.ts` keeps the named inventory
 equal to the parser/completion inventory and drives all 20 effects through one
-real-Git concrete application, including safe failures. It does not establish
-Windows path correctness, subprocess bounds, aider aliases/argument semantics,
-or wider command breadth. Those findings above control the current status.
+real-Git concrete application, including safe failures. Focused tests separately
+establish Windows path splitting and clipboard subprocess bounds. Aider
+aliases/argument semantics and wider command breadth remain outside this
+acceptance; those findings above control the current status.
 
 ## R4 — Add opt-in live provider contract tests
 
@@ -1553,10 +1553,11 @@ edit-recovery parity.
 
 **Status:** the supported completion, recall, multiline, editor, notification,
 clipboard, and explicit PTY paths are connected to the interactive CLI.
-Clipboard utilities are bounded and cancellable. Windows editor tokenization
-and variable-fence language rendering remain open correctness defects. True Vi
-modal editing and broader Rich renderer fidelity remain deferred; helper
-capabilities must not be read as additional executable behavior.
+Clipboard utilities are bounded and cancellable, and editor commands retain
+Windows separators. Variable-fence language rendering remains an open
+correctness defect. True Vi modal editing and broader Rich renderer fidelity
+remain deferred; helper capabilities must not be read as additional executable
+behavior.
 
 - [x] Connect command/file completion to the current command inventory and live
   selected paths; candidates follow `/add` and `/drop`.
@@ -1604,11 +1605,11 @@ capabilities must not be read as additional executable behavior.
   `tests/terminal-sanitizer.test.ts`.
 
 **Acceptance:** production reachability is met for the listed command/file/
-source-identifier input paths, but the terminal exit is blocked by Windows
-editor tokenization and variable-fence language rendering. Recall, multiline,
-bounded clipboard execution, explicit PTY dispatch, shell completions, and
-notification timing remain executable rather than helper-only. Broader Rich
-renderer fidelity remains a separate deferred item.
+source-identifier input paths, but the terminal exit is blocked by variable-fence
+language rendering. Recall, multiline, Windows-safe editor splitting, bounded
+clipboard execution, explicit PTY dispatch, shell completions, and notification
+timing remain executable rather than helper-only. Broader Rich renderer fidelity
+remains a separate deferred item.
 
 ## R8 — Expose Phase 9 adapters through ApplicationService
 
@@ -1685,9 +1686,9 @@ defect listed above or establish browser/CLI-voice parity.
   without claiming full aider parity.
 - [x] Correct Phase 8/9 checkboxes after terminal sanitization, rich input, web
   coordination, and interface policy completed. The 2026-09-15 audit reopens
-  their exits for Windows/renderer correctness and the ffmpeg pre-abort contract;
-  clipboard bounds and read containment are now fixed, while richer rendering,
-  GUI, and CLI voice remain deferred.
+  their exits for renderer correctness and the ffmpeg pre-abort contract;
+  Windows tokenization, clipboard bounds, and read containment are now fixed,
+  while richer rendering, GUI, and CLI voice remain deferred.
 - [x] Reconcile `CHANGELOG.md` wording with what users can invoke, reserving
   “support” and “parity” for safe behavior reachable through a documented
   interface. The current audit entry records no runtime change and points to the

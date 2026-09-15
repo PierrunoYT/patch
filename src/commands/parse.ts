@@ -6,6 +6,10 @@
  */
 
 import { ApplicationEditFormatSchema } from "../edits/types.js";
+import {
+  splitQuotedWords,
+  UnterminatedWordQuoteError,
+} from "../io/word-split.js";
 import { CommandEffectSchema, type CommandEffect } from "./effects.js";
 
 export class CommandParseError extends Error {
@@ -78,36 +82,13 @@ function parsePaths(
   argument: string,
   required: boolean,
 ): string[] {
-  const paths: string[] = [];
-  let current = "";
-  let quote: "'" | '"' | undefined;
-  let escaped = false;
-  const finish = () => {
-    if (current !== "") paths.push(current);
-    current = "";
-  };
-
-  for (const character of argument) {
-    if (escaped) {
-      current += character;
-      escaped = false;
-    } else if (character === "\\") {
-      escaped = true;
-    } else if (quote !== undefined) {
-      if (character === quote) quote = undefined;
-      else current += character;
-    } else if (character === '"' || character === "'") {
-      quote = character;
-    } else if (/\s/u.test(character)) {
-      finish();
-    } else {
-      current += character;
-    }
-  }
-  if (escaped || quote !== undefined) {
+  let paths: string[];
+  try {
+    paths = splitQuotedWords(argument);
+  } catch (error) {
+    if (!(error instanceof UnterminatedWordQuoteError)) throw error;
     throw new CommandParseError(`/${command} has an unterminated quoted path`);
   }
-  finish();
   if (required && paths.length === 0) {
     throw new CommandParseError(`/${command} requires at least one path`);
   }
