@@ -307,9 +307,12 @@ security rules above.
   A GUI would add a second approval surface, secret/token storage, session
   lifecycle/reconnect UX, browser security, and shared-worktree interaction; no
   concrete product requirement justifies that permanent surface now.
-- [ ] **VOICE-2:** Reopen production voice UX only with device selection,
-  cancellation, transcript review, privacy disclosure, optional packaging, and
-  real-device evidence.
+- [x] **VOICE-2:** Keep voice as an optional embedding-only package subpath.
+  Do not add CLI microphone/device UX: it would require cross-platform device
+  selection, optional ffmpeg packaging, transcription-provider disclosure,
+  transcript review before submission, and real-device/network evidence. The
+  bounded cancellable recorder/transcriber contracts remain available to hosts
+  that own those choices.
 - [x] **WEB-1:** Keep URL ingestion explicit, DNS-pinned, bounded, and
   no-subresource. Production browser rendering and automatic URL detection are
   security/privacy non-goals unless a separate threat model and approval

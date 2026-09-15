@@ -148,7 +148,7 @@ this plan, task register, and backlog track current status and open work.
   share one worktree mutation lock. The root registry uses weak references and
   guarded finalizers to reclaim unreachable locks without evicting live idle
   sessions; reclamation timing depends on GC. `/web` ingests one user-typed URL as
-  bounded, labeled text. GUI and CLI voice UX are deferred. Loopback production
+  bounded, labeled text. GUI and CLI voice UX are current-release non-goals. Loopback production
   tests cover HTTP disconnect cancellation, principal/session isolation,
   structured partial-turn recovery, expiry, quotas, bounded replay/backpressure,
   reclamation, and concurrent terminal/watch/web work.
@@ -179,8 +179,8 @@ No runtime behavior changes with this decision.
 | `/map` | Implemented | Displays the active profile's current unhinted repository map through the same fresh tracked/non-ignored inventory, selected-file exclusion, ranking, budget, and fallback path used for production context. Output is sanitized and capped at 1 MiB; disabled/empty maps are explicit, and no provider or approval call occurs. The next user message can still personalize a turn's map. |
 | Inspection breadth | Scoped | `/settings`, `/diff`, `/tokens`, and `/map` are the complete read-only inspection surface. `/map-refresh` is redundant with the production path's fresh inventory, while `/copy-context` is a privacy non-goal because it would disclose raw prompt/history/file/map/media content to an ambient clipboard. |
 | `/report` | Implemented | Generates a bounded local issue draft with allowlisted Patch/Node/OS/architecture/Git versions and an optional 160-character control-free title that is visibly identified as user-supplied. Malformed metadata becomes `unavailable`, including unavailable Git. Chat, source, paths, environment, credentials, and raw diagnostics cannot enter the renderer. It performs no upload, browser launch, provider call, or network request. Application tests cover safe output, active and queued cancellation, queue order, terminal sanitization, unchanged approvals/history, and the installed packed executable. This trades one extra step for disclosure control compared with `aider/report.py` and `aider/commands.py:1555`. |
-| Browser GUI | Deferred | A GUI remains wanted but unscheduled: the terminal is the primary product, and a second UI has substantial maintenance cost. The authenticated local HTTP/SSE API is not a GUI. Revisit only after its session lifetime, quotas, backpressure, and approval UX are addressed; keep the shared application contracts instead of porting Streamlit (`aider/gui.py`). |
-| Voice UX | Deferred | Keep the optional library helper, not a production CLI voice claim. Fake-adapter/session tests cover cancellation handoffs and listener cleanup, including refusal of pre-aborted recording and late transcripts; this is not device or ffmpeg evidence. A later UX must make microphone capture and transcription-provider disclosure explicit, support cancellation, and allow transcript review before submission. Cross-platform devices, optional audio tools, and audio privacy justify deferral (`aider/voice.py`, `aider/commands.py:1252`, `aider/io.py`). |
+| Browser GUI | Non-goal | The authenticated local HTTP/SSE API remains an API. A GUI would require a second complete approval, secret-storage, reconnect/session, browser-security, and shared-worktree product contract without a current concrete requirement. |
+| Voice UX | Non-goal | Keep the optional library helper, not a production CLI microphone/device flow. Hosts using it own device selection, ffmpeg installation, transcription disclosure, transcript review, and real-device/network evidence. |
 | Analytics | Non-goal | No built-in usage telemetry, analytics identity, or analytics service integration. The privacy and permanent operational cost outweigh product metrics for this terminal tool. Local token/cost accounting is unaffected; it is not analytics collection (`aider/analytics.py`). |
 | Onboarding/OAuth | Non-goal | No automatic provider/model selection, account-tier probes, or browser OAuth/credential-persistence flow. Keep explicit model and credential configuration, supported by setup documentation and actionable validation errors. This avoids provider coupling and implicit network/credential side effects (`aider/onboarding.py`). |
 | Update/release notes | Non-goal | No built-in version probes, self-update, or automatic release-note prompts/browser launch. Updates remain user-managed through npm and release notes remain in the changelog. Upstream throttles ordinary version probes for 24 hours, but even periodic startup networking is unnecessary here (`aider/versioncheck.py`, `aider/main.py`). |
@@ -935,9 +935,9 @@ optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
 mutation phases are serialized in-process. Direct adapter coverage closes the
 ffmpeg pre-abort boundary without claiming real-device or CLI voice evidence.
-CLI voice and browser GUI are not selected for the current release, and
-browser-rendered `/web` is a non-goal; real-device evidence becomes required
-only if the corresponding product decision is reopened.
+CLI voice and browser GUI are current-release non-goals, while browser-rendered
+`/web` remains outside the explicit bounded fetch contract. The optional voice
+subpath retains adapter evidence without implying device or network behavior.
 
 **Startup and component evidence:** `tests/interface-startup.test.ts`,
 packed concrete-service startup in `scripts/package-smoke.mjs`, `tests/url-fetcher.test.ts`,

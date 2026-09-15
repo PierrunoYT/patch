@@ -589,13 +589,14 @@ valid only for the specific normalization and recovery cases they name.
   require a second complete approval UX, token/secret storage, reconnect/session
   lifecycle, browser security policy, and interaction tests. No concrete product
   requirement justifies that permanent surface for the terminal-first release.
-- [ ] **P2 -- Build production voice UX only after the deferred product decision
-  is reopened.** **Status:** deferred. Patch's partial dependency-injected helper
-  at `src/interfaces/voice.ts:22-257` has bounded fake-adapter tests but no CLI
-  recorder/device flow. Aider exposes voice format/language/device controls and
-  `/voice` at `aider/args.py:699-719`, `aider/commands.py:1252-1277`, and
-  `aider/voice.py:33-180`. Require device selection, cancellation, transcript
-  review, privacy disclosure, optional dependency packaging, and real-device evidence.
+- [x] **N/A -- Keep voice embedding-only.** **Status:** accepted current-release
+  scope. `@pierrunoyt/patch/voice` retains bounded recording/transcription,
+  cancellation, cleanup, late-result rejection, and explicit session submission
+  without entering the default dependency graph. CLI microphone/device UX is a
+  non-goal: it requires cross-platform device selection, optional ffmpeg
+  packaging, transcription-provider disclosure, transcript review before
+  submission, and real-device/network evidence. Hosts using the subpath own
+  those product and privacy choices.
 - [x] **N/A -- Keep browser-rendered `/web` and automatic URL detection out of
   production.** **Status:** intentional security/privacy non-goal. Patch fetches
   one user-typed URL through the DNS-pinned, bounded, no-subresource path in

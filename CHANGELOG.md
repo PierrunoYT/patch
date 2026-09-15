@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept voice as an optional embedding-only package subpath. A built-in CLI
+  microphone/device flow is a non-goal because it requires device selection,
+  ffmpeg packaging, transcription disclosure, transcript review, and real-device
+  and network evidence owned by the host application.
+
 - Kept a browser GUI out of the current release. The authenticated loopback
   HTTP/SSE server remains an API; a GUI would require a second complete approval,
   secret-storage, reconnect/session, browser-security, and shared-worktree

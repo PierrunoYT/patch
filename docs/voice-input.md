@@ -1,14 +1,11 @@
 # Optional voice input
 
-The CLI voice UX is **deferred**, not scheduled or implemented. The
-[P2 scope decision](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7)
-retains this library helper without treating it as executable voice parity.
-It is not selected for the current release scope, so Patch requires and claims
-no microphone, actual-ffmpeg device, or transcription-network evidence for that
-release. Selecting the UX later must reopen real-device and platform evidence;
-fake adapters cannot satisfy it.
-Any future UX must explicitly disclose microphone capture and transcription
-provider use, support cancellation, and allow transcript review before submission.
+CLI microphone/device UX is a current-release non-goal. Voice remains an
+optional embedding subpath for hosts that explicitly own recorder, transcriber,
+device, disclosure, and transcript-review UX. A built-in flow would require
+cross-platform device selection, optional ffmpeg packaging, transcription
+network disclosure, review before submission, and real-device evidence. The
+library helper's deterministic tests are not that evidence.
 
 Voice support is isolated behind the `@pierrunoyt/patch/voice` package subpath. The default CLI and main library entry point do not import it, and Patch adds no native audio, Playwright, or bundled ffmpeg dependency.
 

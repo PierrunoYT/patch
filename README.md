@@ -299,12 +299,12 @@ chat, source, environment, diagnostics, browser, upload, provider, or network ar
 involved. All three ancillary commands are exercised through the installed
 packed executable; they share the session queue and cancellation behavior and
 do not bypass file-write or process approvals.
-Browser GUI and CLI voice UX are deferred. Built-in analytics, automatic
-provider/model onboarding and OAuth, and update checks/release-note prompts are
-non-goals: configuration stays explicit, updates stay user-managed, and release
-notes stay in the changelog. Neither deferred interface is selected for the
-current release: voice helper tests are not real-device evidence, and loopback
-web tests are API—not browser-GUI—evidence. Existing `patch --help` is unaffected.
+Browser GUI and CLI voice UX are current-release non-goals. Built-in analytics,
+automatic provider/model onboarding and OAuth, and update checks/release-note
+prompts are also non-goals: configuration stays explicit and updates remain
+user-managed. Voice helper tests are embedding evidence, not microphone/device
+or transcription-network evidence; loopback web tests are API evidence, not a
+browser GUI claim.
 
 See the [porting plan](PORTING_PLAN.md) for implementation progress and the
 [changelog](CHANGELOG.md) for notable changes. Pinned upstream behavior is
