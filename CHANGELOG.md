@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept one streaming terminal presentation contract. Styling follows TTY and
+  `NO_COLOR`, with `--no-color` as the only override; Rich-style pretty/raw,
+  palette, completion-color, theme, and diff switches are non-goals for the
+  dependency-free renderer.
+
 - Kept executable line endings on preserve: existing files retain their observed
   style and new/no-newline files use the platform default. Global LF/CRLF
   conversion remains embedding-only because a session-wide override can rewrite

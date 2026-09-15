@@ -78,6 +78,9 @@ this plan, task register, and backlog track current status and open work.
 - Executable writes preserve existing line-ending style and use the platform
   default for new/no-newline files. Global LF/CRLF conversion is embedding-only
   to avoid unrelated rewrites and inflated diffs.
+- Provider output uses one streaming, sanitized presentation contract. TTY and
+  `NO_COLOR` select styling; `--no-color` is the only override. Rich-style
+  pretty/raw, palette, completion-color, theme, and diff switches are non-goals.
 
 ### Current staged parity
 

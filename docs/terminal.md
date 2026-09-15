@@ -190,6 +190,12 @@ path, a URL, or child output. Only styling Patch itself emits survives.
 
 The renderer is intentionally smaller than Aider's Rich renderer and does not
 provide full tables, lists, wrapping, or unstable-tail rerendering.
+Streaming is always enabled for provider turns. Styling is automatic from TTY
+and `NO_COLOR`, with `--no-color` as the only presentation override. Patch does
+not expose pretty/raw modes, custom palettes, completion-menu colors, code
+themes, or diff-display switches: its dependency-free renderer cannot support
+those Rich-style states coherently, while the sanitized plain-text contract is
+already deterministic for redirected output.
 
 ## Optional interactive PTY
 

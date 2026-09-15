@@ -458,12 +458,13 @@ valid only for the specific normalization and recovery cases they name.
   checks, round-trip encoding, UTF BOM retention, and newline coverage.
   Arbitrary Python/ICU codec names are a non-goal because availability and
   semantics would vary across the portable Node/npm package.
-- [ ] **P2 -- Decide non-streaming output and terminal presentation controls.**
-  **Status:** deferred. These controls are unported. Aider exposes streaming,
-  pretty mode, colors, completion-menu colors, code theme, and diff display at
-  `aider/args.py:303-400`; Patch exposes only `--no-color` at
-  `src/program.ts:194-198`. This is separate from correctness and does not block
-  the minimal terminal contract.
+- [x] **N/A -- Keep one streaming presentation contract.** **Status:** accepted
+  current-release scope. Provider output streams through Patch's sanitizer and
+  dependency-free Markdown renderer. Styling follows TTY and `NO_COLOR`, with
+  `--no-color` as the only override. Non-streaming, pretty/raw, palette,
+  completion-menu color, code-theme, and diff-display controls are non-goals:
+  they multiply terminal states without improving the safe text contract and
+  would imply Rich-level rendering Patch does not implement.
 - [ ] **P2 -- Implement computed edit previews and true Vi input only if the
   richer terminal scope is scheduled.** **Status:** deferred. Patch's
   `src/io/render.ts:241-257` emits complete before/after bodies and

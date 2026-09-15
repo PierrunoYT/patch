@@ -237,8 +237,11 @@ security rules above.
   round-trip writes, BOM retention where applicable, and newline tests.
   Arbitrary Python/ICU codec names are a non-goal because their availability
   and encode/decode behavior would make the npm package platform-dependent.
-- [ ] **TERM-2:** Decide non-streaming and terminal presentation controls beyond
-  `--no-color`.
+- [x] **TERM-2:** Keep streaming always on and terminal presentation limited to
+  automatic TTY/`NO_COLOR` detection plus `--no-color`. Pretty/raw toggles,
+  palette/theme controls, completion colors, and diff-display switches are
+  non-goals for the dependency-free renderer; they multiply unsupported visual
+  states without changing the safe text contract.
 - [ ] **TERM-3:** Schedule computed edit previews, richer Markdown rendering,
   and true Vi input only as a coherent terminal project that retains sanitizer
   and approval boundaries.

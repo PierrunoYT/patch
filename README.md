@@ -125,18 +125,18 @@ and `/attach` media all prompt with the reason. A path you named in the command
 you just typed is not asked about again. Per-failure reflection prompts remain
 unsupported.
 
-text editing supports UTF-8, UTF-16LE, and Latin-1 with strict decoding,
+Text editing supports UTF-8, UTF-16LE, and Latin-1 with strict decoding,
 representability, and BOM handling. Executable writes preserve existing line
 endings and use the platform default for new/no-newline files; global conversion
-is embedding-only to avoid unrelated rewrites and inflated diffs;
-text on the enumerated production terminal output paths passes through one
-stateful control-sequence sanitizer, and
-replacement preserves the metadata Node can carry portably while refusing a
-swapped ancestor;
-text editing supports UTF-8, UTF-16LE, and Latin-1 with strict decoding,
-representability, BOM, and newline handling rather than platform-dependent
-arbitrary codec names;
-media and watch reads retain a no-follow handle only after target and ancestor
+is embedding-only to avoid unrelated rewrites and inflated diffs.
+Text on the enumerated production terminal output paths passes through one
+stateful control-sequence sanitizer, and replacement preserves the metadata Node
+can carry portably while refusing a swapped ancestor.
+Provider output always streams through one sanitized renderer. Styling follows
+TTY and `NO_COLOR`; `--no-color` is the only presentation override. Pretty/raw,
+palette, completion-color, theme, and diff-display controls are non-goals for
+the dependency-free terminal contract.
+Media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;
 `/model` and `/chat-mode` rebuild the whole model profile atomically and
