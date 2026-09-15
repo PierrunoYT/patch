@@ -1522,6 +1522,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           main,
           this.#currentEditFormat(),
           this.#profile.codeFormat,
+          options.signal,
         );
         return result(
           effect.effort === "off"
@@ -1543,6 +1544,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           main,
           this.#currentEditFormat(),
           this.#profile.codeFormat,
+          options.signal,
         );
         return result(
           effect.tokens === 0
@@ -1556,6 +1558,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           resolved.settings,
           resolved.settings.editFormat,
           resolved.settings.editFormat,
+          options.signal,
         );
         return result(`Model: ${resolved.canonicalName}`);
       }
@@ -1566,6 +1569,7 @@ class ConcreteApplicationSession implements ApplicationSession {
           this.#profile.main,
           format,
           this.#profile.codeFormat,
+          options.signal,
         );
         return result(`Chat mode: ${format}`);
       }
@@ -1821,6 +1825,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     main: ModelSettings,
     format: EditFormat,
     codeFormat: EditFormat,
+    signal: AbortSignal,
   ): Promise<void> {
     const model = { ...main, editFormat: format };
     const provider = this.#context.makeProvider(model);
@@ -1843,8 +1848,7 @@ class ConcreteApplicationSession implements ApplicationSession {
         provider,
         strategy: definition.strategy,
         fence,
-        summarizeHistory: (messages) =>
-          this.#summarize(messages, undefined, true),
+        summarizeHistory: (messages) => this.#summarize(messages, signal, true),
       });
       // Past this point the session is running on the new provider, so nothing
       // below may report the switch as failed or discard it.

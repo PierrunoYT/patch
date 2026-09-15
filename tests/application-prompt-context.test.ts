@@ -639,6 +639,36 @@ describe("switching the active model", () => {
     expect(fenced.sent(0)).toContain("The closing fence: ````");
   });
 
+  it("cancels switch-time history summarization without installing the profile", async () => {
+    const root = await temporaryDirectory("patch-switch-cancel-");
+    await writeFile(join(root, "one.txt"), "one\n");
+    const controller = new AbortController();
+    let creations = 0;
+    const { submit, close } = await harness({
+      root,
+      signal: controller.signal,
+      argv: ["--no-git", "--model", "test/diff-model", "--file", "one.txt"],
+      createProvider: (_model, scripted) => {
+        creations += 1;
+        if (creations === 1) return scripted;
+        return {
+          stream(_request, signal) {
+            controller.abort(new Error("switch summary cancelled"));
+            signal?.throwIfAborted();
+            return (async function* () {})();
+          },
+        };
+      },
+      turns: 1,
+    });
+
+    await submit("first question");
+    await expect(submit("/model test/whole-model")).rejects.toThrow(
+      "switch summary cancelled",
+    );
+    await close();
+  });
+
   it("leaves the previous model active when the switch fails", async () => {
     const root = await temporaryDirectory("patch-switch-atomic-");
     await writeFile(join(root, "one.txt"), "one\n");
