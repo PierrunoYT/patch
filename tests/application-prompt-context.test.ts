@@ -160,6 +160,114 @@ describe("editable-file prompt pair", () => {
   });
 });
 
+describe("read-only and repository wrapper dialogue", () => {
+  it("acknowledges both advisory context sections like pinned aider", async () => {
+    const root = await temporaryRepository("patch-wrapper-dialogue-");
+    await writeFile(join(root, "selected.txt"), "selected\n");
+    await writeFile(join(root, "reference.txt"), "reference\n");
+    await writeFile(
+      join(root, "mapped.ts"),
+      "export function mappedHelper(): number { return 1; }\n",
+    );
+    await executeFile("git", ["-C", root, "add", "."]);
+    await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "base"]);
+    const { submit, sent } = await harness({
+      root,
+      turns: 1,
+      argv: [
+        "--model",
+        "test/diff-model",
+        "--file",
+        "selected.txt",
+        "--read-only",
+        "reference.txt",
+      ],
+    });
+
+    await submit("inspect mappedHelper");
+    expect(sent(0)).toContain("Ok, I will use these files as references.");
+    expect(sent(0)).toContain(
+      "Ok, I won't try and edit those files without asking first.",
+    );
+  });
+});
+
+describe("model prompt role capabilities", () => {
+  it("uses a user/assistant preamble when the model rejects system roles", async () => {
+    const root = await temporaryDirectory("patch-no-system-role-");
+    const catalog = await ModelCatalog.load({
+      settings: [
+        new URL("./fixtures/switch-models.yml", import.meta.url),
+        new URL("./fixtures/no-system-model.yml", import.meta.url),
+      ],
+    });
+    const provider = answering(1);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "test/no-system-model"],
+      dependencies: { catalog, provider },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "no-system",
+    });
+
+    await session.submit("question", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+
+    expect(provider.requests[0]?.messages[0]).toMatchObject({ role: "user" });
+    expect(provider.requests[0]?.messages[1]).toEqual({
+      role: "assistant",
+      content: "Ok.",
+    });
+    expect(
+      provider.requests[0]?.messages.some(({ role }) => role === "system"),
+    ).toBe(false);
+    await service.close();
+  });
+});
+
+describe("bundled prompt placement", () => {
+  it("folds GPT-4o examples into the system message and keeps its reminder there", async () => {
+    const root = await temporaryDirectory("patch-example-placement-");
+    const provider = answering(1);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: ["--no-git", "--model", "4o"],
+      dependencies: { provider },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "placement",
+    });
+
+    await session.submit("question", {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    });
+
+    const messages = provider.requests[0]?.messages ?? [];
+    expect(messages[0]).toMatchObject({
+      role: "system",
+      content: expect.stringContaining("# Example conversations:"),
+    });
+    expect(
+      messages.some(
+        ({ content }) =>
+          content === "Change get_factorial() to use math.factorial",
+      ),
+    ).toBe(false);
+    expect(messages.at(-1)?.role).toBe("system");
+    await service.close();
+  });
+});
+
 describe("repository-map fallback requests", () => {
   it.each([
     {
