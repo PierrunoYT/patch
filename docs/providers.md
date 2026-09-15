@@ -141,17 +141,16 @@ manual live run fail independently of the credential-free suite. Tests and
 workflow configuration never print key values, custom headers, endpoint URLs,
 or media bytes.
 
-The DeepSeek live case resolves the advertised bundled model through
-`ModelCatalog`, overlays only a 16-token output limit for the contract, constructs
-`createProvider` through `ConcreteApplicationService`, and submits through a real
-application session. `tests/deepseek-provider.test.ts` repeats that complete
-catalog/factory/session shape with deterministic Fetch and no credentials. The
-protected case still requires a successful credentialed run before it is
-external evidence. Manual run
+The full-path live cases resolve an advertised bundled model through
+`ModelCatalog`, overlay only a provider-qualified 16-token output limit,
+construct `createProvider` through `ConcreteApplicationService`, and submit
+through a real application session. Deterministic provider tests repeat that
+shape without credentials. Manual run
 [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
-checked out `88adf8e5c` and completed successfully, but all seven contracts
-skipped because the protected environment supplied no provider keys. It proves
-workflow execution and secret-safe skipping, not provider behavior.
+supplied no provider keys. A local 2026-09-15 run completed the Anthropic
+catalog/factory/application-session turn with positive usage. OpenAI reached the
+same route but was rate-limited, and no DeepSeek key was available. Successful
+OpenAI and DeepSeek runs remain evidence gaps.
 
 ## Anthropic Messages
 

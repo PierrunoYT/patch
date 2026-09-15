@@ -67,11 +67,11 @@ dated parity audits for revision-specific evidence.
   macOS, and Windows, plus provisioned PTY contracts on supported Linux and
   Windows.
 
-- Added bounded opt-in OpenAI and Anthropic live turns through the advertised
-  model catalog, provider factory, and concrete application session, matching
-  the existing DeepSeek production-path gate while retaining direct capability,
-  timeout, and cancellation contracts. All nine live gates remain protected and
-  skip without credentials; no successful credentialed evidence is claimed.
+- Corrected the opt-in live application fixture's strict metadata overlay and
+  obtained a successful credentialed Anthropic catalog/factory/application
+  turn with positive usage. OpenAI reached the same route but was rate-limited,
+  and DeepSeek was not attempted without a credential; those two evidence gaps
+  remain open.
 
 - Defined provenance as three purpose-specific evidence layers: direct Patch
   attribution, a dated complete upstream Git-tree inventory, and direct-import

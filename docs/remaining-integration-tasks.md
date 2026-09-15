@@ -644,11 +644,13 @@ Validation executed from the clean pinned checkouts during the 2026-09-14 pass:
 Evidence still unavailable or deliberately excluded:
 
 - [ ] **P2 -- Obtain successful credentialed live-provider evidence for the
-  current implementation revision.** **Status:** evidence gap. On 2026-09-15,
-  neither the audit orb nor GitHub's protected `live-providers` environment had
-  provider keys. Enabling all three provider groups therefore skipped all nine
-  gated contracts, including the new OpenAI and Anthropic full-path turns.
-  Never add credentials to the default suite or logs.
+  current implementation revision.** **Status:** partial local evidence. On
+  2026-09-15 the Anthropic catalog/factory/application-session turn completed
+  with positive usage. OpenAI reached the same production route but the account
+  returned a rate-limit error; DeepSeek credentials were absent. The attempt
+  also exposed and fixed a strict live-fixture metadata overlay that omitted the
+  required provider field. Successful OpenAI and DeepSeek runs remain required;
+  never add credentials to the default suite or logs.
 - [x] **P2 -- Obtain current-revision macOS and Windows package evidence.**
   **Status:** complete for implementation revision
   `44dbae712d96cf6abdf65055d3b83ecdb9ec55e0`. CI run
@@ -749,10 +751,9 @@ claims.
   for Node 22, Linux/macOS/Windows package jobs, and provisioned Linux/Windows
   PTY jobs. Earlier protected run
   [`34720534293`](https://github.com/PierrunoYT/patch/actions/runs/34720534293)
-  checked out the same revision but skipped all seven live contracts because the
-  environment supplied no provider secrets. A successful credentialed protected
-  run remains required before citing live provider behavior. A 2026-09-15 local
-  attempt skipped all nine current gates because the orb also had no credentials.
+  supplied no provider secrets. A local 2026-09-15 run completed the Anthropic
+  full-path turn; OpenAI was rate-limited and DeepSeek had no credential.
+  Successful OpenAI and DeepSeek evidence remains open.
 - [ ] **Deferred product scope — richer terminal rendering.** Computed edit
   hunks, Rich-style tables/lists/wrapping and unstable-tail rerendering, and true
   Vi input remain unscheduled and do not block the documented minimal terminal

@@ -115,10 +115,11 @@ Baseline for the current findings:
 ## Release and compatibility evidence
 
 - [ ] **EVIDENCE-1: Run low-cost credentialed OpenAI and Anthropic contracts
-  through catalog, factory, and application-session boundaries.** Retain direct
-  adapter tests, but do not cite them as executable-route evidence. All three
-  advertised providers now have gated full-path turns; a successful protected
-  run remains blocked on provider credentials.
+  through catalog, factory, and application-session boundaries.** The local
+  2026-09-15 Anthropic full-path turn passed with positive usage; OpenAI reached
+  the production route but the account was rate-limited, and no DeepSeek key was
+  available. The live fixture now supplies the required provider field in its
+  strict metadata overlay. Successful OpenAI and DeepSeek evidence remains open.
 - [x] **EVIDENCE-2: Obtain current-revision Node 22 package evidence on Linux,
   macOS, and Windows.** CI run
   [`34987388922`](https://github.com/PierrunoYT/patch/actions/runs/34987388922)

@@ -126,7 +126,9 @@ async function runApplicationContract(
   const canonicalName = baseCatalog.resolve(requestedModel).canonicalName;
   await writeFile(
     metadata,
-    JSON.stringify({ [canonicalName]: { maxOutputTokens: 16 } }),
+    JSON.stringify({
+      [canonicalName]: { provider, maxOutputTokens: 16 },
+    }),
   );
   const catalog = await ModelCatalog.load({ metadata: [metadata] });
   expect(catalog.resolve(canonicalName).settings).toMatchObject({
