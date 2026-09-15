@@ -18,9 +18,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   FileSystemAdapter,
+  MAX_TEXT_FILE_BYTES,
   PathOutsideRootError,
   TextDecodingError,
   TextEncodingError,
+  TextFileTooLargeError,
   UnsafeFileMetadataError,
 } from "../src/index.js";
 
@@ -146,6 +148,20 @@ describe("FileSystemAdapter", () => {
     await expect(lstat(join(root, "missing"))).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("rejects oversized reads and write preparation before buffering content", async () => {
+    const root = await temporaryDirectory();
+    const path = join(root, "oversized.txt");
+    await writeFile(path, Buffer.alloc(MAX_TEXT_FILE_BYTES + 1, 0x61));
+    const files = await FileSystemAdapter.create(root);
+
+    await expect(files.readText("oversized.txt")).rejects.toBeInstanceOf(
+      TextFileTooLargeError,
+    );
+    await expect(
+      files.writeText("oversized.txt", "replacement\n", { dryRun: true }),
+    ).rejects.toBeInstanceOf(TextFileTooLargeError);
   });
 
   it("computes a dry run without creating a file or its parents", async () => {

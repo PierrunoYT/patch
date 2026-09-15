@@ -36,8 +36,13 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 // Ensure media and watch mode observe this file's deterministic open hook even
 // when the worker previously loaded the application graph in another suite.
 vi.resetModules();
-const { AiWatchMode, loadReadOnlyMedia, TagExtractor, TreeContextRenderer } =
-  await import("../src/index.js");
+const {
+  AiWatchMode,
+  FileSystemAdapter,
+  loadReadOnlyMedia,
+  TagExtractor,
+  TreeContextRenderer,
+} = await import("../src/index.js");
 
 const directories: string[] = [];
 const png = Buffer.from(
@@ -73,6 +78,22 @@ afterEach(async () => {
 });
 
 describe("contained read handles", () => {
+  it("rejects text redirected by an ancestor swap before open", async () => {
+    const root = await directory("patch-text-read-race-");
+    const outside = await directory("patch-text-read-outside-");
+    await mkdir(join(root, "pkg"));
+    await writeFile(join(root, "pkg", "source.ts"), "safe\n");
+    await writeFile(join(outside, "source.ts"), "injected\n");
+    beforeOpen = {
+      suffix: join("pkg", "source.ts"),
+      run: () => replaceWithOutsideLink(root, outside),
+    };
+
+    await expect(
+      (await FileSystemAdapter.create(root)).readText("pkg/source.ts"),
+    ).rejects.toThrow(/outside the selected root|changed while opening/u);
+  });
+
   it("rejects media redirected by an ancestor swap before open", async () => {
     const root = await directory("patch-media-read-race-");
     const outside = await directory("patch-media-read-outside-");

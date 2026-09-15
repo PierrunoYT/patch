@@ -146,8 +146,8 @@ unsupported languages still contribute bounded lexical references. New parsers
 require a concrete need and pinned/package/cross-platform evidence.
 The extractor's 4 MiB source ceiling currently occurs after the tag cache has
 read and hashed the complete file, so oversized tracked files remain an open
-resource-bound defect. General editable/read-only text snapshots likewise lack
-a retained-handle ancestor check and byte cap.
+resource-bound defect. General editable/read-only text snapshots now use a
+retained verified handle and a 4 MiB chunked-read ceiling.
 Map token budgets, refresh policy, and empty-chat multiplier remain internal and
 model-derived. `/map` is the sole bounded display control.
 Git policy remains composed rather than individually disableable: fixed

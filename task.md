@@ -85,10 +85,12 @@ Baseline for the current findings:
       current UTF-16-length/4 estimate can undercount CJK and other inputs. Use a
       safe refusal bound or stop presenting the approximation as a protective
       preflight limit.
-- [ ] **FS-2: Retain containment and bound general text reads.** Read editable,
+- [x] **FS-2: Retain containment and bound general text reads.** Read editable,
       read-only, completion, and transaction snapshots through a verified handle
       with a byte ceiling; static resolution followed by `readFile(path)` permits
-      an ancestor swap and unbounded allocation.
+      an ancestor swap and unbounded allocation. Completed with retained-handle
+      reads, a fixed 4 MiB ceiling enforced during chunked reads, deterministic
+      ancestor-swap coverage, and oversized read/write-preparation regressions.
 - [ ] **MAP-5: Enforce the map source limit before cache hashing.** The tag cache
       currently reads and hashes the whole file before the extractor applies its
       4 MiB ceiling.

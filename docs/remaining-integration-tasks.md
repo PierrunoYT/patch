@@ -71,7 +71,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Core lifecycle                   | implemented selected scope with explicit recovery limits | Immutable attempt context, queued cancellation, bounded retry/reflection, observer-atomic attempts, weak/main history summaries, cancellable atomic profile switching, private architect/editor/context workflows, and process-local worktree serialization are production-wired.               |
 | Editing                          | selected scope; open malformed-envelope gap               | Six public formats are wired with bounded ambiguity rejection, but Patch actions currently accept absent sentinels and successfully truncated output.                                                                        |
 | Models/providers                 | partial aider breadth; open budget/counting gaps          | Three providers and six profiles are wired; fixed 1,024-token history thresholds and a potentially undercounting fallback diverge from pinned/safe budget behavior. Live OpenAI/DeepSeek evidence remains external.          |
-| Git/filesystem                   | selected scope; open general-read gap                     | Git ownership and atomic writes are hardened, but general text reads retain neither ancestor identity nor a byte cap. Cross-file/durable recovery and portable metadata preservation remain explicit limits.                |
+| Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | selected scope; open cache-bound gap                      | Eleven languages, ranking/rendering, retained-handle extraction, and fitting are wired, but cache hashing reads a complete source before the 4 MiB extractor ceiling.                                                          |
 | Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
 | Watch/URL/web/voice/help         | selected scope; open interface gaps                       | Watch and bounded URL transport are wired, but nested discarded HTML can leak content, async session creation can exceed quotas, and active ffmpeg abort lacks forced settlement. GUI/device UX remain non-goals.             |
@@ -82,7 +82,10 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 - [ ] **P1 / PATCH-2 — reject missing Patch sentinels and truncated output.**
 - [ ] **P1 / MODEL-8 — derive history limits from model input windows.**
 - [ ] **P1 / TOKEN-1 — replace or safely bound the undercounting fallback.**
-- [ ] **P1 / FS-2 — retain containment and cap general text reads.**
+- [x] **P1 / FS-2 — retain containment and cap general text reads.** Completed
+      with retained-handle chunked reads capped at 4 MiB, including write
+      preparation, deterministic ancestor-swap rejection, and oversized-file
+      tests through `FileSystemAdapter` and transaction/application consumers.
 - [ ] **P1 / MAP-5 — enforce 4 MiB before tag-cache hashing.**
 - [ ] **P1 / PROC-3 — cap retained PTY transcript output.**
 - [ ] **P1 / WEB-3 — reserve concurrent session quota atomically.**

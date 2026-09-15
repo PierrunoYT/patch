@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, open, rename, stat, unlink } from "node:fs/promises";
 import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { EOL } from "node:os";
@@ -12,6 +12,7 @@ import { isMissingPathError, SafePathResolver } from "./safe-path.js";
 export const TextEncodingSchema = z.enum(["utf-8", "utf-16le", "latin1"]);
 export const LineEndingSchema = z.enum(["lf", "crlf"]);
 export const LineEndingPolicySchema = z.enum(["preserve", "lf", "crlf"]);
+export const MAX_TEXT_FILE_BYTES = 4 * 1024 * 1024;
 
 export const FileSystemOptionsSchema = z
   .object({
@@ -97,6 +98,20 @@ export class TextEncodingError extends Error {
   constructor(encoding: TextEncoding) {
     super(`Content cannot be represented as ${encoding}`);
     this.encoding = encoding;
+  }
+}
+
+export class TextFileTooLargeError extends Error {
+  override readonly name = "TextFileTooLargeError";
+  readonly path: string;
+  readonly maximumBytes: number;
+
+  constructor(path: string, maximumBytes = MAX_TEXT_FILE_BYTES) {
+    super(
+      `Text file exceeds the ${String(maximumBytes)}-byte read limit: ${path}`,
+    );
+    this.path = path;
+    this.maximumBytes = maximumBytes;
   }
 }
 
@@ -200,6 +215,28 @@ function validateMutationTarget(path: string, information: Stats): void {
   }
 }
 
+async function readBounded(
+  handle: FileHandle,
+  path: string,
+  information: Stats,
+): Promise<Buffer> {
+  if (information.size > MAX_TEXT_FILE_BYTES) {
+    throw new TextFileTooLargeError(path);
+  }
+  const chunks: Buffer[] = [];
+  let total = 0;
+  while (true) {
+    const chunk = Buffer.allocUnsafe(
+      Math.min(64 * 1024, MAX_TEXT_FILE_BYTES + 1 - total),
+    );
+    const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+    if (bytesRead === 0) return Buffer.concat(chunks, total);
+    total += bytesRead;
+    if (total > MAX_TEXT_FILE_BYTES) throw new TextFileTooLargeError(path);
+    chunks.push(chunk.subarray(0, bytesRead));
+  }
+}
+
 function defaultLineEnding(): LineEnding {
   return EOL === "\r\n" ? "crlf" : "lf";
 }
@@ -296,18 +333,33 @@ export class FileSystemAdapter {
   }
 
   async readText(target: string): Promise<TextFile> {
-    const path = await this.#paths.resolve(target);
-    const bytes = await readFile(path);
-    const byteOrderMark = hasByteOrderMark(bytes, this.encoding);
-    const decoded = decode(bytes, path, this.encoding);
+    // Preserve the adapter's historical ENOENT/ENOTDIR contract for missing
+    // targets before entering the retained-handle path. Any later swap is still
+    // rejected by openFileForRead before bytes are consumed.
+    await stat(await this.#paths.resolve(target));
+    const opened = await this.#paths.openFileForRead(target);
+    try {
+      const information = await opened.handle.stat();
+      if (!information.isFile()) {
+        throw new UnsafeFileMetadataError(
+          opened.path,
+          "the read target is not a regular file",
+        );
+      }
+      const bytes = await readBounded(opened.handle, opened.path, information);
+      const byteOrderMark = hasByteOrderMark(bytes, this.encoding);
+      const decoded = decode(bytes, opened.path, this.encoding);
 
-    return {
-      path,
-      content: normalizeLineEndings(decoded),
-      encoding: this.encoding,
-      lineEnding: detectLineEnding(decoded) ?? defaultLineEnding(),
-      byteOrderMark,
-    };
+      return {
+        path: opened.path,
+        content: normalizeLineEndings(decoded),
+        encoding: this.encoding,
+        lineEnding: detectLineEnding(decoded) ?? defaultLineEnding(),
+        byteOrderMark,
+      };
+    } finally {
+      await opened.handle.close();
+    }
   }
 
   async writeText(
@@ -429,23 +481,24 @@ export class FileSystemAdapter {
     path: string,
   ): Promise<(TextFile & { readonly identity: FileIdentity }) | undefined> {
     try {
-      const before = await stat(path);
-      validateMutationTarget(path, before);
-      const bytes = await readFile(path);
-      const after = await stat(path);
-      const identity = fileIdentity(before);
-      if (!sameIdentity(identity, fileIdentity(after))) {
-        throw new PathChangedDuringWriteError(path);
+      await stat(await this.#paths.resolve(path));
+      const opened = await this.#paths.openFileForRead(path);
+      try {
+        const information = await opened.handle.stat();
+        validateMutationTarget(path, information);
+        const bytes = await readBounded(opened.handle, path, information);
+        const decoded = decode(bytes, path, this.encoding);
+        return {
+          path,
+          content: normalizeLineEndings(decoded),
+          encoding: this.encoding,
+          lineEnding: detectLineEnding(decoded) ?? defaultLineEnding(),
+          byteOrderMark: hasByteOrderMark(bytes, this.encoding),
+          identity: fileIdentity(information),
+        };
+      } finally {
+        await opened.handle.close();
       }
-      const decoded = decode(bytes, path, this.encoding);
-      return {
-        path,
-        content: normalizeLineEndings(decoded),
-        encoding: this.encoding,
-        lineEnding: detectLineEnding(decoded) ?? defaultLineEnding(),
-        byteOrderMark: hasByteOrderMark(bytes, this.encoding),
-        identity,
-      };
     } catch (error) {
       if (isMissingPathError(error)) {
         return undefined;

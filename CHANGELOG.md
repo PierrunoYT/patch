@@ -241,6 +241,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Retained filesystem containment through general editable/read-only text reads
+  and write preparation. Reads now consume only a verified no-follow handle,
+  reject deterministic ancestor swaps, and enforce a 4 MiB ceiling even if a
+  file grows while being read.
+
 - Git diff collection now disables configured text-conversion filters as well
   as external diff drivers, preventing read-only inspection and commit-message
   generation from executing an unapproved repository-configured helper.

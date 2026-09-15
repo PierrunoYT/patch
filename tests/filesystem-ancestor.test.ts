@@ -48,8 +48,11 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     },
     open: async (...args: Parameters<typeof actual.open>) => {
       const handle = await actual.open(...args);
-      const hook = duringOpen;
-      duringOpen = undefined;
+      // Retained-handle text reads also call `open`; this injection owns the
+      // mutation window after the sibling temporary file is written, identified
+      // by its exclusive-create flag.
+      const hook = args[1] === "wx" ? duringOpen : undefined;
+      if (hook !== undefined) duringOpen = undefined;
       if (hook === undefined) {
         return handle;
       }
