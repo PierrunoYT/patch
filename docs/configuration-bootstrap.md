@@ -63,6 +63,11 @@ defaults to zero. Models/providers without prompt-cache capability ignore both
 controls. See
 [provider cache lifecycle](providers.md#capability-aware-context-and-continuation).
 
+`encoding` accepts exactly `utf-8` (the default), `utf-16le`, or `latin1` across
+CLI, environment, and YAML. Arbitrary Python/ICU codec names are intentionally
+unsupported so decoding, representability, BOM, and newline behavior stays
+deterministic across the Node/npm platforms.
+
 History and interface controls are also staged: `input-history-file`,
 `chat-history-file`, `multiline`, `notifications`, `notifications-command`,
 `watch-files`, `web`, `web-port`, and `web-token-file`. Their environment names

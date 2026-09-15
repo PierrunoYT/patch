@@ -427,6 +427,9 @@ invoked the installed `patch --help` entry point without Python.
   root after symlink resolution.
 - [x] Implement encoding, LF/CRLF preservation, dry-run writes, and atomic file
   replacement.
+- [x] Bound the text-encoding product contract to UTF-8, UTF-16LE, and Latin-1,
+  with malformed-input, representability, round-trip, BOM, and newline evidence.
+  Arbitrary Python/ICU codec names are a portability non-goal.
 - [x] Reject hardlinked/non-regular mutation targets and recheck target and
   containing-directory identity immediately before replacement or deletion.
   Preserve mode bits and, where permitted, owner/group; document ACLs, extended

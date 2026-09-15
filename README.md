@@ -117,6 +117,9 @@ text on the enumerated production terminal output paths passes through one
 stateful control-sequence sanitizer, and
 replacement preserves the metadata Node can carry portably while refusing a
 swapped ancestor;
+text editing supports UTF-8, UTF-16LE, and Latin-1 with strict decoding,
+representability, BOM, and newline handling rather than platform-dependent
+arbitrary codec names;
 media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;

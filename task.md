@@ -204,8 +204,11 @@ security rules above.
   redaction, and approval for loaded effects.
 - [ ] **CONFIG-2:** Expose preserve/LF/CRLF policy only with full configuration
   precedence and packed cross-platform tests.
-- [ ] **CONFIG-3:** Add text encodings beyond UTF-8, UTF-16LE, and Latin-1 only
-  with fatal decode, BOM, round-trip, newline, and platform evidence.
+- [x] **CONFIG-3:** Keep the executable encoding contract to UTF-8, UTF-16LE,
+  and Latin-1. These codecs have fatal decode or exact representability checks,
+  round-trip writes, BOM retention where applicable, and newline tests.
+  Arbitrary Python/ICU codec names are a non-goal because their availability
+  and encode/decode behavior would make the npm package platform-dependent.
 - [ ] **TERM-2:** Decide non-streaming and terminal presentation controls beyond
   `--no-color`.
 - [ ] **TERM-3:** Schedule computed edit previews, richer Markdown rendering,

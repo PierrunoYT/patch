@@ -58,6 +58,10 @@ hardening rather than a compatibility behavior.
 `utf-8` (the default), `utf-16le`, and `latin1`, validates malformed UTF input,
 and refuses writes that cannot be represented by the selected encoding. UTF-8
 and UTF-16LE byte-order marks are retained when replacing an existing file.
+This three-codec list is the complete current contract, not a placeholder for
+arbitrary runtime codec names: keeping it closed makes decoding, round trips,
+BOM handling, and newline behavior portable and testable across Node/npm
+platforms.
 
 Reads normalize CRLF and legacy CR separators to LF for edit matching and report
 the source line ending separately. Writes preserve the first line-ending style
@@ -127,12 +131,12 @@ is rechecked after the write and before the rename.
 
 Patch also does not promise directory-fsync or crash-durability guarantees.
 
-The encoding and newline adapter is stricter than Aider and supports only the
-documented codecs. Explicit LF/CRLF conversion is currently a library option;
-the executable exposes encoding but not line-ending policy. Static containment,
-full-batch staging, and sibling temporary replacement remain intentional safety
-improvements over Aider's direct truncating writes, subject to the metadata and
-concurrency limits above.
+The encoding and newline adapter is stricter than Aider and intentionally
+supports only the documented codecs. Explicit LF/CRLF conversion is currently a
+library option; the executable exposes encoding but not line-ending policy.
+Static containment, full-batch staging, and sibling temporary replacement remain
+intentional safety improvements over Aider's direct truncating writes, subject
+to the metadata and concurrency limits above.
 
 `applyAuthorizedEdits` is the final write workflow. It presents the complete
 staged preview before asking for per-path authorization, requires approval for

@@ -418,11 +418,14 @@ valid only for the specific normalization and recovery cases they name.
   `src/core/concrete-application-service.ts:2082-2084`. Aider exposes
   `--line-endings` at `aider/args.py:778-787`. Add config precedence and packed
   Windows tests before making this public.
-- [ ] **P3 -- Decide text-encoding breadth beyond UTF-8, UTF-16LE, and Latin-1.**
-  **Status:** intentional difference. Patch deliberately validates only those
-  encodings in `src/io/filesystem.ts:12-20`; Aider passes a configured Python codec name
-  through `aider/args.py:777-781` and `aider/io.py:237-266`. Add encodings only
-  with fatal decode, round-trip encode, BOM, newline, and cross-platform tests.
+- [x] **N/A -- Keep text encoding to UTF-8, UTF-16LE, and Latin-1.**
+  **Status:** accepted intentional difference. Patch validates exactly those
+  encodings in `src/io/filesystem.ts:12-20`; Aider passes a configured Python
+  codec name through `aider/args.py:777-781` and `aider/io.py:237-266`. Patch's
+  three-codec contract has fatal malformed-Unicode decoding, representability
+  checks, round-trip encoding, UTF BOM retention, and newline coverage.
+  Arbitrary Python/ICU codec names are a non-goal because availability and
+  semantics would vary across the portable Node/npm package.
 - [ ] **P2 -- Decide non-streaming output and terminal presentation controls.**
   **Status:** deferred. These controls are unported. Aider exposes streaming,
   pretty mode, colors, completion-menu colors, code theme, and diff display at
