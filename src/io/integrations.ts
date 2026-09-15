@@ -104,17 +104,27 @@ export async function runIntegration(
     let outputBytes = 0;
     let failure: Error | undefined;
     let forceKillTimer: NodeJS.Timeout | undefined;
+    let termination: Promise<void> | undefined;
 
     const terminate = () => {
       const pid = child.pid;
-      if (pid === undefined) return;
+      if (pid === undefined) return Promise.resolve();
       if (process.platform === "win32") {
-        const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
-          stdio: "ignore",
-          windowsHide: true,
+        // Stop the direct process immediately as well as asking taskkill to
+        // remove its tree. Under heavy suite load taskkill can observe a newly
+        // spawned PID before it can terminate that process reliably.
+        child.kill();
+        return new Promise<void>((settle) => {
+          const killer = spawn("taskkill", ["/pid", String(pid), "/T", "/F"], {
+            stdio: "ignore",
+            windowsHide: true,
+          });
+          killer.once("error", () => {
+            child.kill();
+            settle();
+          });
+          killer.once("close", () => settle());
         });
-        killer.once("error", () => child.kill());
-        return;
       }
       try {
         process.kill(-pid, "SIGTERM");
@@ -129,11 +139,12 @@ export async function runIntegration(
       } catch {
         child.kill();
       }
+      return Promise.resolve();
     };
     const stop = (error: Error) => {
       if (failure !== undefined) return;
       failure = error;
-      terminate();
+      termination = terminate();
     };
     const cancel = () =>
       stop(cancellationReason(options.signal as AbortSignal));
@@ -167,7 +178,7 @@ export async function runIntegration(
       options.signal?.removeEventListener("abort", cancel);
       reject(error);
     });
-    child.once("close", (code) => {
+    child.once("close", async (code) => {
       clearTimeout(timer);
       // Keep the unref'ed SIGKILL fallback armed after a forced stop: the
       // direct child can close while a descendant in its process group ignores
@@ -175,6 +186,7 @@ export async function runIntegration(
       if (failure === undefined && forceKillTimer !== undefined)
         clearTimeout(forceKillTimer);
       options.signal?.removeEventListener("abort", cancel);
+      await termination;
       if (failure !== undefined) reject(failure);
       else if (code === 0)
         resolve({ stdout: Buffer.concat(output).toString("utf8") });

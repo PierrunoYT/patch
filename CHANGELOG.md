@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Wait for Windows `taskkill /T /F` completion before a timed-out, cancelled, or
+  overproducing clipboard utility settles. The direct child can close before its
+  descendants are dead; queue reuse now follows confirmed tree termination.
+
 - Closed read-only command scope at `/settings`, `/diff`, `/tokens`, and `/map`.
   `/map-refresh` is redundant with the fresh production inventory path;
   `/copy-context` is a privacy non-goal because it would copy raw prompt,

@@ -222,10 +222,11 @@ flags, and do not sandbox an approved command.
 The `/copy` and `/paste` system utilities use a separate argv process boundary
 with 10-second and 1-MiB defaults. It rejects oversized write input before spawn,
 caps and drains read output, forwards the active session's `AbortSignal`, and
-terminates the process tree on timeout, cancellation, or overflow. The direct
-child's `close` event (after stdio closes) settles the operation, so a failed
-utility releases the serialized session queue. Pinned aider's clipboard helper
-is unbounded; this is intentional Patch hardening.
+terminates the process tree on timeout, cancellation, or overflow. On Windows it
+also waits for `taskkill /T /F` to finish before settling; the direct child's
+`close` event alone can precede descendant termination. A failed utility then
+releases the serialized queue only after both boundaries complete. Pinned
+aider's clipboard helper is unbounded; this is intentional Patch hardening.
 
 `executeModelCommands` processes suggestions serially and stops after timeout
 or cancellation. Configured lint/test commands reuse the bounded executor:
