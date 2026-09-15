@@ -174,9 +174,8 @@ Historical checklist completions do not establish release readiness. The
 [current parity audit](docs/aider-parity-audit-2026-09-15-cee39ed.md) and
 [source inventory](docs/aider-source-inventory-2026-09-15-cee39ed.md) separate
 branch behavior, file coverage, and intentional differences. Its implementation
-findings are being resolved issue by issue; ordinary-CI/package evidence remains
-open inside the selected surface, alongside external live-provider evidence.
-Patch is not a 1:1 aider replacement. The
+findings have been resolved issue by issue; external live-provider evidence
+remains unavailable. Patch is not a 1:1 aider replacement. The
 [task register](task.md) contains remaining implementation/evidence work; the
 [detailed backlog](docs/remaining-integration-tasks.md) preserves history.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,

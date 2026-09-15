@@ -167,9 +167,11 @@ Baseline for the current findings:
       transcript intentionally records every submitted command and returned string;
       `/help` documentation now matches the generic terminal recorder and
       distinguishes the transcript from provider-ready history.
-- [ ] **EVIDENCE-4: Close CI/package evidence gaps.** Run the provenance check in
-      ordinary CI and make package smoke assert declarations plus the root public
-      package export. These are evidence gaps, not observed runtime failures.
+- [x] **EVIDENCE-4: Close CI/package evidence gaps.** Ordinary CI now runs the
+      64-entry direct-derivation provenance check. Package smoke asserts the root
+      and optional voice declaration files and maps in both the tarball and
+      installed package, then imports the installed root package export by name
+      and loads its bundled model resources.
 
 - [x] **TERM-1: Preserve language identifiers on variable-length Markdown
       fences.** The stream tracks the opening run length and language, accepts only

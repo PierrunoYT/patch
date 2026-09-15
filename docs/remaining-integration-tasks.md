@@ -75,7 +75,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
 | Commands/terminal                | implemented selected scope                               | All 28 commands dispatch; captured commands, clipboard, PTY transcripts, and editor readback are bounded. Editor duration remains user-controlled; opt-in transcripts include slash commands and returned text.              |
 | Watch/URL/web/voice/help         | implemented selected scope                               | Watch, bounded URL transport, nesting-aware HTML discards, atomic concurrent session quotas, and bounded ffmpeg cancellation are wired. GUI/device UX remain non-goals.                                                   |
-| Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
+| Configuration/package/provenance | implemented selected scope                               | Config resources and runtime packaging are wired. Ordinary CI runs provenance; package smoke asserts installed declarations and imports the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
 
 ### Current audit findings — `cee39ed` — 2026-09-15
 
@@ -123,7 +123,11 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       timeout, application-signal cancellation, one-second force escalation,
       close-event settlement, listener cleanup, and temporary-file cleanup.
 - [x] **P2 / DOC-1 — document slash-command transcript persistence.**
-- [ ] **P2 / EVIDENCE-4 — add provenance and public export/type package checks.**
+- [x] **P2 / EVIDENCE-4 — add provenance and public export/type package checks.**
+      Ordinary CI now runs the 64-entry direct-derivation check. Package smoke
+      asserts root and optional voice declaration files/maps in the tarball and
+      installed tree, then imports `@pierrunoyt/patch` from a clean consumer and
+      loads packaged model resources through that public export.
 
 Exact failure sequences and source comparisons are in the current
 [parity audit](aider-parity-audit-2026-09-15-cee39ed.md). The source inventory

@@ -275,7 +275,9 @@ tests/
 Runtime resources belong under `src/resources/` and in the npm package `files`
 list. A `prepack` script rebuilds `dist/` from a clean directory, so `npm pack`
 and `npm publish` cannot ship a stale or partial build, and the package smoke
-test asserts the tarball carries both entry points and every copied resource.
+test asserts the tarball and installed tree carry both entry points, their public
+declarations, and every copied resource. It imports the installed root package
+export by name from a clean consumer before exercising the executable.
 `assets/` remains branding-only.
 
 ### Core contracts

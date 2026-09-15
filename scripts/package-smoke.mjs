@@ -49,6 +49,10 @@ try {
   for (const required of [
     "dist/cli.js",
     "dist/index.js",
+    "dist/index.d.ts",
+    "dist/index.d.ts.map",
+    "dist/interfaces/voice.d.ts",
+    "dist/interfaces/voice.d.ts.map",
     "dist/resources/model-aliases.json5",
     "dist/resources/model-settings.yml",
     "dist/resources/model-metadata.json5",
@@ -140,6 +144,16 @@ try {
   ]) {
     if (!existsSync(join(packageRoot, document))) {
       throw new Error(`The installed package is missing ${document}`);
+    }
+  }
+  for (const declaration of [
+    "dist/index.d.ts",
+    "dist/index.d.ts.map",
+    "dist/interfaces/voice.d.ts",
+    "dist/interfaces/voice.d.ts.map",
+  ]) {
+    if (!existsSync(join(packageRoot, declaration))) {
+      throw new Error(`The installed package is missing ${declaration}`);
     }
   }
   execFileSync(
@@ -664,14 +678,16 @@ try {
     [
       "--input-type=module",
       "--eval",
-      "import { ModelCatalog } from './dist/index.js'; " +
+      "import { ModelCatalog } from '@pierrunoyt/patch'; " +
         "const model = (await ModelCatalog.load()).resolve('4o'); " +
         "process.stdout.write(model.canonicalName);",
     ],
-    { cwd: packageRoot, encoding: "utf8" },
+    { cwd: consumerDirectory, encoding: "utf8" },
   );
   if (model !== "gpt-4o") {
-    throw new Error("The packed model catalog could not load its resources");
+    throw new Error(
+      "The installed root package export could not load its model resources",
+    );
   }
 
   const startup = execFileSync(

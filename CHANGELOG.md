@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added the direct-derivation provenance check to ordinary CI. Packed-install
+  smoke now verifies root and voice declaration files and maps, imports the
+  installed root package export by name, and loads resources through that export.
+
 - Replaced the undercounting UTF-16-length/4 token fallback with a conservative
   UTF-8-byte refusal bound for unknown-model text and serialized multimodal
   prompts. CJK and other multibyte input can no longer bypass context preflight.

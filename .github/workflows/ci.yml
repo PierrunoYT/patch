@@ -40,6 +40,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Verify direct-port provenance
+        run: npm run provenance:check
+
       - name: Test
         run: npm test
 
