@@ -84,10 +84,12 @@ Baseline for the current findings:
       clamped to 1,024–8,192 tokens after metadata is merged. Explicit settings
       still win; production boundary tests cover 8,000 and 8,001 tokens for a
       128,000-token model.
-- [ ] **TOKEN-1: Make fallback token enforcement genuinely conservative.** The
-      current UTF-16-length/4 estimate can undercount CJK and other inputs. Use a
-      safe refusal bound or stop presenting the approximation as a protective
-      preflight limit.
+- [x] **TOKEN-1: Make fallback token enforcement genuinely conservative.**
+      Unknown-model text and serialized multimodal content now count every UTF-8
+      byte as a token, plus message overhead, rather than dividing UTF-16 length
+      by four. The deliberately high bound can reject requests the provider
+      would accept, but cannot admit CJK merely because JavaScript stores it in
+      fewer code units.
 - [x] **FS-2: Retain containment and bound general text reads.** Read editable,
       read-only, completion, and transaction snapshots through a verified handle
       with a byte ceiling; static resolution followed by `readFile(path)` permits

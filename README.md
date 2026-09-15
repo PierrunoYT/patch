@@ -174,9 +174,9 @@ Historical checklist completions do not establish release readiness. The
 [current parity audit](docs/aider-parity-audit-2026-09-15-cee39ed.md) and
 [source inventory](docs/aider-source-inventory-2026-09-15-cee39ed.md) separate
 branch behavior, file coverage, and intentional differences. Its implementation
-findings are being resolved issue by issue; fallback token enforcement and
-ordinary-CI/package evidence remain open inside the selected surface, alongside
-external live-provider evidence. Patch is not a 1:1 aider replacement. The
+findings are being resolved issue by issue; ordinary-CI/package evidence remains
+open inside the selected surface, alongside external live-provider evidence.
+Patch is not a 1:1 aider replacement. The
 [task register](task.md) contains remaining implementation/evidence work; the
 [detailed backlog](docs/remaining-integration-tasks.md) preserves history.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
@@ -255,7 +255,7 @@ extraction is verified for every shipped language from the packed tarball. Empty
 selected-file maps retry globally with and then without current hints while
 retaining the same filtered tracked inventory. Map rendering uses generic syntax
 parent scopes for shipped grammars and fits with the selected tokenizer when
-Patch has a reliable one, otherwise a documented conservative estimate. Packed-
+Patch has a reliable one, otherwise a conservative UTF-8-byte bound. Packed-
 bin smoke requires one ranked target to reach a deterministic provider and an
 ignored tracked file to remain absent. This is scoped evidence, not a claim of
 exact ranking for arbitrary programs or every language; each added map surface

@@ -115,13 +115,14 @@ bundled 128,000-token GPT-4o and DeepSeek profiles resolve to 8,000, while the
 
 `countMessageTokens` and `countTextTokens` use `tiktoken` with `o200k_base` or
 `cl100k_base` for recognized OpenAI text-only models. Unknown models, multimodal
-prompts, and raw text for providers without a reliable local tokenizer use a
-UTF-16-length estimate and return the historical method label `conservative`.
-That estimate is approximate, not an upper bound: CJK and other inputs can be
-undercounted. `TOKEN-1` tracks replacing it with a safe refusal boundary or a
-non-protective estimate contract. `CoderSession` currently uses the message
-boundary for prompt enforcement; repository-map fitting uses the raw-text
-boundary. Callers may inject a more authoritative counter.
+prompts, and raw text for providers without a reliable local tokenizer count
+every UTF-8 byte as one token and return the method label `conservative`.
+Serialized multimodal content retains its base64 bytes in that bound. This is a
+deliberately high refusal bound rather than a provider-native estimate: it can
+reject content that would fit, especially ASCII-heavy context, but does not
+undercount CJK as the former UTF-16-length/4 estimate did. `CoderSession` uses
+the message boundary for prompt enforcement; repository-map fitting uses the
+raw-text boundary. Callers may inject a more authoritative counter.
 
 ## Usage and cost
 

@@ -5,6 +5,7 @@
   provider: openai
   editFormat: whole
   useRepoMap: false
+  maxChatHistoryTokens: 1000000
   capabilities:
     streaming: true
     systemRole: true
@@ -18,6 +19,7 @@
   inputCostPerMillion: 1
   outputCostPerMillion: 1
   useRepoMap: true
+  maxChatHistoryTokens: 1000000
   capabilities:
     streaming: true
     systemRole: true

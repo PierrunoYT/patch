@@ -218,6 +218,30 @@ describe("CoderSession", () => {
     expect(session.snapshot().phase).toBe("waiting");
   });
 
+  it("rejects CJK prompts using the fallback byte upper bound", async () => {
+    const root = await temporaryDirectory();
+    const provider = new FakeProvider([]);
+    const session = new CoderSession({
+      config: {
+        ...config(root, "ask"),
+        model: {
+          name: "unknown/model",
+          provider: "fake",
+          editFormat: "ask",
+          maxInputTokens: 100,
+        },
+      },
+      provider,
+      strategy: new AskEditStrategy(),
+    });
+
+    expect(() => session.prepareTurn("界".repeat(40))).toThrow(
+      /model limit is 100/,
+    );
+    expect(provider.requests).toHaveLength(0);
+    expect(session.snapshot().phase).toBe("waiting");
+  });
+
   it("supports abandoning a prepared turn without adding history", async () => {
     const root = await temporaryDirectory();
     const session = new CoderSession({

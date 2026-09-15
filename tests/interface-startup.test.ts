@@ -341,11 +341,10 @@ describe("application interface startup", () => {
 
   it("budgets a turn against the bundled model's advertised input limit", async () => {
     const root = await fixture();
-    // Roughly 150k tokens by the estimator, over gpt-4o's 128k input limit and
-    // under claude-sonnet-4-6's one million. Without bundled metadata neither
-    // model had a limit at all, so an oversized prompt was sent to the
-    // provider instead of being refused.
-    await writeFile(join(root, "huge.ts"), `const x = 1;\n`.repeat(46_000));
+    // U+0378 is two o200k tokens and two UTF-8 bytes. This fixture is therefore
+    // over gpt-4o's 128k limit but under claude-sonnet-4-6's 200k conservative
+    // byte bound. Without bundled metadata neither model had a limit at all.
+    await writeFile(join(root, "huge.ts"), "\u0378".repeat(65_000));
     const submit = async (model: string) => {
       const provider = new FakeProvider([turn("answered")]);
       const service = await ConcreteApplicationService.create({

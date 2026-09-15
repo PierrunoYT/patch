@@ -70,7 +70,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Core lifecycle                   | implemented selected scope with explicit recovery limits | Immutable attempt context, queued cancellation, bounded retry/reflection, observer-atomic attempts, weak/main history summaries, cancellable atomic profile switching, private architect/editor/context workflows, and process-local worktree serialization are production-wired.               |
 | Editing                          | implemented selected scope with intentional hardening    | Six public formats are wired with bounded ambiguity rejection. Patch actions require both envelope sentinels and reflect truncated output rather than applying a partial batch.                                                   |
-| Models/providers                 | partial aider breadth; open counting gap                  | Three providers and six profiles are wired; history thresholds follow pinned aider's input-window rule, while the fallback token estimate can still undercount. Live OpenAI/DeepSeek evidence remains external.          |
+| Models/providers                 | implemented selected scope; partial aider breadth         | Three providers and six profiles are wired; history thresholds follow pinned aider and unknown/multimodal token enforcement uses a deliberately high UTF-8-byte refusal bound. Live OpenAI/DeepSeek evidence remains external.          |
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
 | Commands/terminal                | implemented selected scope                               | All 28 commands dispatch; captured commands, clipboard, PTY transcripts, and editor readback are bounded. Editor duration remains user-controlled; opt-in transcripts include slash commands and returned text.              |
@@ -88,7 +88,12 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       1,024–8,192 tokens after metadata merge, while preserving explicit model
       settings. Catalog tests cover all six bundled profiles and both clamp
       boundaries; a production session test covers the 8,000/8,001 threshold.
-- [ ] **P1 / TOKEN-1 — replace or safely bound the undercounting fallback.**
+- [x] **P1 / TOKEN-1 — replace or safely bound the undercounting fallback.**
+      Completed with a UTF-8-byte upper bound for unknown-model text and
+      serialized multimodal content, plus existing message overhead. The bound
+      intentionally prefers false refusal to admitting an oversized prompt;
+      CJK unit and production preflight tests distinguish it from the former
+      UTF-16-length/4 estimate.
 - [x] **P1 / FS-2 — retain containment and cap general text reads.** Completed
       with retained-handle chunked reads capped at 4 MiB, including write
       preparation, deterministic ancestor-swap rejection, and oversized-file
@@ -770,8 +775,9 @@ change. Historical fixes below retain their original evidence boundaries.
       grammars use the pinned map configuration's generic parent scopes, shortest
       capped headers, top-scope omission, and deterministic elisions. Production
       fitting uses `tiktoken` for recognized OpenAI models and a documented
-      conservative estimate elsewhere. Exact Python/TypeScript cases supplement the
-      normalized upstream map. Evidence: `tests/repo-map-renderer.test.ts`,
+      conservative UTF-8-byte bound elsewhere. Exact Python/TypeScript cases
+      supplement the normalized upstream map. Evidence:
+      `tests/repo-map-renderer.test.ts`,
       `tests/repo-map-compatibility.test.ts`, and `tests/token-count.test.ts`.
 - [x] **Complete scoped repository-map evidence.** The generated pinned fixture
       records a complete asymmetric tag multiset and upstream numeric personalized

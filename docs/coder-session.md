@@ -55,12 +55,14 @@ user recovery; Patch does not claim atomic multi-file rollback.
 
 `prepareTurn` resets transient edit and per-turn token counters, composes typed
 prompt chunks in the container-level upstream order, and applies model-aware
-OpenAI text counting with a conservative fallback for other/multimodal prompts.
-It does not clear a prior `lastUsage`, and concrete wrapper messages/reminder
-policy are not full Aider prompt parity. Over-budget prompts fail before a turn
-is activated. `finalizeTurn` validates the complete response through the
-strategy before adding user/assistant messages; `abandonTurn` clears transient
-state without changing history.
+OpenAI text counting with a conservative UTF-8-byte refusal bound for
+other/multimodal prompts. That bound may reject a request that a provider's
+tokenizer would accept, but it does not treat an undercounting approximation as
+a protective preflight. `prepareTurn` does not clear a prior `lastUsage`, and
+concrete wrapper messages/reminder policy are not full Aider prompt parity.
+Over-budget prompts fail before a turn is activated. `finalizeTurn` validates
+the complete response through the strategy before adding user/assistant
+messages; `abandonTurn` clears transient state without changing history.
 
 `runTurn` now consumes validated provider events and incrementally assembles
 text and reasoning. Events are buffered per provider attempt and reported in

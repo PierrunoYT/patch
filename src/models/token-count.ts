@@ -70,12 +70,13 @@ export function conservativeMessageTokens(
 ): number {
   return messages.reduce((total, message) => {
     const text = messageText(message);
-    const length =
-      text?.length ??
+    const serialized =
+      text ??
       (typeof message.content === "string"
-        ? message.content.length
-        : JSON.stringify(message.content).length);
-    return total + 4 + Math.ceil(length / 4);
+        ? message.content
+        : JSON.stringify(message.content));
+    const bytes = Buffer.byteLength(serialized, "utf8");
+    return total + 4 + bytes;
   }, 0);
 }
 
@@ -85,7 +86,7 @@ export function countTextTokens(
 ): TokenCount {
   const name = encodingName(model);
   if (name === undefined) {
-    return { tokens: Math.ceil(text.length / 4), method: "conservative" };
+    return { tokens: Buffer.byteLength(text, "utf8"), method: "conservative" };
   }
   const encoding = get_encoding(name);
   try {

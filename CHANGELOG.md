@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Replaced the undercounting UTF-16-length/4 token fallback with a conservative
+  UTF-8-byte refusal bound for unknown-model text and serialized multimodal
+  prompts. CJK and other multibyte input can no longer bypass context preflight.
+
 - Derived default chat-history summary thresholds from the final model input
   window using pinned aider's 1/16 rule clamped to 1,024–8,192 tokens. Explicit
   model settings still override the derived threshold.

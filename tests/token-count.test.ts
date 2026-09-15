@@ -25,16 +25,38 @@ describe("countMessageTokens", () => {
     expect(result.tokens).toBeGreaterThan(3);
   });
 
-  it("labels unknown and multimodal token counts as conservative", () => {
+  it("uses a UTF-8 byte upper bound for unknown models and multimodal messages", () => {
     const model = ModelSettingsSchema.parse({
       name: "custom",
       provider: "anthropic",
       editFormat: "diff",
     });
-    const messages = [{ role: "user" as const, content: "12345678" }];
+    const messages = [{ role: "user" as const, content: "世界世界" }];
 
     expect(countMessageTokens(messages, model)).toEqual({
       tokens: conservativeMessageTokens(messages),
+      method: "conservative",
+    });
+    expect(conservativeMessageTokens(messages)).toBe(
+      4 + Buffer.byteLength("user\n世界世界", "utf8"),
+    );
+
+    const openAi = ModelSettingsSchema.parse({
+      name: "gpt-4o",
+      provider: "openai",
+      editFormat: "diff",
+    });
+    const multimodal = [
+      {
+        role: "user" as const,
+        content: [
+          { type: "text" as const, text: "inspect" },
+          { type: "image" as const, mediaType: "image/png", data: "aW1n" },
+        ],
+      },
+    ];
+    expect(countMessageTokens(multimodal, openAi)).toEqual({
+      tokens: conservativeMessageTokens(multimodal),
       method: "conservative",
     });
   });
@@ -54,15 +76,15 @@ describe("countTextTokens", () => {
     });
   });
 
-  it("uses the conservative text estimate for other models", () => {
+  it("uses the UTF-8 byte upper bound for other models", () => {
     const model = ModelSettingsSchema.parse({
       name: "claude",
       provider: "anthropic",
       editFormat: "diff",
     });
 
-    expect(countTextTokens("12345678", model)).toEqual({
-      tokens: 2,
+    expect(countTextTokens("A世界", model)).toEqual({
+      tokens: 7,
       method: "conservative",
     });
   });

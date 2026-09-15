@@ -126,15 +126,16 @@ generated commit messages.
 repository-map, editable-file, attachment, and reminder chunks used for a
 production turn. It reports category estimates, the composed baseline total,
 available input cost and context-window metadata, and whether counting used a
-known OpenAI tokenizer or Patch's conservative fallback. The baseline excludes
-the unknown next user message; that message can also change repository-map
-ranking. Category estimates are counted independently and need not sum exactly
-to the composed total because message-envelope overhead is applied to each
-count. The output contains only fixed labels and bounded numeric/model metadata,
-never prompt, file, map, history, media, environment, or credential content. It
-makes no provider request and asks for no path, write, or process approval. This
-differs from pinned aider mainly by naming estimate provenance and matching
-Patch's own prompt chunk order rather than implying provider-native exactness.
+known OpenAI tokenizer or Patch's conservative UTF-8-byte bound. The baseline
+excludes the unknown next user message; that message can also change
+repository-map ranking. Category estimates are counted independently and need
+not sum exactly to the composed total because message-envelope overhead is
+applied to each count. The output contains only fixed labels and bounded
+numeric/model metadata, never prompt, file, map, history, media, environment, or
+credential content. It makes no provider request and asks for no path, write, or
+process approval. This differs from pinned aider mainly by naming estimate
+provenance and matching Patch's own prompt chunk order rather than implying
+provider-native exactness.
 
 `/map` displays the repository map currently available to the active model,
 using the same fresh tracked/non-ignored inventory, selected-file exclusion,

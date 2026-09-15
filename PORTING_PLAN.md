@@ -529,7 +529,7 @@ require complete envelope sentinels and reject truncated output.
       filtering removes unsupported media after summarization.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit (blocked by `TOKEN-1`):** installed-service acceptance
+**Exit:** installed-service acceptance
 covers streamed malformed and unresolvable responses, two-file writes, lint
 reflection, approved commands, tests, and undo with exact Git assertions. Real-
 Git tests inject cancellation at every named lifecycle boundary and assert
@@ -586,9 +586,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
       requests carry Chat's 8,192 and Reasoner's 64,000 output limits.
 - [x] Add provider-specific credential diagnostics and supported-capability
       checks.
-- [ ] Add model-aware token counting where reliable and a genuinely conservative
-      refusal bound elsewhere. The current UTF-16-length/4 fallback can undercount
-      and must not enforce provider context limits as if it were an upper bound.
+- [x] Add model-aware token counting where reliable and a genuinely conservative
+      refusal bound elsewhere. Unknown-model text and serialized multimodal
+      content count every UTF-8 byte as a token, deliberately preferring false
+      refusal to an undercount at provider context limits.
 - [x] Complete executable usage and cost coverage. Post-finish usage is retained,
       metadata limits/prices/capabilities merge into session settings, cache reads
       and writes have distinct prices, and turn/session reports reach the terminal.
@@ -715,7 +716,7 @@ real-repository `tests/git-*.test.ts` suites.
       grammars: generic syntax scopes, shortest parent headers capped at ten lines,
       top-scope omission, and deterministic elisions without child/margin/last-line
       context. Production fitting uses the selected tokenizer for recognized OpenAI
-      models and a documented conservative estimate elsewhere. Exact Python and
+      models and a conservative UTF-8-byte bound elsewhere. Exact Python and
       TypeScript fixtures supplement the normalized upstream map.
 - [x] Add mtime/content-keyed cache files, corruption recovery, and `manual`,
       `always`, `files`, and `auto` refresh behavior.
