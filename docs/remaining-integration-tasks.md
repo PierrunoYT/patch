@@ -1,7 +1,13 @@
 # Remaining integration tasks
 
-This is the live implementation backlog, not a frozen audit report. The current
-file-for-file [dated audit](aider-parity-audit-2026-09-15.md) compares Patch
+This is the detailed implementation and evidence backlog, not a frozen audit
+report. The root [issue and task register](../task.md) combines its unresolved
+work with the latest audit findings into a deduplicated actionable queue. Keep
+both current when status changes; this file preserves historical findings,
+completed work, revision-specific evidence, and implementation context.
+
+The current file-for-file [dated audit](aider-parity-audit-2026-09-15.md)
+compares Patch
 `1bf2ca6adbc3f4774612590f3f7c59c636a4a6e9` with canonical aider
 `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`; its independent
 [source inventory](aider-source-inventory-2026-09-15.md) classifies all 80

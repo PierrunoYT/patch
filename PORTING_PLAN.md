@@ -44,14 +44,16 @@ aider's essential workflow:
 The first release will not claim complete aider compatibility. Provider,
 edit-format, option, and interface support must be documented explicitly.
 
-Current implementation priorities live in
-[the integration backlog](docs/remaining-integration-tasks.md). The latest
+Current implementation priorities live in the consolidated
+[issue and task register](task.md); the
+[integration backlog](docs/remaining-integration-tasks.md) preserves detailed
+evidence and historical context. The latest
 [dated audit](docs/aider-parity-audit-2026-09-15.md) compares Patch
 `1bf2ca6adbc3f4774612590f3f7c59c636a4a6e9` with the pinned aider revision
 above. Its [source inventory](docs/aider-source-inventory-2026-09-15.md)
 classifies every pinned product module, model resource, and Tree-sitter query.
 It supplements the earlier dated audits without rewriting their evidence;
-this plan and the backlog track current status and open work.
+this plan, task register, and backlog track current status and open work.
 
 ## Scope decisions
 

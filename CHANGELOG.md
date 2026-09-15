@@ -10,7 +10,8 @@ Items under **Added** inventory tested components and contracts. They are not a
 claim that every component is reachable through the CLI; **Changed** and the
 porting plan distinguish composed behavior from library-only adapters.
 Entries record milestones at the time they were made, not a consolidated current
-status. Use `docs/remaining-integration-tasks.md` for the live backlog and the
+status. Use `task.md` for the consolidated actionable queue,
+`docs/remaining-integration-tasks.md` for detailed historical context, and the
 dated parity audits for revision-specific evidence.
 
 ### Added
@@ -901,7 +902,9 @@ dated parity audits for revision-specific evidence.
   path/editor parsing, clipboard bounds, media/watch read containment, and the
   optional ffmpeg adapter. README, phase exits, the live backlog, and affected
   subsystem docs now expose those limits instead of relying on historical
-  completion wording. No runtime behavior changed.
+  completion wording. A root `task.md` now combines those findings and the open
+  integration work into one deduplicated, prioritized task register while the
+  detailed backlog retains historical evidence. No runtime behavior changed.
 - Made the ancestor-swap filesystem tests independent of module-cache and test
   execution order by reloading the application graph after installing their
   filesystem hooks.

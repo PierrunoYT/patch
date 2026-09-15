@@ -111,8 +111,9 @@ Historical checklist completions do not establish release readiness. The latest
 [file-for-file parity audit](docs/aider-parity-audit-2026-09-15.md) and
 [pinned source inventory](docs/aider-source-inventory-2026-09-15.md) classify
 every aider product module and runtime resource at their audited revisions. The
-[live backlog](docs/remaining-integration-tasks.md) reconciles completed fixes,
-remaining integration work, and deferred product scope.
+[consolidated task register](task.md) is the deduplicated actionable queue. The
+[detailed integration backlog](docs/remaining-integration-tasks.md) preserves
+completed fixes, historical evidence, and implementation context.
 The direct fixture-import hash gap is now closed: all twelve imports are pinned,
 with import-derived coverage and status-hidden-change tests. This does not
 establish transitive dependency or resource integrity; see the
@@ -162,8 +163,9 @@ locks can be garbage-collected; idle sessions keep sharing their existing lock.
 Deterministic loopback tests exercise principal/session event
 isolation, HTTP disconnect cancellation, SSE overflow/replay, concrete
 post-write recovery, and simultaneous terminal/watch/web mutations. See the unchecked items in
+[`task.md`](task.md) for the consolidated remaining scope and
 [`docs/remaining-integration-tasks.md`](docs/remaining-integration-tasks.md) for
-the authoritative remaining scope.
+detailed evidence and historical context.
 
 Implemented foundations include strict TypeScript validation, deterministic
 fake-provider tests, [safe filesystem behavior](docs/filesystem-safety.md),
