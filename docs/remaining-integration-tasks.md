@@ -235,8 +235,9 @@ Status meanings in this section:
   operation.** **Status:** implemented 2026-09-15. `/diff` is a typed, serialized
   production effect that displays current staged and unstaged changes only for
   selected editable files. It uses the repository adapter's literal pathspecs,
-  strips terminal/bidirectional controls, caps complete UTF-8 output at 1 MiB,
-  and reports missing Git, missing selection, and no-change states. Focused
+  disables external diff and textconv helpers, strips terminal/bidirectional
+  controls, caps complete UTF-8 output at 1 MiB, and reports missing Git,
+  missing selection, and no-change states. Focused
   tests prove wildcard-like names stay literal, unselected content is absent,
   hostile controls are removed, multibyte truncation is valid, and no provider
   or approval hook runs; package smoke drives the installed bin in a real Git
@@ -244,7 +245,7 @@ Status meanings in this section:
   recorded around the last message. Patch intentionally retains current
   selected-file disclosure rather than adding repository-wide commit history.
   Local Linux/Node.js `v26.5.1` `npm run check` passed formatting, lint,
-  typechecking, 63-entry provenance, 752 tests with ten skips, build, and packed
+  typechecking, 63-entry provenance, 753 tests with ten skips, build, and packed
   installation including the new actual-bin command. This is not new Node 22,
   macOS, or Windows evidence.
 

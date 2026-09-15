@@ -119,6 +119,10 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Git diff collection now disables configured text-conversion filters as well
+  as external diff drivers, preventing read-only inspection and commit-message
+  generation from executing an unapproved repository-configured helper.
+
 - Close-only reasoning tags are now normalized before accepted attempt events
   reach terminal or HTTP observers. The hidden prefix becomes reasoning while
   display, results, continued output, history, and edit parsing retain the same

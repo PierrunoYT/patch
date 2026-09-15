@@ -99,8 +99,10 @@ response or credential is needed.
 `/diff` displays the current staged and unstaged Git diff for selected editable
 files. It does not accept paths: selection remains the disclosure boundary, so
 unselected and read-only changes are not shown. Git receives literal pathspecs,
-including names with wildcard syntax. Inspection is ordered against Patch
-mutations on the same worktree. The command strips terminal control and
+including names with wildcard syntax, and both external diff drivers and
+text-conversion filters are disabled so inspection cannot execute a
+repository-configured helper. Inspection is ordered against Patch mutations on
+the same worktree. The command strips terminal control and
 bidirectional sequences, caps the complete UTF-8 response at 1 MiB without
 splitting a code point, and marks truncation. It makes no provider call and asks
 for no path, write, or command approval. Without Git integration it fails rather

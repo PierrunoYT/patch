@@ -24,6 +24,9 @@ avoids disclosing changes outside the selected context.
 Git child commands that accept selected pathspecs receive
 `GIT_LITERAL_PATHSPECS=1`, so selected names containing wildcard or bracket
 syntax remain literal across diff, stage, commit, and undo operations.
+Diffs also pass `--no-ext-diff` and `--no-textconv`: neither an external diff
+driver nor a text-conversion filter configured by the repository may execute
+behind a read-only inspection or commit-message request.
 `check-ignore` accepts exact pathnames rather than glob patterns and rejects
 Git's literal-pathspec magic, so that command is deliberately invoked without
 the variable. Its NUL-delimited input paths are prefixed with `./` to prevent

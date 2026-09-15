@@ -80,6 +80,25 @@ describe("GitRepository", () => {
     expect(() => git.relativePath("../outside")).toThrow(GitRepositoryError);
   });
 
+  it("does not execute configured text-conversion helpers while diffing", async () => {
+    const root = await repository();
+    await writeFile(join(root, ".gitattributes"), "*.txt diff=patch\n");
+    await executeFile("git", [
+      "-C",
+      root,
+      "config",
+      "diff.patch.textconv",
+      "patch-textconv-must-not-run",
+    ]);
+    await writeFile(join(root, "working.txt"), "working change\n");
+    const git = await GitRepository.open(root);
+
+    await expect(git.diff(["working.txt"])).resolves.toMatchObject({
+      patch: expect.stringContaining("working change"),
+      paths: ["working.txt"],
+    });
+  });
+
   it("checks leading pathspec-magic filenames literally under both ignore policies", async () => {
     const root = await repository();
     await writeFile(join(root, ".gitignore"), ":(glob)private.txt\n");

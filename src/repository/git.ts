@@ -220,8 +220,14 @@ export class GitRepository {
     const hasHead =
       (await this.#tryGit(["rev-parse", "--verify", "HEAD"])) !== undefined;
     const trackedPatch = hasHead
-      ? await this.#git(["diff", "--no-ext-diff", "HEAD", ...pathspec])
-      : `${await this.#git(["diff", "--no-ext-diff", "--cached", ...pathspec])}${await this.#git(["diff", "--no-ext-diff", ...pathspec])}`;
+      ? await this.#git([
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "HEAD",
+          ...pathspec,
+        ])
+      : `${await this.#git(["diff", "--no-ext-diff", "--no-textconv", "--cached", ...pathspec])}${await this.#git(["diff", "--no-ext-diff", "--no-textconv", ...pathspec])}`;
     const status = await this.status();
     const selectedSet = new Set(selected);
     const untrackedPaths = status.untrackedPaths.filter(
