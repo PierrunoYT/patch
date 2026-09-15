@@ -74,7 +74,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | implemented selected scope; partial aider breadth        | Eleven languages, ranking/rendering, retained-handle extraction, bounded incremental cache hashing, and fitting are wired. Broader query/tuning breadth remains a non-goal.                                                     |
 | Commands/terminal                | selected scope; open PTY/editor bounds                    | All 28 commands dispatch, and captured commands/clipboard are bounded. PTY transcript capture and editor readback are not; opt-in transcripts intentionally include slash commands and returned text.                         |
-| Watch/URL/web/voice/help         | selected scope; open interface gaps                       | Watch and bounded URL transport are wired, but nested discarded HTML can leak content, async session creation can exceed quotas, and active ffmpeg abort lacks forced settlement. GUI/device UX remain non-goals.             |
+| Watch/URL/web/voice/help         | selected scope; open interface gaps                       | Watch and bounded URL transport are wired with nesting-aware HTML discards, but async session creation can exceed quotas and active ffmpeg abort lacks forced settlement. GUI/device UX remain non-goals.                      |
 | Configuration/package/provenance | selected scope; partial evidence                          | Config resources and runtime packaging are wired. Ordinary CI omits the provenance check, and package smoke does not assert declarations or resolve the root public export. Broader aider/Python/Docker breadth remains a non-goal. |
 
 ### Current audit findings — `cee39ed` — 2026-09-15
@@ -95,7 +95,10 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
       extraction while retaining the tracked filename.
 - [ ] **P1 / PROC-3 — cap retained PTY transcript output.**
 - [ ] **P1 / WEB-3 — reserve concurrent session quota atomically.**
-- [ ] **P1 / WEB-4 — handle nested discarded HTML elements.**
+- [x] **P1 / WEB-4 — handle nested discarded HTML elements.** Completed with a
+      discard stack that retains same-name and mixed nesting, refuses to expose
+      malformed mismatched tails, and is exercised through production `/web`
+      provider context as well as direct converter regressions.
 - [ ] **P1 / VOICE-3 — force-settle active ffmpeg cancellation.**
 - [ ] **P2 / PROC-4 — bound editor readback and define cancellation.**
 - [x] **P2 / DOC-1 — document slash-command transcript persistence.**
@@ -1164,10 +1167,12 @@ dispositions. The live task register controls release readiness.
       `htmlToReadableText` replaces upstream's BeautifulSoup/pandoc pair with a
       dependency-free converter that keeps headings, lists, and absolute `http(s)`
       links and drops scripts, styles, media, and every other attribute, so no
-      inline payload reaches the model. The fetcher is constructed on first use, and
-      its SSRF, redirect, size, TLS, and no-subresource policy is unchanged and
-      documented as an intentional difference. Playwright rendering stays a library
-      helper that `/web` never uses. Evidence: `tests/url-ingestion.test.ts` and
+      inline payload reaches the model. Discarded elements retain same-name and
+      mixed nesting; a malformed mismatched close remains discarded rather than
+      exposing its tail. The fetcher is constructed on first use, and its SSRF,
+      redirect, size, TLS, and no-subresource policy is unchanged and documented
+      as an intentional difference. Playwright rendering stays a library helper
+      that `/web` never uses. Evidence: `tests/url-ingestion.test.ts` and
       `tests/url-fetcher.test.ts`.
 - [x] Decide explicit dispositions for Aider help, report, settings, browser GUI,
       voice UX, analytics, onboarding/OAuth, and update/release-note families.

@@ -49,6 +49,25 @@ describe("HTML to readable text", () => {
     ).toBe("click or here");
   });
 
+  it("keeps nested discarded elements and their malformed tails out of text", () => {
+    expect(
+      htmlToReadableText(
+        [
+          "<script><script>inner</script>LEAK</script>",
+          "<style><template>nested</template>LEAK</style>",
+          "<embed/>safe",
+        ].join(""),
+      ),
+    ).toBe("safe");
+    // A mismatched close cannot end the outer discarded region early. Staying
+    // in discard mode for malformed markup is safer than exposing its tail.
+    expect(
+      htmlToReadableText(
+        "before<script><style>hidden</script>LEAK</style>after",
+      ),
+    ).toBe("before");
+  });
+
   it("degrades on malformed markup instead of failing", () => {
     expect(htmlToReadableText("<p>open")).toBe("open");
     // An unterminated tag ends the document rather than being read as text.
@@ -153,6 +172,32 @@ describe("/web ingestion", () => {
       content:
         "Here is the content of https://example.com/final:\n\n# Doc\n\nBody text.",
     });
+    await service.close();
+  });
+
+  it("does not send nested discarded HTML content to the provider", async () => {
+    const { provider, service } = await create(async () => ({
+      url: "https://example.com/nested",
+      contentType: "text/html",
+      content: "<script><script>inner</script>LEAK</script><p>safe text</p>",
+    }));
+    const session = await service.createSession({
+      principal: "test",
+      sessionId: "web-nested",
+    });
+    const submit = (message: string) =>
+      session.submit(message, {
+        signal: new AbortController().signal,
+        emit: () => undefined,
+      });
+
+    await submit("/web https://example.com/nested");
+    await submit("what does it say?");
+
+    const request = JSON.stringify(provider.requests[0]?.messages);
+    expect(request).toContain("safe text");
+    expect(request).not.toContain("inner");
+    expect(request).not.toContain("LEAK");
     await service.close();
   });
 

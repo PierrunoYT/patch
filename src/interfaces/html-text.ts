@@ -155,7 +155,7 @@ export function htmlToReadableText(html: string): string {
   let pendingNewlines = 0;
   let pendingSpace = false;
   let index = 0;
-  let discarding: string | undefined;
+  const discardedElements: string[] = [];
   let listDepth = 0;
   const pendingHrefs: Array<string | undefined> = [];
 
@@ -192,7 +192,7 @@ export function htmlToReadableText(html: string): string {
   };
 
   const appendText = (text: string) => {
-    if (discarding !== undefined) return;
+    if (discardedElements.length > 0) return;
     const decoded = decodeHtmlEntities(text).replace(/[ \t\r\f\v]+/gu, " ");
     if (decoded.trim() === "") {
       if (decoded !== "" && content && pendingNewlines === 0)
@@ -206,7 +206,7 @@ export function htmlToReadableText(html: string): string {
     );
   };
   const newline = (blank: boolean) => {
-    if (discarding !== undefined) return;
+    if (discardedElements.length > 0) return;
     if (!content) return;
     pendingNewlines = Math.max(pendingNewlines, blank ? 2 : 1);
     pendingSpace = false;
@@ -236,12 +236,16 @@ export function htmlToReadableText(html: string): string {
     const name = (named[1] ?? "").toLowerCase();
     const closing = tag.startsWith("</");
 
-    if (discarding !== undefined) {
-      if (closing && name === discarding) discarding = undefined;
+    if (discardedElements.length > 0) {
+      if (!closing && DISCARDED.has(name) && !tag.endsWith("/>")) {
+        discardedElements.push(name);
+      } else if (closing && discardedElements.at(-1) === name) {
+        discardedElements.pop();
+      }
       continue;
     }
     if (DISCARDED.has(name)) {
-      if (!closing && !tag.endsWith("/>")) discarding = name;
+      if (!closing && !tag.endsWith("/>")) discardedElements.push(name);
       continue;
     }
     if (name === "ul" || name === "ol") {

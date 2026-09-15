@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept nested script, style, and media elements out of `/web` model context.
+  Same-name and mixed discarded elements now use a stack, and malformed
+  mismatched closing tags stay discarded rather than exposing their tail.
+  Direct converter and production provider-request regressions cover the fix.
+
 - Audited clean Patch `cee39ed41330eca755b9c7c65084abccefce90aa`
   one-for-one against pinned aider
   `5dc9490bb35f9729ef2c95d00a19ccd30c26339c` in six independent subsystem

@@ -925,7 +925,7 @@ passed both supported PTY jobs at implementation revision
       spawning. A deterministic real-process test proves the adapter preserves the
       abort reason without creating a child side effect or listener.
 
-**Exit — blocked by `WEB-3`, `WEB-4`, and `VOICE-3`:** package smoke tests assert that
+**Exit — blocked by `WEB-3` and `VOICE-3`:** package smoke tests assert that
 optional native/browser/audio dependencies do not enter a normal install.
 Watch, local API startup, and `/web` ingestion are production-wired, and their
 mutation phases are serialized in-process. Direct adapter coverage closes the

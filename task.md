@@ -103,9 +103,10 @@ Baseline for the current findings:
 - [ ] **WEB-3: Reserve session quota atomically across async creation.** Count
       in-flight reservations so concurrent requests cannot exceed global or
       per-principal limits, and release reservations on every failure path.
-- [ ] **WEB-4: Keep nested discarded HTML out of model context.** Track nested
-      script/style/media elements; the current single-name state can expose text
-      after the first nested closing tag.
+- [x] **WEB-4: Keep nested discarded HTML out of model context.** A stack now
+      tracks nested script/style/media elements, and malformed mismatched closes
+      stay discarded instead of exposing their tail. Direct and production `/web`
+      tests prove hidden content never enters the provider request.
 - [ ] **VOICE-3: Force-settle active ffmpeg cancellation.** Escalate after a
       grace deadline when the recorder child ignores `SIGTERM`; the existing
       pre-abort check does not bound an active abort.

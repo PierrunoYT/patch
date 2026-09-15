@@ -46,11 +46,9 @@ except a link's `href` are dropped, as upstream's `slimdown_html` drops them. A
 link target survives only if it is an absolute `http(s)` URL, so no inline
 `data:`/`javascript:` payload reaches the model. Malformed markup degrades to
 its text, and an unterminated tag ends the document rather than being read as
-content.
-
-The current discard state records only one tag name. Nested discarded elements
-can clear it too early and expose later script/style text; `WEB-4` tracks a
-nesting-aware fix. The transport and no-subresource boundaries remain intact.
+content. A stack retains same-name and mixed nesting inside discarded elements.
+Mismatched closing tags cannot end a discarded region early: malformed content
+stays hidden rather than exposing a script/style/media tail to model context.
 
 Linear is a load-bearing property, not a description: the separating whitespace
 between pieces of content is held as counters and emitted before the next piece,
