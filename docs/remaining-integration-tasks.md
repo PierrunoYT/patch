@@ -559,14 +559,15 @@ valid only for the specific normalization and recovery cases they name.
   `/voice` at `aider/args.py:699-719`, `aider/commands.py:1252-1277`, and
   `aider/voice.py:33-180`. Require device selection, cancellation, transcript
   review, privacy disclosure, optional dependency packaging, and real-device evidence.
-- [ ] **P3 -- Decide browser-rendered `/web` and automatic URL detection.**
-  **Status:** partial. Patch retains intentional security differences and fetches
-  one explicit URL through the DNS-pinned, bounded, no-subresource path in
-  `src/interfaces/url-fetcher.ts:99-280` and never uses its optional browser
-  helper in production. Aider can detect URLs and use Playwright/Pandoc at
-  `aider/args.py:723-728,842-847` and `aider/scrape.py:79-250`. Do not port
-  subresource loading or implicit fetches without a separate threat model and
-  approval step.
+- [x] **N/A -- Keep browser-rendered `/web` and automatic URL detection out of
+  production.** **Status:** intentional security/privacy non-goal. Patch fetches
+  one user-typed URL through the DNS-pinned, bounded, no-subresource path in
+  `src/interfaces/url-fetcher.ts:99-280`; its optional static-HTML browser helper
+  remains embedding-only. Aider can detect URLs and use Playwright/Pandoc at
+  `aider/args.py:723-728,842-847` and `aider/scrape.py:79-250`. Implicit fetching,
+  browser navigation, and subresource loading would create network side effects
+  that are not covered by the command's explicit intent or approval contract.
+  Reopen them only with a separate threat model and visible approval boundary.
 - [x] **N/A -- Keep analytics out of Patch.** **Status:** non-goal. Aider's
   analytics controls and implementation are at `aider/args.py:567-594` and
   `aider/analytics.py:60-304`; Patch intentionally performs only local token/cost

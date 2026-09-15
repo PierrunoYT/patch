@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept production URL ingestion explicit: `/web <url>` performs one DNS-pinned,
+  bounded, no-subresource fetch. Automatic URL detection, browser navigation,
+  and subresource loading are security/privacy non-goals unless they receive a
+  separate threat model and visible approval boundary; the static-HTML
+  Playwright helper remains embedding-only.
+
 - Defined repository-map compatibility as evidence-scoped per selected language
   and behavior. Exact arbitrary-program/every-language ranking equivalence is an
   unbounded non-goal; future map expansion still requires independent fixtures,

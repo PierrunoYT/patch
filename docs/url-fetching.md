@@ -21,7 +21,10 @@ silence until it returns is indistinguishable from a hang.
 - **Explicit intent only.** Only a URL the user typed is fetched. A URL a model
   suggests, or one a fetched page links to, is never followed; Patch does not
   detect URLs in prose and offer to scrape them as Aider does. One command means
-  exactly one request, and nothing on the page is loaded as a subresource.
+  exactly one request, and nothing on the page is loaded as a subresource. This
+  is the maintained production contract, not an unfinished compatibility path:
+  automatic detection and browser navigation are security/privacy non-goals
+  unless they receive a separate threat model and visible approval boundary.
 - **Source labeling.** The text enters history as a user message that starts
   `Here is the content of <url>:`, naming the URL redirects actually ended at
   rather than the one that was typed. The pinned upstream wording is kept.
@@ -58,7 +61,8 @@ quadratic.
 callers. It renders already-fetched static HTML with every browser network
 request blocked; it does not navigate a page or load external
 scripts/subresources. Patch dynamically imports `playwright`, which is absent
-from the default package, and `/web` never uses it.
+from the default package, and `/web` never uses it. The helper does not imply a
+future production browser path or parity with aider's Playwright/Pandoc scraper.
 
 The strict SSRF, redirect, size, TLS, and no-subresource policy is an intentional
 security difference from the pinned upstream scraper.

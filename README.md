@@ -177,7 +177,10 @@ output. `/attach` adds bounded, approved image/PDF context for capable models;
 attached bytes are request-only and `/drop` removes them.
 `--watch-files` shares the terminal session, and `--web` starts the local
 authenticated HTTP/SSE API—not a browser GUI. `/web <url>` adds one
-user-typed page to the chat as bounded, labeled text. Web session expiry,
+user-typed page to the chat as bounded, labeled text. Patch intentionally does
+not detect URLs in prose, navigate them in a browser, or load subresources;
+those network side effects require a separate threat model and visible approval
+boundary rather than being an unfinished `/web` path. Web session expiry,
 quotas, bounded SSE replay/backpressure, reclamation, and structured errors are
 enforced. Worktree mutations are serialized in-process, not across separate
 Patch processes. The process-wide lock registry uses weak references so unused

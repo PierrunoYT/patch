@@ -841,7 +841,10 @@ because the provisioned native package fails its spawn contract there.
   one user-typed URL through the SSRF-safe fetcher, converts HTML to readable
   text without adding a dependency, and adds it to history labeled with the
   final URL and truncated to a share of the input window. URL detection in prose
-  and the optional Playwright renderer stay out of the command path.
+  and the optional Playwright renderer stay out of the command path. This is the
+  maintained security/privacy boundary: browser navigation, subresource loading,
+  and implicit fetches are non-goals unless a separate threat model and visible
+  approval boundary are designed.
 - [x] Add supported startup for `AI!`/`AI?` watch mode. `--watch-files` shares
   the concrete terminal session and Git ignore predicate; question-only turns
   suppress edits and commands. Node.js local-filesystem notifications are used.

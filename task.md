@@ -257,9 +257,10 @@ security rules above.
 - [ ] **VOICE-2:** Reopen production voice UX only with device selection,
   cancellation, transcript review, privacy disclosure, optional packaging, and
   real-device evidence.
-- [ ] **WEB-1:** Decide browser-rendered pages and automatic URL detection only
-  under a separate threat model and approval boundary. Do not weaken explicit,
-  DNS-pinned, bounded, no-subresource fetching.
+- [x] **WEB-1:** Keep URL ingestion explicit, DNS-pinned, bounded, and
+  no-subresource. Production browser rendering and automatic URL detection are
+  security/privacy non-goals unless a separate threat model and approval
+  boundary are designed.
 - [ ] **PROVENANCE-1:** Decide whether provenance verification should cover
   transitive upstream imports and resource hashes in addition to the current
   direct-derivation ledger and source inventory.
