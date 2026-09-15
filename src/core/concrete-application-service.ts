@@ -25,6 +25,10 @@ import {
 } from "../commands/report.js";
 import { renderSettings } from "../commands/settings.js";
 import {
+  renderTokenContext,
+  type TokenContextRow,
+} from "../commands/tokens.js";
+import {
   RepositoryMap,
   repoMapTokens,
   type RepositoryMapRequest,
@@ -91,8 +95,13 @@ import type {
   ApplicationSubmitOptions,
 } from "./application-service.js";
 import { TurnPartiallyAppliedError } from "./application-service.js";
+import { ChatChunks } from "./chat-chunks.js";
 import { ChatSummary } from "./chat-summary.js";
-import { CoderSession, type PathApprovalReason } from "./coder-session.js";
+import {
+  CoderSession,
+  type AttemptContext,
+  type PathApprovalReason,
+} from "./coder-session.js";
 import { ContextSelectionConvergenceError } from "./context-selection.js";
 import { findFileMentions } from "./file-mentions.js";
 import {
@@ -839,6 +848,166 @@ class ConcreteApplicationSession implements ApplicationSession {
     }, options.signal);
   }
 
+  /** Build the same immutable filesystem and prompt context used by a turn. */
+  async #turnContext(
+    message: string,
+    changedPaths: ReadonlySet<string> = new Set(),
+  ): Promise<AttemptContext> {
+    const state = this.#session.snapshot();
+    const editablePaths = [
+      ...new Set([...state.editablePaths, ...changedPaths]),
+    ];
+    await assertPathsNotIgnored(this.#context.repository, [
+      ...editablePaths,
+      ...state.readOnlyPaths,
+    ]);
+    const editable = await Promise.all(
+      editablePaths.map((path) => snapshot(this.#context.files, path)),
+    );
+    const readOnly = await Promise.all(
+      state.readOnlyPaths.map((path) => snapshot(this.#context.files, path)),
+    );
+    const fence = selectFence(
+      [...editable, ...readOnly].flatMap(({ content }) =>
+        content === null ? [] : [content],
+      ),
+    ).fence;
+    const definition =
+      this.#profile.role === "editor"
+        ? createEditorStrategy(this.#profile.definition.format, fence)
+        : this.#profile.role === "architect"
+          ? createArchitectStrategy()
+          : this.#profile.role === "context"
+            ? createContextStrategy()
+            : createStrategy(this.#profile.definition.format, fence);
+    this.#session.setAttemptFence(fence);
+    this.#profile = { ...this.#profile, definition, fence };
+    const selectedPaths = new Set(
+      [...editable, ...readOnly].map(({ path }) => path),
+    );
+    const availablePaths = await this.#availablePaths();
+    const unselected = await Promise.all(
+      availablePaths
+        .filter((path) => !selectedPaths.has(path))
+        .map((path) => snapshot(this.#context.files, path)),
+    );
+    const snapshots = [...editable, ...readOnly, ...unselected];
+    const repositoryContent = await this.#repositoryContext(message);
+    const media = buildReadOnlyMediaMessage(
+      [...this.#media.values()],
+      this.#profile.main,
+    );
+    const prompt = {
+      system: [
+        {
+          role: "system" as const,
+          content: definition.systemPrompt,
+        },
+      ],
+      examples: [...COMMON_PROMPTS.exampleMessages, ...definition.examples],
+      readOnlyFiles: fileMessage(
+        COMMON_PROMPTS.readOnlyFilesPrefix,
+        readOnly,
+        fence,
+      ),
+      repository:
+        repositoryContent === ""
+          ? []
+          : [
+              {
+                role: "user" as const,
+                content: `${
+                  this.#profile.role === "context"
+                    ? CONTEXT_PROMPTS.repositoryPrefix
+                    : COMMON_PROMPTS.repoContentPrefix
+                }\n\n${repositoryContent}`,
+              },
+            ],
+      editableFiles:
+        this.#profile.role === "context"
+          ? editable.length === 0
+            ? []
+            : [
+                ...fileMessage(
+                  CONTEXT_PROMPTS.filesContentPrefix,
+                  editable,
+                  fence,
+                ),
+                {
+                  role: "assistant" as const,
+                  content: CONTEXT_PROMPTS.filesContentAssistantReply,
+                },
+              ]
+          : editableFilesMessages(editable, fence, repositoryContent !== ""),
+      ...(media === undefined ? {} : { media: [media] }),
+      reminder: [
+        {
+          role: "system" as const,
+          content: `${definition.reminder}\n${
+            definition.allowShellCommands
+              ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
+              : "Do not suggest shell commands."
+          }`,
+        },
+      ],
+    };
+    return {
+      prompt,
+      snapshots,
+      editablePaths,
+      readOnlyPaths: [...state.readOnlyPaths],
+    };
+  }
+
+  async #tokenContext(signal: AbortSignal): Promise<string> {
+    signal.throwIfAborted();
+    const state = this.#session.snapshot();
+    const { prompt } = await this.#turnContext("");
+    signal.throwIfAborted();
+    const model = this.#profile.main;
+    const groups: readonly [
+      TokenContextRow["section"],
+      readonly ChatMessage[],
+    ][] = [
+      [
+        "system and examples",
+        [...(prompt.system ?? []), ...(prompt.examples ?? [])],
+      ],
+      ["chat history", state.messages],
+      ["read-only files", prompt.readOnlyFiles ?? []],
+      ["repository map", prompt.repository ?? []],
+      ["editable files", prompt.editableFiles ?? []],
+      ["attached media", prompt.media ?? []],
+      ["system reminder", prompt.reminder ?? []],
+    ];
+    const rows = groups.flatMap(([section, messages]) =>
+      messages.length === 0
+        ? []
+        : [{ section, tokens: countMessageTokens(messages, model).tokens }],
+    );
+    const messages = new ChatChunks({
+      system: prompt.system,
+      examples: prompt.examples,
+      readonlyFiles: prompt.readOnlyFiles,
+      repo: prompt.repository,
+      done: state.messages,
+      chatFiles: prompt.editableFiles,
+      current: prompt.media,
+      reminder: prompt.reminder,
+    }).allMessages();
+    return renderTokenContext({
+      model: model.name,
+      rows,
+      total: countMessageTokens(messages, model),
+      ...(model.maxInputTokens === undefined
+        ? {}
+        : { maxInputTokens: model.maxInputTokens }),
+      ...(model.inputCostPerMillion === undefined
+        ? {}
+        : { inputCostPerMillion: model.inputCostPerMillion }),
+    });
+  }
+
   submit(
     message: string,
     options: ApplicationSubmitOptions,
@@ -867,118 +1036,7 @@ class ConcreteApplicationSession implements ApplicationSession {
       const changedPaths = new Set<string>();
       const commands: ModelCommandResult[] = [];
       const initialCommit = this.#session.snapshot().lastPatchCommit;
-      const context = async () => {
-        const state = this.#session.snapshot();
-        const editablePaths = [
-          ...new Set([...state.editablePaths, ...changedPaths]),
-        ];
-        await assertPathsNotIgnored(this.#context.repository, [
-          ...editablePaths,
-          ...state.readOnlyPaths,
-        ]);
-        const editable = await Promise.all(
-          editablePaths.map((path) => snapshot(this.#context.files, path)),
-        );
-        const readOnly = await Promise.all(
-          state.readOnlyPaths.map((path) =>
-            snapshot(this.#context.files, path),
-          ),
-        );
-        const fence = selectFence(
-          [...editable, ...readOnly].flatMap(({ content }) =>
-            content === null ? [] : [content],
-          ),
-        ).fence;
-        const definition =
-          this.#profile.role === "editor"
-            ? createEditorStrategy(this.#profile.definition.format, fence)
-            : this.#profile.role === "architect"
-              ? createArchitectStrategy()
-              : this.#profile.role === "context"
-                ? createContextStrategy()
-                : createStrategy(this.#profile.definition.format, fence);
-        this.#session.setAttemptFence(fence);
-        this.#profile = { ...this.#profile, definition, fence };
-        const selectedPaths = new Set(
-          [...editable, ...readOnly].map(({ path }) => path),
-        );
-        const availablePaths = await this.#availablePaths();
-        const unselected = await Promise.all(
-          availablePaths
-            .filter((path) => !selectedPaths.has(path))
-            .map((path) => snapshot(this.#context.files, path)),
-        );
-        const snapshots = [...editable, ...readOnly, ...unselected];
-        const repositoryContent = await this.#repositoryContext(message);
-        const media = buildReadOnlyMediaMessage(
-          [...this.#media.values()],
-          this.#profile.main,
-        );
-        const prompt = {
-          system: [
-            {
-              role: "system" as const,
-              content: definition.systemPrompt,
-            },
-          ],
-          examples: [...COMMON_PROMPTS.exampleMessages, ...definition.examples],
-          readOnlyFiles: fileMessage(
-            COMMON_PROMPTS.readOnlyFilesPrefix,
-            readOnly,
-            fence,
-          ),
-          repository:
-            repositoryContent === ""
-              ? []
-              : [
-                  {
-                    role: "user" as const,
-                    content: `${
-                      this.#profile.role === "context"
-                        ? CONTEXT_PROMPTS.repositoryPrefix
-                        : COMMON_PROMPTS.repoContentPrefix
-                    }\n\n${repositoryContent}`,
-                  },
-                ],
-          editableFiles:
-            this.#profile.role === "context"
-              ? editable.length === 0
-                ? []
-                : [
-                    ...fileMessage(
-                      CONTEXT_PROMPTS.filesContentPrefix,
-                      editable,
-                      fence,
-                    ),
-                    {
-                      role: "assistant" as const,
-                      content: CONTEXT_PROMPTS.filesContentAssistantReply,
-                    },
-                  ]
-              : editableFilesMessages(
-                  editable,
-                  fence,
-                  repositoryContent !== "",
-                ),
-          ...(media === undefined ? {} : { media: [media] }),
-          reminder: [
-            {
-              role: "system" as const,
-              content: `${definition.reminder}\n${
-                definition.allowShellCommands
-                  ? "Shell commands may be suggested only in fenced shell blocks; execution always requires approval."
-                  : "Do not suggest shell commands."
-              }`,
-            },
-          ],
-        };
-        return {
-          prompt,
-          snapshots,
-          editablePaths,
-          readOnlyPaths: [...state.readOnlyPaths],
-        };
-      };
+      const context = () => this.#turnContext(message, changedPaths);
       const completed = await this.#session
         .runTurn(message, {
           signal: options.signal,
@@ -1407,6 +1465,8 @@ class ConcreteApplicationSession implements ApplicationSession {
             : boundedDiffOutput(diff.patch),
         );
       }
+      case "tokens":
+        return result(await this.#tokenContext(options.signal));
       case "clear":
         this.#session.clearHistory();
         return result("Chat history cleared");

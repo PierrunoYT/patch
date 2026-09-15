@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added `/tokens`, a provider-free report over the same current prompt chunks
+  used by production. It shows bounded category and baseline token estimates,
+  available model limit and input cost, and tokenizer provenance without
+  rendering context contents; packed-install coverage exercises the real bin.
+
 - Added a read-only `/diff` command for current staged and unstaged changes to
   selected editable files. It uses literal Git pathspecs, excludes unselected
   changes, sanitizes terminal controls, caps UTF-8 output at 1 MiB, and is

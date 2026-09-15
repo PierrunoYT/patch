@@ -188,6 +188,9 @@ describe("advertised slash-command surface", () => {
     await expect(submit("/settings")).resolves.toMatchObject({
       response: expect.stringContaining("Current session:"),
     });
+    await expect(submit("/tokens")).resolves.toMatchObject({
+      response: expect.stringContaining("baseline tokens total"),
+    });
     await expect(submit("/report Review me")).resolves.toMatchObject({
       response: expect.stringContaining("User-supplied title"),
     });

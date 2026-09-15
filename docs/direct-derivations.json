@@ -7,6 +7,7 @@
     { "localPath": "src/commands/parse.ts", "kind": "source", "upstreamPaths": ["aider/commands.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },
     { "localPath": "src/commands/report.ts", "kind": "source", "upstreamPaths": ["aider/report.py", "aider/commands.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },
     { "localPath": "src/commands/settings.ts", "kind": "source", "upstreamPaths": ["aider/commands.py", "aider/format_settings.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },
+    { "localPath": "src/commands/tokens.ts", "kind": "source", "upstreamPaths": ["aider/commands.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },
     { "localPath": "src/config/bootstrap.ts", "kind": "source", "upstreamPaths": ["aider/main.py", "aider/args.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },
     { "localPath": "src/context/important-files.ts", "kind": "source", "upstreamPaths": ["aider/special.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },
     { "localPath": "src/context/repo-graph.ts", "kind": "source", "upstreamPaths": ["aider/repomap.py"], "revision": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c", "modified": true, "license": "Apache-2.0" },

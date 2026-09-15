@@ -340,6 +340,89 @@ describe("application slash commands", () => {
     await service.close();
   });
 
+  it("reports the production prompt baseline without provider or approval calls", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-command-tokens-"));
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Patch Tests"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "patch@example.invalid"], {
+      cwd: root,
+    });
+    execFileSync("git", ["config", "commit.gpgSign", "false"], { cwd: root });
+    await writeFile(join(root, "editable.ts"), "export const editable = 1;\n");
+    await writeFile(
+      join(root, "reference.ts"),
+      "export const reference = 2;\n",
+    );
+    await writeFile(
+      join(root, "mapped.ts"),
+      "export function mappedOnly(): number { return 3; }\n",
+    );
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "baseline"], {
+      cwd: root,
+    });
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "previous answer" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const approvePath = vi.fn(() => true);
+    const approveCommand = vi.fn(() => true);
+    const authorizeWrite = vi.fn(() => true);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--model",
+        "4o",
+        "--edit-format",
+        "ask",
+        "--file",
+        "editable.ts",
+        "--read-only",
+        "reference.ts",
+      ],
+      dependencies: { provider, approvePath, approveCommand, authorizeWrite },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "tokens",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+    await session.submit("first question", options);
+
+    const shown = (await session.submit("/tokens", options)) as {
+      response: string;
+    };
+
+    expect(shown.response).toMatch(/\d+ {2}system and examples/u);
+    expect(shown.response).toMatch(/\d+ {2}chat history/u);
+    expect(shown.response).toMatch(/\d+ {2}read-only files/u);
+    expect(shown.response).toMatch(/\d+ {2}repository map/u);
+    expect(shown.response).toMatch(/\d+ {2}editable files/u);
+    expect(shown.response).toContain("baseline tokens total");
+    expect(shown.response).toContain("estimated input cost");
+    expect(shown.response).toContain("128,000  maximum input tokens");
+    expect(shown.response).toContain("model tokenizer (o200k_base)");
+    expect(shown.response).toContain("excludes the next user message");
+    expect(shown.response).not.toContain("editable = 1");
+    expect(shown.response).not.toContain("reference = 2");
+    expect(shown.response).not.toContain("mappedOnly");
+    expect(shown.response).not.toContain("previous answer");
+    expect(provider.requests).toHaveLength(1);
+    expect(approvePath).not.toHaveBeenCalled();
+    expect(approveCommand).not.toHaveBeenCalled();
+    expect(authorizeWrite).not.toHaveBeenCalled();
+    await service.close();
+  });
+
   it("dispatches selected-file, mode, process, clipboard, history, and exit effects", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-commands-"));
     await writeFile(join(root, "one.txt"), "one\n");

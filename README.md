@@ -74,12 +74,15 @@ fresh disk context between attempts. Slash commands dispatch through the same
 session queue. See [turn ordering and recovery](docs/turn-lifecycle.md) for
 the installed acceptance evidence and intentional differences from aider.
 The parser-owned inventory and `docs/commands.md` are checked against each other,
-and one real-Git application scenario executes all 26 named Patch command effects
+and one real-Git application scenario executes all 27 named Patch command effects
 plus contained/denied/missing-state failures. This proves registration and the
 exercised effects; Windows path parsing and clipboard process bounds are covered
 separately by focused parser/editor, executable-child, and serialized-queue
 tests. `/diff` shows at most 1 MiB of sanitized current Git changes for selected
-editable files only, with literal pathspecs and installed-bin evidence. Aider's
+editable files only, with literal pathspecs and installed-bin evidence.
+`/tokens` reports the current production prompt baseline by category, counting
+method, available limit, and estimated input cost without exposing context or
+calling a provider. Aider's
 `!` alias/bare `/read-only` semantics and wider command set remain outside that
 evidence.
 

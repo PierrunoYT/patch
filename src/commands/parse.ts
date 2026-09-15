@@ -46,6 +46,7 @@ export const COMMAND_NAMES: readonly string[] = [
   "run",
   "settings",
   "test",
+  "tokens",
   "undo",
   "web",
 ];
@@ -144,6 +145,7 @@ export function parseCommand(input: string): CommandEffect {
       break;
     }
     case "diff":
+    case "tokens":
     case "ls":
     case "clear":
     case "settings":

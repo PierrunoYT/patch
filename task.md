@@ -188,10 +188,12 @@ security rules above.
 ### Commands and executable workflows
 
 - [ ] **CMD-1:** Select bounded read-only inspection commands such as `/diff`,
-  `/tokens`, `/map`, `/map-refresh`, and `/copy-context`. `/diff` is selected and
-  production-wired for current staged and unstaged changes to selected editable
-  files, with literal Git pathspecs, sanitization, a 1-MiB UTF-8 ceiling, and
-  packed-bin evidence. Decide the remaining inspection commands individually.
+  `/tokens`, `/map`, `/map-refresh`, and `/copy-context`. `/diff` and `/tokens`
+  are selected and production-wired. The token report counts the same current
+  prompt chunks used by production, labels tokenizer versus conservative
+  estimates, reports available limits/cost, excludes prompt content and the
+  not-yet-known next user message, and has packed-bin evidence. Decide map
+  controls and context copying individually.
 - [ ] **CMD-2:** Decide command aliases and argument semantics, including
   aider's `!command`, bare `/read-only`, `/reset`, `/ask`, `/code`, `/ok`,
   `/multiline-mode`, and `/quit`. Any shell alias remains previewed and

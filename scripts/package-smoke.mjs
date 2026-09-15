@@ -175,7 +175,8 @@ try {
         USERPROFILE: consumerDirectory,
         OPENAI_API_KEY: "package-smoke-not-a-real-key",
       },
-      input: "/help command\n/settings\n/report Packed installation\n/exit\n",
+      input:
+        "/help command\n/settings\n/tokens\n/report Packed installation\n/exit\n",
       encoding: "utf8",
       shell: useShell,
       timeout: 15000,
@@ -186,6 +187,12 @@ try {
   }
   if (!interactive.includes("Effective startup settings:")) {
     throw new Error("The packed executable could not display safe settings");
+  }
+  if (
+    !interactive.includes("baseline tokens total") ||
+    !interactive.includes("model tokenizer (o200k_base)")
+  ) {
+    throw new Error("The packed executable could not inspect token context");
   }
   if (
     !interactive.includes(

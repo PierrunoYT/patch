@@ -8,7 +8,7 @@ This ports the dispatch boundary from
 without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
-`/settings`, `/report`, `/diff`, `/ls`, `/clear`, `/models`, `/model`,
+`/settings`, `/report`, `/diff`, `/tokens`, `/ls`, `/clear`, `/models`, `/model`,
 `/chat-mode`, `/weak-model`, `/editor-model`, `/reasoning-effort`,
 `/think-tokens`, `/run`, `/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`,
 `/paste`, and `/exit`.
@@ -116,6 +116,20 @@ commit timeline and intentionally shows only current uncommitted selected-file
 changes, preserving the same selected-diff privacy boundary used by commits and
 generated commit messages.
 
+`/tokens` rebuilds and counts the same system/examples, history, read-only file,
+repository-map, editable-file, attachment, and reminder chunks used for a
+production turn. It reports category estimates, the composed baseline total,
+available input cost and context-window metadata, and whether counting used a
+known OpenAI tokenizer or Patch's conservative fallback. The baseline excludes
+the unknown next user message; that message can also change repository-map
+ranking. Category estimates are counted independently and need not sum exactly
+to the composed total because message-envelope overhead is applied to each
+count. The output contains only fixed labels and bounded numeric/model metadata,
+never prompt, file, map, history, media, environment, or credential content. It
+makes no provider request and asks for no path, write, or process approval. This
+differs from pinned aider mainly by naming estimate provenance and matching
+Patch's own prompt chunk order rather than implying provider-native exactness.
+
 File commands resolve paths through the repository containment boundary before
 changing editable/read-only selections. A named path behaves as it always has:
 it may not exist yet, and one that the repository ignores is reported rather
@@ -211,7 +225,7 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-26 effects through `ConcreteApplicationService`: selections, media, history,
+27 effects through `ConcreteApplicationService`: selections, media, history,
 profile switching, local ancillary output, captured process/checks, bounded URL
 content, clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL
