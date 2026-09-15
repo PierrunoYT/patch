@@ -434,7 +434,7 @@ describe("application slash commands", () => {
       join(root, "mapped.ts"),
       "export function mappedForDisplay(): number { return 2; }\n",
     );
-    await writeFile(join(root, "unsafe\u001bname.txt"), "hidden body\n");
+    await writeFile(join(root, "unsafe\u202ename.txt"), "hidden body\n");
     execFileSync("git", ["add", "."], { cwd: root });
     const provider = new FakeProvider([]);
     const approvePath = vi.fn(() => true);
@@ -459,8 +459,8 @@ describe("application slash commands", () => {
 
     expect(shown.response).toContain("mapped.ts:");
     expect(shown.response).toContain("mappedForDisplay");
-    expect(shown.response).toContain("unsafeame.txt");
-    expect(shown.response).not.toContain("\u001b");
+    expect(shown.response).toContain("unsafename.txt");
+    expect(shown.response).not.toContain("\u202e");
     expect(shown.response).not.toContain("selectedSecret");
     expect(Buffer.byteLength(shown.response)).toBeLessThanOrEqual(1024 * 1024);
     expect(provider.requests).toEqual([]);
@@ -507,6 +507,18 @@ describe("application slash commands", () => {
       {
         actions: [
           { type: "text-delta", text: "answer about the pasted text" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: "I asked you about the pasted text." },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: "I asked you about the prior turns." },
           { type: "finish", reason: "stop" },
         ],
       },

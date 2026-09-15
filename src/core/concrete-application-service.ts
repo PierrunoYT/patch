@@ -1845,6 +1845,8 @@ class ConcreteApplicationSession implements ApplicationSession {
         provider,
         strategy: definition.strategy,
         fence,
+        summarizeHistory: (messages) =>
+          this.#summarize(messages, undefined, true),
       });
       // Past this point the session is running on the new provider, so nothing
       // below may report the switch as failed or discard it.
@@ -1881,11 +1883,14 @@ class ConcreteApplicationSession implements ApplicationSession {
   /**
    * Summarizes completed history with the active model's weak model, as upstream
    * does, so the cheaper model pays for compaction. The weak model is resolved at
-   * call time so `/model` changes it too.
+   * call time so `/model` changes it too. A format switch forces compaction even
+   * below the ordinary history budget because old assistant protocol output is
+   * unsafe to send under the replacement format.
    */
   async #summarize(
     messages: readonly ChatMessage[],
     signal?: AbortSignal,
+    force = false,
   ): Promise<readonly ChatMessage[]> {
     const main = this.#profile.main;
     const weak = this.#weakModel;
@@ -1893,7 +1898,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     let lastError: unknown;
     for (const model of models) {
       try {
-        return await this.#summarizeWithModel(messages, model, signal);
+        return await this.#summarizeWithModel(messages, model, signal, force);
       } catch (error) {
         signal?.throwIfAborted();
         lastError = error;
@@ -1908,11 +1913,12 @@ class ConcreteApplicationSession implements ApplicationSession {
     messages: readonly ChatMessage[],
     model: ModelSettings,
     signal?: AbortSignal,
+    force = false,
   ): Promise<readonly ChatMessage[]> {
     signal?.throwIfAborted();
     const provider = this.#context.makeProvider(model);
     const summary = new ChatSummary({
-      maxTokens: this.#profile.main.maxChatHistoryTokens,
+      maxTokens: force ? 1 : this.#profile.main.maxChatHistoryTokens,
       ...(model.maxInputTokens === undefined
         ? {}
         : { maxInputTokens: model.maxInputTokens }),

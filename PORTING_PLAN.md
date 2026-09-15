@@ -517,10 +517,10 @@ or a documented, safer rejection.
   editing unselected files.
 - [x] Complete strategy/model switching with state transfer. `/model` and
   `/chat-mode` rebuild the model, provider, parser, prompts, shell policy,
-  fence, and repository-map policy as one profile installed only after
-  `CoderSession.switch` accepts the change, and transfer history the
-  replacement model can accept. Completed history that outgrows the model's
-  budget is summarized automatically with the weak model before the next turn.
+  fence, and repository-map policy as one atomic profile. A format change first
+  forces bounded history summarization through the current weak/main fallback;
+  failures preserve the old profile and raw history. Replacement capability
+  filtering removes unsupported media after summarization.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
 **Exit:** installed-service acceptance

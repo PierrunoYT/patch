@@ -464,32 +464,62 @@ describe("long completed history", () => {
 });
 
 describe("switching the active model", () => {
-  it("rebuilds prompts, shell policy, and compatible history", async () => {
+  it("summarizes incompatible history before installing the new format", async () => {
     const root = await temporaryDirectory("patch-switch-prompt-");
     await writeFile(join(root, "one.txt"), "one\n");
-    const { submit, sent } = await harness({
-      root,
-      turns: 2,
+    const provider = new FakeProvider([
+      {
+        actions: [
+          { type: "text-delta", text: "assistant answer" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: "I asked you to make the first change." },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+      {
+        actions: [
+          { type: "text-delta", text: "second answer" },
+          { type: "finish", reason: "stop" },
+        ],
+      },
+    ]);
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
       argv: ["--no-git", "--model", "test/diff-model", "--file", "one.txt"],
+      dependencies: { catalog: await testCatalog, provider },
     });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "switch-summary",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
 
-    await submit("first question");
-    expect(sent(0)).toContain("SEARCH");
-    expect(sent(0)).toContain("Shell commands may be suggested");
-
-    await expect(submit("/model test/whole-model")).resolves.toMatchObject({
+    await session.submit("first question", options);
+    await expect(
+      session.submit("/model test/whole-model", options),
+    ).resolves.toMatchObject({
       response: "Model: test/whole-model",
     });
-    await submit("second question");
+    await session.submit("second question", options);
 
-    // The replacement model's own prompt, reminder, and shell policy.
-    expect(sent(1)).toContain("entire content of the updated file");
-    expect(sent(1)).not.toContain("SEARCH");
-    expect(sent(1)).toContain("Do not suggest shell commands.");
-    // Assistant output in the previous format cannot survive the format change.
-    expect(sent(0)).toContain("first question");
-    expect(sent(1)).toContain("first question");
-    expect(sent(1)).not.toContain("assistant answer");
+    expect(JSON.stringify(provider.requests[0]?.messages)).toContain("SEARCH");
+    expect(JSON.stringify(provider.requests[1]?.messages)).toContain(
+      "Briefly* summarize this partial conversation",
+    );
+    const replacement = JSON.stringify(provider.requests[2]?.messages);
+    expect(replacement).toContain("entire content of the updated file");
+    expect(replacement).toContain("I asked you to make the first change.");
+    expect(replacement).not.toContain("assistant answer");
+    await service.close();
   });
 
   it("returns /chat-mode code to the active model's format", async () => {
@@ -538,7 +568,7 @@ describe("switching the active model", () => {
     await executeFile("git", ["-C", root, "commit", "--quiet", "-m", "base"]);
     const { submit, sent } = await harness({
       root,
-      turns: 2,
+      turns: 3,
       argv: ["--model", "test/diff-model", "--file", "chat.txt"],
     });
 
@@ -547,7 +577,7 @@ describe("switching the active model", () => {
 
     await submit("/model test/whole-model");
     await submit("where is mappedHelper");
-    expect(sent(1)).not.toContain(REPO_MAP_PREFIX);
+    expect(sent(2)).not.toContain(REPO_MAP_PREFIX);
   });
 
   it("reselects the fence after context changes without a profile switch", async () => {

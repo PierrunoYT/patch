@@ -130,9 +130,11 @@ arbitrary codec names;
 media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;
-`/model` and `/chat-mode` rebuild the whole model profile atomically, `/paste`
-submits clipboard text as a user turn, and a turn interrupted after its edits
-landed reconciles history and reports surviving work through the terminal.
+`/model` and `/chat-mode` rebuild the whole model profile atomically and
+summarize history before an incompatible format switch; failure preserves the
+old profile/history and replacement capability filtering removes unsupported
+media. `/paste` submits clipboard text as a user turn, and an interrupted turn
+reports any edits that survived.
 Historical checklist completions do not establish release readiness. The latest
 [file-for-file parity audit](docs/aider-parity-audit-2026-09-15.md) and
 [pinned source inventory](docs/aider-source-inventory-2026-09-15.md) classify

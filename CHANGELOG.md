@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Incompatible `/model` and `/chat-mode` switches now force bounded history
+  summarization through the current weak/main fallback before atomically
+  installing the new profile. Failures preserve the old profile and history;
+  usage remains accounted and unsupported media is filtered afterwards.
+
 - Kept architect and context as embedding-only application workflows for the
   current release. Their explicit callback approvals, cancellation, editor
   routing, bounded convergence, and atomic recovery remain available without

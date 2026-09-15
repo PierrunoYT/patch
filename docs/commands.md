@@ -263,10 +263,11 @@ surface:
   provider happens afterwards, and a failure to close it is not reported as a
   failed switch and never tears down the provider now in use.
   `/chat-mode code` returns to the format of the model that is active now, not
-  the startup model. Switch-time history summarization is not supplied, so an
-  incompatible switch drops assistant messages instead of summarizing them.
-  This differs from automatic long-history compaction before ordinary turns,
-  which is production-wired through the active model's weak model.
+  the startup model. An incompatible format switch first summarizes completed
+  history through the current weak model, with bounded input, main-model
+  fallback, and usage accounting. A summary or profile-construction failure
+  leaves the old profile and history active; the replacement's capability
+  filter then removes media it cannot accept.
 - `/paste` submits clipboard text as a user turn. The text is used verbatim and
   is never reparsed as a command, so clipboard content the user did not write
   cannot dispatch `/run` or any other effect; an empty clipboard is rejected

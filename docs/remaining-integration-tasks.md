@@ -357,13 +357,13 @@ valid only for the specific normalization and recovery cases they name.
   `--architect`, `/architect`, and `/context` remain absent rather than
   advertising callback-only behavior through an installed CLI. Reopen only as
   a coherent terminal project with interactive approvals and packed-bin tests.
-- [ ] **P2 -- Decide whether incompatible model switches should summarize
-  history instead of dropping messages.** **Status:** partial. This behavioral
-  divergence is recorded at `docs/commands.md:161-172`: Patch drops assistant
-  messages a replacement model cannot accept; Aider's `SwitchCoder` path can
-  summarize from the prior coder in `aider/coders/base_coder.py:128-199` and
-  `aider/commands.py:191-203`. Preserve media capability filtering and fail
-  atomically if switch-time summarization is added.
+- [x] **P2 -- Summarize history on incompatible model switches.** **Status:**
+  implemented. Before installing a profile with a different edit format, the
+  concrete application forces bounded compaction through the current weak model
+  with main-model fallback and usage accounting. Summarization, provider
+  construction, strategy, fence, and map preparation all complete before the
+  switch mutates state; failure keeps the old profile and raw history active.
+  Replacement capability filtering then removes unsupported media.
 - [x] **N/A -- Keep exact prompt and automatic localization parity out of the
   current product contract.** **Status:** accepted intentional difference.
   Patch uses shorter English-only production templates in

@@ -180,9 +180,10 @@ security rules above.
   plan/path approval and cancellation, but the terminal has no complete
   proposal-review or convergent-selection UX. Public aliases would overclaim
   recovery and installed-bin support.
-- [ ] **MODE-2:** Decide whether incompatible model switches should summarize
-  history instead of dropping incompatible messages. Preserve media filtering
-  and atomic failure.
+- [x] **MODE-2:** Summarize completed history before an incompatible model or
+  chat-mode switch. The current weak model performs bounded compaction; failure
+  leaves the old profile/history active. Media unsupported by the replacement
+  is filtered only after a valid summary, and usage stays session-accounted.
 - [x] **PROMPT-1:** Keep byte-level prompt and automatic localization parity out
   of Patch's current product contract. Production prompts remain shorter and
   English-only; compatibility fixtures prove format-specific structure, chunk

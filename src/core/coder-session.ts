@@ -523,9 +523,10 @@ export class CoderSession {
 
     let messages: readonly ChatMessage[] = this.#state.messages;
     if (model.editFormat !== this.#strategy.format) {
-      messages = options.summarizeHistory
-        ? [...(await options.summarizeHistory(structuredClone(messages)))]
-        : messages.filter((message) => message.role !== "assistant");
+      messages =
+        options.summarizeHistory !== undefined && messages.length > 0
+          ? [...(await options.summarizeHistory(structuredClone(messages)))]
+          : messages.filter((message) => message.role !== "assistant");
     }
     messages = supportedHistory(messages, model.capabilities).map((message) =>
       ChatMessageSchema.parse(message),
