@@ -827,10 +827,8 @@ class ConcreteApplicationSession implements ApplicationSession {
           for (const path of next) {
             await resolver.resolve(path);
             if (approved.has(path)) continue;
-            // An embedding without an approver has no way to answer, which is
-            // permission to proceed here exactly as it is for `/add`.
             if (
-              this.#context.approvePath !== undefined &&
+              this.#context.approvePath === undefined ||
               !(await this.#context.approvePath(path, "context-selection"))
             ) {
               throw new Error(`Context selection was not approved: ${path}`);
