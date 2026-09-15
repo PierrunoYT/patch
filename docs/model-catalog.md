@@ -81,8 +81,12 @@ constructs the selected editor provider and parser on demand with fresh history,
 current selected paths, and the editor model's capabilities. Architect handoff
 uses that path only after explicit acceptance and transfers usage/commit state
 back to the main session. Generated commit-message role selection is unchanged.
-Weak/editor switching remains owned by its atomic-role task; Patch does not
-expose those command aliases before the underlying contract exists.
+Weak/editor roles can now be selected independently at startup and changed with
+`/weak-model` and `/editor-model`. The weak role drives summarization and
+generated commit messages; the editor role and validated editor format drive
+accepted architect handoff with fresh history. These changes do not rebuild the
+main profile or alter its compatible history/media state, and all role provider
+usage remains in session accounting.
 
 First-class reasoning controls are now capability gated. A custom OpenAI model
 may declare `capabilities.reasoningEffort: true` and accept only `low`, `medium`,

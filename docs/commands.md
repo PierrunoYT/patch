@@ -9,8 +9,8 @@ without copying aider's stateful Python command object.
 
 The parser recognizes `/add`, `/attach`, `/drop`, `/read-only`, `/help`,
 `/settings`, `/report`, `/ls`, `/clear`, `/models`, `/model`, `/chat-mode`,
-`/reasoning-effort`, `/think-tokens`, `/run`, `/web`, `/test`, `/lint`,
-`/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
+`/weak-model`, `/editor-model`, `/reasoning-effort`, `/think-tokens`, `/run`,
+`/web`, `/test`, `/lint`, `/commit`, `/undo`, `/copy`, `/paste`, and `/exit`.
 Path commands support whitespace-separated paths and quoted paths. Commands
 reject missing required arguments, unexpected arguments, unterminated quoting,
 unknown chat modes, and unknown command names. Ordinary text is preserved in a
@@ -51,6 +51,15 @@ OpenAI adapter and thinking budgets to Anthropic. The bundled models declare
 neither capability, so these controls are currently available only to a
 strict custom catalog entry that opts in. Enabling either omits temperature.
 Startup `--reasoning-effort` and `--thinking-tokens` use the same validation.
+
+`/weak-model [name]` and `/editor-model [name]` inspect or replace secondary
+roles without changing the active main model. Startup `--weak-model`,
+`--editor-model`, and `--editor-edit-format` participate in normal staged
+precedence. Role names resolve through the same strict catalog; editor formats
+must have editor prompts. Role changes are serialized and assigned only after
+resolution/validation. Summarization and generated commit messages use the
+current weak role; accepted architect handoff uses the current editor role and
+fresh editor history. Their provider usage continues into session accounting.
 
 `/settings` shows the current model and chat mode (including successful
 post-startup switches), encoding, enabled/disabled Git, hook verification and
@@ -181,7 +190,7 @@ check authorizes its execution without a per-run prompt. See
 `tests/advertised-commands.test.ts` extracts the inventory at the top of this
 document and requires exact set equality with `COMMAND_NAMES`, the parser and
 completion source of truth. Its real temporary Git repository then executes all
-23 effects through `ConcreteApplicationService`: selections, media, history, profile
+25 effects through `ConcreteApplicationService`: selections, media, history, profile
 switching, local ancillary output, captured process/checks, bounded URL content,
 clipboard, commit/owned undo, and exit. It also verifies safe failures for
 missing clipboard and undo state, traversal, an unknown model, refused URL
@@ -198,9 +207,9 @@ surface:
 
 - Model command breadth follows the model contracts rather than being added as
   aliases first. `/models`, `/think-tokens`, and `/reasoning-effort` now have
-  their bounded underlying contracts; weak/editor commands remain part of
-  atomic independent role switching and are not advertised before that
-  contract exists.
+  their bounded underlying contracts. Weak/editor commands likewise resolve
+  and switch independently through the catalog while keeping the main profile
+  and history intact.
 
 - `/model` and `/chat-mode` rebuild the whole model-derived profile — provider,
   parser, system prompt, examples, reminder, shell policy, fence, and

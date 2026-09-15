@@ -72,6 +72,9 @@ interface ProgramOptions {
   readonly commitCommitterName?: string;
   readonly commitCoAuthor?: string;
   readonly model?: string;
+  readonly weakModel?: string;
+  readonly editorModel?: string;
+  readonly editorEditFormat?: string;
   readonly reasoningEffort?: string;
   readonly thinkingTokens?: string;
   readonly listModels?: string | boolean;
@@ -122,6 +125,9 @@ function bootstrapArguments(
   append(argv, "--env-file", options.envFile);
   append(argv, "--encoding", options.encoding);
   append(argv, "--model", options.model);
+  append(argv, "--weak-model", options.weakModel);
+  append(argv, "--editor-model", options.editorModel);
+  append(argv, "--editor-edit-format", options.editorEditFormat);
   append(argv, "--reasoning-effort", options.reasoningEffort);
   append(argv, "--thinking-tokens", options.thinkingTokens);
   for (const path of options.modelAliasFile ?? [])
@@ -246,6 +252,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         "co-author trailer for Patch-authored edits",
       )
       .option("--model <name>", "model name")
+      .option("--weak-model <name>", "weak model used for summarization")
+      .option("--editor-model <name>", "editor model used by architect handoff")
+      .option("--editor-edit-format <format>", "editor edit strategy")
       .option(
         "--reasoning-effort <level>",
         "reasoning effort for declared OpenAI models (low, medium, or high)",

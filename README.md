@@ -225,6 +225,11 @@ token budget below the output limit. Use startup flags or `/reasoning-effort`
 and `/think-tokens`; undeclared or wrong-provider combinations fail before any
 request. Bundled profiles currently make no mutable reasoning-capability claim.
 
+Main, weak, and editor roles can be selected independently with `--model`,
+`--weak-model`, and `--editor-model`; editor format has its own startup option.
+Use `/weak-model` and `/editor-model` to inspect or change secondary roles
+without rebuilding the active main profile or discarding compatible history.
+
 Configuration for histories, multiline input, notifications, watch mode, and
 the local web interface follows the same staged YAML, environment/dotenv, and
 CLI precedence as model, Git, file, edit, and check controls. Explicit `--no-*`

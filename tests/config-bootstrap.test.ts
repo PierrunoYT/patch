@@ -37,6 +37,36 @@ afterEach(async () => {
 });
 
 describe("bootstrapConfiguration", () => {
+  it("selects role models independently with CLI precedence", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(
+      join(root, ".patch.conf.yml"),
+      "weak-model: yaml/weak\neditor-model: yaml/editor\neditor-edit-format: whole\n",
+    );
+    const result = await bootstrapConfiguration({
+      cwd: root,
+      home: root,
+      environment: {
+        PATCH_WEAK_MODEL: "env/weak",
+        PATCH_EDITOR_MODEL: "env/editor",
+        PATCH_EDITOR_EDIT_FORMAT: "diff",
+      },
+      argv: [
+        "--weak-model",
+        "cli/weak",
+        "--editor-model",
+        "cli/editor",
+        "--editor-edit-format",
+        "diff-fenced",
+      ],
+    });
+    expect(result.arguments).toMatchObject({
+      weakModel: "cli/weak",
+      editorModel: "cli/editor",
+      editorEditFormat: "diff-fenced",
+    });
+  });
+
   it("validates reasoning controls with CLI precedence", async () => {
     const root = await temporaryDirectory();
     await writeFile(

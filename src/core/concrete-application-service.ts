@@ -472,6 +472,9 @@ class ConcreteApplicationSession implements ApplicationSession {
     | ((url: string, options: { signal?: AbortSignal }) => Promise<FetchedUrl>)
     | undefined;
   #profile: SessionProfile;
+  #weakModel: ModelSettings;
+  #editorModel: ModelSettings;
+  #editorEditFormat: EditFormat;
   #closed = false;
   #closing: Promise<void> | undefined;
 
@@ -517,6 +520,9 @@ class ConcreteApplicationSession implements ApplicationSession {
       fence: context.fence,
       ...(repositoryMap === undefined ? {} : { repositoryMap }),
     };
+    this.#weakModel = context.models.weak.settings;
+    this.#editorModel = context.models.editor.settings;
+    this.#editorEditFormat = context.models.editorEditFormat;
     this.#session = new CoderSession({
       config: {
         root: context.root,
@@ -622,8 +628,8 @@ class ConcreteApplicationSession implements ApplicationSession {
     const fence = selectFence(
       contents.flatMap(({ content }) => (content === null ? [] : [content])),
     ).fence;
-    const main = this.#context.models.editor.settings;
-    const format = this.#context.models.editorEditFormat;
+    const main = this.#editorModel;
+    const format = this.#editorEditFormat;
     const definition = createEditorStrategy(format, fence);
     const provider = this.#context.makeProvider({
       ...main,
@@ -668,10 +674,8 @@ class ConcreteApplicationSession implements ApplicationSession {
       // constructed: the editor only has prompts for three formats, and
       // discovering that after a plan has been paid for and accepted wastes the
       // turn and reports the failure at the least useful moment.
-      if (!isEditorEditFormat(this.#context.models.editorEditFormat)) {
-        throw new UnsupportedEditFormatError(
-          this.#context.models.editorEditFormat,
-        );
+      if (!isEditorEditFormat(this.#editorEditFormat)) {
+        throw new UnsupportedEditFormatError(this.#editorEditFormat);
       }
       const state = this.#session.snapshot();
       const architect = new ConcreteApplicationSession(this.#context, {
@@ -1367,6 +1371,24 @@ class ConcreteApplicationSession implements ApplicationSession {
         return result("Chat history cleared");
       case "models":
         return result(renderModelMatches(this.#context.catalog, effect.query));
+      case "weak-model": {
+        if (effect.model === undefined)
+          return result(`Weak model: ${this.#weakModel.name}`);
+        const weak = this.#context.catalog.resolve(effect.model).settings;
+        this.#weakModel = weak;
+        return result(`Weak model: ${weak.name}`);
+      }
+      case "editor-model": {
+        if (effect.model === undefined)
+          return result(`Editor model: ${this.#editorModel.name}`);
+        const editor = this.#context.catalog.resolve(effect.model).settings;
+        const format = editor.editorEditFormat ?? editor.editFormat;
+        if (!isEditorEditFormat(format))
+          throw new UnsupportedEditFormatError(format);
+        this.#editorModel = editor;
+        this.#editorEditFormat = format;
+        return result(`Editor model: ${editor.name} (${format})`);
+      }
       case "reasoning-effort": {
         if (effect.effort === undefined)
           return result(
@@ -1745,10 +1767,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     signal?: AbortSignal,
   ): Promise<readonly ChatMessage[]> {
     const main = this.#profile.main;
-    const weak =
-      main.weakModel === undefined || main.weakModel === main.name
-        ? main
-        : this.#context.catalog.resolve(main.weakModel).settings;
+    const weak = this.#weakModel;
     const models = weak.name === main.name ? [main] : [weak, main];
     let lastError: unknown;
     for (const model of models) {
@@ -1968,11 +1987,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     diff: string,
     options: ApplicationSubmitOptions,
   ): Promise<string> {
-    const main = this.#profile.main;
-    const model =
-      main.weakModel === undefined || main.weakModel === main.name
-        ? main
-        : this.#context.catalog.resolve(main.weakModel).settings;
+    const model = this.#weakModel;
     const messages: ChatMessage[] = [
       {
         role: "system",
@@ -2141,6 +2156,15 @@ export class ConcreteApplicationService implements ApplicationService {
       }));
     const selectedModels = selectModels(catalog, {
       main: bootstrap.arguments.model,
+      ...(bootstrap.arguments.weakModel === undefined
+        ? {}
+        : { weak: bootstrap.arguments.weakModel }),
+      ...(bootstrap.arguments.editorModel === undefined
+        ? {}
+        : { editor: bootstrap.arguments.editorModel }),
+      ...(bootstrap.arguments.editorEditFormat === undefined
+        ? {}
+        : { editorEditFormat: bootstrap.arguments.editorEditFormat }),
     });
     const controlledMain = withReasoningControls(selectedModels.main.settings, {
       reasoningEffort: bootstrap.arguments.reasoningEffort,

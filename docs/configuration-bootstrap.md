@@ -47,8 +47,9 @@ The bootstrap parser recognizes `--config`/`-c`, `--env-file`, `--encoding`,
 `--git`/`--no-git`, `--model`, `--lint-cmd`, `--test-cmd`, `--edit-format`,
 `--cache-prompts`/`--no-cache-prompts`, `--cache-keepalive-pings`, repeated
 `--model-alias-file`, `--model-settings-file`, `--model-metadata-file`,
-`--reasoning-effort`, `--thinking-tokens`, `--file`, repeated `--read-only`,
-and positional editable paths.
+`--weak-model`, `--editor-model`, `--editor-edit-format`, `--reasoning-effort`,
+`--thinking-tokens`, `--file`, repeated `--read-only`, and positional editable
+paths.
 The executable Commander surface exposes `--no-git`, not a positive `--git`
 flag. Environment equivalents for these controls are `PATCH_CONFIG`,
 `PATCH_ENV_FILE`, `PATCH_ENCODING`, `PATCH_GIT`, `PATCH_MODEL`,
@@ -62,6 +63,10 @@ Reasoning controls use `PATCH_REASONING_EFFORT`/`reasoning-effort` and
 over-YAML precedence. Their values are validated during bootstrap and again
 against the selected model's declared capability and provider before provider
 construction.
+Secondary roles use `PATCH_WEAK_MODEL`, `PATCH_EDITOR_MODEL`, and
+`PATCH_EDITOR_EDIT_FORMAT`, or YAML `weak-model`, `editor-model`, and
+`editor-edit-format`, with CLI precedence. Catalog resolution occurs before the
+main provider is constructed.
 
 Catalog file precedence is applied independently by kind: a non-empty repeated
 CLI list replaces an environment singleton and YAML list, and environment

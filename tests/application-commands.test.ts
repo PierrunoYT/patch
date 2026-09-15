@@ -12,6 +12,52 @@ import {
 import { createProgram } from "../src/program.js";
 
 describe("application slash commands", () => {
+  it("selects and switches weak and editor roles independently", async () => {
+    const root = await mkdtemp(join(tmpdir(), "patch-role-models-"));
+    const catalog = await ModelCatalog.load({
+      settings: [new URL("./fixtures/switch-models.yml", import.meta.url)],
+    });
+    const service = await ConcreteApplicationService.create({
+      cwd: root,
+      home: root,
+      environment: {},
+      argv: [
+        "--no-git",
+        "--model",
+        "test/diff-model",
+        "--weak-model",
+        "test/whole-model",
+        "--editor-model",
+        "test/editor-model",
+        "--editor-edit-format",
+        "whole",
+      ],
+      dependencies: { catalog, provider: new FakeProvider([]) },
+    });
+    const session = service.createSession({
+      principal: "test",
+      sessionId: "roles",
+    });
+    const options = {
+      signal: new AbortController().signal,
+      emit: () => undefined,
+    };
+    await expect(session.submit("/weak-model", options)).resolves.toMatchObject(
+      {
+        response: "Weak model: test/whole-model",
+      },
+    );
+    await expect(
+      session.submit("/editor-model", options),
+    ).resolves.toMatchObject({
+      response: "Editor model: test/editor-model",
+    });
+    await expect(
+      session.submit("/weak-model test/weak-model", options),
+    ).resolves.toMatchObject({ response: "Weak model: test/weak-model" });
+    await service.close();
+  });
+
   it("applies declared reasoning controls to later production turns", async () => {
     const root = await mkdtemp(join(tmpdir(), "patch-reasoning-controls-"));
     const settings = join(root, "reasoning.yml");

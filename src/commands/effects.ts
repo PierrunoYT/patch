@@ -71,6 +71,18 @@ export const CommandEffectSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("model"), model: z.string().min(1) }).strict(),
   z
     .object({
+      type: z.literal("weak-model"),
+      model: z.string().min(1).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("editor-model"),
+      model: z.string().min(1).optional(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("reasoning-effort"),
       effort: z.enum(["low", "medium", "high", "off"]).optional(),
     })

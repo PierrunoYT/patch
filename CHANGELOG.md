@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Added independent weak/editor startup selection and serialized runtime
+  switching. Summarization and generated commits follow the current weak role;
+  architect handoff follows the current editor role and format while preserving
+  the main profile, compatible history/media, provider ownership, and session
+  accounting.
+
 - Added strict startup and mutable reasoning controls: declared custom OpenAI
   profiles can use reasoning effort and declared custom Anthropic profiles can
   use bounded thinking-token budgets. Unsupported capability/provider pairs

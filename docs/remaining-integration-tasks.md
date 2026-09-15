@@ -294,15 +294,17 @@ valid only for the specific normalization and recovery cases they name.
   capability that its current endpoint does not provide. This ports the safe
   subset of `aider/args.py:139-150,212-218`, `aider/models.py:792-923`, and
   `aider/commands.py:1580-1637` without LiteLLM/OpenRouter passthrough.
-- [ ] **P2 -- Expose independent main, weak, and editor model selection and
-  switching.** **Status:** partial. Patch resolves weak/editor defaults from the
-  selected main model in `src/models/selection.ts:26-58`, but its executable exposes
-  only `--model` and `/model` at `src/program.ts:228` and
-  `src/commands/parse.ts:167-169`. Aider exposes `--weak-model`,
-  `--editor-model`, `--editor-edit-format`, `/weak-model`, and `/editor-model`
-  at `aider/args.py:185-205` and `aider/commands.py:87-136`. Preserve atomic
-  profile switching, provider cleanup, compatible-history handling, and cost
-  accounting across all three roles.
+- [x] **P2 -- Expose independent main, weak, and editor model selection and
+  switching.** **Status:** implemented. Staged CLI/environment/YAML selects
+  weak/editor roles and editor format; `/weak-model` and `/editor-model` inspect
+  or replace roles after bounded catalog resolution and editor-format
+  validation. Serialized secondary changes leave the main provider/profile,
+  compatible history, and media untouched. Summaries and generated commit
+  messages use the current weak role; fresh isolated architect handoff uses the
+  current editor, with usage transferred into main session accounting. Main
+  `/model` retains its existing atomic provider construction/switch/cleanup.
+  Focused bootstrap, parser, and production application tests cover the subset
+  of `aider/args.py:185-205` and `aider/commands.py:87-136`.
 - [x] **N/A -- Keep arbitrary API-key injection and disabled TLS verification
   out of the default Patch surface.** **Status:** intentional difference.
   Aider accepts `--set-env`, generic `--api-key`, and `--no-verify-ssl` at

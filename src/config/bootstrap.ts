@@ -40,6 +40,9 @@ const CatalogFileListSchema = z
 const ConfigurationFileSchema = z
   .object({
     model: z.string().min(1).optional(),
+    "weak-model": z.string().min(1).optional(),
+    "editor-model": z.string().min(1).optional(),
+    "editor-edit-format": ApplicationEditFormatSchema.optional(),
     "reasoning-effort": z.enum(["low", "medium", "high"]).optional(),
     "thinking-tokens": z.number().int().min(1024).max(1_000_000).optional(),
     "model-alias-files": CatalogFileListSchema.optional(),
@@ -89,6 +92,9 @@ export interface BootstrapArguments {
   readonly commitCommitterName: string | undefined;
   readonly commitCoAuthor: string | undefined;
   readonly model: string | undefined;
+  readonly weakModel: string | undefined;
+  readonly editorModel: string | undefined;
+  readonly editorEditFormat: ApplicationEditFormat | undefined;
   readonly reasoningEffort: "low" | "medium" | "high" | undefined;
   readonly thinkingTokens: number | undefined;
   readonly modelAliasFiles: readonly string[];
@@ -144,6 +150,9 @@ interface ParsedCommandLine {
   commitCommitterName: string | undefined;
   commitCoAuthor: string | undefined;
   model: string | undefined;
+  weakModel: string | undefined;
+  editorModel: string | undefined;
+  editorEditFormat: string | undefined;
   reasoningEffort: string | undefined;
   thinkingTokens: string | undefined;
   modelAliasFiles: string[];
@@ -232,6 +241,9 @@ function parseCommandLine(
     commitCommitterName: undefined,
     commitCoAuthor: undefined,
     model: undefined,
+    weakModel: undefined,
+    editorModel: undefined,
+    editorEditFormat: undefined,
     reasoningEffort: undefined,
     thinkingTokens: undefined,
     modelAliasFiles: [],
@@ -322,39 +334,47 @@ function parseCommandLine(
             ? "encoding"
             : option === "--model"
               ? "model"
-              : option === "--reasoning-effort"
-                ? "reasoningEffort"
-                : option === "--thinking-tokens"
-                  ? "thinkingTokens"
-                  : option === "--cache-keepalive-pings"
-                    ? "cacheKeepalivePings"
-                    : option === "--lint-cmd"
-                      ? "lintCommand"
-                      : option === "--test-cmd"
-                        ? "testCommand"
-                        : option === "--edit-format"
-                          ? "editFormat"
-                          : option === "--input-history-file"
-                            ? "inputHistoryFile"
-                            : option === "--chat-history-file"
-                              ? "chatHistoryFile"
-                              : option === "--notifications-command"
-                                ? "notificationsCommand"
-                                : option === "--web-port"
-                                  ? "webPort"
-                                  : option === "--web-token-file"
-                                    ? "webTokenFile"
-                                    : option === "--file"
-                                      ? "file"
-                                      : option === "--read-only"
-                                        ? "readOnlyFile"
-                                        : option === "--model-alias-file"
-                                          ? "modelAliasFile"
-                                          : option === "--model-settings-file"
-                                            ? "modelSettingsFile"
-                                            : option === "--model-metadata-file"
-                                              ? "modelMetadataFile"
-                                              : undefined;
+              : option === "--weak-model"
+                ? "weakModel"
+                : option === "--editor-model"
+                  ? "editorModel"
+                  : option === "--editor-edit-format"
+                    ? "editorEditFormat"
+                    : option === "--reasoning-effort"
+                      ? "reasoningEffort"
+                      : option === "--thinking-tokens"
+                        ? "thinkingTokens"
+                        : option === "--cache-keepalive-pings"
+                          ? "cacheKeepalivePings"
+                          : option === "--lint-cmd"
+                            ? "lintCommand"
+                            : option === "--test-cmd"
+                              ? "testCommand"
+                              : option === "--edit-format"
+                                ? "editFormat"
+                                : option === "--input-history-file"
+                                  ? "inputHistoryFile"
+                                  : option === "--chat-history-file"
+                                    ? "chatHistoryFile"
+                                    : option === "--notifications-command"
+                                      ? "notificationsCommand"
+                                      : option === "--web-port"
+                                        ? "webPort"
+                                        : option === "--web-token-file"
+                                          ? "webTokenFile"
+                                          : option === "--file"
+                                            ? "file"
+                                            : option === "--read-only"
+                                              ? "readOnlyFile"
+                                              : option === "--model-alias-file"
+                                                ? "modelAliasFile"
+                                                : option ===
+                                                    "--model-settings-file"
+                                                  ? "modelSettingsFile"
+                                                  : option ===
+                                                      "--model-metadata-file"
+                                                    ? "modelMetadataFile"
+                                                    : undefined;
     if (target !== undefined) {
       const result = optionValue(argv, index, option ?? "option");
       index = result.nextIndex;
@@ -469,6 +489,18 @@ function resolveArguments(
       `Unsupported edit format: ${editFormatValue}`,
     );
   }
+  const editorEditFormatValue =
+    commandLine.editorEditFormat ??
+    environment.PATCH_EDITOR_EDIT_FORMAT ??
+    configuration["editor-edit-format"];
+  const editorEditFormat =
+    editorEditFormatValue === undefined
+      ? undefined
+      : ApplicationEditFormatSchema.safeParse(editorEditFormatValue);
+  if (editorEditFormat !== undefined && !editorEditFormat.success)
+    throw new BootstrapArgumentError(
+      `Unsupported editor edit format: ${editorEditFormatValue}`,
+    );
   // Left undefined rather than defaulted to 0, so "no port was configured" stays
   // distinguishable from "port 0 was asked for" once the sources are merged.
   const webPortValue =
@@ -582,6 +614,15 @@ function resolveArguments(
       "commit-co-author",
     ),
     model: commandLine.model ?? environment.PATCH_MODEL ?? configuration.model,
+    weakModel:
+      commandLine.weakModel ??
+      environment.PATCH_WEAK_MODEL ??
+      configuration["weak-model"],
+    editorModel:
+      commandLine.editorModel ??
+      environment.PATCH_EDITOR_MODEL ??
+      configuration["editor-model"],
+    editorEditFormat: editorEditFormat?.data,
     reasoningEffort: reasoningEffort.data,
     thinkingTokens,
     modelAliasFiles: catalogFiles(

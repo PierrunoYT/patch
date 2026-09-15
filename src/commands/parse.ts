@@ -35,6 +35,8 @@ export const COMMAND_NAMES: readonly string[] = [
   "ls",
   "model",
   "models",
+  "weak-model",
+  "editor-model",
   "reasoning-effort",
   "think-tokens",
   "paste",
@@ -160,6 +162,24 @@ export function parseCommand(input: string): CommandEffect {
       break;
     case "model":
       effect = { type: "model", model: requireArgument(command, argument) };
+      break;
+    case "weak-model":
+      {
+        const model = optionalModelQuery(argument);
+        effect = {
+          type: "weak-model",
+          ...(model === undefined ? {} : { model }),
+        };
+      }
+      break;
+    case "editor-model":
+      {
+        const model = optionalModelQuery(argument);
+        effect = {
+          type: "editor-model",
+          ...(model === undefined ? {} : { model }),
+        };
+      }
       break;
     case "models": {
       const query = optionalModelQuery(argument);

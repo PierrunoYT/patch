@@ -461,6 +461,9 @@ invoked the installed `patch --help` entry point without Python.
 - [x] Expose typed reasoning-effort and thinking-token startup/runtime controls
   only for models that declare the matching OpenAI or Anthropic capability;
   reject unsupported combinations before provider transport.
+- [x] Expose independent staged weak/editor role selection and serialized
+  runtime role switching while preserving the main profile and accounting
+  secondary provider usage.
 
 **Exit (met for the documented Patch scope):** production prompt composition,
 per-attempt fence selection, staged configuration, packaged resources, and the
