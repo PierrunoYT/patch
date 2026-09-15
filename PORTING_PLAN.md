@@ -642,10 +642,11 @@ skipped all nine current gates because the orb also had no provider credentials.
   inventory equal to the parser's source of truth and executes every production
   effect in one real-Git application scenario, including safe authority/state
   failures.
-- [ ] Preserve Windows path separators in `/add`, `/drop`, `/read-only`, and
-  `/attach`; parser inventory/dispatch evidence does not establish argument
-  correctness. Decide separately whether aider's `!` and bare `/read-only`
-  semantics belong in Patch, and keep any shell alias approval-gated.
+- [x] Preserve Windows path separators in `/add`, `/drop`, `/read-only`, and
+  `/attach` through the shared quote-aware word splitter, with drive, UNC,
+  relative, quoted-space, trailing-root, and POSIX-escape tests. Decide
+  separately whether aider's `!` and bare `/read-only` semantics belong in
+  Patch, and keep any shell alias approval-gated.
 - [x] Require approval for each model-suggested shell command, show the exact
   command, run at repository root, cap output, and support timeout/cancellation
   in the application contract. Standalone interactive TTY input supplies one
@@ -656,13 +657,13 @@ skipped all nine current gates because the orb also had no provider credentials.
 - [x] Run only user-configured lint/test commands; do not guess package-manager
   commands in an arbitrary target repository.
 
-**Exit — production workflow reached, cross-platform command correctness
-blocked:** the npm-installed binary composes supported providers and edit
+**Exit — production workflow reached for the selected command surface:** the
+npm-installed binary composes supported providers and edit
 formats, previews selected-file edits, commits, runs configured lint/tests, and
-dispatches Git commands in the exercised scenarios. The packed service and
-terminal approval evidence remains valid. The Windows path item above blocks the
-phase exit; broader aider command/default parity and arbitrary child-side-effect
-recovery are still outside the claim.
+dispatches Git commands in the exercised scenarios. The packed service,
+selected-file `/diff`, and terminal approval evidence remain valid. Broader
+aider command/default parity and arbitrary child-side-effect recovery are still
+outside the claim.
 
 **Evidence:** `tests/application-lifecycle.test.ts`,
 `tests/application-commands.test.ts`, `tests/write-boundary.test.ts`, and the
