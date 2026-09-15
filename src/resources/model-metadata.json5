@@ -3,12 +3,12 @@
 // per-token values to Patch's per-million-token contract. Modified for Patch.
 // Licensed under the Apache License, Version 2.0.
 //
-// Upstream's own file carries only the models LiteLLM's data misses, and aider
-// reads everything else from LiteLLM at runtime. Patch ships no such database,
-// so the limits and prices for the advertised bundled models are taken from
-// LiteLLM 1.84.10's `model_prices_and_context_window_backup.json`, the table
-// the pinned aider revision resolves them from. They are a snapshot of vendor
-// pricing at that version, not a live quote.
+// Upstream's own file carries only the DeepSeek models LiteLLM's data misses,
+// while aider reads everything else from LiteLLM at runtime. Patch ships no
+// such database, so the non-DeepSeek bundled entries come from LiteLLM 1.84.10's
+// `model_prices_and_context_window_backup.json`, the table the pinned aider
+// revision resolves them from. DeepSeek retains the pinned upstream resource's
+// exact limits and prices. These values are snapshots, not live quotes.
 {
   "gpt-4o": {
     provider: "openai",
@@ -60,7 +60,7 @@
   },
   "deepseek/deepseek-chat": {
     provider: "deepseek",
-    maxInputTokens: 131072,
+    maxInputTokens: 128000,
     maxOutputTokens: 8192,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
@@ -73,8 +73,8 @@
   },
   "deepseek/deepseek-reasoner": {
     provider: "deepseek",
-    maxInputTokens: 131072,
-    maxOutputTokens: 65536,
+    maxInputTokens: 128000,
+    maxOutputTokens: 64000,
     inputCostPerMillion: 0.28,
     outputCostPerMillion: 0.42,
     cachedInputCostPerMillion: 0.028,

@@ -26,6 +26,11 @@ OpenAI's spellings:
   path, which is the only path that continues it. Turns without a trailing
   assistant message stay on the standard path.
 
+The bundled profiles preserve pinned aider's exact endpoint limits: both accept
+128,000 input tokens, while Chat sends an 8,192-token output ceiling and
+Reasoner sends 64,000. Concrete catalog/factory/application tests assert both
+request values.
+
 On an OpenAI endpoint none of these apply: the model name, `max_completion_tokens`,
 and a trailing assistant message are all passed through unchanged.
 

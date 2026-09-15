@@ -110,14 +110,15 @@ version rather than a live quote, and a deployment that needs current prices
 supplies its own metadata file.
 
 DeepSeek is an exception to that rationale: pinned aider explicitly bundles
-both DeepSeek entries. Its resource records 128,000 input tokens and 64,000
-reasoner output tokens, while Patch currently records 131,072 and 65,536. Since
-these limits drive prompt refusal, map sizing, and output requests, they must be
-restored or documented with an independent newer-vendor source and exact tests.
+both entries, so Patch preserves that resource's exact limits. Both profiles
+accept 128,000 input tokens; Chat allows 8,192 output tokens and Reasoner allows
+64,000. Exact resolved-catalog tests protect prompt refusal and map sizing, while
+concrete application requests prove both output ceilings reach the transport.
 
-Each value is taken from the row for the transport Patch actually uses. That is
-not always the largest row in the table: `claude-sonnet-4-6` appears with a
-one-million-token window under `openrouter/`, while every direct, Bedrock, and
+For models sourced from LiteLLM, each value is taken from the row for the
+transport Patch actually uses. That is not always the largest row in the
+table: `claude-sonnet-4-6` appears with a one-million-token window under
+`openrouter/`, while every direct, Bedrock, and
 Vertex row is 200k, because the larger window is a beta that has to be requested
 with a header this client does not send. Budgeting against the 1M figure would
 pass a 300k prompt locally and have the API refuse it, and would price it with

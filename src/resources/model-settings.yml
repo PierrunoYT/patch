@@ -72,7 +72,7 @@
   weakModel: deepseek/deepseek-chat
   editorModel: deepseek/deepseek-chat
   useRepoMap: true
-  maxOutputTokens: 8192
+  maxOutputTokens: 64000
   reasoningTag: think
   # The reasoner rejects a temperature, as upstream records for DeepSeek R1.
   useTemperature: false

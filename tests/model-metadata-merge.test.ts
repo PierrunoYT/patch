@@ -141,14 +141,21 @@ describe("catalog metadata merging", () => {
     expect(resolved.metadata).toBeUndefined();
   });
 
-  it("gives the bundled DeepSeek entry its catalog prices", async () => {
+  it("gives bundled DeepSeek entries their exact pinned limits and prices", async () => {
     const catalog = await ModelCatalog.load();
 
     // Without the merge these prices never reach a cost report.
     expect(catalog.resolve("deepseek").settings).toMatchObject({
       inputCostPerMillion: 0.28,
       outputCostPerMillion: 0.42,
-      maxInputTokens: 131072,
+      maxInputTokens: 128000,
+      maxOutputTokens: 8192,
+    });
+    expect(catalog.resolve("r1").settings).toMatchObject({
+      inputCostPerMillion: 0.28,
+      outputCostPerMillion: 0.42,
+      maxInputTokens: 128000,
+      maxOutputTokens: 64000,
     });
   });
 

@@ -71,10 +71,10 @@ Baseline for the current findings:
   pinned aider's `whole` format without a repository map, and DeepSeek Reasoner
   routes weak/editor work to DeepSeek Chat. Exact catalog, selection, and
   production summary/editor tests cover the bundled profiles.
-- [ ] **MODEL-2: Reconcile bundled DeepSeek token limits.** Restore pinned
-  input/output values or document an independently sourced newer-vendor
-  contract. Test the exact values because they control prompt refusal,
-  repository-map budgets, and provider output limits.
+- [x] **MODEL-2: Reconcile bundled DeepSeek token limits.** Both DeepSeek
+  profiles now use pinned aider's 128,000-token input limit; Chat retains 8,192
+  output tokens and Reasoner uses 64,000. Exact catalog assertions and concrete
+  provider requests cover the load-bearing values.
 - [x] **WIN-1: Preserve Windows backslashes in command and editor tokenizers.**
   Fix slash-command paths and configured external-editor commands together.
   Cover drive paths, UNC paths, relative paths, spaces, quotes, and literal

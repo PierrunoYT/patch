@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Restored the pinned DeepSeek contracts: both bundled profiles now use a
+  128,000-token input limit, Chat retains an 8,192-token output limit, and
+  Reasoner uses 64,000. Exact catalog and concrete provider-request tests keep
+  prompt/map budgets and transport output ceilings aligned.
+
 - Bundled model role defaults now match pinned aider: `gpt-4o-mini` uses the
   `whole` edit format without a repository map, while DeepSeek Reasoner routes
   weak history summaries and editor work to DeepSeek Chat. Exact resource,

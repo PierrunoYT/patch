@@ -180,7 +180,18 @@ describe("DeepSeek endpoint normalization", () => {
     });
   });
 
-  it("routes the bundled model through catalog, factory, and application session", async () => {
+  it.each([
+    {
+      catalogModel: "deepseek/deepseek-chat",
+      requestModel: "deepseek-chat",
+      maxOutputTokens: 8192,
+    },
+    {
+      catalogModel: "deepseek/deepseek-reasoner",
+      requestModel: "deepseek-reasoner",
+      maxOutputTokens: 64000,
+    },
+  ])("routes bundled $catalogModel with its pinned limit", async (contract) => {
     const root = await mkdtemp(join(tmpdir(), "patch-deepseek-session-"));
     const { capture, fetch } = recording();
     let service: ConcreteApplicationService | undefined;
@@ -192,7 +203,7 @@ describe("DeepSeek endpoint normalization", () => {
         argv: [
           "--no-git",
           "--model",
-          "deepseek/deepseek-chat",
+          contract.catalogModel,
           "--edit-format",
           "ask",
         ],
@@ -219,8 +230,8 @@ describe("DeepSeek endpoint normalization", () => {
       });
       expect(capture.urls[0]).toBe("https://api.deepseek.com/chat/completions");
       expect(capture.bodies[0]).toMatchObject({
-        model: "deepseek-chat",
-        max_tokens: 8192,
+        model: contract.requestModel,
+        max_tokens: contract.maxOutputTokens,
       });
     } finally {
       await service?.close();
