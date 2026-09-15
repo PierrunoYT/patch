@@ -18,13 +18,12 @@ staged like other configuration, but only a command-line `--web-port` or
 `--web-token-file` without `--web` is refused; a persisted one is ignored by a
 terminal run. Model, provider credentials, Git, and selected files use the
 normal staged configuration.
-No browser opens and no HTML GUI is shipped. The browser GUI is **deferred**
-(wanted, not scheduled), as recorded in the
-[P2 scope decision](../PORTING_PLAN.md#ancillary-feature-dispositions--p2-item-7).
-It is not selected for the current release scope, so loopback HTTP/SSE tests are
-evidence for the API only and are not browser-GUI or browser-rendering evidence.
-The API is not GUI parity; its session-policy and approval UX work must precede
-a GUI. Watch and one-shot options cannot be combined with `--web`.
+No browser opens and no HTML GUI is shipped. Browser GUI work is a current-release
+non-goal, not an implication of the API. A GUI would require a second complete
+approval UX, token/secret storage, reconnect/session lifecycle, browser security
+policy, and shared-worktree interaction tests. No concrete product requirement
+justifies that permanent surface for the terminal-first release. Watch and
+one-shot options cannot be combined with `--web`.
 
 `LocalWebServer` exposes the adapter-neutral `ApplicationService` over loopback HTTP. The same service contract can back terminal, watcher, or other interfaces; web code does not own model or edit behavior.
 

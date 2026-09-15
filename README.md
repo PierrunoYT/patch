@@ -402,6 +402,9 @@ Ctrl-C or SIGTERM. Web and watch flags are explicit CLI-only startup choices,
 cannot be combined with each other or one-shot input, and use the same staged
 model/file configuration as terminal startup. This API is for trusted local
 clients, not public or multi-tenant hosting.
+No browser GUI is shipped or planned for this release. The loopback HTTP/SSE
+surface is an API; a GUI would require its own approval, secret storage,
+reconnect/session, browser-security, and shared-worktree product contract.
 
 The internal editor role is production-wired for embedding-owned architect
 handoff: `ApplicationSession.runArchitect` obtains a read-only proposal,

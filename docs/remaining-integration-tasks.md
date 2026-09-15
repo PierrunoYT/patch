@@ -582,13 +582,13 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Optional interfaces, web content, and ancillary product families
 
-- [ ] **P2 -- Build a browser GUI only after the deferred product decision is
-  reopened.** **Status:** deferred. Patch's authenticated local HTTP/SSE server
-  in `src/interfaces/web-server.ts:70-451` is an API, not a UI. Aider exposes a
-  Streamlit browser mode through `aider/args.py:637-668` and
-  `aider/gui.py:92-524`.
-  A Patch GUI needs session quotas, approval UX, reconnect/replay behavior,
-  secret storage, and shared-worktree concurrency tests.
+- [x] **N/A -- Keep browser GUI work closed.** **Status:** accepted
+  current-release non-goal. Patch's authenticated loopback HTTP/SSE server is an
+  API for trusted local clients, with quotas, replay/backpressure, expiry, and
+  in-process worktree serialization. It is not a GUI. A browser product would
+  require a second complete approval UX, token/secret storage, reconnect/session
+  lifecycle, browser security policy, and interaction tests. No concrete product
+  requirement justifies that permanent surface for the terminal-first release.
 - [ ] **P2 -- Build production voice UX only after the deferred product decision
   is reopened.** **Status:** deferred. Patch's partial dependency-injected helper
   at `src/interfaces/voice.ts:22-257` has bounded fake-adapter tests but no CLI

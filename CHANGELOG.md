@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept a browser GUI out of the current release. The authenticated loopback
+  HTTP/SSE server remains an API; a GUI would require a second complete approval,
+  secret-storage, reconnect/session, browser-security, and shared-worktree
+  product surface without a current concrete requirement.
+
 - Kept noninteractive work on `--message` and `--message-file` through the normal
   lifecycle. Global dry-run and one-shot commit/lint/test flags are non-goals:
   hooks and child processes defeat universal no-write guarantees, while slash

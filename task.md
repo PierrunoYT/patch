@@ -302,9 +302,11 @@ security rules above.
 
 ### Optional interfaces and provenance
 
-- [ ] **GUI-1:** Reopen browser GUI work only with session quotas, approval UX,
-  reconnect/replay, secret handling, and shared-worktree concurrency defined.
-  The authenticated HTTP/SSE server is an API, not a GUI.
+- [x] **GUI-1:** Keep a browser GUI out of the current release. The authenticated
+  loopback HTTP/SSE server remains an API for trusted local clients, not a UI.
+  A GUI would add a second approval surface, secret/token storage, session
+  lifecycle/reconnect UX, browser security, and shared-worktree interaction; no
+  concrete product requirement justifies that permanent surface now.
 - [ ] **VOICE-2:** Reopen production voice UX only with device selection,
   cancellation, transcript review, privacy disclosure, optional packaging, and
   real-device evidence.

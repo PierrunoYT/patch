@@ -915,6 +915,9 @@ passed both supported PTY jobs at implementation revision
   message, and SSE-client quotas reject excess work; event replay and each slow
   client's pending bytes are bounded. Loopback HTTP tests directly verify
   disconnect cancellation and overflow recovery.
+- [x] Keep a browser GUI out of current scope. The loopback HTTP/SSE server is an
+  API; a GUI requires its own approval, secret-storage, session/reconnect,
+  browser-security, and shared-worktree interaction product contract.
 - [x] Add voice recording/transcription as an optional package subpath and
   embedding adapter without changing the default install footprint. No CLI
   `/voice` or device/recording UX is claimed.
