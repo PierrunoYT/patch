@@ -14,6 +14,13 @@ status. Use `task.md` for the consolidated actionable queue,
 `docs/remaining-integration-tasks.md` for detailed historical context, and the
 dated parity audits for revision-specific evidence.
 
+### Changed
+
+- Contributor guidance now records the maintainer's end-to-end parity workflow:
+  validate an external checkout at the `upstream.json` revision, preserve dated
+  file-for-file audit snapshots, reconcile `task.md` with the detailed backlog,
+  and complete each issue as its own tested, documented, pushed commit.
+
 ### Fixed
 
 - Close-only reasoning tags are now normalized before accepted attempt events

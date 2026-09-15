@@ -17,16 +17,15 @@
   implementation. Do not turn implemented helpers, exported contracts, or
   isolated tests into broader compatibility claims.
 - Before changing ported behavior, read the latest dated audit in
-  `docs/aider-parity-audit-2026-09-12.md` and the live priority backlog in
-  `docs/remaining-integration-tasks.md`, then read the documentation and upstream
-  source for the affected subsystem.
-- The latest source audit compares Patch commit
-  `bda2be474c298de73bd2dce9d7c17e7a38c1ccac` with aider commit
-  `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Earlier audits compared Patch
-  `476d1657410bdd47982cc7fddb179ccf83d4a734` and
-  `58597efc390e8e138b29024871a25d192fb27462` with the same aider revision. Keep
-  both sides explicit in audit evidence; preserve dated reports as snapshots and
-  reconcile current implementation status in the live backlog.
+  `docs/aider-parity-audit-2026-09-15.md`, the consolidated queue in `task.md`,
+  and the detailed live backlog in `docs/remaining-integration-tasks.md`, then
+  read the documentation and upstream source for the affected subsystem.
+- The latest dated source audit compares Patch commit
+  `1bf2ca6adbc3f4774612590f3f7c59c636a4a6e9` with aider commit
+  `5dc9490bb35f9729ef2c95d00a19ccd30c26339c`. Keep both revisions explicit in
+  new audit evidence. Preserve every dated audit and source inventory as a
+  historical snapshot; reconcile current implementation status in `task.md`,
+  the detailed backlog, the parity matrix, and subsystem documentation instead.
 - Treat every unchecked P0 item in the authoritative integration backlog as a
   release blocker. Do not mark a phase complete because a library helper exists;
   verify the behavior through the executable production path.
@@ -39,6 +38,44 @@
 - When touching an audited subsystem, compare it again with the pinned aider
   source and update the parity matrix, prioritized backlog, and relevant
   subsystem documentation in the same change.
+
+## Maintainer workflow
+
+Use this sequence for parity audits and issue-fixing passes:
+
+1. Inspect the Patch branch, worktree, and configured upstream before starting.
+   Preserve unrelated or concurrent changes, and do not include them in the
+   current issue. Audit clean committed trees; use another worktree when needed
+   rather than disturbing existing work.
+2. Read `upstream.json`, then clone or fetch aider outside this repository. The
+   default reference location is the sibling `../aider-upstream`. Verify its
+   `origin`, clean worktree, and exact pinned `HEAD` before using it as evidence.
+3. Audit file-for-file against that pinned tree. Cover product modules, bundled
+   runtime resources and queries, upstream test families, packaging, and
+   workflows; distinguish exact parity, partial support, intentional hardening,
+   accepted non-goals, and missing production wiring. For a new audit boundary,
+   create new dated audit and source-inventory snapshots instead of rewriting
+   old reports.
+4. Reconcile every actionable finding in both tracking layers: `task.md` is the
+   consolidated, deduplicated queue used for day-to-day priority order, while
+   `docs/remaining-integration-tasks.md` is the detailed authoritative evidence
+   and history. Keep priorities and completion status synchronized between them.
+5. Fix one independently reviewable issue per implementation cycle, starting
+   with the highest-priority actionable item. Trace or reproduce the behavior,
+   compare the pinned upstream implementation, preserve intentional Patch
+   security boundaries, and verify the executable production path rather than
+   only an isolated helper.
+6. Add focused regression and failure-path tests with the fix. Update `task.md`,
+   the detailed backlog, parity matrix, affected subsystem documentation,
+   `README.md`, `PORTING_PLAN.md`, and `CHANGELOG.md` wherever the issue changes
+   their claims. Code, tests, and documentation for that issue belong in the
+   same cohesive commit.
+7. Apply formatting, run the narrowest useful checks while developing, then run
+   the complete `npm run check` suite. Build and inspect the installed executable
+   when the package or CLI surface changes, following the commands below.
+8. Commit the verified issue before beginning the next one, push the current
+   branch to its configured upstream without force, and verify the local and
+   upstream branch state. If the user asks to keep a task local, do not push it.
 
 ## Implementation
 
