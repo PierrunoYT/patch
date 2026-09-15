@@ -259,15 +259,18 @@ valid only for the specific normalization and recovery cases they name.
   `aider/llm.py:21-45`. Successful credentialed evidence remains a separate P2
   item because neither the audit orb nor the protected GitHub environment
   currently supplies provider secrets.
-- [ ] **P2 -- Decide provider breadth beyond OpenAI, Anthropic, and DeepSeek.**
-  **Status:** unported. This work is unscheduled. Patch explicitly rejects every other
-  provider in `src/providers/factory.ts:50-60`; Aider accepts LiteLLM's provider
-  inventory through `aider/llm.py:21-45` and documents/configures Azure,
-  OpenRouter, Gemini/Vertex, Bedrock, Cohere, Groq, Ollama/LM Studio, xAI, and
-  other OpenAI-compatible routes through `aider/args.py:67-112` and
-  `aider/models.py:21-260`. Do not add a generic compatibility claim: choose supported
-  providers individually, define credential/capability contracts, and add
-  deterministic plus opt-in live evidence for each.
+- [x] **N/A -- Keep the current release provider boundary to OpenAI, Anthropic,
+  and DeepSeek.** **Status:** accepted scope. Patch explicitly rejects every
+  other provider in `src/providers/factory.ts:50-60`; Aider accepts LiteLLM's
+  provider inventory through `aider/llm.py:21-45` and documents/configures
+  Azure, OpenRouter, Gemini/Vertex, Bedrock, Cohere, Groq, Ollama/LM Studio, xAI,
+  and other OpenAI-compatible routes through `aider/args.py:67-112` and
+  `aider/models.py:21-260`. Patch will not infer support from wire similarity or
+  add an unbounded generic compatibility claim. Reopen expansion only for a
+  named provider with an explicit credential, endpoint and capability contract,
+  deterministic transport/application tests, documentation, and opt-in live
+  evidence. OpenRouter's implicit metadata fetch/cache remains a privacy
+  non-goal unless OpenRouter itself is selected.
 - [ ] **P2 -- Expose safe executable model discovery and custom catalog
   overlays.** **Status:** partial. `ModelCatalog` can load supplied aliases,
   settings, and metadata for embedding callers at

@@ -138,9 +138,11 @@ security rules above.
 
 ### Providers and models
 
-- [ ] **MODEL-3:** Select provider breadth beyond OpenAI, Anthropic, and
-  DeepSeek one provider at a time, with explicit credentials, capability
-  contracts, deterministic tests, and opt-in live evidence.
+- [x] **MODEL-3:** Keep the current release provider boundary to OpenAI,
+  Anthropic, and DeepSeek. Unnamed LiteLLM-compatible breadth is not a support
+  claim; reopen expansion only for a selected provider with explicit
+  credentials, capability contracts, deterministic tests, and opt-in live
+  evidence.
 - [ ] **MODEL-4:** Design safe executable model discovery and custom catalog,
   alias, settings, and metadata overlays with strict schemas and secret-safe
   precedence/diagnostics.

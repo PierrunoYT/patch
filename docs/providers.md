@@ -11,6 +11,14 @@ priced apart from ordinary input tokens against one cross-provider usage
 contract. See [model catalog](model-catalog.md#usage-and-cost). Provider
 breadth is intentionally narrower than Aider's LiteLLM surface.
 
+For the current release, this is the complete provider boundary: OpenAI,
+Anthropic, and DeepSeek. Patch does not treat a nominally OpenAI-compatible wire
+format as a support guarantee and does not expose a generic provider escape
+hatch. A future provider must be selected by name and add its credential,
+endpoint, capabilities, error normalization, deterministic factory/application
+tests, and opt-in live evidence together. This avoids silently extending network
+and secret-handling behavior through unverified catalog data.
+
 ## DeepSeek dialect
 
 `OpenAIProvider` takes a `dialect` of `openai` or `deepseek`; `createProvider`

@@ -574,6 +574,10 @@ See `docs/turn-lifecycle.md` for ordering and explicit recovery limits.
   Every advertised bundled model has validated limits and prices.
 - [x] Publish a provider compatibility table; reject unsupported providers
   explicitly.
+- [x] Define OpenAI, Anthropic, and DeepSeek as the complete current release
+  provider boundary. Do not infer support from OpenAI-wire similarity or
+  LiteLLM's catalog; add future providers individually with explicit credential,
+  capability, error, deterministic, and opt-in live contracts.
 
 **Exit (transport routes met):** separately gated OpenAI and Anthropic contracts
 cover secret-safe

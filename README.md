@@ -260,6 +260,9 @@ session-isolated [local HTTP/SSE interface](docs/web-interface.md). Watch and we
 startup use only built-in Node.js adapters; no browser/native package is installed.
 Authenticated HTTP partial-turn failures expose bounded changed paths, validated
 commit metadata, and command outcomes without internal errors or command output.
+The current release supports exactly OpenAI, Anthropic, and DeepSeek providers;
+OpenAI-wire similarity alone is not a compatibility claim, and additional
+providers require an explicit credential/capability contract and tests.
 Bounded [voice recording and transcription](docs/voice-input.md)
 is available through an optional package subpath and can submit to an explicit
 application session without native default dependencies. Cancellation checks

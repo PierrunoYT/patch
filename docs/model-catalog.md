@@ -47,8 +47,10 @@ lookups return defensive copies so one caller cannot mutate later resolutions.
 
 The build copies these runtime resources into `dist/resources`, and the package
 smoke test loads the catalog from a clean tarball installation. This initial
-catalog is intentionally narrow: provider expansion should add tested settings
-rather than importing aider's LiteLLM-specific catalog wholesale.
+catalog is the complete current release provider scope: provider expansion must
+select a named provider and add tested settings, credential/capability/error
+contracts, deterministic application coverage, and opt-in live evidence rather
+than importing aider's LiteLLM-specific catalog wholesale.
 
 `selectModels` resolves main, weak, and editor roles without recursive secondary
 construction. Explicit role overrides are library options, not executable

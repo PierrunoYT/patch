@@ -16,6 +16,12 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Defined OpenAI, Anthropic, and DeepSeek as the complete provider boundary for
+  the current release. Patch does not infer support from OpenAI-wire similarity
+  or import LiteLLM's provider breadth; future providers must be selected and
+  verified individually with explicit credential, endpoint, capability, error,
+  deterministic, and opt-in live contracts.
+
 - Closed current optional-interface evidence scope without overstating tests:
   CLI voice and browser GUI are deferred and not selected for release, while
   browser-rendered `/web` is a security/privacy non-goal. Fake voice adapters
