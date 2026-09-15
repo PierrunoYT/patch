@@ -339,15 +339,15 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Edit strategies, prompts, and orchestration
 
-- [ ] **P2 -- Decide whether `udiff-simple` is a product requirement.**
-  **Status:** unported. Patch's public set is exactly
-  `ask`, `whole`, `diff`, `diff-fenced`, `udiff`, and `patch` at
-  `src/edits/types.ts:3-17` and `src/edits/registry.ts:43-73`. Aider registers
-  `UnifiedDiffSimpleCoder` at `aider/coders/__init__.py:12-13,26-27` and defines
-  its behavior in `aider/coders/udiff_simple.py:5-18`. If selected, add an
-  independent prompt/parser golden and production format selection; otherwise
-  record it as a non-goal. Function-call coder files were excluded because they
-  are not registered in Aider's `__all__` at the pinned revision.
+- [x] **N/A -- Keep `udiff-simple` out of the public format set.** **Status:**
+  accepted non-goal. Patch exposes exactly `ask`, `whole`, `diff`,
+  `diff-fenced`, `udiff`, and `patch`. Pinned aider's
+  `UnifiedDiffSimpleCoder` at `aider/coders/udiff_simple.py:5-18` inherits the
+  ordinary unified-diff parser and changes only prompt wording, removing
+  examples and detailed diff guidance in `udiff_simple_prompts.py:4-24`.
+  Patch keeps one bounded, tested `udiff` protocol instead of adding a second
+  schema value with identical parsing semantics. Function-call coder files
+  remain excluded because pinned aider does not register them in `__all__`.
 - [ ] **P2 -- Expose architect and context workflows through the executable.**
   **Status:** partial. Patch has application implementations and private
   strategies at `src/edits/types.ts:15-16`, `src/edits/registry.ts:101-121`, and

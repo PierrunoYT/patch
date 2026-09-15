@@ -385,8 +385,10 @@ non-convergence leaves the parent selection unchanged.
 Assistant-prefill continuation is reached inside production `CoderSession` for
 capable models but is not wire-compatible for all advertised routes.
 `help`, `udiff-simple`, `architect`, `context`, and `editor-*` are therefore not
-edit-format schema values. The local `/help` command is separate; architect and
-context use private orchestration identities only through application methods.
+edit-format schema values. `udiff-simple` is a prompt-only upstream variant over
+the same unified-diff parser, so Patch keeps one tested `udiff` contract. The
+local `/help` command is separate; architect and context use private application
+methods.
 
 ## Technology direction and references
 

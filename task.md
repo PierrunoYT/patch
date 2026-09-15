@@ -170,9 +170,11 @@ security rules above.
 
 ### Edit strategies and orchestration
 
-- [ ] **EDIT-1:** Decide whether `udiff-simple` is a public Patch format. If
-  selected, add an independent prompt/parser golden and production selection;
-  otherwise record it as a non-goal.
+- [x] **EDIT-1:** Keep `udiff-simple` out of Patch's public format set. Pinned
+  aider reuses the same unified-diff parser with a shorter reminder and no
+  examples; it adds no parsing capability beyond Patch's constructed `udiff`.
+  Maintaining a second public prompt identity would widen schemas, fixtures, and
+  support claims without distinct behavior.
 - [ ] **MODE-1:** Decide whether to expose the implemented private architect and
   context workflows through the CLI. Require approval UX, editor selection,
   cancellation, recovery, and installed-bin tests before widening the schema.

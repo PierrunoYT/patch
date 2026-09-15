@@ -99,8 +99,9 @@ this plan, task register, and backlog track current status and open work.
   insertion offsets, apply at a bounded location, and fail closed without one;
   a preceding content-located hunk makes a later range unvalidated. Focused and
   packed-executable tests close the two P0 defects found by the 2026-09-15 audit.
-  User-facing schemas contain only the six constructed formats. Architect and
-  context retain private orchestration identities; help is a local command.
+  User-facing schemas contain only the six constructed formats. The prompt-only
+  `udiff-simple` alias is a non-goal because it adds no parser behavior.
+  Architect and context retain private orchestration identities; help is local.
 - Terminal Markdown, full-content replacement previews, explicit history writes, notifications, and
   text clipboard adapters exist. Completion, opted-in recall, turn-after-turn
   multiline, the external editor, and explicitly requested PTY dispatch are

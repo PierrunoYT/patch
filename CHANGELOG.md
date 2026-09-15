@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept `udiff-simple` out of the public edit-format schema. Pinned aider's
+  variant changes only prompt wording while inheriting the ordinary unified-
+  diff parser; Patch retains one bounded, independently tested `udiff` contract.
+
 - Added `/map`, a provider-free view of the current production repository map.
   It uses fresh tracked/non-ignored inventory and selected-file exclusion,
   sanitizes terminal controls, caps output at 1 MiB, and is exercised through
