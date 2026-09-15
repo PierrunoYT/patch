@@ -95,6 +95,12 @@ retention, backups, and deletion. History is not redacted or encrypted. Avoid
 enabling it in shared or synchronized directories. Disabling the options stops
 future writes and does not delete existing files.
 
+This is the complete persistence surface. Patch does not restore provider-ready
+model history, log LLM wire requests/responses, or load/save command scripts.
+Those formats can retain raw media, tool data, credentials, and provider
+metadata or replay side effects without a fresh visible approval. The rendered
+history files remain human-owned records, not resumable session state.
+
 ## Multiline input, bindings, and editors
 
 The executable's live reader is Node readline. It accepts ordinary lines plus

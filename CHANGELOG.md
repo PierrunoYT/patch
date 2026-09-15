@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Limited persistence to opt-in input recall and rendered Markdown chat history.
+  Provider-ready restoration, raw LLM wire logging, and command-file replay are
+  privacy/authorization non-goals because they retain secrets/media or bypass
+  fresh per-effect approval.
+
 - Kept `/git`, `/load`, `/save`, `/editor`, and `/edit` out of the current
   command surface. Approval-gated `/run git ...` and Ctrl-X Ctrl-E remain the
   single explicit paths; command files and aliases would obscure per-effect

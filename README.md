@@ -91,6 +91,10 @@ and arguments remain exact. `/run git ...` and Ctrl-X Ctrl-E are the explicit
 Git and draft-editor paths; `/git`, command-file load/save, and editor aliases
 are non-goals because they duplicate operations or obscure per-effect approval
 and partial-failure recovery.
+Persistence is opt-in through input recall and rendered Markdown chat-history
+files. Patch does not restore provider-ready conversations, log raw LLM wire
+payloads, or replay command files; those would retain secrets/media or bypass
+fresh per-effect approval.
 
 Commit policy is configurable through CLI, YAML, and `PATCH_*` values.
 `--git-commit-verify` enables repository hooks;

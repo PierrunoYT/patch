@@ -222,9 +222,11 @@ security rules above.
 
 ### Configuration, history, terminal, and clipboard
 
-- [ ] **CONFIG-1:** Decide chat restoration, LLM-wire logging, and command-file
-  load/save. Define retention, permissions, corruption recovery, size bounds,
-  redaction, and approval for loaded effects.
+- [x] **CONFIG-1:** Keep persistence to explicit input recall and rendered chat
+  history files. Do not restore model history, log provider wire payloads, or
+  load/save command files: those retain secrets/raw media or replay effects.
+  Existing history is opt-in, owner-private where supported, append-only,
+  corruption-tolerant for recall, unredacted, and user-retained/deleted.
 - [ ] **CONFIG-2:** Expose preserve/LF/CRLF policy only with full configuration
   precedence and packed cross-platform tests.
 - [x] **CONFIG-3:** Keep the executable encoding contract to UTF-8, UTF-16LE,

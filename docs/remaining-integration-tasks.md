@@ -433,15 +433,15 @@ valid only for the specific normalization and recovery cases they name.
 
 #### Configuration, history, terminal, and clipboard
 
-- [ ] **P2 -- Decide history restoration, LLM-wire logging, and command-file
-  persistence.** **Status:** partial. Several related workflows are unported.
-  Patch can opt into input and
-  rendered chat-history writes at `src/program.ts:176-180`, but has no
-  `--restore-chat-history`, `--llm-history-file`, `/load`, or `/save`. Aider
-  exposes them at `aider/args.py:270-300,772-776` and
-  `aider/commands.py:1465-1523`. Any port must document secret retention,
-  corruption recovery, permissions, bounds, and whether loaded commands require
-  per-effect approval.
+- [x] **N/A -- Keep persistence to explicit terminal history files.**
+  **Status:** accepted privacy boundary. Patch supports opt-in append-only input
+  JSON Lines with bounded recall and corruption-tolerant line skipping, plus an
+  opt-in rendered Markdown chat transcript. Files are created owner-private
+  where POSIX modes apply, are not redacted or encrypted, and remain under user
+  retention/deletion control. Model-history restoration and LLM-wire logging
+  are non-goals because they persist provider payloads, tool data, secrets, and
+  raw media; command-file load/save is excluded with the command-breadth decision
+  because replay obscures per-effect approval and partial failure.
 - [ ] **P2 -- Expose an explicit line-ending policy if cross-platform users need
   it.** **Status:** partial. Patch's filesystem supports preserve/LF/CRLF at
   `src/io/filesystem.ts:12-20`, but bootstrap passes only encoding at

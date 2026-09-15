@@ -105,6 +105,9 @@ source supplies one, so requesting port 0 stays distinguishable from requesting
 nothing. One-shot message/editor/color/completion controls remain intentionally
 CLI-only because they govern invocation mechanics, not application
 configuration.
+Persistence stays limited to the two explicit history paths. There is no
+restore-chat-history, LLM-wire log, or command-file setting: those would retain
+provider-ready secrets/media or replay effects outside fresh approval.
 
 Preserved failure invariants are: malformed booleans and ports fail before any
 interface starts; web still requires a bounded token read from an explicit

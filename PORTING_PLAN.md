@@ -72,6 +72,9 @@ this plan, task register, and backlog track current status and open work.
 - Config file, environment, and CLI precedence.
 - Configured lint and test commands plus explicitly approved shell commands.
 - Streaming, cancellation, retries, token limits, and conversation history.
+- Persistence is opt-in and human-facing: input recall and rendered Markdown
+  chat history only. Provider-ready restoration, wire logging, and command-file
+  replay are privacy/authorization non-goals.
 
 ### Current staged parity
 
