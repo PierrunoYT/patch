@@ -389,6 +389,18 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Fixed both P0 unified-diff findings from the 2026-09-15 parity audit. Diff
+  fences are now discovered by physical response line, preserving added,
+  removed, and context Markdown backtick fences instead of truncating the hunk.
+  Empty-preimage hunks retain numeric ranges, validate declared counts and
+  prior ranged-insertion offsets, and apply only at a bounded snapshot location;
+  a preceding content-located hunk makes a later context-free range unvalidated.
+  Missing, inconsistent, and out-of-file locations fail closed instead of
+  appending at EOF. Focused tests cover beginning/middle/end, repeated insertion
+  text, new and existing empty files, and malformed ranges. Packed actual-bin
+  smoke drives both former failures through the production provider/edit/write
+  path.
+
 - Add bounded partial-context unified-diff recovery. Patch progressively drops
   unchanged outer context over at most 256 candidates, preserves no-final-
   newline assertions, and rejects ambiguity where pinned aider can modify

@@ -10,9 +10,9 @@ format-specific system instructions, examples, reminders, shell policy, and
 per-attempt fence. Unified-diff file transitions and Patch scopes/repeated
 actions are implemented as described below, and each format has independent
 pinned golden and asymmetric hardening evidence. Bounded indentation,
-omitted-line, and partial-context recovery are implemented, but two P0 parsing/
-placement defects remain below. Constructing a format is not a release-readiness
-or full parity claim.
+omitted-line, and partial-context recovery are implemented. Physical-line fence
+scanning and range-validated insertion-only hunks close the two P0 defects from
+the 2026-09-15 audit. Constructing a format is not a full parity claim.
 
 `EditFormatSchema` intentionally contains only those six names and is shared by
 model settings, startup configuration, slash-command parsing, and completion.
@@ -132,14 +132,23 @@ Candidates may not discard a no-final-newline assertion. Ambiguity at every
 stage is rejected; pinned aider can modify multiple matches in some reduced-
 context cases, which Patch intentionally refuses.
 
-Two supported-surface defects block the current Phase 7 exit. First, the fenced
-block expression is not line-anchored, so a valid plus-prefixed or context
-Markdown triple-backtick line can terminate parsing and silently truncate the
-remaining hunk. Second, `@@` ranges are discarded; a hunk with no old/context
-lines therefore becomes an empty-search replacement that application places at
-EOF, even when the range named the beginning or middle of an existing file.
-Patch must preserve and validate location or fail closed. The covered recovery
-algorithms above do not mitigate either defect.
+Fence discovery scans physical response lines as pinned aider does. Because
+every fence contained in diff data is prefixed by `+`, `-`, or a space, added,
+removed, and context Markdown fences remain in the hunk; only an unprefixed
+physical line closes the response block.
+
+Insertion-only hunks have no textual preimage to identify a location. Patch
+therefore requires a numeric `@@` range, retains its old/new starts and counts,
+checks its counts and cumulative offset against preceding ranged insertions, and
+applies at the declared new-side line only when that boundary exists in the
+current snapshot. Because ordinary textual hunks are located by content and
+bounded recovery rather than their often approximate line header, one makes a
+later context-free location unvalidated and therefore rejected. Missing,
+inconsistent, and out-of-file ranges likewise fail closed rather than silently
+appending at EOF. Distinct insertion ranges are not deduplicated merely because
+they add identical text. New files and existing empty files use the same
+validated `-0,0 +1,N` contract. This is stronger than pinned aider, which
+refuses every empty-preimage hunk.
 
 ## Patch actions
 

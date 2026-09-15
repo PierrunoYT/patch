@@ -46,10 +46,14 @@ examples, reminder, shell policy, and a fence reselected from the current files
 before every provider attempt. Each format also has an independently authored
 pinned golden plus asymmetric property, malformed, ambiguity/conflict,
 partial-write, and cancellation evidence. Unified-diff recovery includes bounded
-unique indentation, omitted-line, and partial-context stages. Two P0 defects
-still block that format: a plus-prefixed Markdown fence can truncate parsing,
-and an insertion-only hunk can be moved to EOF after its range is discarded.
-Do not treat the constructed formats as release-ready or unrestricted parity.
+unique indentation, omitted-line, and partial-context stages. Physical-line
+fence scanning keeps added, removed, and context Markdown fences inside hunks.
+Insertion-only hunks retain numeric ranges and apply at a validated bounded line
+or fail closed when their location/counts are missing or inconsistent. A prior
+content-located hunk makes a later context-free location unvalidated. Focused
+tests cover beginning/middle/end, repeated insertion text, new and existing
+empty files, and the packed executable covers both former P0 paths. Do not treat
+the constructed formats as unrestricted aider parity.
 Git selection treats leading-colon pathspec syntax as literal filenames during
 ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
 platform filename restrictions still apply.
@@ -281,8 +285,9 @@ Unified-diff input honors standard `\ No newline at end of file` markers,
 including transitions that add or remove the final newline. Whitespace-only hunk
 lines normalize to blank lines, identical normalized hunks apply once, and
 unique indentation/omitted-line recovery is bounded and ambiguity-rejecting.
-Those covered algorithms do not close the Markdown-fence truncation or
-insertion-only placement P0s described above.
+Added, removed, and context Markdown fence lines remain diff data because only
+an unprefixed physical line closes the response block. Empty-preimage edits use
+their validated numeric range rather than defaulting to EOF.
 Rich terminal contracts and history privacy guidance are documented in
 [rich terminal behavior](docs/terminal.md).
 

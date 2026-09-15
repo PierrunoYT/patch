@@ -120,6 +120,7 @@ export function resolveEditBatch(
                   edit.search,
                   edit.replacement,
                   edit.path,
+                  edit.lineRange,
                 )
               : applySearchReplace(
                   current ?? "",

@@ -21,6 +21,13 @@ export class UnifiedDiffNotUniqueError extends Error {
   override readonly name = "UnifiedDiffNotUniqueError";
 }
 
+export interface UnifiedDiffLineRange {
+  readonly oldStart: number;
+  readonly oldCount: number;
+  readonly newStart: number;
+  readonly newCount: number;
+}
+
 const NO_NEWLINE_MARKER = "\\ No newline at end of file";
 
 function beforeAfter(lines: readonly string[]): [string, string] {
@@ -347,8 +354,48 @@ export function applyUnifiedDiff(
   before: string,
   after: string,
   path: string,
+  lineRange?: UnifiedDiffLineRange,
 ): string {
-  if (before === "") return content + after;
+  if (before === "") {
+    if (lineRange === undefined) {
+      throw new UnifiedDiffNoMatchError(
+        `UnifiedDiffNoMatch: ${path} insertion has no numeric hunk range`,
+      );
+    }
+    if (lineRange.oldCount !== 0) {
+      throw new UnifiedDiffNoMatchError(
+        `UnifiedDiffNoMatch: ${path} insertion range declares old lines`,
+      );
+    }
+    const insertedLines = splitLines(after).length;
+    if (lineRange.newCount !== insertedLines || lineRange.newStart < 1) {
+      throw new UnifiedDiffNoMatchError(
+        `UnifiedDiffNoMatch: ${path} insertion range does not match its replacement`,
+      );
+    }
+    const insertion = lineRange.newStart - 1;
+    const lines = splitLines(content);
+    if (insertion > lines.length) {
+      throw new UnifiedDiffNoMatchError(
+        `UnifiedDiffNoMatch: ${path} insertion line is outside the file`,
+      );
+    }
+    if (insertion > 0 && !/[\r\n]$/u.test(lines[insertion - 1] ?? "")) {
+      throw new UnifiedDiffNoMatchError(
+        `UnifiedDiffNoMatch: ${path} insertion does not follow a line boundary`,
+      );
+    }
+    if (insertion < lines.length && !/[\r\n]$/u.test(after)) {
+      throw new UnifiedDiffNoMatchError(
+        `UnifiedDiffNoMatch: ${path} insertion does not end at a line boundary`,
+      );
+    }
+    return [
+      ...lines.slice(0, insertion),
+      after,
+      ...lines.slice(insertion),
+    ].join("");
+  }
   const exact = replaceExact(content, before, after, path);
   if (exact !== undefined) return exact;
   const indented = replaceRelativeIndent(content, before, after, path);
@@ -376,6 +423,43 @@ function headerPath(source: string, destination: string): string {
     : to;
 }
 
+function parseLineRange(line: string): UnifiedDiffLineRange | undefined {
+  const match = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?:.*)?$/u.exec(
+    line,
+  );
+  if (match === null) return undefined;
+  const values = [
+    Number(match[1]),
+    Number(match[2] ?? "1"),
+    Number(match[3]),
+    Number(match[4] ?? "1"),
+  ];
+  if (values.some((value) => !Number.isSafeInteger(value))) return undefined;
+  const [oldStart = 0, oldCount = 0, newStart = 0, newCount = 0] = values;
+  return { oldStart, oldCount, newStart, newCount };
+}
+
+/**
+ * Finds diff fences by physical response line, as pinned aider does. Diff data
+ * is always prefixed by `+`, `-`, or a space, so Markdown fences inside a hunk
+ * cannot be mistaken for the unprefixed line that closes the response block.
+ */
+function fencedDiffBlocks(response: string): string[][] {
+  const lines = response.split(/\r?\n/u);
+  const blocks: string[][] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!(lines[index] ?? "").startsWith("```diff")) continue;
+    const block: string[] = [];
+    index += 1;
+    while (index < lines.length && !(lines[index] ?? "").startsWith("```")) {
+      block.push(lines[index] ?? "");
+      index += 1;
+    }
+    blocks.push(block);
+  }
+  return blocks;
+}
+
 export class UnifiedDiffEditStrategy implements EditStrategy {
   readonly format = "udiff" as const;
 
@@ -383,10 +467,9 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
     void _context;
     const edits: Edit[] = [];
     const seen = new Set<string>();
-    const blocks = response.matchAll(/```diff\s*\n([\s\S]*?)(?:```|$)/gu);
+    const lineOffsets = new Map<string, number | undefined>();
     let lastPath: string | undefined;
-    for (const match of blocks) {
-      const lines = (match[1] ?? "").split(/\r?\n/u);
+    for (const lines of fencedDiffBlocks(response)) {
       let path = lastPath;
       let start = 0;
       if (lines[0]?.startsWith("--- ") && lines[1]?.startsWith("+++ ")) {
@@ -396,12 +479,15 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
       }
 
       let hunk: string[] = [];
+      let lineRange: UnifiedDiffLineRange | undefined;
       const flush = () => {
         const changed = hunk.some(
           (line) => line.startsWith("+") || line.startsWith("-"),
         );
         const pending = hunk;
+        const pendingRange = lineRange;
         hunk = [];
+        lineRange = undefined;
         // Validated even when the hunk changes nothing: a detached marker is
         // malformed wherever it appears, and returning early here would let a
         // context-only hunk carry one silently.
@@ -413,21 +499,67 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
           );
         }
         if (search === replacement) return;
-        const key = JSON.stringify([path, search, replacement]);
+        if (search === "" && pendingRange === undefined) {
+          throw new UnifiedDiffParseError(
+            "An insertion-only unified-diff hunk requires a numeric line range",
+          );
+        }
+        if (
+          search === "" &&
+          (pendingRange?.oldCount !== 0 ||
+            pendingRange.newCount !== splitLines(replacement).length)
+        ) {
+          throw new UnifiedDiffParseError(
+            "An insertion-only unified-diff hunk has inconsistent line counts",
+          );
+        }
+        const key = JSON.stringify([
+          path,
+          search,
+          replacement,
+          search === "" ? pendingRange : undefined,
+        ]);
         if (seen.has(key)) return;
+        const previousOffset = lineOffsets.has(path)
+          ? lineOffsets.get(path)
+          : 0;
+        const newLines = splitLines(replacement).length;
+        if (search === "") {
+          if (
+            previousOffset === undefined ||
+            pendingRange === undefined ||
+            pendingRange.newStart !== pendingRange.oldStart + previousOffset + 1
+          ) {
+            throw new UnifiedDiffParseError(
+              "An insertion-only unified-diff hunk has an unvalidated line location",
+            );
+          }
+        }
         seen.add(key);
+        // A textual hunk is located by content and recovery, not by its often
+        // approximate line header. Its actual position therefore cannot safely
+        // establish an offset for a later context-free insertion. Only a chain
+        // consisting entirely of validated ranged insertions remains usable.
+        lineOffsets.set(
+          path,
+          search === "" && previousOffset !== undefined
+            ? previousOffset + newLines
+            : undefined,
+        );
         edits.push({
           kind: "replace",
           path,
           search,
           replacement,
           protocol: "udiff",
+          ...(search === "" && pendingRange !== undefined
+            ? { lineRange: pendingRange }
+            : {}),
         });
       };
 
-      // The trailing sentinel flushes the fence's final hunk.
-      for (let index = start; index <= lines.length; index += 1) {
-        const line = index < lines.length ? (lines[index] ?? "") : "@@";
+      for (let index = start; index < lines.length; index += 1) {
+        const line = lines[index] ?? "";
         if (
           line.startsWith("+++ ") &&
           (lines[index - 1] ?? "").startsWith("--- ")
@@ -442,6 +574,7 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
         }
         if (line.startsWith("@@")) {
           flush();
+          lineRange = parseLineRange(line);
           continue;
         }
         if (line === NO_NEWLINE_MARKER) {
@@ -453,6 +586,7 @@ export class UnifiedDiffEditStrategy implements EditStrategy {
         }
         if (line !== "") hunk.push(line);
       }
+      flush();
     }
     return { edits, shellCommands: [] };
   }

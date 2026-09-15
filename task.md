@@ -42,18 +42,20 @@ Baseline for the current findings:
   automatic onboarding/OAuth, implicit provider metadata networking, built-in
   updater, or Docker-distribution parity.
 
-## P0 — release blockers
+## Resolved P0 release blockers
 
-- [ ] **UDIFF-1: Preserve Markdown fence lines inside unified-diff hunks.**
+- [x] **UDIFF-1: Preserve Markdown fence lines inside unified-diff hunks.**
   Line-anchor the response-fence terminator so added and context lines that
   contain triple backticks remain diff data. Cover added, removed, and retained
-  fences in parser and installed-turn tests. The current parser can silently
-  truncate a valid edit.
-- [ ] **UDIFF-2: Apply insertion-only hunks at a validated location or reject
-  them.** Preserve and validate the `@@` location instead of reducing an empty
-  preimage to an append-at-EOF operation. Cover beginning, middle, end,
-  ambiguous locations, new files, and existing empty files through the
-  installed path.
+  fences in parser and installed-turn tests. Completed with physical-line fence
+  scanning and packed executable coverage.
+- [x] **UDIFF-2: Apply insertion-only hunks at a validated location or reject
+  them.** Numeric `@@` ranges are retained for empty-preimage edits, checked
+  against hunk counts and preceding validated-insertion offsets, and bounded
+  against the current snapshot. Missing, inconsistent, and out-of-file
+  locations fail closed.
+  Beginning, middle, end, repeated text, new-file, existing-empty-file, and
+  installed middle-insertion cases are covered.
 
 ## P1 — supported-surface correctness and safety
 

@@ -78,7 +78,7 @@ unchanged result of any historical audit.
 | Area | Current classification | Strongest evidence boundary |
 | --- | --- | --- |
 | Core lifecycle | partial aider parity with one open correctness defect | Turns use immutable attempt context, every named cancellation boundary, owned provider/process/interface cleanup, profile switching, weak-model summarization, mutation-aware history, architect proposal/acceptance/editor transfer, bounded context selection, bounded repeated assistant-prefill continuation, and in-process worktree serialization. The editor uses fresh isolated history and leaves the parent reusable after cancellation or failure. Packed actual-bin sessions prove retained history without external network or live credentials. A retry after partial streamed output resets internal response state but cannot retract events already delivered to terminal/HTTP consumers. Recovery from arbitrary child/Git side effects also remains incomplete. |
-| Editing | partial aider parity with two open correctness defects | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented, but the current unified-diff parser truncates added Markdown fence lines and misplaces insertion-only hunks whose search body is empty. The P0 tasks below supersede any broader completed-recovery wording. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
+| Editing | implemented Patch scope with intentional recovery differences | All six constructed formats receive format-specific prompts/examples/reminders and a fence reselected before every provider attempt. Whole-file, SEARCH/REPLACE, Patch scopes/repeated actions, and bounded ambiguity-rejecting unified-diff recovery are implemented. Unified-diff fence discovery now scans physical lines so prefixed Markdown fences remain data; insertion-only hunks retain and validate numeric ranges or fail closed. Focused tests cover beginning/middle/end, malformed ranges, new and empty files, and repeated insertion text; packed-bin smoke covers both former P0 paths. Patch intentionally rejects ambiguous reductions that pinned aider may apply. |
 | Models/providers | partial with advertised-profile defects | Public schemas, bundled settings, CLI/config parsing, and completion expose exactly the six constructed formats and reject helper-only names before provider construction. OpenAI/Anthropic routes, DeepSeek normalization, post-finish usage, executable metadata merging, cache-aware cost, temperature policy, and bounded transient retries with capped `Retry-After` are wired; provider diagnostics discard raw server text. However, `gpt-4o-mini` format/map defaults, DeepSeek Reasoner weak/editor routing, and DeepSeek token limits disagree with pinned resources without a documented intentional divergence. Separately gated live contracts remain subject to protected workflow/account variability. |
 | Git/filesystem | partial with intentional hardening and read-containment gaps | Literal Git pathspecs (including leading-colon ignore inputs), selected/ignored filtering, global-ignore composition, move ordering, session-owned undo with a mandatory adapter-level expected commit and fail-closed publication checks, and in-process worktree locking with GC-reclaimable registry entries are enforced. Atomic mutation paths detect ancestor replacement. Media and watch reads, however, resolve and later reopen/read by pathname and do not retain containment if an ancestor is swapped between those operations. Full aider option/default parity, metadata portability, and recovery limits remain documented constraints. |
 | Repository maps | partial with scoped parity evidence | An eleven-language map refreshes tracked inventory per turn and has exact upstream tags for each committed language sample. Ordinary turns fall back from selected-file maps to hinted and then unhinted global maps; private context selection force-refreshes an expanded map with original-request identifier hints. Shipped grammars use pinned parent-scope/header/elision behavior, fitting uses a selected tokenizer where reliable, an asymmetric fixture matches upstream numeric personalization, and packed-bin smoke proves one filtered provider-visible map. Arbitrary-program/every-language ranking equivalence and executable map controls remain incomplete. |
@@ -90,9 +90,9 @@ unchanged result of any historical audit.
 
 The complete evidence and cross-references are in the
 [dated audit](aider-parity-audit-2026-09-15.md) and
-[source inventory](aider-source-inventory-2026-09-15.md). The two unchecked P0
-unified-diff items in the 2026-09-14 section remain the immediate release
-blockers. This section adds findings that pass did not represent.
+[source inventory](aider-source-inventory-2026-09-15.md). The two P0
+unified-diff items found by that audit are now closed in the 2026-09-14 section
+below. This section adds findings that pass did not represent.
 
 - [ ] **P1 — Do not expose output from a failed provider attempt as accepted
   turn output.** **Status:** defect. `src/core/coder-session.ts:861-891` forwards
@@ -189,26 +189,21 @@ Status meanings in this section:
 
 #### Verified defects and documentation corrections
 
-- [ ] **P0 -- Preserve added Markdown fences inside unified-diff hunks.**
-  **Status:** defect. This is a release blocker. Patch's block expression in
-  `src/edits/unified-diff.ts:386` terminates at any ` ``` ` substring, including
-  a valid plus-prefixed JavaScript Markdown fence; an executable probe parsed
-  only the content before that line and silently omitted the rest of the
-  replacement.
-  Aider's `aider/coders/udiff_coder.py:312-343` ends a block only when the diff
-  line itself starts with ` ``` `, so prefixed added/context lines remain in the
-  hunk. Add parser and installed-application regressions for Markdown files that
-  add, remove, and retain triple-backtick fences.
-- [ ] **P0 -- Apply insertion-only unified-diff hunks at their intended
-  location or fail closed.** **Status:** defect. This is a release blocker. Patch
-  discards every `@@` range in `src/edits/unified-diff.ts:443-445`, then
-  `applyUnifiedDiff` appends every empty-search replacement at EOF at
-  `src/edits/unified-diff.ts:351`. The executable probe applied a valid
-  beginning-of-file insertion to the end of an existing file. Aider refuses an
-  empty preimage in `aider/coders/udiff_coder.py:261-279` rather than silently
-  moving it. Preserve enough location/context information to apply uniquely or
-  reject the hunk; retain new-file creation behavior. Add beginning, middle,
-  end, ambiguous, and existing-empty-file cases.
+- [x] **P0 -- Preserve added Markdown fences inside unified-diff hunks.**
+  **Status:** fixed. Fence discovery now follows pinned aider's physical-line
+  scan, so added, removed, and context Markdown fences remain prefixed hunk data
+  and only an unprefixed line closes the response block. Focused parser/
+  resolution tests and packed actual-bin smoke cover all three operations.
+- [x] **P0 -- Apply insertion-only unified-diff hunks at their intended
+  location or fail closed.** **Status:** fixed with intentional hardening. Patch
+  retains numeric hunk ranges for empty-preimage edits, validates their counts
+  and cumulative offsets from prior ranged insertions, and bounds the declared
+  target against the current snapshot. A preceding content-located hunk makes a
+  later context-free location unvalidated. Missing, inconsistent, and
+  out-of-file ranges fail closed. Focused tests cover beginning, middle, end,
+  repeated insertion text, new files, and existing empty files; packed
+  actual-bin smoke covers a middle insertion. Pinned aider instead refuses every
+  empty preimage.
 - [ ] **P1 -- Preserve Windows backslashes in slash-command paths.**
   **Status:** defect. `src/commands/parse.ts:76-115` treats every backslash as a
   generic escape; `/add C:\repo\file.ts` becomes `C:repofile.ts`. The same
@@ -1541,10 +1536,11 @@ Linux/macOS/Windows evidence or are narrowed to the platforms actually tested.
   `tests/coder-session.test.ts` covers incompatible-history removal. These are
   format-contract cases, not full upstream recovery parity.
 
-**Acceptance:** superseded. Each listed advanced-workflow component is reachable
-from a constructed session and retains its focused evidence, but Phase 7 cannot
-exit while the two P0 unified-diff defects can silently truncate or misplace an
-edit through that same production format.
+**Acceptance:** met for the scoped advanced-workflow contract. Each listed
+component is reachable from a constructed session and retains focused evidence;
+physical-line Markdown-fence parsing and range-validated insertion-only hunks
+also run through packed actual-bin smoke. This is not full aider mode or
+edit-recovery parity.
 
 ## R7 — Integrate Phase 8 terminal behavior
 
@@ -1677,7 +1673,9 @@ listed above or establish browser/CLI-voice parity.
   limits rather than requiring aider's per-failure prompt.
 - [x] Correct Phase 6/7 parity claims. Advanced application roles and scoped map/
   edit recovery retain production evidence, but the 2026-09-15 audit reopens the
-  Phase 7 exit for two P0 unified-diff defects.
+  Phase 7 exit for two P0 unified-diff defects. Both findings are now fixed with
+  focused and packed-executable evidence, so the scoped Phase 7 exit is restored
+  without claiming full aider parity.
 - [x] Correct Phase 8/9 checkboxes after terminal sanitization, rich input, web
   coordination, and interface policy completed. The 2026-09-15 audit reopens
   their exits for Windows/clipboard/renderer correctness, read containment, and

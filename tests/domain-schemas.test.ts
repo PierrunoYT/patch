@@ -90,6 +90,25 @@ describe("domain schemas", () => {
         replacement: "after",
       }),
     ).toMatchObject({ kind: "replace", path: "src/app.ts" });
+    expect(
+      EditSchema.parse({
+        kind: "replace",
+        path: "src/app.ts",
+        search: "",
+        replacement: "first\n",
+        protocol: "udiff",
+        lineRange: { oldStart: 0, oldCount: 0, newStart: 1, newCount: 1 },
+      }),
+    ).toMatchObject({ protocol: "udiff", lineRange: { oldStart: 0 } });
+    expect(() =>
+      EditSchema.parse({
+        kind: "replace",
+        path: "src/app.ts",
+        search: "",
+        replacement: "first\n",
+        lineRange: { oldStart: 0, oldCount: 0, newStart: 1, newCount: 1 },
+      }),
+    ).toThrow("insertion-only unified-diff");
     expect(EditBatchSchema.parse({ edits: [] }).shellCommands).toEqual([]);
     expect(() =>
       EditSchema.parse({

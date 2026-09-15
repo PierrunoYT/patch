@@ -112,6 +112,245 @@ describe("UnifiedDiffEditStrategy", () => {
     ).toMatchObject({ content: "start\n\nnew\n" });
   });
 
+  it("keeps added, removed, and context Markdown fences inside the hunk", () => {
+    const original = "# Guide\n```old\nold\n```\ntail\n";
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -1,5 +1,5 @@",
+        " # Guide",
+        "-```old",
+        "+```ts",
+        "-old",
+        "+new",
+        " ```",
+        " tail",
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(batch.edits).toMatchObject([
+      {
+        path: "src/a.ts",
+        search: original,
+        replacement: "# Guide\n```ts\nnew\n```\ntail\n",
+      },
+    ]);
+    expect(
+      resolveEditBatch(batch, [{ path: "src/a.ts", content: original }])
+        .operations[0],
+    ).toMatchObject({ content: "# Guide\n```ts\nnew\n```\ntail\n" });
+  });
+
+  it.each([
+    {
+      name: "beginning",
+      range: "@@ -0,0 +1 @@",
+      added: "first",
+      original: "last\n",
+      expected: "first\nlast\n",
+    },
+    {
+      name: "middle",
+      range: "@@ -1,0 +2,1 @@",
+      added: "middle",
+      original: "first\nlast\n",
+      expected: "first\nmiddle\nlast\n",
+    },
+    {
+      name: "end",
+      range: "@@ -2,0 +3 @@",
+      added: "last",
+      original: "first\nmiddle\n",
+      expected: "first\nmiddle\nlast\n",
+    },
+  ])(
+    "applies an insertion-only hunk at the $name",
+    ({ range, added, original, expected }) => {
+      const batch = new UnifiedDiffEditStrategy().parse(
+        [
+          "```diff",
+          "--- a/src/a.ts",
+          "+++ b/src/a.ts",
+          range,
+          `+${added}`,
+          "```",
+        ].join("\n"),
+        context,
+      );
+
+      expect(
+        resolveEditBatch(batch, [{ path: "src/a.ts", content: original }])
+          .operations[0],
+      ).toMatchObject({ content: expected });
+    },
+  );
+
+  it.each([
+    { name: "new file", content: null },
+    { name: "existing empty file", content: "" },
+  ])("applies a ranged insertion to a $name", ({ content }) => {
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- /dev/null",
+        "+++ b/src/a.ts",
+        "@@ -0,0 +1,2 @@",
+        "+first",
+        "+last",
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(
+      resolveEditBatch(batch, [{ path: "src/a.ts", content }]).operations[0],
+    ).toMatchObject({ content: "first\nlast\n" });
+  });
+
+  it("keeps identical insertion text at distinct validated ranges", () => {
+    const batch = new UnifiedDiffEditStrategy().parse(
+      [
+        "```diff",
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -0,0 +1 @@",
+        "+marker",
+        "@@ -2,0 +4 @@",
+        "+marker",
+        "```",
+      ].join("\n"),
+      context,
+    );
+
+    expect(batch.edits).toHaveLength(2);
+    expect(
+      resolveEditBatch(batch, [{ path: "src/a.ts", content: "one\ntwo\n" }])
+        .operations[0],
+    ).toMatchObject({ content: "marker\none\ntwo\nmarker\n" });
+  });
+
+  it("rejects an insertion after a content-located hunk", () => {
+    expect(() =>
+      new UnifiedDiffEditStrategy().parse(
+        [
+          "```diff",
+          "--- a/src/a.ts",
+          "+++ b/src/a.ts",
+          "@@ -2 +2,2 @@",
+          "-old",
+          "+new one",
+          "+new two",
+          "@@ -2,0 +4 @@",
+          "+inserted",
+          "```",
+        ].join("\n"),
+        context,
+      ),
+    ).toThrow(/unvalidated line location/);
+  });
+
+  it.each([
+    {
+      name: "missing numeric range",
+      range: "@@ insertion @@",
+      added: ["+new"],
+    },
+    { name: "nonzero old count", range: "@@ -1 +1 @@", added: ["+new"] },
+    {
+      name: "wrong replacement count",
+      range: "@@ -0,0 +1,2 @@",
+      added: ["+new"],
+    },
+    {
+      name: "inconsistent location",
+      range: "@@ -9,0 +1 @@",
+      added: ["+new"],
+    },
+    {
+      name: "unsafe numeric range",
+      range: "@@ -999999999999999999999,0 +1 @@",
+      added: ["+new"],
+    },
+  ])("rejects an insertion-only hunk with a $name", ({ range, added }) => {
+    expect(() =>
+      new UnifiedDiffEditStrategy().parse(
+        [
+          "```diff",
+          "--- a/src/a.ts",
+          "+++ b/src/a.ts",
+          range,
+          ...added,
+          "```",
+        ].join("\n"),
+        context,
+      ),
+    ).toThrow(UnifiedDiffParseError);
+  });
+
+  it("rejects an insertion after a hunk with an unvalidated range", () => {
+    expect(() =>
+      new UnifiedDiffEditStrategy().parse(
+        [
+          "```diff",
+          "--- a/src/a.ts",
+          "+++ b/src/a.ts",
+          "@@ descriptive scope @@",
+          "-old",
+          "+new",
+          "@@ -1,0 +2 @@",
+          "+inserted",
+          "```",
+        ].join("\n"),
+        context,
+      ),
+    ).toThrow(/unvalidated line location/);
+  });
+
+  it("rejects an insertion range outside the current file", () => {
+    expect(() =>
+      applyUnifiedDiff("only\n", "", "last\n", "src/a.ts", {
+        oldStart: 2,
+        oldCount: 0,
+        newStart: 3,
+        newCount: 1,
+      }),
+    ).toThrow(/insertion line is outside the file/);
+  });
+
+  it.each([
+    {
+      name: "after an unterminated source line",
+      content: "only",
+      after: "last\n",
+      lineRange: { oldStart: 1, oldCount: 0, newStart: 2, newCount: 1 },
+    },
+    {
+      name: "before another line without terminating the insertion",
+      content: "last\n",
+      after: "first",
+      lineRange: { oldStart: 0, oldCount: 0, newStart: 1, newCount: 1 },
+    },
+  ])("rejects an insertion $name", ({ content, after, lineRange }) => {
+    expect(() =>
+      applyUnifiedDiff(content, "", after, "src/a.ts", lineRange),
+    ).toThrow(/line boundary/);
+  });
+
+  it("permits an unterminated insertion at EOF after a complete line", () => {
+    expect(
+      applyUnifiedDiff("first\n", "", "last", "src/a.ts", {
+        oldStart: 1,
+        oldCount: 0,
+        newStart: 2,
+        newCount: 1,
+      }),
+    ).toBe("first\nlast");
+  });
+
   it("strips git prefixes only when both headers carry them", () => {
     const strategy = new UnifiedDiffEditStrategy();
     const created = strategy.parse(
@@ -360,8 +599,8 @@ describe("UnifiedDiffEditStrategy", () => {
     expect(applyUnifiedDiff("prefix\n \nsuffix\n", " \n", "", "a.ts")).toBe(
       "prefix\nsuffix\n",
     );
-    expect(applyUnifiedDiff("existing\n", "", "added\n", "a.ts")).toBe(
-      "existing\nadded\n",
+    expect(() => applyUnifiedDiff("existing\n", "", "added\n", "a.ts")).toThrow(
+      UnifiedDiffNoMatchError,
     );
   });
 

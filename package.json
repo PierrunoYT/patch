@@ -24,6 +24,7 @@
     "CHANGELOG.md",
     "NOTICE",
     "PORTING_PLAN.md",
+    "task.md",
     "upstream.json"
   ],
   "scripts": {

@@ -94,9 +94,11 @@ this plan, task register, and backlog track current status and open work.
   context recovery are constructed and tested. All six formats have specific
   prompts and independent goldens; generated recovery fixtures match pinned
   aider while Patch intentionally rejects ambiguous reductions.
-  Two P0 defects nevertheless block the phase exit: an added Markdown fence can
-  terminate parsing, and an insertion-only hunk can be moved to EOF after its
-  range is discarded.
+  Physical-line fence scanning preserves added, removed, and context Markdown
+  fences. Insertion-only hunks retain numeric ranges, validate counts and prior
+  insertion offsets, apply at a bounded location, and fail closed without one;
+  a preceding content-located hunk makes a later range unvalidated. Focused and
+  packed-executable tests close the two P0 defects found by the 2026-09-15 audit.
   User-facing schemas contain only the six constructed formats. Architect and
   context retain private orchestration identities; help is a local command.
 - Terminal Markdown, full-content replacement previews, explicit history writes, notifications, and
@@ -695,14 +697,18 @@ require a green matrix on the revision being claimed.
   rejected. Standard markers preserve, add, or remove the final newline
   according to position, intentionally fixing pinned aider's marker-tolerance
   behavior.
-- [ ] **P0:** preserve added/context Markdown fence lines inside unified-diff
-  blocks. The current non-line-anchored block terminator silently truncates the
-  hunk at a plus-prefixed triple-backtick line or equivalent context line. Add
-  parser and installed-turn regressions for added, removed, and retained fences.
-- [ ] **P0:** apply insertion-only hunks at their validated location or reject
-  them. The parser currently discards `@@` ranges and an empty preimage appends
-  at EOF, which can silently move a beginning/middle insertion. Cover beginning,
-  middle, end, ambiguity, new files, and existing empty files.
+- [x] Preserve added/context Markdown fence lines inside unified-diff blocks.
+  Fence discovery now follows pinned aider's physical-line scan, so only an
+  unprefixed line closes the response block. Parser and installed-turn tests
+  cover added, removed, and retained fences.
+- [x] Apply insertion-only hunks at their validated location or reject them.
+  The parser retains numeric old/new ranges for empty-preimage edits, validates
+  declared counts and cumulative offsets from prior ranged insertions, and
+  application bounds the resulting location against the current snapshot. A
+  preceding content-located hunk makes a later context-free range unvalidated.
+  Missing, inconsistent, unvalidated, and out-of-file locations fail closed;
+  tests cover beginning, middle, end, repeated insertion text, new files, and
+  existing empty files.
 - [x] Complete Patch actions. Named `@@` scopes anchor the search, repeated
   update blocks merge with an overlap check, and duplicate/conflicting actions
   are rejected. The independent pinned format golden covers an exact update;
@@ -726,11 +732,13 @@ require a green matrix on the revision being claimed.
   context with fixed per-file/count/aggregate bounds, signature validation,
   cancellation, ephemeral history treatment, and `/drop` cleanup.
 
-**Exit (blocked):** architect/context identities remain private rather than
-advertised CLI modes, and their application workflows retain production
-evidence. The six constructed formats have independent golden/property evidence
-for their covered cases. Phase 7 cannot exit until both P0 unified-diff defects
-above are fixed and verified through the installed production path.
+**Exit — scoped advanced-workflow contract met:** architect/context identities
+remain private rather than advertised CLI modes, and their application
+workflows retain production evidence. The six constructed formats have
+independent golden/property evidence for their covered cases. Physical-line
+Markdown-fence parsing and range-validated insertion-only hunks are both
+verified through the installed production path. This is not full aider mode or
+edit-recovery parity.
 
 **Production evidence:** `tests/application-architect.test.ts`,
 `tests/application-editor.test.ts`, and `tests/application-context.test.ts`.

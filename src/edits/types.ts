@@ -17,6 +17,15 @@ export const OrchestrationFormatSchema = z.enum(["architect", "context"]);
 
 const RelativePathSchema = z.string().min(1);
 
+const UnifiedDiffLineRangeSchema = z
+  .object({
+    oldStart: z.number().int().nonnegative(),
+    oldCount: z.number().int().nonnegative(),
+    newStart: z.number().int().nonnegative(),
+    newCount: z.number().int().nonnegative(),
+  })
+  .strict();
+
 const CreateFileEditSchema = z
   .object({
     kind: z.literal("create"),
@@ -32,8 +41,19 @@ const ReplaceEditSchema = z
     search: z.string(),
     replacement: z.string(),
     protocol: z.literal("udiff").optional(),
+    lineRange: UnifiedDiffLineRangeSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (edit) =>
+      edit.lineRange === undefined ||
+      (edit.protocol === "udiff" && edit.search === ""),
+    {
+      message:
+        "A line range is valid only for an insertion-only unified-diff replacement",
+      path: ["lineRange"],
+    },
+  );
 
 const RewriteFileEditSchema = z
   .object({

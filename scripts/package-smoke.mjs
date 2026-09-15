@@ -69,6 +69,7 @@ try {
     "LICENSE",
     "NOTICE",
     "CHANGELOG.md",
+    "task.md",
     "docs/commands.md",
     "docs/terminal.md",
     "docs/filesystem-safety.md",
@@ -123,7 +124,12 @@ try {
   );
   // Present in the tarball is not present after install; npm can filter, and a
   // documentation-only package change would otherwise go unverified.
-  for (const document of ["README.md", "LICENSE", "docs/commands.md"]) {
+  for (const document of [
+    "README.md",
+    "LICENSE",
+    "task.md",
+    "docs/commands.md",
+  ]) {
     if (!existsSync(join(packageRoot, document))) {
       throw new Error(`The installed package is missing ${document}`);
     }
@@ -311,6 +317,26 @@ try {
             throw new Error('ignored repository context leaked: ' + secret);
           }
           text = 'deterministic repository-map answer';
+        } else if (last.includes('unified p0 turn')) {
+          const fence = String.fromCharCode(96).repeat(3);
+          text = [
+            fence + 'diff',
+            '--- a/guide.md',
+            '+++ b/guide.md',
+            '@@ -1,5 +1,5 @@',
+            ' # Guide',
+            '-' + fence + 'old',
+            '+' + fence + 'ts',
+            '-old',
+            '+new',
+            ' ' + fence,
+            ' tail',
+            '--- a/insert.ts',
+            '+++ b/insert.ts',
+            '@@ -1,0 +2 @@',
+            '+middle',
+            fence,
+          ].join('\\n');
         } else if (last.includes('unified recovery turn')) {
           const fence = String.fromCharCode(96).repeat(3);
           text = [
@@ -496,6 +522,42 @@ try {
     "actual start\nunique new value\nactual end\n"
   ) {
     throw new Error("Packed actual bin did not apply partial-context recovery");
+  }
+  const p0Root = join(consumerDirectory, "unified-p0");
+  mkdirSync(p0Root);
+  writeFileSync(join(p0Root, "guide.md"), "# Guide\n```old\nold\n```\ntail\n");
+  writeFileSync(join(p0Root, "insert.ts"), "start\nend\n");
+  execFileSync(
+    executable,
+    shellArguments([
+      "--no-git",
+      "--model",
+      "4o",
+      "--edit-format",
+      "udiff",
+      "--file",
+      "guide.md",
+      "--file",
+      "insert.ts",
+      "--message",
+      "unified p0 turn",
+    ]),
+    {
+      cwd: p0Root,
+      env: fakeEnvironment,
+      encoding: "utf8",
+      shell: useShell,
+      timeout: 15000,
+    },
+  );
+  if (
+    readFileSync(join(p0Root, "guide.md"), "utf8") !==
+      "# Guide\n```ts\nnew\n```\ntail\n" ||
+    readFileSync(join(p0Root, "insert.ts"), "utf8") !== "start\nmiddle\nend\n"
+  ) {
+    throw new Error(
+      "Packed actual bin did not preserve Markdown fences and insertion location",
+    );
   }
   const malformed = spawnSync(
     executable,
