@@ -87,20 +87,23 @@ written under a different one are discarded rather than reused. The fingerprint
 covers an explicit extractor version, the contents of every bundled `.scm`
 query, and each grammar's file size — query text is hashed because editing one
 is the common case, while grammars are identified by size so a multi-megabyte
-wasm file is not rehashed on every startup.
+WASM file is not rehashed on every startup.
 
-The helper exposes `always`, `files`, `manual`, and `auto` refresh modes, but the
-production CLI exposes no refresh controls and does not couple prompt caching to
-stable `files` refresh. The tracked inventory is re-read from Git each turn
-rather than frozen at startup, so a file added, removed, or renamed mid-session
-reaches both file context and the map; a transient Git failure falls back to the
-startup inventory instead of failing the turn. Each production turn first asks
-for a map relative to selected files and current filename/identifier hints. An
-empty result retries globally with the same hints, then globally without hints,
-stopping at the first non-empty result. Every request reuses the already filtered
-tracked inventory, so fallback cannot disclose ignored or untracked paths.
+The helper exposes `always`, `files`, `manual`, and `auto` refresh modes, but
+production keeps sizing, refresh, and the empty-chat multiplier model-derived
+and internal. `/map` is the sole display control and uses fresh production
+inventory. Public tuning would expose cache/ranking implementation details and
+destabilize bounded prompt budgets without a demonstrated operational need.
+The tracked inventory is re-read from Git each turn rather than frozen at
+startup, so a file added, removed, or renamed mid-session reaches both file
+context and the map; a transient Git failure falls back to the startup inventory
+instead of failing the turn. Each production turn first asks for a map relative
+to selected files and current filename/identifier hints. An empty result retries
+globally with the same hints, then globally without hints, stopping at the first
+non-empty result. Every request reuses the filtered tracked inventory.
 
-The private production context workflow is the one deliberate refresh override.
+The private production context workflow is the deliberate internal refresh
+override.
 It creates a dedicated `always` map, multiplies the model-derived base budget by
 eight (bounded by model context headroom), and disables a second empty-chat
 multiplier. Every convergence pass sets `forceRefresh`, supplies the current

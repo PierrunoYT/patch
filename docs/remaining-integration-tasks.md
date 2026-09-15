@@ -509,13 +509,14 @@ valid only for the specific normalization and recovery cases they name.
   each future language needs a concrete product requirement plus attributed
   query/grammar, pinned tags, cache fingerprint coverage, focused extraction,
   and packed cross-platform evidence.
-- [ ] **P2 -- Expose repository-map token, refresh, multiplier, and display
-  controls if operationally needed.** **Status:** partial. Patch implements map
-  budgets and refresh modes in `src/context/repository-map.ts:15-46,60-188` but
-  does not expose them through bootstrap. Aider exposes `--map-tokens`,
-  `--map-refresh`, `--map-multiplier-no-files`, `--show-repo-map`, `/map`, and
-  `/map-refresh` at `aider/args.py:246-267,686-691` and
-  `aider/commands.py:1418-1430`.
+- [x] **N/A -- Keep repository-map tuning internal.** **Status:** accepted
+  current-release scope. Base tokens remain model-derived and bounded, refresh
+  follows the production inventory/cache policy, and the empty-chat multiplier
+  remains fixed. `/map` is the only display control and uses the same sanitized,
+  bounded path as production. `--map-tokens`, refresh/multiplier settings,
+  `--show-repo-map`, and `/map-refresh` are non-goals because they expose
+  implementation details, destabilize prompt budgets, and multiply cache/ranking
+  states without demonstrated operational need.
 - [x] **N/A -- Keep repository-map parity evidence-scoped rather than claiming
   arbitrary-program/every-language equivalence.** **Status:** accepted evidence
   boundary. Patch has exact evidence for shipped tag samples, representative

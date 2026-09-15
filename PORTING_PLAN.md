@@ -626,6 +626,10 @@ skipped all nine current gates because the orb also had no provider credentials.
 - [x] Keep the current repository-map language set to the eleven shipped entries.
   Unsupported languages retain lexical-reference participation; each future
   parser requires a concrete need and independent pinned/package/platform proof.
+- [x] Keep repository-map token, refresh, multiplier, and diagnostic tuning
+  internal and model-derived. `/map` is the sole bounded display control; public
+  knobs would destabilize budgets and expose cache/ranking implementation state.
+
 ### Phase 5 — Git, authorization, and commands (MVP)
 
 - [x] Discover one common Git worktree for selected paths and reject paths from

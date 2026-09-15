@@ -265,8 +265,11 @@ security rules above.
   references, so speculative breadth is unnecessary. Add a language only from a
   concrete user requirement, with its pinned query/grammar, tag fixture, cache
   fingerprint, extraction tests, and packed cross-platform evidence.
-- [ ] **MAP-2:** Decide whether to expose map token, refresh, multiplier, and
-  display controls through configuration and commands.
+- [x] **MAP-2:** Keep map sizing, refresh, and empty-chat multiplier
+  model-derived and internal. `/map` is the sole display control and already
+  uses fresh production inventory. Public tuning would expose cache/ranking
+  implementation details, destabilize prompt budgets, and multiply unsupported
+  configurations without a demonstrated operational need.
 - [x] **MAP-3:** Treat exact arbitrary-program and every-language ranking parity
   as an unbounded non-goal. Patch's contract is evidence-scoped: each selected
   language needs pinned tags and packaged extraction, representative independent

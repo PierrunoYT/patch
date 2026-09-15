@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept repository-map token budgets, refresh policy, and empty-chat multiplier
+  internal and model-derived. `/map` remains the sole bounded display control;
+  public tuning would expose cache/ranking state and destabilize prompt budgets.
+
 - Kept repository-map parsing to the eleven shipped language entries for this
   release. Unsupported languages retain bounded lexical references; future
   parsers require concrete demand plus pinned query/grammar, fixture, cache, and
