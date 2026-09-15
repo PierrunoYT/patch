@@ -77,9 +77,11 @@ accounted, so nothing can extend or invalidate a completed response.
 
 Completed history is summarized automatically. Before each turn, if history
 exceeds the active model's `maxChatHistoryTokens`, `summarizeHistory` replaces
-it. All six bundled profiles currently inherit 1,024 tokens; pinned aider instead
-derives 1/16 of the input limit, clamped to 1,024–8,192, so `MODEL-8` tracks this
-premature-summary defect. `ChatSummary` ports aider's algorithm:
+it. An explicit model setting wins; otherwise Patch follows pinned aider and
+derives 1/16 of the final metadata-enriched input limit, clamped to
+1,024–8,192 tokens. The 128,000-token GPT-4o and DeepSeek profiles therefore
+use 8,000, while the 200,000-token Claude profiles use 8,192. `ChatSummary`
+ports aider's algorithm:
 the most recent half-budget of messages is kept verbatim, the head is split at an
 assistant message and sent for summarization, and the result recurses up to three
 times before summarizing everything at once. The summary always ends on an

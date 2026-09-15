@@ -15,6 +15,7 @@ import {
   ModelCapabilitiesSchema,
   ModelIdentifierSchema,
   ModelSettingsSchema,
+  modelHistoryTokenBudget,
   type ModelSettings,
 } from "./settings.js";
 
@@ -162,28 +163,31 @@ function mergeMetadata(
   settings: ModelSettings,
   metadata: ModelMetadata | undefined,
 ): ModelSettings {
-  if (metadata === undefined) return settings;
-  return ModelSettingsSchema.parse({
+  const merged = {
     ...settings,
-    ...(metadata.maxInputTokens === undefined
+    ...(metadata?.maxInputTokens === undefined
       ? {}
       : { maxInputTokens: metadata.maxInputTokens }),
-    ...(metadata.maxOutputTokens === undefined
+    ...(metadata?.maxOutputTokens === undefined
       ? {}
       : { maxOutputTokens: metadata.maxOutputTokens }),
-    ...(metadata.inputCostPerMillion === undefined
+    ...(metadata?.inputCostPerMillion === undefined
       ? {}
       : { inputCostPerMillion: metadata.inputCostPerMillion }),
-    ...(metadata.outputCostPerMillion === undefined
+    ...(metadata?.outputCostPerMillion === undefined
       ? {}
       : { outputCostPerMillion: metadata.outputCostPerMillion }),
-    ...(metadata.cachedInputCostPerMillion === undefined
+    ...(metadata?.cachedInputCostPerMillion === undefined
       ? {}
       : { cachedInputCostPerMillion: metadata.cachedInputCostPerMillion }),
-    ...(metadata.cacheWriteCostPerMillion === undefined
+    ...(metadata?.cacheWriteCostPerMillion === undefined
       ? {}
       : { cacheWriteCostPerMillion: metadata.cacheWriteCostPerMillion }),
-    capabilities: { ...settings.capabilities, ...metadata.capabilities },
+    capabilities: { ...settings.capabilities, ...metadata?.capabilities },
+  };
+  return ModelSettingsSchema.parse({
+    ...merged,
+    maxChatHistoryTokens: modelHistoryTokenBudget(merged),
   });
 }
 

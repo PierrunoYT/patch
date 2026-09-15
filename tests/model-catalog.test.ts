@@ -71,6 +71,23 @@ describe("ModelCatalog", () => {
         capabilities: { promptCaching: true },
       },
     });
+    expect(
+      Object.fromEntries(
+        catalog
+          .list()
+          .map((name) => [
+            name,
+            catalog.resolve(name).settings.maxChatHistoryTokens,
+          ]),
+      ),
+    ).toEqual({
+      "claude-haiku-4-5": 8192,
+      "claude-sonnet-4-6": 8192,
+      "deepseek/deepseek-chat": 8000,
+      "deepseek/deepseek-reasoner": 8000,
+      "gpt-4o": 8000,
+      "gpt-4o-mini": 8000,
+    });
   });
 
   it("applies validated user resource overrides after bundled resources", async () => {
@@ -96,9 +113,35 @@ describe("ModelCatalog", () => {
 
     expect(catalog.resolve("fast")).toMatchObject({
       canonicalName: "custom/model",
-      settings: { provider: "custom", editFormat: "whole" },
+      settings: {
+        provider: "custom",
+        editFormat: "whole",
+        maxChatHistoryTokens: 1024,
+      },
       metadata: { maxInputTokens: 4096 },
     });
+  });
+
+  it("preserves an explicit history budget instead of deriving one", async () => {
+    const directory = await temporaryDirectory();
+    const settings = join(directory, "settings.yml");
+    const metadata = join(directory, "metadata.json5");
+    await writeFile(
+      settings,
+      "- name: custom/model\n  provider: custom\n  editFormat: whole\n  maxChatHistoryTokens: 2048\n",
+    );
+    await writeFile(
+      metadata,
+      "{ 'custom/model': { provider: 'custom', maxInputTokens: 200000 } }",
+    );
+
+    const catalog = await ModelCatalog.load({
+      settings: [settings],
+      metadata: [metadata],
+    });
+    expect(catalog.resolve("custom/model").settings.maxChatHistoryTokens).toBe(
+      2048,
+    );
   });
 
   it("returns defensive copies and rejects unknown models", async () => {

@@ -62,6 +62,7 @@ import { expandSelection } from "../io/selection.js";
 import { ModelCatalog, renderModelMatches } from "../models/catalog.js";
 import type { ModelSettings } from "../models/settings.js";
 import {
+  modelHistoryTokenBudget,
   requestTemperature,
   withReasoningControls,
 } from "../models/settings.js";
@@ -1957,7 +1958,7 @@ class ConcreteApplicationSession implements ApplicationSession {
     signal?.throwIfAborted();
     const provider = this.#context.makeProvider(model);
     const summary = new ChatSummary({
-      maxTokens: force ? 1 : this.#profile.main.maxChatHistoryTokens,
+      maxTokens: force ? 1 : modelHistoryTokenBudget(this.#profile.main),
       ...(model.maxInputTokens === undefined
         ? {}
         : { maxInputTokens: model.maxInputTokens }),

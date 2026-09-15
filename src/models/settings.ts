@@ -40,8 +40,8 @@ export const ModelSettingsSchema = z
      * one.
      */
     reasoningTag: z.string().min(1).optional(),
-    /** History budget before completed messages are summarized. */
-    maxChatHistoryTokens: z.number().int().positive().default(1024),
+    /** Explicit history budget; otherwise derived from `maxInputTokens`. */
+    maxChatHistoryTokens: z.number().int().positive().optional(),
     /**
      * `false` sends no temperature, for models that reject it; `true` sends 0,
      * the deterministic default; a number sends that value.
@@ -116,6 +116,16 @@ export const ModelSettingsSchema = z
 
 export type ModelCapabilities = z.infer<typeof ModelCapabilitiesSchema>;
 export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
+
+/** Pinned aider's 1/16 context rule, expressed as an integer token threshold. */
+export function modelHistoryTokenBudget(
+  model: Pick<ModelSettings, "maxChatHistoryTokens" | "maxInputTokens">,
+): number {
+  return (
+    model.maxChatHistoryTokens ??
+    Math.floor(Math.min(Math.max((model.maxInputTokens ?? 0) / 16, 1024), 8192))
+  );
+}
 
 /** The temperature a request should carry, or `undefined` to send none. */
 export function requestTemperature(model: ModelSettings): number | undefined {

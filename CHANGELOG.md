@@ -16,6 +16,10 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Derived default chat-history summary thresholds from the final model input
+  window using pinned aider's 1/16 rule clamped to 1,024–8,192 tokens. Explicit
+  model settings still override the derived threshold.
+
 - Bounded external-editor readback to 1 MiB with chunked growth detection while
   leaving normal interactive editing duration unlimited. Application-signal
   cancellation now escalates from `SIGTERM` to `SIGKILL` after one second, waits

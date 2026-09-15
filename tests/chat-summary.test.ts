@@ -151,6 +151,45 @@ describe("ChatSummary", () => {
 });
 
 describe("a session with long completed history", () => {
+  it("derives the production summary threshold from the input window", async () => {
+    const root = await temporaryDirectory();
+    let summaries = 0;
+    const run = async (historyTokens: number) => {
+      const session = new CoderSession({
+        config: {
+          root,
+          model: {
+            name: "test/model",
+            provider: "fake",
+            editFormat: "ask",
+            maxInputTokens: 128_000,
+          },
+        },
+        provider: new FakeProvider([
+          {
+            actions: [
+              { type: "text-delta", text: "answered" },
+              { type: "finish", reason: "stop" },
+            ],
+          },
+        ]),
+        strategy: new AskEditStrategy(),
+        messages: conversation(1),
+        tokenCounter: () => historyTokens,
+        summarizeHistory: async () => {
+          summaries += 1;
+          return conversation(1);
+        },
+      });
+      await session.runTurn("next question");
+    };
+
+    await run(8000);
+    expect(summaries).toBe(0);
+    await run(8001);
+    expect(summaries).toBe(1);
+  });
+
   it("summarizes before the turn and survives a failing summarizer", async () => {
     const root = await temporaryDirectory();
     const history = conversation(6);

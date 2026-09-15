@@ -529,7 +529,7 @@ require complete envelope sentinels and reject truncated output.
       filtering removes unsupported media after summarization.
 - [x] Add one-shot `--message`, `--message-file`, and interactive line input.
 
-**Exit (blocked by `MODEL-8` and `TOKEN-1`):** installed-service acceptance
+**Exit (blocked by `TOKEN-1`):** installed-service acceptance
 covers streamed malformed and unresolvable responses, two-file writes, lint
 reflection, approved commands, tests, and undo with exact Git assertions. Real-
 Git tests inject cancellation at every named lifecycle boundary and assert

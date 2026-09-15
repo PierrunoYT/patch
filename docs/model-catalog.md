@@ -105,6 +105,12 @@ routes both weak history summaries and editor work to `deepseek/deepseek-chat`.
 Exact catalog/selection tests cover the resource contract, and a concrete
 application test exercises both secondary routes.
 
+History budgets are resolved after model metadata supplies the final input
+window. An explicit `maxChatHistoryTokens` setting wins; otherwise Patch follows
+pinned aider's `maxInputTokens / 16` rule clamped to 1,024–8,192 tokens. The
+bundled 128,000-token GPT-4o and DeepSeek profiles resolve to 8,000, while the
+200,000-token Claude profiles resolve to the 8,192 ceiling.
+
 ## Token counting
 
 `countMessageTokens` and `countTextTokens` use `tiktoken` with `o200k_base` or

@@ -12,6 +12,7 @@ import { EditTransaction } from "../edits/transaction.js";
 import { EditBatchSchema, type EditBatch } from "../edits/types.js";
 import type { FileSystemAdapter } from "../io/filesystem.js";
 import {
+  modelHistoryTokenBudget,
   ModelSettingsSchema,
   requestTemperature,
   type ModelCapabilities,
@@ -844,7 +845,7 @@ export class CoderSession {
     if (messages.length === 0) return;
     if (
       this.#tokenCounter(messages, this.#config.model) <=
-      this.#config.model.maxChatHistoryTokens
+      modelHistoryTokenBudget(this.#config.model)
     )
       return;
     let summarized: readonly ChatMessage[];

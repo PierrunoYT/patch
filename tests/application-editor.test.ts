@@ -40,7 +40,7 @@ describe("production editor role", () => {
   it("uses bundled DeepSeek Chat for Reasoner summaries and edits", async () => {
     const directory = await root();
     const reasoner = new FakeProvider([
-      response("x".repeat(5_000)),
+      response("x".repeat(40_000)),
       response("continued"),
     ]);
     const chat = new FakeProvider([

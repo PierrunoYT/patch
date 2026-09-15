@@ -79,9 +79,11 @@ Baseline for the current findings:
       output instead of applying the partial batch. Pinned aider tolerates these
       cases; Patch now fails closed, reflects through the normal lifecycle, and
       covers the behavior in parser, session, and packed lifecycle tests.
-- [ ] **MODEL-8: Derive history budgets from model context size.** Match pinned
-      aider's 1/16 input-window rule clamped to 1,024–8,192 tokens rather than
-      summarizing every bundled model at 1,024 tokens.
+- [x] **MODEL-8: Derive history budgets from model context size.** Models without
+      an explicit history setting now use pinned aider's 1/16 input-window rule
+      clamped to 1,024–8,192 tokens after metadata is merged. Explicit settings
+      still win; production boundary tests cover 8,000 and 8,001 tokens for a
+      128,000-token model.
 - [ ] **TOKEN-1: Make fallback token enforcement genuinely conservative.** The
       current UTF-16-length/4 estimate can undercount CJK and other inputs. Use a
       safe refusal bound or stop presenting the approximation as a protective
