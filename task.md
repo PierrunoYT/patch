@@ -242,9 +242,11 @@ security rules above.
   palette/theme controls, completion colors, and diff-display switches are
   non-goals for the dependency-free renderer; they multiply unsupported visual
   states without changing the safe text contract.
-- [ ] **TERM-3:** Schedule computed edit previews, richer Markdown rendering,
-  and true Vi input only as a coherent terminal project that retains sanitizer
-  and approval boundaries.
+- [x] **TERM-3:** Keep computed edit-preview hunks, Rich-style Markdown, and true
+  Vi input out of the current terminal. They require a replacement renderer and
+  line editor, not independent toggles; the existing full-content preview,
+  dependency-free streaming renderer, Ctrl-X Ctrl-E, sanitizer, and approval
+  boundaries remain the supported coherent contract.
 - [x] **CLIP-1:** Keep clipboard access text-only. Patch will not silently probe
   the OS clipboard for images or create out-of-repository temporary media;
   images and PDFs enter model context only through an explicit, visible

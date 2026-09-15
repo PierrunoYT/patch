@@ -197,6 +197,12 @@ themes, or diff-display switches: its dependency-free renderer cannot support
 those Rich-style states coherently, while the sanitized plain-text contract is
 already deterministic for redirected output.
 
+Computed preview hunks, Rich-style rendering, and true Vi modal editing are not
+scheduled for the current release. They require replacing both renderer and line
+editor as one coherent project; isolated toggles would advertise incomplete
+layout/input states. Full-content previews, streaming Markdown, Ctrl-X Ctrl-E,
+and the sanitizer remain the supported contract.
+
 ## Optional interactive PTY
 
 `/run --interactive <command>` is the only path that dispatches through

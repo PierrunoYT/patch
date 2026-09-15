@@ -136,6 +136,9 @@ Provider output always streams through one sanitized renderer. Styling follows
 TTY and `NO_COLOR`; `--no-color` is the only presentation override. Pretty/raw,
 palette, completion-color, theme, and diff-display controls are non-goals for
 the dependency-free terminal contract.
+Computed preview hunks, Rich-style rendering, and true Vi modal input are not
+current-release features; they require one coherent renderer/line-editor
+replacement rather than partial compatibility toggles.
 Media and watch reads retain a no-follow handle only after target and ancestor
 identity revalidation, so a pre-open ancestor swap cannot redirect provider
 context outside the repository;

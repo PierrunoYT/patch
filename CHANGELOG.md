@@ -16,6 +16,11 @@ dated parity audits for revision-specific evidence.
 
 ### Changed
 
+- Kept computed preview hunks, Rich-style rendering, and true Vi modal input out
+  of current scope. They require one coherent renderer/line-editor replacement;
+  full-content previews, streaming Markdown, Ctrl-X Ctrl-E, and sanitization
+  remain the supported contract.
+
 - Kept one streaming terminal presentation contract. Styling follows TTY and
   `NO_COLOR`, with `--no-color` as the only override; Rich-style pretty/raw,
   palette, completion-color, theme, and diff switches are non-goals for the

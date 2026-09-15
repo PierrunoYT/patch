@@ -465,13 +465,13 @@ valid only for the specific normalization and recovery cases they name.
   completion-menu color, code-theme, and diff-display controls are non-goals:
   they multiply terminal states without improving the safe text contract and
   would imply Rich-level rendering Patch does not implement.
-- [ ] **P2 -- Implement computed edit previews and true Vi input only if the
-  richer terminal scope is scheduled.** **Status:** deferred. Patch's
-  `src/io/render.ts:241-257` emits complete before/after bodies and
-  `src/program.ts:186-193,287-292` explicitly refuses `--vim`; Aider provides
-  progressive diffs through `aider/diffs.py:43-102` and Vi mode through
-  `aider/args.py:742-746` and `aider/main.py:549-562`. Retain the existing
-  sanitizer and approval boundaries in any replacement renderer/input stack.
+- [x] **N/A -- Keep the richer terminal replacement out of current scope.**
+  **Status:** accepted current-release boundary. Computed edit hunks, Rich-style
+  tables/lists/wrapping and unstable-tail rerendering, and true Vi modal input
+  require replacing the renderer and line editor as one project. Patch retains
+  full-content previews, dependency-free streaming Markdown, Ctrl-X Ctrl-E, and
+  one stateful sanitizer across untrusted output. Individual compatibility
+  toggles would create misleading partial support.
 - [x] **N/A -- Keep clipboard access text-only.** **Status:** accepted privacy
   and containment difference. Patch's `/paste` submits bounded text only, while
   `/attach` handles explicitly named, approved, repository-contained media.

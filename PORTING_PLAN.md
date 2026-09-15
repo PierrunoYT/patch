@@ -836,10 +836,11 @@ individual edit-strategy suites.
 - [x] Retain language identifiers for variable-length Markdown fences. The
   renderer tracks the opening run and language across split chunks, preserves
   shorter runs as code, and accepts only an at-least-matching bare close.
-- [ ] Deferred parity: replace the lightweight renderer if product scope later
-  requires Aider-style tables, full lists/wrapping, unstable-tail rerendering, or
-  computed edit-preview hunks. One stateful sanitizer already covers every
-  untrusted output path and strips every claimed hostile control family.
+- [x] Keep computed edit-preview hunks, Rich-style tables/lists/wrapping and
+  unstable-tail rerendering, and true Vi modal input out of current scope. They
+  require one renderer/line-editor replacement project; isolated toggles would
+  advertise partial behavior. Preserve full previews, Ctrl-X Ctrl-E, sanitizer,
+  and approval boundaries.
 - [x] Dispatch explicitly requested interactive commands through optional
   `node-pty`. `/run --interactive` is the only caller; the native package loads
   at that point and nowhere else, the line reader is released and restored
