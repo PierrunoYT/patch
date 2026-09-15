@@ -241,6 +241,11 @@ dated parity audits for revision-specific evidence.
 
 ### Fixed
 
+- Required complete `*** Begin Patch`/`*** End Patch` envelopes for Patch-action
+  responses. Missing sentinels, trailing content, and successfully truncated
+  actions now enter bounded reflection instead of producing a partial edit batch;
+  packed lifecycle smoke verifies no early write.
+
 - Retained filesystem containment through general editable/read-only text reads
   and write preparation. Reads now consume only a verified no-follow handle,
   reject deterministic ancestor swaps, and enforce a 4 MiB ceiling even if a

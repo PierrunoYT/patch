@@ -499,9 +499,9 @@ outside the contract.
 - [x] Property-test malformed fences, repeated text, empty files, Unicode,
       CRLF, duplicate filenames, traversal attempts, and asymmetric replacements.
 
-**Exit (blocked by `PATCH-2`):** every selected upstream edit fixture produces
-the same file contents or a documented, safer rejection. Patch-action envelope
-truncation is not yet rejected.
+**Exit (met for selected formats):** every selected upstream edit fixture
+produces the same file contents or a documented, safer rejection. Patch actions
+require complete envelope sentinels and reject truncated output.
 
 ### Phase 3 — Conversation engine
 
@@ -811,7 +811,7 @@ claimed.
       probe and external temporary file, Patch requires image/PDF context to enter
       through a user-named `/attach` path with visible approval and containment.
 
-**Exit — blocked by `PATCH-2`:** architect/context stay
+**Exit — scoped advanced-workflow contract met:** architect/context stay
 embedding-only application workflows for the current release. Their explicit
 callback approval and atomic recovery contracts are production-tested, but the
 terminal has no complete review UX and does not advertise them as modes. The six

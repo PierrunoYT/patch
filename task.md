@@ -74,10 +74,11 @@ Baseline for the current findings:
 
 ## P1 — supported-surface correctness and safety
 
-- [ ] **PATCH-2: Require a complete Patch response envelope.** Reject a missing
+- [x] **PATCH-2: Require a complete Patch response envelope.** Reject a missing
       `*** Begin Patch`, missing `*** End Patch`, and successfully truncated action
       output instead of applying the partial batch. Pinned aider tolerates these
-      cases; Patch's malformed-output boundary should fail closed.
+      cases; Patch now fails closed, reflects through the normal lifecycle, and
+      covers the behavior in parser, session, and packed lifecycle tests.
 - [ ] **MODEL-8: Derive history budgets from model context size.** Match pinned
       aider's 1/16 input-window rule clamped to 1,024–8,192 tokens rather than
       summarizing every bundled model at 1,024 tokens.

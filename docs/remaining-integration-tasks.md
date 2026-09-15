@@ -69,7 +69,7 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 | Area                             | Current classification                                   | Strongest evidence boundary                                                                                                                                                                                                                                                                     |
 | -------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Core lifecycle                   | implemented selected scope with explicit recovery limits | Immutable attempt context, queued cancellation, bounded retry/reflection, observer-atomic attempts, weak/main history summaries, cancellable atomic profile switching, private architect/editor/context workflows, and process-local worktree serialization are production-wired.               |
-| Editing                          | selected scope; open malformed-envelope gap               | Six public formats are wired with bounded ambiguity rejection, but Patch actions currently accept absent sentinels and successfully truncated output.                                                                        |
+| Editing                          | implemented selected scope with intentional hardening    | Six public formats are wired with bounded ambiguity rejection. Patch actions require both envelope sentinels and reflect truncated output rather than applying a partial batch.                                                   |
 | Models/providers                 | partial aider breadth; open budget/counting gaps          | Three providers and six profiles are wired; fixed 1,024-token history thresholds and a potentially undercounting fallback diverge from pinned/safe budget behavior. Live OpenAI/DeepSeek evidence remains external.          |
 | Git/filesystem                   | implemented selected scope with documented limits        | General text, media, watch, and map reads retain verified handles and enforce byte ceilings. Git ownership and atomic writes are hardened; cross-file/durable recovery and portable metadata preservation remain explicit limits. |
 | Repository maps                  | selected scope; open cache-bound gap                      | Eleven languages, ranking/rendering, retained-handle extraction, and fitting are wired, but cache hashing reads a complete source before the 4 MiB extractor ceiling.                                                          |
@@ -79,7 +79,10 @@ This matrix reflects the audit boundary `cee39ed`; historical audits retain thei
 
 ### Current audit findings — `cee39ed` — 2026-09-15
 
-- [ ] **P1 / PATCH-2 — reject missing Patch sentinels and truncated output.**
+- [x] **P1 / PATCH-2 — reject missing Patch sentinels and truncated output.**
+      Completed with strict first/last meaningful sentinels, parser/session
+      regressions, and packed installed lifecycle evidence that the truncated
+      attempt writes nothing before a complete reflected response.
 - [ ] **P1 / MODEL-8 — derive history limits from model input windows.**
 - [ ] **P1 / TOKEN-1 — replace or safely bound the undercounting fallback.**
 - [x] **P1 / FS-2 — retain containment and cap general text reads.** Completed

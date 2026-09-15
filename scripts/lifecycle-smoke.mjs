@@ -225,6 +225,45 @@ try {
   );
   assert.equal(git("diff", "--cached", "--", "unrelated.txt"), unrelatedIndex);
   assert.equal(git("diff", "--", "unrelated.txt"), unrelatedWorktree);
+  await service.close();
+
+  await writeFile(join(root, "envelope.txt"), "before\n");
+  const truncatedPatch =
+    "*** Begin Patch\n*** Update File: envelope.txt\n@@\n-before\n+truncated";
+  const patchProvider = new FakeProvider(
+    [
+      truncatedPatch,
+      `${truncatedPatch.replace("truncated", "after")}\n*** End Patch`,
+    ].map((text) => ({
+      actions: [
+        { type: "text-delta", text },
+        { type: "finish", reason: "stop" },
+      ],
+    })),
+  );
+  service = await ConcreteApplicationService.create({
+    cwd: root,
+    home: root,
+    environment: {},
+    argv: [
+      "--model",
+      "4o",
+      "--no-git",
+      "--edit-format",
+      "patch",
+      "--file",
+      "envelope.txt",
+    ],
+    dependencies: { provider: patchProvider },
+  });
+  const patchSession = await service.createSession({
+    principal: "test",
+    sessionId: "patch-envelope",
+  });
+  const patchResult = await patchSession.submit("change it", options);
+  assert.deepEqual(patchResult.changedPaths, ["envelope.txt"]);
+  assert.equal(await read("envelope.txt"), "after\n");
+  assert.equal(patchProvider.requests.length, 2);
   process.stdout.write("installed-commit-policy-ok\n");
   process.stdout.write("installed-lifecycle-ok\n");
 } finally {

@@ -221,10 +221,61 @@ describe("PatchEditStrategy", () => {
 
   it("rejects malformed add lines and missing update context", () => {
     expect(() =>
-      strategy.parse("*** Add File: x\nmissing-prefix", context()),
+      strategy.parse(
+        "*** Begin Patch\n*** Add File: x\nmissing-prefix\n*** End Patch",
+        context(),
+      ),
     ).toThrow(PatchParseError);
     expect(() =>
-      strategy.parse("*** Update File: a.txt\n@@\n-missing\n+new", context()),
+      strategy.parse(
+        "*** Begin Patch\n*** Update File: a.txt\n@@\n-missing\n+new\n*** End Patch",
+        context(),
+      ),
     ).toThrow(/Could not find patch context/);
+  });
+
+  it("rejects missing sentinels, truncated actions, and trailing content", () => {
+    for (const response of [
+      "*** Update File: a.txt\n@@\n-one\n+changed\n*** End Patch",
+      "*** Begin Patch\n*** Update File: a.txt\n@@\n-one\n+changed",
+      "*** Begin Patch\n*** Update File: a.txt\n@@\n-one\n+changed\n*** End Patch\nignored",
+    ]) {
+      expect(() => strategy.parse(response, context())).toThrow(
+        PatchParseError,
+      );
+    }
+  });
+
+  it("reflects a truncated patch before accepting a complete response", async () => {
+    const truncated =
+      "*** Begin Patch\n*** Update File: a.txt\n@@\n-one\n+wrong";
+    const complete = `${truncated.replace("wrong", "changed")}\n*** End Patch`;
+    const provider = new FakeProvider(
+      [truncated, complete].map((text) => ({
+        actions: [
+          { type: "text-delta" as const, text },
+          { type: "finish" as const, reason: "stop" as const },
+        ],
+      })),
+    );
+    const session = new CoderSession({
+      config: {
+        root: "/repo",
+        model: { name: "fake", provider: "fake", editFormat: "patch" },
+      },
+      provider,
+      strategy,
+      editablePaths: ["a.txt"],
+    });
+
+    const result = await session.runTurn("change it", {
+      snapshots: [{ path: "a.txt", content: "one\n" }],
+    });
+
+    expect(result.edits.edits).toEqual([
+      { kind: "rewrite", path: "a.txt", content: "changed\n" },
+    ]);
+    expect(provider.requests).toHaveLength(2);
+    expect(session.snapshot().reflectionCount).toBe(1);
   });
 });

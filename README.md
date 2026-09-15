@@ -61,9 +61,9 @@ or fail closed when their location/counts are missing or inconsistent. A prior
 content-located hunk makes a later context-free location unvalidated. Focused
 tests cover beginning/middle/end, repeated insertion text, new and existing
 empty files, and the packed executable covers both former P0 paths. Do not treat
-the constructed formats as unrestricted aider parity. The current audit also
-finds that Patch-action responses still accept missing envelope sentinels and
-successfully truncated output; that fail-closed fix is open.
+the constructed formats as unrestricted aider parity. Patch actions require
+both envelope sentinels; truncated or trailing output fails closed and reflects
+before any edit is applied.
 Git selection treats leading-colon pathspec syntax as literal filenames during
 ignore checks, without bypassing ordinary Git or `.aiderignore` exclusions;
 platform filename restrictions still apply.

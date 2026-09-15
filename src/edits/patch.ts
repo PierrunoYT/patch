@@ -221,15 +221,26 @@ export class PatchEditStrategy implements EditStrategy {
 
   parse(response: string, context: EditStrategyContext): EditBatch {
     const lines = response.split(/\r?\n/u);
+    if (lines[0]?.trim() !== "*** Begin Patch") {
+      throw new PatchParseError(
+        "Patch response must start with *** Begin Patch",
+      );
+    }
+    let closingIndex = lines.length - 1;
+    while (closingIndex > 0 && lines[closingIndex]?.trim() === "") {
+      closingIndex -= 1;
+    }
+    if (lines[closingIndex]?.trim() !== "*** End Patch") {
+      throw new PatchParseError("Patch response must end with *** End Patch");
+    }
     const contents = snapshots(context.files);
     /** Insertion-ordered, so one action per path is emitted in patch order. */
     const actions = new Map<string, PatchAction>();
     let fuzz = 0;
-    let index = lines[0]?.trim() === "*** Begin Patch" ? 1 : 0;
+    let index = 1;
 
-    while (index < lines.length) {
+    while (index < closingIndex) {
       const header = lines[index] ?? "";
-      if (header === "*** End Patch") break;
       if (header.trim() === "") {
         index += 1;
         continue;
