@@ -1093,7 +1093,6 @@
         issues: [
           [91, 'Windows sandbox leaves transient profile and capability entries', 'security', 'low', 0, '10-04'],
           [90, 'Windows sandbox rejects large rustc and cargo toolchains', 'security', 'low', 0, '10-04'],
-          [88, 'PowerShell starts in C:\\ for projects under the user home', 'security', 'medium', 0, '10-04'],
           [87, 'Sandbox MCP stdio servers', 'security', 'low', 0, '10-04'],
           [85, 'Smarter context: tell the agent what changed since its last turn', 'tools', 'low', 1, '10-03'],
           [84, 'Smarter over time: a project memory the agent can propose additions to', 'tools', 'low', 1, '10-03'],
@@ -1165,7 +1164,7 @@
           other: 'Lifecycle bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 32,
+        closedCount: 33,
       };
 
       /* ---------------- helpers ---------------- */
@@ -1341,7 +1340,7 @@
                   'li',
                   null,
                   h('b', null, 'Security is the largest issue theme: '),
-                  '12 of 41 open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.',
+                  '11 of 40 open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.',
                 ),
                 h(
                   'li',
@@ -1359,7 +1358,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed and native Electron crashes are logged locally. Next, finish Windows sandbox reliability (#76, #88, #91) and the remaining CI flake (#50). See ',
+                'Short answer: agent commands are sandboxed and native Electron crashes are logged locally. Next, finish Windows sandbox reliability (#76, #91) and the remaining CI flake (#50). See ',
                 h(
                   'a',
                   {
@@ -1994,7 +1993,7 @@
                 h(
                   'div',
                   { class: 'small' },
-                  '12 open issues are in the security theme: 3 medium (#88, #76, #28) and 9 low. Agent commands are sandboxed, with Windows follow-ups still open. See the Issues board.',
+                  '11 open issues are in the security theme: 2 medium (#76, #28) and 9 low. Agent commands are sandboxed, with Windows follow-ups still open. See the Issues board.',
                 ),
               ),
             ),
@@ -2722,15 +2721,14 @@
       builders.focus = () => {
         const items = [
           [
-            'Finish Windows sandbox reliability: #76, #88, #91',
-            'Agent commands now run through bubblewrap on Linux, Seatbelt on macOS, Docker or Podman when configured, and AppContainer on Windows. The Windows implementation still has concrete follow-ups.',
+            'Finish Windows sandbox reliability: #76, #91',
+            'Agent commands now run through bubblewrap on Linux, Seatbelt on macOS, Docker or Podman when configured, and AppContainer on Windows. Projects under the Windows user profile start from a private project-root drive; cleanup reliability still has a concrete follow-up.',
             [
-              '#88: PowerShell starts in C:\\ for projects under the user home',
               '#91: transient profile and capability entries are not always cleaned up',
               '#90: large rustc and cargo toolchains exceed the current grant limits',
               '#87: MCP stdio servers are not yet covered by the command sandbox',
             ],
-            'The core sandbox is shipped; close the Windows correctness and cleanup gaps before treating #76 as complete.',
+            'The core sandbox is shipped and #88 is fixed; close the remaining cleanup gap before treating #76 as complete.',
           ],
           [
             'Finish making CI trustworthy: #50',

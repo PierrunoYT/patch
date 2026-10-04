@@ -5,7 +5,7 @@ import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildHelperRequest, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
+import { buildHelperRequest, exceedsEntryLimit, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
 import { ShellRunner } from './shell';
 import { scrubEnv } from './env';
 
@@ -25,7 +25,7 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
   let hostCanConnect = false;
 
   beforeAll(async () => {
-    // Under the temp folder (inside the home folder), like a project in Documents would be.
+    // Under the user-profile temp folder, matching the reported PowerShell failure in #88.
     root = mkdtempSync(join(tmpdir(), 'patch-sbx-proj-'));
     outside = mkdtempSync(join(tmpdir(), 'patch-sbx-secret-'));
     sandboxNode = join(root, 'node.exe');
@@ -64,9 +64,62 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
     expect(text).toMatch(/AppContainer/);
   });
 
-  it('lets a command write in the project folder', async () => {
-    const result = await shell.run('Set-Content -Path inside.txt -Value written; Get-Content inside.txt');
-    expect(result.exitCode).toBe(0);
+  it('gives a native process cwd access without exposing its siblings or home', async () => {
+    const script = join(root, 'native-probe.js');
+    writeFileSync(
+      script,
+      `const fs = require('fs'); const path = require('path');
+const [outside, home] = process.argv.slice(2);
+const attempt = (run) => { try { return { ok: true, value: run() }; } catch (error) { return { ok: false, code: error.code }; } };
+const result = {
+  initialCwd: attempt(() => process.cwd()),
+  listProject: attempt(() => fs.readdirSync('.').sort()),
+  relativeWrite: attempt(() => { fs.writeFileSync('native-probe.txt', 'written'); return true; }),
+  readOutside: attempt(() => fs.readFileSync(path.join(outside, 'secret.txt'), 'utf8')),
+  listHome: attempt(() => fs.readdirSync(home)),
+};
+console.log(JSON.stringify(result));`,
+    );
+    const request = buildHelperRequest({
+      id: 1,
+      shell: { file: sandboxNode, args: ['native-probe.js', outside, homedir()] },
+      cwd: root,
+      env: sandboxEnv,
+      network: false,
+      home: homedir(),
+      exists: (path) => existsSync(path),
+      tooLarge: (path) => exceedsEntryLimit(path),
+      limits: { timeoutMs: 5000 },
+    });
+    const child = new HelperProcess(helper!, request);
+    let output = '';
+    let error = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk));
+    child.on('error', (value: Error) => (error = value.message));
+    await Promise.race([once(child, 'close'), once(child, 'error')]);
+
+    expect(error).toBe('');
+    expect(child.exitCode, output).toBe(0);
+    const result = JSON.parse(output) as Record<
+      'initialCwd' | 'listProject' | 'relativeWrite' | 'readOutside' | 'listHome',
+      { ok: boolean; value?: unknown }
+    >;
+    expect(result.initialCwd.ok).toBe(true);
+    expect(result.initialCwd.value).toMatch(/^[P-Z]:\\$/i);
+    expect(result.listProject.ok).toBe(true);
+    expect(result.relativeWrite).toEqual({ ok: true, value: true });
+    expect(readFileSync(join(root, 'native-probe.txt'), 'utf8')).toBe('written');
+    expect(result.readOutside.ok).toBe(false);
+    expect(result.listHome.ok).toBe(false);
+  }, 60_000);
+
+  it('starts PowerShell in a project under the user profile and writes there', async () => {
+    const result = await shell.run(
+      'Write-Output (Get-Location).Path; Set-Content -Path inside.txt -Value written; Get-Content inside.txt',
+    );
+    expect(result.exitCode, result.output).toBe(0);
+    expect(result.output).toMatch(/[P-Z]:\\/i);
     expect(result.output).toContain('written');
     expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toContain('written');
   }, 60_000);
@@ -114,8 +167,7 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
   it('cannot write git hooks, which later run with the user full rights', async () => {
     const hook = join(root, '.git', 'hooks', 'pre-commit');
     const result = await shell.run(`Set-Content -Path '${hook}' -Value 'echo pwned'`);
-    expect(result.exitCode).not.toBe(0);
-    expect(existsSync(hook)).toBe(false);
+    expect(existsSync(hook), result.output).toBe(false);
     const other = await shell.run(`Set-Content -Path '${join(root, '.git', 'config-test')}' -Value ok`);
     expect(other.exitCode).toBe(0);
   }, 60_000);
@@ -189,12 +241,13 @@ setInterval(() => {}, 1000);`,
       writeFileSync(file, script);
       const request = buildHelperRequest({
         id: 1,
-        shell: { file: sandboxNode, args: [file] },
+        shell: { file: sandboxNode, args: ['limit.js'] },
         cwd: root,
         env: sandboxEnv,
         network: false,
         home: homedir(),
         exists: (path) => existsSync(path),
+        tooLarge: (path) => exceedsEntryLimit(path),
         limits,
       });
       const child = new HelperProcess(helper!, request);
@@ -208,11 +261,13 @@ setInterval(() => {}, 1000);`,
     it('refuses more processes than allowed', async () => {
       const { output } = await run(
         `const { spawn } = require('child_process'); let ok = 0, failed = 0;
-for (let i = 0; i < 12; i++) { const c = spawn(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore' }); c.on('spawn', () => ok++); c.on('error', () => failed++); }
+for (let i = 0; i < 12; i++) { try { const c = spawn(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore' }); c.on('spawn', () => ok++); c.on('error', () => failed++); } catch { failed++; } }
 setTimeout(() => { console.log('RESULT ok=' + ok + ' failed=' + failed); process.exit(0); }, 2000);`,
         { processes: 4, memoryMb: 0 },
       );
-      const [, ok, failed] = /ok=(\d+) failed=(\d+)/.exec(output) ?? [];
+      const match = /ok=(\d+) failed=(\d+)/.exec(output);
+      expect(match, output).not.toBeNull();
+      const [, ok, failed] = match!;
       expect(Number(ok)).toBeLessThan(4);
       expect(Number(failed)).toBeGreaterThan(0);
     }, 60_000);

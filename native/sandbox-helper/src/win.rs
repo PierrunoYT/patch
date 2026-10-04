@@ -64,6 +64,55 @@ impl Drop for LocalMem {
     }
 }
 
+struct ProjectDrive {
+    name: Vec<u16>,
+    target: Vec<u16>,
+    cwd: Vec<u16>,
+}
+
+impl ProjectDrive {
+    fn create(path: &str) -> Result<Self> {
+        let used = unsafe { GetLogicalDrives() };
+        let target = wide(&format!(r"\??\{path}"));
+        for letter in (b'P'..=b'Z').rev() {
+            if used & (1 << (letter - b'A')) != 0 {
+                continue;
+            }
+            let name = wide(&format!("{}:", letter as char));
+            let defined = unsafe {
+                DefineDosDeviceW(
+                    DDD_RAW_TARGET_PATH | DDD_NO_BROADCAST_SYSTEM,
+                    PCWSTR(name.as_ptr()),
+                    PCWSTR(target.as_ptr()),
+                )
+            };
+            if defined.is_ok() {
+                return Ok(Self {
+                    name,
+                    target,
+                    cwd: wide(&format!("{}:\\", letter as char)),
+                });
+            }
+        }
+        Err("no drive letter is available for the sandbox working directory".to_string())
+    }
+}
+
+impl Drop for ProjectDrive {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = DefineDosDeviceW(
+                DDD_REMOVE_DEFINITION
+                    | DDD_EXACT_MATCH_ON_REMOVE
+                    | DDD_RAW_TARGET_PATH
+                    | DDD_NO_BROADCAST_SYSTEM,
+                PCWSTR(self.name.as_ptr()),
+                PCWSTR(self.target.as_ptr()),
+            );
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Emitter(Arc<Mutex<std::io::Stdout>>);
 
@@ -142,15 +191,12 @@ fn profile_name() -> String {
 
 const FILE_MODIFY: u32 =
     FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0 | FILE_GENERIC_EXECUTE.0 | DELETE.0;
-const FILE_DENY_WRITE: u32 = FILE_GENERIC_WRITE.0 | DELETE.0 | FILE_DELETE_CHILD.0;
 const FILE_READ_EXECUTE: u32 = FILE_GENERIC_READ.0 | FILE_GENERIC_EXECUTE.0;
 
-// Adds, denies or removes the container's access entries on a path. Folders pass it on to
-// everything inside.
+// Adds or removes the container's access entries on a path. Folders pass it on to everything inside.
 #[derive(Clone, Copy, PartialEq)]
 enum Change {
     Grant,
-    Deny,
     Revoke,
 }
 
@@ -182,7 +228,6 @@ fn edit_acl(path: &str, sid: PSID, access: u32, change: Change) -> Result<()> {
             grfAccessPermissions: if change == Change::Revoke { 0 } else { access },
             grfAccessMode: match change {
                 Change::Grant => GRANT_ACCESS,
-                Change::Deny => DENY_ACCESS,
                 Change::Revoke => REVOKE_ACCESS,
             },
             grfInheritance: if is_dir {
@@ -218,6 +263,52 @@ fn edit_acl(path: &str, sid: PSID, access: u32, change: Change) -> Result<()> {
         if status != ERROR_SUCCESS {
             return Err(format!(
                 "cannot change the permissions of {path} (error {})",
+                status.0
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn set_acl_protected(path: &str, protected: bool) -> Result<()> {
+    let wpath = wide(path);
+    unsafe {
+        let mut dacl: *mut ACL = std::ptr::null_mut();
+        let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        let status = GetNamedSecurityInfoW(
+            PCWSTR(wpath.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(&mut dacl),
+            None,
+            &mut descriptor,
+        );
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot read the permissions of {path} (error {})",
+                status.0
+            ));
+        }
+        let _descriptor = LocalMem(descriptor.0);
+        let protection = if protected {
+            PROTECTED_DACL_SECURITY_INFORMATION
+        } else {
+            UNPROTECTED_DACL_SECURITY_INFORMATION
+        };
+        let status = SetNamedSecurityInfoW(
+            PCWSTR(wpath.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | protection,
+            None,
+            None,
+            Some(dacl),
+            None,
+        );
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot protect the permissions of {path} (error {})",
                 status.0
             ));
         }
@@ -353,6 +444,7 @@ struct Cleanup {
     sid: Option<Sid>,
     // In the order applied; undone in reverse.
     granted: Vec<(String, u32)>,
+    protected: Vec<String>,
 }
 
 impl Drop for Cleanup {
@@ -361,6 +453,9 @@ impl Drop for Cleanup {
             for (path, access) in self.granted.iter().rev() {
                 let _ = edit_acl(path, sid.0, *access, Change::Revoke);
             }
+        }
+        for path in self.protected.iter().rev() {
+            let _ = set_acl_protected(path, false);
         }
         unsafe {
             let _ = DeleteAppContainerProfile(PCWSTR(self.name.as_ptr()));
@@ -384,7 +479,17 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         name,
         sid: Some(Sid(sid)),
         granted: Vec::new(),
+        protected: Vec::new(),
     };
+
+    // Package-SID deny ACEs do not override the restricted token's inherited project grant.
+    // Stop that grant from inheriting into sensitive paths instead, then restore inheritance on cleanup.
+    for path in &request.deny_write {
+        if Path::new(path).exists() {
+            set_acl_protected(path, true)?;
+            cleanup.protected.push(path.clone());
+        }
+    }
 
     for (paths, access, required) in [
         (&request.read_only, FILE_READ_EXECUTE, false),
@@ -403,14 +508,6 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             }
         }
     }
-    for path in &request.deny_write {
-        if !Path::new(path).exists() {
-            continue;
-        }
-        cleanup.granted.push((path.clone(), FILE_DENY_WRITE));
-        edit_acl(path, sid, FILE_DENY_WRITE, Change::Deny)?;
-    }
-
     let mut capability_sid = PSID::default();
     let mut capabilities = Vec::new();
     if request.network {
@@ -480,7 +577,9 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 
     let mut cmdline = wide(&command_line(&request.command, &request.args));
     let application = wide(&request.command);
-    let cwd = wide(&request.cwd);
+    // An ordinary AppContainer cannot traverse a Windows 11 volume root, even when its project
+    // itself is granted. A temporary drive makes that project the root without exposing its parents.
+    let project_drive = ProjectDrive::create(&request.cwd)?;
     // Process creation in a container fails (ERROR_ENVVAR_NOT_FOUND) without LOCALAPPDATA, which Windows rewrites.
     let mut vars = request.env.clone();
     if !vars
@@ -505,7 +604,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 | CREATE_UNICODE_ENVIRONMENT
                 | CREATE_NO_WINDOW,
             Some(env.as_ptr() as *const c_void),
-            PCWSTR(cwd.as_ptr()),
+            PCWSTR(project_drive.cwd.as_ptr()),
             &startup.StartupInfo,
             &mut info,
         )
