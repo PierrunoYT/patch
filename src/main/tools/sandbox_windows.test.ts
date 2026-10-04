@@ -38,9 +38,27 @@ describe('windowsPolicy', () => {
   it('opens toolchain folders under the home folder read-only, and never credentials', () => {
     const policy = windowsPolicy({
       ...base,
-      exists: present(`${home}\\.cargo`, `${home}\\.ssh`, `${home}\\.gitconfig`, `${home}\\AppData\\Roaming\\npm`),
+      exists: present(`${home}\\.cargo\\bin`, `${home}\\.ssh`, `${home}\\.gitconfig`, `${home}\\AppData\\Roaming\\npm`),
     });
-    expect(policy.readOnly).toEqual([`${home}\\.cargo`, `${home}\\.gitconfig`, `${home}\\AppData\\Roaming\\npm`]);
+    expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`, `${home}\\AppData\\Roaming\\npm`]);
+  });
+
+  it('does not reopen credential-bearing paths through PATH, even if the credentials do not exist yet', () => {
+    const privatePaths = ['.cargo', '.m2', '.gradle', '.gitconfig', '.config', '.config\\git'];
+    const safePaths = [
+      '.cargo\\bin',
+      '.cargo\\registry',
+      '.cargo\\git',
+      '.m2\\repository',
+      '.gradle\\caches',
+      '.gradle\\wrapper',
+    ];
+    const policy = windowsPolicy({
+      ...base,
+      pathEntries: privatePaths.map((rel) => `${home}\\${rel}`.toUpperCase()),
+      exists: present(...[...privatePaths, ...safePaths].map((rel) => `${home}\\${rel}`)),
+    });
+    expect(policy.readOnly).toEqual(safePaths.map((rel) => `${home}\\${rel}`));
   });
 
   it('adds PATH folders that exist, skipping system folders every container can already read', () => {
@@ -108,6 +126,8 @@ describe('exceedsEntryLimit', () => {
       for (let i = 0; i < 6; i++) writeFileSync(join(root, 'a', 'b', `f${i}`), '');
       expect(exceedsEntryLimit(root, 100)).toBe(false);
       expect(exceedsEntryLimit(root, 5)).toBe(true);
+      expect(exceedsEntryLimit(root, 7)).toBe(true);
+      expect(exceedsEntryLimit(root, 8)).toBe(false);
       expect(exceedsEntryLimit(join(root, 'missing'), 5)).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });

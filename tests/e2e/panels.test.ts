@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -82,11 +82,22 @@ describe('side panels', () => {
     await running.page.locator('.git-diff', { hasText: 'boom from page' }).waitFor();
     if (screenshotDir) await running.page.screenshot({ path: join(screenshotDir, '6-git.png') });
 
+    // An agent can write another hook folder and redirect Git to it without touching protected .git/hooks.
+    const hooks = join(project, 'agent-hooks');
+    const marker = join(project, 'hook-ran');
+    mkdirSync(hooks);
+    writeFileSync(join(hooks, 'pre-commit'), '#!/bin/sh\nprintf ran > hook-ran\n', { mode: 0o755 });
+    execFileSync('git', ['config', 'core.hooksPath', 'agent-hooks'], { cwd: project });
+    execFileSync('git', ['hook', 'run', 'pre-commit'], { cwd: project });
+    expect(existsSync(marker)).toBe(true);
+    rmSync(marker);
+
     await running.page.getByLabel('Commit message').fill('Add page');
     await running.page.getByRole('button', { name: 'Commit all' }).click();
     await running.page.getByText('No changes.').waitFor();
     const log = execFileSync('git', ['log', '--oneline'], { cwd: project, encoding: 'utf8' });
     expect(log).toContain('Add page');
+    expect(existsSync(marker)).toBe(false);
   });
 
   it('lets the agent open a page in the browser panel and see console output and a screenshot', async () => {

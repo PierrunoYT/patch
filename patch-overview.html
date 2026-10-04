@@ -748,7 +748,7 @@
             tests: 17,
             lines: 3248,
             testLines: 2860,
-            desc: 'Every model tool, plus command sandbox policy, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents.',
+            desc: 'Every model tool, plus command sandbox policy (credential-safe toolchain grants and read-only container hooks), Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Git-panel operations disable hooks, including redirected hooks.',
             list: [
               'registry.ts',
               'files.ts (318)',
@@ -756,6 +756,7 @@
               'shell.ts',
               'sandbox.ts (335)',
               'sandbox_windows.ts (331)',
+              'sandbox.integration.test.ts',
               'env.ts',
               'apply_patch.ts',
               'glob.ts',

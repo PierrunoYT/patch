@@ -12,10 +12,11 @@ import { Workspace } from '../tools/workspace';
 // untrusted source must not be able to run anything just because the Git panel was opened, so every call turns
 // these off: fsmonitor is disabled, the filter drivers the repository defines in its local config are neutralized
 // (filters configured globally by the user, such as git-lfs, keep working), and diffs skip external drivers and
-// textconv. Commit hooks still run when the user commits, as in any git client.
+// textconv. Hooks are disabled too: sandboxed commands can redirect core.hooksPath to a writable project folder.
 export function hardenedConfig(localFilterNames: string[]): string[] {
   return [
     'core.fsmonitor=false',
+    'core.hooksPath=/dev/null',
     ...localFilterNames.flatMap((name) => [
       `filter.${name}.clean=`,
       `filter.${name}.smudge=`,
@@ -63,7 +64,7 @@ export class GitService {
     this.workspace = new Workspace(root);
   }
 
-  // A simple-git instance with the overrides above. simple-git refuses to set core.fsmonitor and filter commands
+  // A simple-git instance with the overrides above. simple-git refuses to set hooksPath, fsmonitor and filters
   // unless allowed, which protects against attacker-chosen values; here the values are fixed and only disable them.
   private repo(): Promise<SimpleGit> {
     this.hardened ??= (async () => {
@@ -74,7 +75,7 @@ export class GitService {
       return simpleGit({
         baseDir: this.workspace.root,
         config: hardenedConfig(filterNames(listing)),
-        unsafe: { allowUnsafeFsMonitor: true, allowUnsafeFilter: true },
+        unsafe: { allowUnsafeHooksPath: true, allowUnsafeFsMonitor: true, allowUnsafeFilter: true },
       });
     })();
     return this.hardened;
@@ -138,7 +139,7 @@ export class GitService {
   }
 
   // Pushes the current branch: to its upstream, or to `origin` (setting it as the upstream) when it has none yet.
-  // Pre-push hooks run, as in any git client. Credentials come from the user's git setup (a credential manager may
+  // Hooks stay disabled. Credentials come from the user's git setup (a credential manager may
   // show its own sign-in window); the app has no terminal, so git cannot ask for a password and fails instead.
   async push(): Promise<GitStatus> {
     if (!(await this.isRepo())) throw new Error('This project is not a Git repository.');

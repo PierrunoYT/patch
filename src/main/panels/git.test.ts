@@ -271,6 +271,39 @@ describe('GitService with a hostile repository config', () => {
     expect(spawnSync('git', ['config', key, value], { cwd: root }).status).toBe(0);
   };
 
+  it.each(['.git/hooks', 'agent-hooks'])('does not execute hooks from %s on commit or push', async (hooksPath) => {
+    await initRepo();
+    // Initialize the cached Git client before the agent changes the repository config.
+    await service.status();
+    const git = simpleGit({ baseDir: root });
+    const remote = mkdtempSync(join(tmpdir(), 'cc-git-hooks-remote-'));
+    try {
+      await simpleGit({ baseDir: remote }).init(true);
+      await git.addRemote('origin', remote);
+      mkdirSync(join(root, hooksPath), { recursive: true });
+      config('core.hooksPath', hooksPath);
+      for (const hook of ['pre-commit', 'pre-push']) {
+        writeFileSync(
+          join(root, hooksPath, hook),
+          `#!/bin/sh\nprintf ran > "${marker(hook).replaceAll('\\', '/')}"\n`,
+          { mode: 0o755 },
+        );
+        // Prove the fixture is executable, rather than passing because Git ignores an invalid hook.
+        await git.raw(['hook', 'run', hook]);
+        expect(readFileSync(marker(hook), 'utf8')).toBe('ran');
+        rmSync(marker(hook));
+      }
+      writeFileSync(join(root, 'a.txt'), 'changed\n');
+      await service.commit('without host hooks');
+      expect((await service.push()).ahead).toBe(0);
+      expect(existsSync(marker('pre-commit'))).toBe(false);
+      expect(existsSync(marker('pre-push'))).toBe(false);
+      expect(await simpleGit({ baseDir: remote }).raw(['log', '--format=%s'])).toContain('without host hooks');
+    } finally {
+      rmSync(remote, { recursive: true, force: true });
+    }
+  });
+
   it('does not run core.fsmonitor when reading the status', async () => {
     await initRepo();
     writeFileSync(join(root, 'a.txt'), 'two\n');
@@ -322,6 +355,7 @@ describe('filterNames and hardenedConfig', () => {
   it('disables fsmonitor and neutralizes each named filter', () => {
     expect(hardenedConfig(['evil'])).toEqual([
       'core.fsmonitor=false',
+      'core.hooksPath=/dev/null',
       'filter.evil.clean=',
       'filter.evil.smudge=',
       'filter.evil.process=',

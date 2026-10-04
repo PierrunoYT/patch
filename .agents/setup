@@ -10,7 +10,7 @@ node --version
 npm --version
 
 echo 'Checking Linux build and Electron test prerequisites'
-packages=(build-essential python3 git ca-certificates libgtk-3-0 libnss3 libasound2 libgbm1 libatk-bridge2.0-0 libxss1 xvfb xauth)
+packages=(build-essential python3 git ca-certificates bubblewrap libgtk-3-0 libnss3 libasound2 libgbm1 libatk-bridge2.0-0 libxss1 xvfb xauth)
 missing=()
 for package in "${packages[@]}"; do
   if [[ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != 'install ok installed' ]]; then

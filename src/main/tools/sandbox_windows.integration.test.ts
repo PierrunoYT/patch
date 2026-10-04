@@ -173,6 +173,54 @@ console.log(JSON.stringify(result));`,
     expect(existsSync(target)).toBe(false);
   }, 60_000);
 
+  it('hides toolchain credentials while keeping their allowed caches readable', async () => {
+    const cases = [
+      ['.cargo', 'credentials.toml', 'bin'],
+      ['.m2', 'settings.xml', 'repository'],
+      ['.gradle', 'gradle.properties', 'caches'],
+    ] as const;
+    for (const [tool, secret, cache] of cases) {
+      mkdirSync(join(outside, tool, cache), { recursive: true });
+      writeFileSync(join(outside, tool, secret), 'DUMMY-CREDENTIAL');
+      writeFileSync(join(outside, tool, cache, 'fixture'), 'CACHE-READABLE');
+    }
+    const script = join(root, 'credentials.cjs');
+    writeFileSync(
+      script,
+      `
+const fs = require('node:fs');
+const path = require('node:path');
+const home = ${JSON.stringify(outside)};
+console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) => {
+  let error;
+  try { fs.readFileSync(path.join(home, tool, secret), 'utf8'); } catch (e) { error = e.code; }
+  return { error, cache: fs.readFileSync(path.join(home, tool, cache, 'fixture'), 'utf8') };
+})));`,
+    );
+    const request = buildHelperRequest({
+      id: 1,
+      shell: { file: sandboxNode, args: ['credentials.cjs'] },
+      cwd: root,
+      env: sandboxEnv,
+      network: false,
+      home: outside,
+      exists: existsSync,
+    });
+    const child = new HelperProcess(helper!, request);
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk));
+    try {
+      const [code] = await once(child, 'close');
+      expect(code, output).toBe(0);
+      expect(JSON.parse(output)).toEqual(
+        cases.map(() => ({ error: expect.stringMatching(/^(EACCES|EPERM)$/), cache: 'CACHE-READABLE' })),
+      );
+    } finally {
+      child.stopTree();
+    }
+  }, 60_000);
+
   it('cannot write git hooks, which later run with the user full rights', async () => {
     const hook = join(root, '.git', 'hooks', 'pre-commit');
     const result = await shell.run(`Set-Content -Path '${hook}' -Value 'echo pwned'`);
@@ -181,14 +229,15 @@ console.log(JSON.stringify(result));`,
     expect(other.exitCode).toBe(0);
   }, 60_000);
 
-  it('blocks the network by default', async () => {
+  it('blocks the network by default', async ({ skip }) => {
+    if (!hostCanConnect) skip('The host cannot reach the control endpoint; network isolation is unverified.');
     const result = await shell.run(NET_PROBE);
     expect(result.output).toContain('NOCONNECT');
     expect(result.output).not.toContain('CONNECTED\r');
   }, 60_000);
 
-  it('allows the network when the command was granted it', async () => {
-    if (!hostCanConnect) return;
+  it('allows the network when the command was granted it', async ({ skip }) => {
+    if (!hostCanConnect) skip('The host cannot reach the control endpoint.');
     const result = await shell.run(NET_PROBE, { access: { network: true } });
     expect(result.output.trim()).toBe('CONNECTED');
   }, 60_000);
