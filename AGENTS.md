@@ -32,7 +32,7 @@ Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit
 
 After every change, fix or feature:
 
-1. Update the docs the change affects: `README.md`, `docs/` and `CHANGELOG.md`. Open work is tracked in [GitHub issues](https://github.com/PierrunoYT/patch/issues), not in a file: reference the issue a change fixes (`Fixes #n` in the commit message closes it), and open an issue for follow-up work you leave undone (`gh issue list` first, to avoid duplicates).
+1. Update the docs the change affects: `README.md`, `docs/`, `CHANGELOG.md` and the root `patch-overview.html` project map. Open work is tracked in [GitHub issues](https://github.com/PierrunoYT/patch/issues), not in a file: reference the issue a change fixes (`Fixes #n` in the commit message closes it), and open an issue for follow-up work you leave undone (`gh issue list` first, to avoid duplicates).
 2. Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit` (and `npm test` for user-visible changes).
 3. Make a commit for that change, with a Conventional Commit message. One change per commit; don't batch unrelated work.
 4. Push to `main` only. Don't create or push other branches, and don't open pull requests.

@@ -1,0 +1,2863 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Patch Project Map</title>
+    <style>
+      :root {
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --panel2: #f0f2f5;
+        --text: #1b1f24;
+        --muted: #5d6672;
+        --line: #d9dde3;
+        --accent: #3b6ef5;
+        --accent-soft: #e6edff;
+        --c-renderer: #7c5cd6;
+        --c-preload: #d08a1e;
+        --c-main: #2f7fd8;
+        --c-shared: #2a9d72;
+        --c-ext: #8a919b;
+        --sev-high: #d64545;
+        --sev-med: #d99a1e;
+        --sev-low: #7b8794;
+        --good: #2a9d72;
+        --warn: #d99a1e;
+        --bad: #d64545;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #0f1216;
+          --panel: #171b21;
+          --panel2: #1e232b;
+          --text: #e6e9ee;
+          --muted: #9aa3ae;
+          --line: #2b313a;
+          --accent: #6f95ff;
+          --accent-soft: #1f2a45;
+          --c-renderer: #a28bf0;
+          --c-preload: #e3a74a;
+          --c-main: #5aa2f0;
+          --c-shared: #4cc497;
+          --c-ext: #8a919b;
+          --sev-high: #f07171;
+          --sev-med: #f0b84a;
+          --sev-low: #8d99a6;
+          --good: #4cc497;
+          --warn: #f0b84a;
+          --bad: #f07171;
+          --shadow: none;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #0f1216;
+        --panel: #171b21;
+        --panel2: #1e232b;
+        --text: #e6e9ee;
+        --muted: #9aa3ae;
+        --line: #2b313a;
+        --accent: #6f95ff;
+        --accent-soft: #1f2a45;
+        --c-renderer: #a28bf0;
+        --c-preload: #e3a74a;
+        --c-main: #5aa2f0;
+        --c-shared: #4cc497;
+        --c-ext: #8a919b;
+        --sev-high: #f07171;
+        --sev-med: #f0b84a;
+        --sev-low: #8d99a6;
+        --good: #4cc497;
+        --warn: #f0b84a;
+        --bad: #f07171;
+        --shadow: none;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      code,
+      .mono {
+        font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+        font-size: 0.88em;
+      }
+      a {
+        color: var(--accent);
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+      .top {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 12px 16px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .top h1 {
+        font-size: 18px;
+        margin: 0;
+        font-weight: 650;
+      }
+      .top .sub {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .top .sp {
+        flex: 1;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      .themebtn {
+        border: 1px solid var(--line);
+        background: var(--panel2);
+        border-radius: 8px;
+        padding: 4px 10px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      nav {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 8px 16px 0;
+        display: flex;
+        gap: 2px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+      }
+      nav button {
+        border: 0;
+        background: none;
+        padding: 8px 12px;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        color: var(--muted);
+        white-space: nowrap;
+        font-size: 14px;
+      }
+      nav button[aria-selected='true'] {
+        color: var(--text);
+        border-bottom-color: var(--accent);
+        font-weight: 600;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px 16px 60px;
+      }
+      section.tab {
+        display: none;
+      }
+      section.tab.on {
+        display: block;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 0 0 10px;
+      }
+      .lead {
+        color: var(--muted);
+        margin: 0 0 18px;
+        max-width: 780px;
+      }
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+      .g2 {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+      .g3 {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .kpis {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: var(--shadow);
+        min-width: 0;
+      }
+      .kpi .v {
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .kpi .l {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .kpi .s {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .pill {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      .sev-high {
+        background: color-mix(in srgb, var(--sev-high) 18%, transparent);
+        border-color: var(--sev-high);
+      }
+      .sev-medium {
+        background: color-mix(in srgb, var(--sev-med) 18%, transparent);
+        border-color: var(--sev-med);
+      }
+      .sev-low {
+        background: color-mix(in srgb, var(--sev-low) 14%, transparent);
+        border-color: var(--sev-low);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 13px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13.5px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      td.n,
+      th.n {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .tablewrap {
+        overflow-x: auto;
+      }
+      .bars .row {
+        display: grid;
+        grid-template-columns: minmax(110px, 230px) 1fr 56px;
+        gap: 8px;
+        align-items: center;
+        margin: 5px 0;
+        font-size: 13px;
+      }
+      .bars .row .lab {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .bars .track {
+        background: var(--panel2);
+        border-radius: 4px;
+        height: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+      .bars .fill {
+        height: 100%;
+        border-radius: 4px;
+      }
+      .bars .val {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .legend {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 12.5px;
+        color: var(--muted);
+        margin: 8px 0;
+      }
+      .legend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        margin-right: 5px;
+        vertical-align: -1px;
+      }
+      svg text {
+        fill: var(--text);
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+      .svgwrap {
+        width: 100%;
+        overflow-x: auto;
+      }
+      .svgwrap svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        min-width: 640px;
+      }
+      .node rect {
+        cursor: pointer;
+        transition: stroke-width 0.15s;
+      }
+      .node:hover rect,
+      .node.sel rect {
+        stroke-width: 3;
+      }
+      .edge {
+        fill: none;
+        stroke: var(--muted);
+        opacity: 0.55;
+      }
+      .edge.hl {
+        stroke: var(--accent);
+        opacity: 1;
+      }
+      .edge.dim {
+        opacity: 0.12;
+      }
+      .detail {
+        min-height: 160px;
+      }
+      .detail h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .layers {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .layer {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 12px;
+        align-items: start;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--panel2);
+        border-left: 4px solid var(--accent);
+      }
+      .layer b {
+        font-size: 14px;
+      }
+      .treemap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16/9;
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--panel2);
+      }
+      .tm {
+        position: absolute;
+        border: 2px solid var(--panel);
+        padding: 6px 8px;
+        color: #fff;
+        font-size: 12.5px;
+        overflow: hidden;
+        cursor: default;
+      }
+      .tm b {
+        display: block;
+        font-size: 13.5px;
+      }
+      .seg {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin: 8px 0 12px;
+      }
+      .seg button {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 999px;
+        padding: 3px 12px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .seg button.on {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 12px;
+      }
+      .col {
+        background: var(--panel2);
+        border-radius: 12px;
+        padding: 10px;
+        border: 1px solid var(--line);
+      }
+      .col h4 {
+        margin: 2px 4px 8px;
+        font-size: 13.5px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .icard {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--sev-low);
+        border-radius: 8px;
+        padding: 7px 9px;
+        margin-bottom: 7px;
+        font-size: 13px;
+      }
+      .icard.high {
+        border-left-color: var(--sev-high);
+      }
+      .icard.medium {
+        border-left-color: var(--sev-med);
+      }
+      .icard .meta {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 3px;
+      }
+      .icard a {
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .focus {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .fitem {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        gap: 14px;
+        align-items: start;
+      }
+      .rank {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .fitem h3 {
+        margin: 0 0 4px;
+        font-size: 16px;
+      }
+      .fitem ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .fitem li {
+        margin: 2px 0;
+      }
+      .why {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .flowdetail {
+        position: sticky;
+        top: 110px;
+      }
+      .flowlay {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+        gap: 14px;
+      }
+      @media (max-width: 860px) {
+        .flowlay {
+          grid-template-columns: 1fr;
+        }
+        .flowdetail {
+          position: static;
+        }
+        .layer {
+          grid-template-columns: 1fr;
+        }
+      }
+      .dec {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13.5px;
+      }
+      .dec .q {
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: var(--panel2);
+        border: 1px solid var(--line);
+      }
+      .dec .arrow {
+        color: var(--muted);
+        padding-left: 14px;
+        font-size: 12px;
+      }
+      .callout {
+        border: 1px solid var(--accent);
+        background: var(--accent-soft);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 14px;
+      }
+      .mini {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        height: 170px;
+        padding-top: 10px;
+      }
+      .mini .b {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+        font-size: 12px;
+      }
+      .mini .b .bar {
+        width: 100%;
+        max-width: 70px;
+        background: var(--accent);
+        border-radius: 6px 6px 0 0;
+      }
+      .mini .b .t {
+        margin-top: 4px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .pipe {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .pipe .st {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 5px 9px;
+        background: var(--panel2);
+        font-size: 12.5px;
+      }
+      .pipe .ar {
+        color: var(--muted);
+      }
+      footer {
+        color: var(--muted);
+        font-size: 12px;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 16px 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="top">
+        <h1>Patch, mapped</h1>
+        <span class="sub">Snapshot of D:\Github\patch at commit b1939d2, 2026-10-04</span>
+        <span class="sp"></span>
+        <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
+      </div>
+      <nav id="tabs" role="tablist"></nav>
+    </header>
+    <main id="main"></main>
+    <footer>
+      Every number on this page comes from the source tree, git history or GitHub issues as of commit b1939d2. Line
+      counts exclude tests unless they say otherwise. Renderer CSS lines (2766) are worked out from the renderer total
+      (6347) minus its TypeScript lines (3581). Issue severities without a sev: label are estimates and are marked
+      "est.".
+    </footer>
+
+    <script>
+      'use strict';
+      /* ---------------- DATA (all collected from the repo, git and gh) ---------------- */
+      const D = {
+        areas: [
+          {
+            id: 'renderer',
+            label: 'renderer (root)',
+            proc: 'renderer',
+            files: 6,
+            tests: 2,
+            lines: 1043,
+            testLines: null,
+            desc: 'UI entry point and shell: App, the h() DOM builder, markdown rendering (DOMPurify), formatting, error reporting.',
+            list: [
+              'app.ts (826, untested)',
+              'main.ts',
+              'dom.ts (h(), trustedHtml)',
+              'markdown.ts',
+              'format.ts',
+              'error_reporting.ts',
+            ],
+          },
+          {
+            id: 'views',
+            label: 'renderer/views',
+            proc: 'renderer',
+            files: 5,
+            tests: 2,
+            lines: 2538,
+            testLines: null,
+            desc: 'Screens: transcript, composer with @-mentions, sidebar, terminal/browser/git panels, settings and history dialogs.',
+            list: [
+              'dialogs.ts (723, untested)',
+              'panels.ts (648, untested)',
+              'transcript.ts (572, untested)',
+              'composer.ts (395)',
+              'sidebar.ts',
+            ],
+          },
+          {
+            id: 'preload',
+            label: 'preload',
+            proc: 'preload',
+            files: 2,
+            tests: 0,
+            lines: 37,
+            testLines: 0,
+            desc: 'Typed bridge. Only exposes invoke/on, allow-listed by INVOKE_CHANNELS / EVENT_CHANNELS from shared/ipc.ts.',
+            list: ['index.ts', 'api.d.ts'],
+          },
+          {
+            id: 'mainroot',
+            label: 'main (root)',
+            proc: 'main',
+            files: 13,
+            tests: 9,
+            lines: 2139,
+            testLines: 1887,
+            desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings, projects, window, menu, local error and native-crash logging.',
+            list: [
+              'chat_manager.ts (472)',
+              'index.ts (422, IPC handlers, untested)',
+              'settings.ts (394)',
+              'app_log.ts (152, error + crash logging)',
+              'chat_store.ts',
+              'settings_confirm.ts',
+              'projects.ts',
+              'files.ts',
+              'ipc.ts',
+              'menu.ts',
+              'window.ts',
+              'app_log.ts',
+              'renderer_errors.ts',
+              'renderer_url.ts',
+            ],
+          },
+          {
+            id: 'agent',
+            label: 'main/agent',
+            proc: 'main',
+            files: 10,
+            tests: 11,
+            lines: 1537,
+            testLines: 3236,
+            desc: 'The agent loop: turns, retries, permissions, allow-lists, system prompt, project map, session (approvals, events, prompt-cache keep-alive).',
+            list: [
+              'agent.ts (489)',
+              'session.ts (459)',
+              'permissions.ts',
+              'allowed_commands.ts',
+              'allowed_network_hosts.ts',
+              'retry.ts',
+              'system_prompt.ts',
+              'project_map.ts',
+              'agent_file.ts',
+              'tool_error_log.ts',
+            ],
+          },
+          {
+            id: 'llm',
+            label: 'main/llm',
+            proc: 'main',
+            files: 11,
+            tests: 8,
+            lines: 2132,
+            testLines: 2759,
+            desc: 'Provider clients: Anthropic Messages with strict edit inputs, OpenAI Responses, OpenAI-compatible Chat Completions, plus compaction, ChatGPT sign-in and guarded endpoints.',
+            list: [
+              'codex_auth.ts (477, ChatGPT sign-in)',
+              'anthropic.ts (422, prompt cache, keep-alive)',
+              'openai.ts (293)',
+              'openai_responses.ts (292)',
+              'index.ts (LlmService)',
+              'endpoints.ts (test hooks off in packaged builds)',
+              'compaction.ts',
+              'openai_route.ts',
+              'tool_schema.ts',
+              'types.ts',
+              'test_server.ts',
+            ],
+          },
+          {
+            id: 'tools',
+            label: 'main/tools',
+            proc: 'main',
+            files: 21,
+            tests: 17,
+            lines: 3248,
+            testLines: 2860,
+            desc: 'Every model tool, plus command sandbox policy, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents.',
+            list: [
+              'registry.ts',
+              'files.ts (318)',
+              'web.ts (226, no own test)',
+              'shell.ts',
+              'sandbox.ts (335)',
+              'sandbox_windows.ts (331)',
+              'env.ts',
+              'apply_patch.ts',
+              'glob.ts',
+              'browser.ts',
+              'mcp.ts',
+              'task.ts',
+              'todo.ts',
+              'plan.ts',
+              'skills.ts',
+              'guard.ts',
+              'redact.ts',
+              'workspace.ts',
+              'edit_backups.ts',
+              'text_files.ts',
+              'types.ts',
+            ],
+          },
+          {
+            id: 'panels',
+            label: 'main/panels',
+            proc: 'main',
+            files: 4,
+            tests: 4,
+            lines: 491,
+            testLines: 702,
+            desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
+            list: ['terminal.ts', 'browser.ts', 'git.ts', 'commit_message.ts'],
+          },
+          {
+            id: 'search',
+            label: 'main/search',
+            proc: 'main',
+            files: 2,
+            tests: 1,
+            lines: 436,
+            testLines: 320,
+            desc: 'Embedding code index for the search_code tool: Voyage voyage-code-4 embeddings and rerank-3 reranking through OpenRouter.',
+            list: ['code_index.ts (407)', 'chunker.ts'],
+          },
+          {
+            id: 'storage',
+            label: 'main/storage',
+            proc: 'main',
+            files: 2,
+            tests: 0,
+            lines: 54,
+            testLines: null,
+            desc: 'Atomic JSON writes (temp file + rename) and JSONL logs.',
+            list: ['json_file.ts', 'jsonl_log.ts'],
+          },
+          {
+            id: 'shared',
+            label: 'shared',
+            proc: 'shared',
+            files: 9,
+            tests: 8,
+            lines: 1236,
+            testLines: 852,
+            desc: 'Types and logic used by both sides: IPC contract, chat events, models, settings, panels, export.',
+            list: [
+              'ipc.ts (200)',
+              'chat.ts (333)',
+              'models.ts',
+              'settings.ts',
+              'project.ts',
+              'panels.ts',
+              'export.ts',
+              'announce.ts',
+              'index_status.ts',
+            ],
+          },
+        ],
+        edges: [
+          ['mainroot', 'tools', 14],
+          ['mainroot', 'agent', 9],
+          ['mainroot', 'panels', 4],
+          ['mainroot', 'storage', 4],
+          ['mainroot', 'llm', 3],
+          ['mainroot', 'search', 1],
+          ['agent', 'tools', 7],
+          ['agent', 'llm', 3],
+          ['agent', 'storage', 1],
+          ['tools', 'llm', 4],
+          ['tools', 'agent', 1],
+          ['search', 'tools', 3],
+          ['search', 'storage', 1],
+          ['panels', 'tools', 2],
+          ['panels', 'llm', 1],
+          ['llm', 'mainroot', 1],
+          ['views', 'renderer', 10],
+          ['renderer', 'views', 5],
+        ],
+        sharedEdges: [
+          ['mainroot', 16],
+          ['views', 13],
+          ['renderer', 8],
+          ['agent', 6],
+          ['llm', 4],
+          ['tools', 3],
+          ['panels', 1],
+          ['search', 1],
+          ['preload', 1],
+        ],
+        ipc: {
+          invoke: [
+            ['project', 9],
+            ['chat', 8],
+            ['git', 8],
+            ['history', 5],
+            ['settings', 3],
+            ['chatgpt', 2],
+            ['files', 3],
+            ['terminal', 3],
+            ['index', 2],
+            ['app', 1],
+            ['log', 1],
+            ['mcp', 1],
+            ['edit', 1],
+          ],
+          invokeNames: {
+            project: 'choose, open, current, list, opened, close, set-instructions, update-settings, remove',
+            chat: 'snapshot, send, stop, resume, compact, new, decide, export',
+            git: 'status, diff, commit, discard, discard-all, init, push, suggest-message',
+            history: 'list, open, delete, clear, search',
+            settings: 'get, update, set-secret',
+            chatgpt: 'sign-in, sign-out',
+            files: 'pick-images, open-in-editor, list',
+            terminal: 'start, write, resize',
+            index: 'status, rebuild',
+            app: 'info',
+            log: 'renderer-error',
+            mcp: 'status',
+            edit: 'undo',
+          },
+          events: [
+            'menu:command',
+            'app:notice',
+            'settings:changed',
+            'project:changed',
+            'chat:event',
+            'chat:snapshot',
+            'history:changed',
+            'terminal:data',
+            'terminal:exit',
+            'panel:show',
+          ],
+        },
+        chatEvents: {
+          User: ['user'],
+          'Assistant text': [
+            'assistant-start',
+            'assistant-delta',
+            'thinking-delta',
+            'assistant-restart',
+            'assistant-end',
+          ],
+          Tools: ['tool-start', 'tool-running', 'tool-progress', 'tool-end', 'tool-undone'],
+          Messages: ['error', 'notice'],
+          State: ['busy', 'resumable', 'usage', 'title'],
+        },
+        tools: [
+          ['read_file', 'files.ts', 0, 0, 'always'],
+          ['list_directory', 'files.ts', 0, 0, 'always'],
+          ['grep', 'files.ts', 0, 0, 'always'],
+          ['glob', 'glob.ts', 0, 0, 'always'],
+          ['edit_file', 'files.ts', 1, 0, 'always'],
+          ['write_file', 'files.ts', 1, 0, 'always'],
+          ['apply_patch', 'apply_patch.ts', 1, 0, 'always'],
+          ['run_command', 'shell.ts', 1, 0, 'always'],
+          ['command_output', 'shell.ts', 0, 0, 'always'],
+          ['fetch_url', 'web.ts', 1, 0, 'always'],
+          ['web_search', 'web.ts', 0, 0, 'web search provider set'],
+          ['browser', 'browser.ts', 1, 0, 'browser panel available'],
+          ['propose_plan', 'plan.ts', 1, 1, 'plan mode on'],
+          ['load_skill', 'skills.ts', 0, 0, 'project has skills'],
+          ['search_code', 'search/code_index.ts', 0, 0, 'code index available (per chat)'],
+          ['task', 'task.ts', 0, 0, 'per chat (subagent)'],
+          ['finder', 'task.ts', 0, 0, 'per chat (subagent)'],
+          ['oracle', 'task.ts', 0, 0, 'per chat (subagent)'],
+          ['todo_list', 'todo.ts', 0, 0, 'per chat'],
+          ['mcp_<server>_<tool>', 'mcp.ts (McpHub)', 1, 1, 'one per MCP server tool'],
+        ],
+        readOnly: ['read_file', 'list_directory', 'grep', 'glob', 'search_code', 'load_skill'],
+        npmDeps: 10,
+        npmDev: 27,
+        models: {
+          anthropic: ['claude-opus-5-5 (default)', 'claude-sonnet-5-5', 'claude-haiku-4-5 (small)'],
+          openai: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna (small)'],
+        },
+        testsByArea: [
+          { a: 'main/agent', f: 11, c: 206, src: 1537, tl: 3236 },
+          { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
+          { a: 'main/tools', f: 17, c: 226, src: 3248, tl: 2860 },
+          { a: 'main/panels', f: 4, c: 46, src: 491, tl: 702 },
+          { a: 'main/other', f: 10, c: 136, src: 2629, tl: 2207 },
+          { a: 'shared', f: 8, c: 73, src: 1236, tl: 852 },
+          { a: 'renderer', f: 4, c: 14, src: 6347, tl: 138 },
+          { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
+        ],
+        e2e: [
+          ['ui', 11],
+          ['chat', 11],
+          ['security', 12],
+          ['panels', 7],
+          ['compact', 4],
+          ['logging', 5],
+          ['project_settings', 4],
+          ['project_switching', 4],
+          ['settings', 4],
+          ['undo', 4],
+          ['images', 3],
+          ['projects', 3],
+          ['retry', 3],
+          ['transcript_view', 3],
+          ['crash_kill', 2],
+          ['documentation-visuals', 2],
+          ['large_output', 2],
+          ['long_run', 2],
+          ['openai_responses', 2],
+          ['crash_resume', 1],
+          ['mcp', 1],
+          ['plan_mode', 1],
+          ['resume', 1],
+          ['secrets_restart', 2],
+          ['single_instance', 1],
+          ['skills', 1],
+          ['task', 1],
+          ['terminal_no_project', 1],
+        ],
+        untested: [
+          [826, 'renderer/src/app.ts'],
+          [723, 'renderer/src/views/dialogs.ts'],
+          [648, 'renderer/src/views/panels.ts'],
+          [572, 'renderer/src/views/transcript.ts'],
+          [422, 'main/index.ts'],
+          [318, 'main/tools/files.ts *'],
+          [226, 'main/tools/web.ts'],
+          [200, 'shared/ipc.ts'],
+        ],
+        largest: [
+          [826, 'renderer/src/app.ts'],
+          [723, 'renderer/src/views/dialogs.ts'],
+          [648, 'renderer/src/views/panels.ts'],
+          [572, 'renderer/src/views/transcript.ts'],
+          [489, 'main/agent/agent.ts'],
+          [477, 'main/llm/codex_auth.ts'],
+          [472, 'main/chat_manager.ts'],
+          [459, 'main/agent/session.ts'],
+          [422, 'main/llm/anthropic.ts'],
+          [422, 'main/index.ts'],
+          [407, 'main/search/code_index.ts'],
+          [395, 'renderer/src/views/composer.ts'],
+          [394, 'main/settings.ts'],
+          [333, 'shared/chat.ts'],
+          [318, 'main/tools/files.ts'],
+        ],
+        docs: [
+          ['docs/PERFORMANCE.md', 420],
+          ['docs/USAGE.md', 270],
+          ['docs/ARCHITECTURE.md', 222],
+          ['docs/DEVELOPMENT.md', 148],
+          ['CHANGELOG.md', 135],
+          ['README.md', 120],
+          ['AGENTS.md', 66],
+          ['CONTRIBUTING.md', 33],
+        ],
+        commitsByDay: [
+          ['2024-07-29', 3],
+          ['2026-09-29', 67],
+          ['2026-09-30', 99],
+          ['2026-10-01', 33],
+          ['2026-10-02', 15],
+          ['2026-10-03', 24],
+          ['2026-10-04', 15],
+        ],
+        types: [
+          ['fix', 70],
+          ['feat', 60],
+          ['docs', 50],
+          ['test', 24],
+          ['chore', 24],
+          ['ci', 9],
+          ['perf', 8],
+          ['refactor', 5],
+          ['build', 2],
+          ['security', 1],
+          ['other', 3],
+        ],
+        authors: [
+          ['PierrunoYT', 219],
+          ['Amp', 14],
+          ['StepUpGaming', 13],
+          ['Claude', 7],
+          ['Steven Isaac', 3],
+        ],
+        churn: [
+          ['CHANGELOG.md', 127],
+          ['TASKS.md (no longer tracked)', 83],
+          ['docs/ARCHITECTURE.md', 74],
+          ['docs/DEVELOPMENT.md', 73],
+          ['README.md', 64],
+          ['package.json', 39],
+          ['src/main/chat_manager.ts', 31],
+          ['src/main/index.ts', 28],
+          ['src/main/agent/agent.ts', 27],
+          ['src/renderer/src/app.ts', 26],
+          ['package-lock.json', 23],
+          ['docs/USAGE.md', 23],
+          ['src/main/tools/tools.test.ts', 20],
+          ['src/main/agent/session.ts', 20],
+          ['src/renderer/src/views/dialogs.ts', 19],
+          ['src/main/agent/agent.test.ts', 19],
+          ['docs/PERFORMANCE.md', 18],
+          ['src/shared/ipc.ts', 17],
+          ['src/renderer/src/styles.css', 17],
+          ['tsconfig.node.tsbuildinfo', 16],
+        ],
+        recent: [
+          ['b1939d2', 'docs: avoid antivirus-triggering sandbox diagnostics'],
+          ['8cf9851', 'test: isolate command lifecycle end-to-end tests'],
+          ['2867b2c', 'fix: enforce Claude edit file inputs'],
+          ['fda3c1c', 'fix: isolate Windows sandbox integration tests'],
+          ['c47a35a', 'fix: log native Electron crashes'],
+          ['cb5fe87', 'fix: skip oversized toolchain folders in Windows sandbox grants'],
+          ['bee5676', 'feat: run Windows commands in AppContainer helper'],
+          ['b749786', 'feat: run agent commands in a sandbox'],
+          ['7692fc1', 'feat: scrub credential environment variables'],
+          ['167fc79', 'fix: report saved keys that can no longer be decrypted, and stop restart tests losing them'],
+          ['e66155e', 'fix: confirm base URL and allow-list changes, and enforce Trusted Types'],
+          ['a00b277', 'feat: add a Claude base URL setting'],
+          ['99b8b20', 'fix: keep API keys away from endpoints the environment names'],
+          ['bc1c80a', 'test: add a prompt cache suite to the agent benchmark'],
+          ['6d47aec', 'docs: list prompt caching in the README and where to change it'],
+        ],
+        issues: [
+          [91, 'Windows sandbox leaves transient profile and capability entries', 'security', 'low', 0, '10-04'],
+          [90, 'Windows sandbox rejects large rustc and cargo toolchains', 'security', 'low', 0, '10-04'],
+          [88, 'PowerShell starts in C:\\ for projects under the user home', 'security', 'medium', 0, '10-04'],
+          [87, 'Sandbox MCP stdio servers', 'security', 'low', 0, '10-04'],
+          [85, 'Smarter context: tell the agent what changed since its last turn', 'tools', 'low', 1, '10-03'],
+          [84, 'Smarter over time: a project memory the agent can propose additions to', 'tools', 'low', 1, '10-03'],
+          [83, 'Smarter finish: review the changes before saying the turn is done', 'tools', 'low', 1, '10-03'],
+          [82, 'Smarter navigation: go-to-definition and find-references tools', 'tools', 'low', 1, '10-03'],
+          [81, 'Smarter edits: show new compiler and linter errors after each edit', 'tools', 'low', 1, '10-03'],
+          [79, 'Faster turns: lower reasoning effort for subagents and simple requests', 'perf', 'low', 1, '10-03'],
+          [78, 'Cheaper subagents: run task and oracle on a mid-size model', 'perf', 'low', 1, '10-03'],
+          [76, 'security: run agent commands in a sandbox', 'security', 'medium', 0, '10-03'],
+          [74, 'Decide whether the release dry run should run on every push to main', 'release', 'low', 1, '10-03'],
+          [73, 'web_search sends model-chosen queries to Google without approval', 'security', 'low', 0, '10-01'],
+          [72, 'Rename the MCP client from CodeCompanion, use reverse-DNS appId', 'mcp', 'low', 1, '10-01'],
+          [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
+          [70, 'ci: pin GitHub Actions to commit SHAs', 'release', 'low', 0, '10-01'],
+          [69, 'First history search reads every chat file synchronously on main', 'perf', 'low', 1, '10-01'],
+          [
+            68,
+            'fetch_url reads unbounded response bodies into memory (partly fixed in 47fd32a)',
+            'tools',
+            'low',
+            0,
+            '10-01',
+          ],
+          [
+            67,
+            'Force webSecurity on browser guests + global web-contents-created guard',
+            'security',
+            'low',
+            0,
+            '10-01',
+          ],
+          [66, 'IPC sender check accepts any file:///…/renderer/index.html', 'security', 'low', 0, '10-01'],
+          [62, 'e2e tests for chat list, header model picker, status-bar branch', 'tests', 'low', 1, '10-01'],
+          [55, 'Write crash-resume checkpoints off the main thread', 'perf', 'medium', 1, '10-01'],
+          [50, 'Windows shell cancellation test times out, leaves temp folder locked', 'tests', 'low', 0, '10-01'],
+          [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
+          [47, 'Failed tool cards should say why they failed', 'ui', 'low', 0, '10-01'],
+          [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
+          [44, 'Toggling plan mode mid-chat invalidates prompt cache', 'perf', 'low', 0, '09-30'],
+          [41, 'ChatManager.closeProject compares raw path with stored realpath', 'other', 'low', 0, '09-30'],
+          [40, 'Packaged app ships unused MCP SDK server deps', 'release', 'low', 0, '09-30'],
+          [39, 'Git panel labels new untracked file as RENAMED', 'ui', 'low', 0, '09-30'],
+          [38, 'Rename .ccignore to .patchignore', 'docs', 'low', 0, '09-30'],
+          [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
+          [36, 'macOS reopened window never resets mainWindow', 'other', 'low', 0, '09-30'],
+          [35, 'API keys fall back to plaintext without safeStorage', 'security', 'low', 0, '09-30'],
+          [32, 'Validate IPC payloads at runtime with zod', 'security', 'low', 0, '09-30'],
+          [28, 'macOS entitlements allow DYLD injection/unsigned exec memory', 'security', 'medium', 0, '09-30'],
+          [
+            26,
+            'Windows builds unsigned, releases have no checksums (workflow ready, waiting on certificate)',
+            'release',
+            'medium',
+            0,
+            '09-30',
+          ],
+          [23, 'Renaming an MCP server drops its stored secrets', 'mcp', 'low', 0, '09-30'],
+          [22, 'Hand-test packaged Linux and macOS builds', 'release', 'low', 0, '09-30'],
+          [21, 'a11y: test with a real screen reader (NVDA)', 'ui', 'low', 0, '09-30'],
+        ],
+        themes: {
+          security: 'Security & permissions',
+          release: 'Packaging, release & CI',
+          tests: 'Tests & benchmarks',
+          perf: 'Performance',
+          ui: 'UI / UX',
+          tools: 'Tools',
+          mcp: 'MCP',
+          other: 'Lifecycle bugs',
+          docs: 'Docs & naming',
+        },
+        closedCount: 32,
+      };
+
+      /* ---------------- helpers ---------------- */
+      const $ = (s) => document.querySelector(s);
+      function h(tag, attrs, ...kids) {
+        const e = document.createElement(tag);
+        if (attrs)
+          for (const [k, v] of Object.entries(attrs)) {
+            if (v == null || v === false) continue;
+            if (k === 'class') e.className = v;
+            else if (k === 'style') e.style.cssText = v;
+            else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+            else e.setAttribute(k, v);
+          }
+        for (const k of kids.flat())
+          if (k != null && k !== false) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+        return e;
+      }
+      const NS = 'http://www.w3.org/2000/svg';
+      function s(tag, attrs, ...kids) {
+        const e = document.createElementNS(NS, tag);
+        if (attrs)
+          for (const [k, v] of Object.entries(attrs)) {
+            if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+            else if (v != null) e.setAttribute(k, v);
+          }
+        for (const k of kids.flat())
+          if (k != null) e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+        return e;
+      }
+      const fmt = (n) => n.toLocaleString('en-US');
+      const procColor = (p) => `var(--c-${p})`;
+      function bars(rows, opts = {}) {
+        const max = opts.max || Math.max(...rows.map((r) => r[1]));
+        return h(
+          'div',
+          { class: 'bars' },
+          rows.map((r) =>
+            h(
+              'div',
+              { class: 'row', title: r[0] + ': ' + r[1] },
+              h('span', { class: 'lab' + (opts.mono ? ' mono' : '') }, r[0]),
+              h(
+                'span',
+                { class: 'track' },
+                h('span', {
+                  class: 'fill',
+                  style: `display:block;width:${((r[1] / max) * 100).toFixed(1)}%;background:${r[2] || opts.color || 'var(--accent)'}`,
+                }),
+              ),
+              h('span', { class: 'val' }, opts.suffix ? fmt(r[1]) + opts.suffix : fmt(r[1])),
+            ),
+          ),
+        );
+      }
+      function card(title, ...kids) {
+        return h('div', { class: 'card' }, title ? h('h3', null, title) : null, ...kids);
+      }
+
+      /* ---------------- tabs ---------------- */
+      const TABS = [
+        ['overview', 'Overview'],
+        ['arch', 'Architecture map'],
+        ['flow', 'One chat turn'],
+        ['safety', 'Safety model'],
+        ['size', 'Code size'],
+        ['deps', 'Dependencies & IPC'],
+        ['health', 'Tests, docs, CI'],
+        ['issues', 'Issues board'],
+        ['activity', 'Activity'],
+        ['focus', 'Focus next'],
+      ];
+      const builders = {};
+      function showTab(id) {
+        for (const b of document.querySelectorAll('nav button'))
+          b.setAttribute('aria-selected', b.dataset.id === id ? 'true' : 'false');
+        for (const sec of document.querySelectorAll('section.tab')) sec.classList.toggle('on', sec.id === 'tab-' + id);
+        try {
+          localStorage.setItem('patchmap-tab', id);
+        } catch (e) {}
+        window.scrollTo(0, 0);
+      }
+
+      /* ---------------- 1. Overview ---------------- */
+      builders.overview = () => {
+        const totalSrc = D.areas.reduce((a, x) => a + x.lines, 0) + 2766; // + renderer CSS (derived)
+        const k = (v, l, sub) =>
+          h(
+            'div',
+            { class: 'card kpi' },
+            h('div', { class: 'v' }, v),
+            h('div', { class: 'l' }, l),
+            sub ? h('div', { class: 's' }, sub) : null,
+          );
+        const proc = (name, color, lines, what) =>
+          h(
+            'div',
+            { class: 'layer', style: `border-left-color:${color}` },
+            h('div', null, h('b', null, name), h('div', { class: 'small muted' }, fmt(lines) + ' source lines')),
+            h('div', { class: 'small' }, what),
+          );
+        return [
+          h('h2', null, 'Patch in one screen'),
+          h(
+            'p',
+            { class: 'lead' },
+            'Patch is an Electron desktop app: a chat window (renderer) talks through a thin typed bridge (preload) to a Node process (main) that runs the AI agent loop, the tools and the provider clients. Code shared by both sides lives in shared/. Use the tabs above to drill down one layer at a time.',
+          ),
+          h(
+            'div',
+            { class: 'grid kpis' },
+            k(fmt(totalSrc), 'source lines', '85 TS files + renderer CSS'),
+            k(fmt(12754), 'unit-test lines', '62 files, 798 cases'),
+            k('98', 'end-to-end cases', '28 Playwright files'),
+            k('20', 'built-in tools', '+ MCP tools, 3 subagents among them'),
+            k('47 / 10', 'IPC invoke / event channels', '18 chat event types'),
+            k('6', 'models, 2 providers', 'Anthropic + OpenAI'),
+            k('41', 'open issues', 'no high, 5 medium, 36 low'),
+            k('256', 'commits', '253 of them since 2026-09-29'),
+          ),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              'The four layers',
+              h(
+                'div',
+                { class: 'layers' },
+                proc(
+                  'renderer',
+                  procColor('renderer'),
+                  6347,
+                  'Sandboxed UI (no Node). App, transcript, composer, panels, dialogs. Largest layer, includes 2766 lines of CSS.',
+                ),
+                proc(
+                  'preload',
+                  procColor('preload'),
+                  37,
+                  'Exposes only invoke/on for allow-listed channels. 47 invoke + 10 event channels.',
+                ),
+                proc(
+                  'main',
+                  procColor('main'),
+                  10037,
+                  'Agent loop, provider clients, 20 tools, command sandboxes, MCP, panel back ends, storage and IPC handlers.',
+                ),
+                proc(
+                  'shared',
+                  procColor('shared'),
+                  1236,
+                  'IPC contract, chat events, models, settings. Imported by every layer.',
+                ),
+              ),
+            ),
+            card(
+              'Where things stand',
+              h(
+                'ul',
+                { style: 'margin:0;padding-left:18px' },
+                h(
+                  'li',
+                  null,
+                  h('b', null, 'Main process is well tested: '),
+                  'agent, llm, tools and panels all have more test lines than source lines.',
+                ),
+                h(
+                  'li',
+                  null,
+                  h('b', null, 'Renderer is barely unit-tested: '),
+                  '6347 source lines vs 138 test lines; its 4 biggest files have no test file (e2e covers some of it).',
+                ),
+                h(
+                  'li',
+                  null,
+                  h('b', null, 'Security is the largest issue theme: '),
+                  '12 of 41 open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.',
+                ),
+                h(
+                  'li',
+                  null,
+                  h('b', null, 'CI tests all three platforms, with one Windows flake left: '),
+                  'Windows, Linux and macOS run the tests and packaged apps are smoke-tested. #54 is fixed; #50 still times out intermittently.',
+                ),
+                h(
+                  'li',
+                  null,
+                  h('b', null, "Release isn't ready: "),
+                  'package.json is 0.1.0, but old tags v0.1.0 to v0.3.0 already exist, the CHANGELOG only has [Unreleased], and Windows signing is waiting on a certificate (#26).',
+                ),
+              ),
+              h(
+                'div',
+                { class: 'callout', style: 'margin-top:12px' },
+                'Short answer: agent commands are sandboxed and native Electron crashes are logged locally. Next, finish Windows sandbox reliability (#76, #88, #91) and the remaining CI flake (#50). See ',
+                h(
+                  'a',
+                  {
+                    href: '#',
+                    onclick: (e) => {
+                      e.preventDefault();
+                      showTab('focus');
+                    },
+                  },
+                  'Focus next',
+                ),
+                ' for the ranked list.',
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 2. Architecture map ---------------- */
+      builders.arch = () => {
+        const pos = {
+          renderer: [170, 70],
+          views: [430, 70],
+          preload: [690, 70],
+          mainroot: [430, 230],
+          agent: [120, 380],
+          tools: [340, 380],
+          llm: [560, 380],
+          panels: [780, 380],
+          search: [230, 520],
+          storage: [450, 520],
+          shared: [780, 520],
+        };
+        const W = 170,
+          H = 62;
+        const byId = Object.fromEntries(D.areas.map((a) => [a.id, a]));
+        const detail = h('div', { class: 'card detail' });
+        const svg = s('svg', { viewBox: '0 0 900 590', role: 'img', 'aria-label': 'Module map' });
+        const defs = s(
+          'defs',
+          null,
+          s(
+            'marker',
+            {
+              id: 'ar',
+              viewBox: '0 0 10 10',
+              refX: 9,
+              refY: 5,
+              markerWidth: 7,
+              markerHeight: 7,
+              orient: 'auto-start-reverse',
+            },
+            s('path', { d: 'M0,0 L10,5 L0,10 z', fill: 'var(--muted)' }),
+          ),
+        );
+        svg.append(defs);
+        // process bands
+        const band = (y, hh, label, color) =>
+          svg.append(
+            s('rect', { x: 10, y, width: 880, height: hh, rx: 14, fill: color, opacity: 0.07 }),
+            s('text', { x: 22, y: y + 18, 'font-size': 12, opacity: 0.7 }, label),
+          );
+        band(20, 110, 'RENDERER PROCESS (sandboxed)', 'var(--c-renderer)');
+        band(170, 400, 'MAIN PROCESS (Node.js)', 'var(--c-main)');
+        const edgeEls = [];
+        const center = (id) => [pos[id][0], pos[id][1]];
+        function addEdge(a, b, n, dashed, label) {
+          const [x1, y1] = center(a),
+            [x2, y2] = center(b);
+          // shorten to box edges
+          const dx = x2 - x1,
+            dy = y2 - y1;
+          const t1 = Math.min(Math.abs(W / 2 / (dx || 1e-9)), Math.abs(H / 2 / (dy || 1e-9)));
+          const sx = x1 + dx * t1,
+            sy = y1 + dy * t1,
+            ex = x2 - dx * t1,
+            ey = y2 - dy * t1;
+          const curve =
+            (a === 'tools' && b === 'agent') || (a === 'views' && b === 'renderer') || (a === 'llm' && b === 'mainroot')
+              ? 22
+              : 0;
+          const mx = (sx + ex) / 2 - (dy / Math.hypot(dx, dy)) * curve,
+            my = (sy + ey) / 2 + (dx / Math.hypot(dx, dy)) * curve;
+          const p = s('path', {
+            d: `M${sx},${sy} Q${mx},${my} ${ex},${ey}`,
+            class: 'edge',
+            'stroke-width': Math.max(1.2, Math.sqrt(n) * 1.3),
+            'marker-end': 'url(#ar)',
+            'stroke-dasharray': dashed ? '5 4' : null,
+          });
+          p.dataset.a = a;
+          p.dataset.b = b;
+          const t = s(
+            'text',
+            { x: mx, y: my - 3, 'font-size': 11, 'text-anchor': 'middle', opacity: 0.8 },
+            label || String(n),
+          );
+          svg.append(p, t);
+          edgeEls.push(p);
+        }
+        D.edges.forEach(([a, b, n]) => addEdge(a, b, n));
+        addEdge('views', 'preload', 1, true, 'window.api');
+        addEdge('preload', 'mainroot', 1, true, 'IPC 47+10');
+        addEdge('mainroot', 'shared', 16, false, '+ every area → shared');
+        const nodes = {};
+        for (const [id, [x, y]] of Object.entries(pos)) {
+          const a = byId[id];
+          const g = s(
+            'g',
+            { class: 'node', tabindex: 0, role: 'button', 'aria-label': a.label },
+            s('rect', {
+              x: x - W / 2,
+              y: y - H / 2,
+              width: W,
+              height: H,
+              rx: 10,
+              fill: 'var(--panel)',
+              stroke: procColor(a.proc),
+              'stroke-width': 1.6,
+            }),
+            s('text', { x, y: y - 6, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 600 }, a.label),
+            s(
+              'text',
+              { x, y: y + 14, 'text-anchor': 'middle', 'font-size': 11.5, opacity: 0.75 },
+              `${a.files} files · ${fmt(a.lines)} lines`,
+            ),
+          );
+          g.addEventListener('click', () => select(id));
+          g.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              select(id);
+            }
+          });
+          svg.append(g);
+          nodes[id] = g;
+        }
+        function select(id) {
+          const a = byId[id];
+          Object.entries(nodes).forEach(([k, g]) => g.classList.toggle('sel', k === id));
+          edgeEls.forEach((p) => {
+            const on = p.dataset.a === id || p.dataset.b === id;
+            p.classList.toggle('hl', on);
+            p.classList.toggle('dim', !on);
+          });
+          const out = D.edges.filter((e) => e[0] === id).map((e) => `${byId[e[1]].label} (${e[2]})`);
+          const inn = D.edges.filter((e) => e[1] === id).map((e) => `${byId[e[0]].label} (${e[2]})`);
+          const sh = D.sharedEdges.find((e) => e[0] === id);
+          detail.replaceChildren(
+            h('h3', null, h('span', { class: 'pill', style: `border-color:${procColor(a.proc)}` }, a.proc), a.label),
+            h('p', { class: 'small', style: 'margin:0 0 8px' }, a.desc),
+            h(
+              'div',
+              { class: 'small' },
+              h('b', null, fmt(a.lines)),
+              ' source lines in ',
+              h('b', null, a.files),
+              ' files; ',
+              h('b', null, a.tests),
+              ' test files',
+              a.testLines != null ? `; ${fmt(a.testLines)} test lines` : '',
+            ),
+            h(
+              'div',
+              { class: 'small', style: 'margin-top:6px' },
+              h('b', null, 'Imports from: '),
+              out.length ? out.join(', ') : 'none',
+              sh ? `; shared (${sh[1]})` : '',
+            ),
+            h(
+              'div',
+              { class: 'small' },
+              h('b', null, 'Imported by: '),
+              inn.length ? inn.join(', ') : id === 'shared' ? 'every area (see Dependencies tab)' : 'none',
+            ),
+            id === 'agent' || id === 'tools'
+              ? h(
+                  'div',
+                  { class: 'small', style: 'margin-top:6px;color:var(--warn)' },
+                  'Note: main/agent and main/tools import each other (a cycle: 7 edges one way, 1 back).',
+                )
+              : null,
+            h(
+              'div',
+              { class: 'chips', style: 'margin-top:10px' },
+              a.list.map((f) => h('span', { class: 'pill mono' }, f)),
+            ),
+          );
+        }
+        select('agent');
+        return [
+          h('h2', null, 'Architecture map'),
+          h(
+            'p',
+            { class: 'lead' },
+            'Boxes are folders; arrows are import statements between them (the number is how many). Dashed arrows go over IPC, not imports. Click a box for its files and connections.',
+          ),
+          h(
+            'div',
+            { class: 'legend' },
+            ['renderer', 'preload', 'main', 'shared'].map((p) =>
+              h('span', null, h('i', { style: `background:${procColor(p)}` }), p),
+            ),
+          ),
+          h('div', { class: 'flowlay' }, h('div', { class: 'card svgwrap' }, svg), h('div', null, detail)),
+        ];
+      };
+
+      /* ---------------- 3. One chat turn ---------------- */
+      builders.flow = () => {
+        const lanes = ['Renderer', 'Preload', 'Main / ChatManager', 'Session & Agent', 'Provider', 'Tools', 'Storage'];
+        const steps = [
+          [0, 'Send', 'App.send() invokes chat:send', 'src/renderer/src/app.ts'],
+          [
+            1,
+            'Bridge',
+            'api.invoke checks the channel against INVOKE_CHANNELS, then ipcRenderer.invoke',
+            'src/preload/index.ts',
+          ],
+          [
+            2,
+            'Handler',
+            "handle('chat:send') returns at once; progress comes back as events. Only the app page's top frame is answered.",
+            'src/main/index.ts, src/main/ipc.ts',
+          ],
+          [
+            2,
+            'ChatManager.send',
+            'Rejects if busy or images unsupported. On the first message createSession() builds Workspace, shell, conversation, system prompt (with a project map stored with the chat), tool list (registry + MCP in name order + task/finder/oracle/todo) and the approval callbacks.',
+            'src/main/chat_manager.ts',
+          ],
+          [
+            3,
+            'ChatSession.send',
+            'Emits user event, starts title generation on the small model, prefixes undo notes, emits busy:true. With Settings, Prompt cache on, an idle Claude chat is kept warm by a cache-read request about every 4 minutes.',
+            'src/main/agent/session.ts',
+          ],
+          [
+            3,
+            'Agent.run',
+            'addUserMessage, immediate checkpoint save, then loop up to MAX_TURNS = 200. Tools are rebuilt every turn.',
+            'src/main/agent/agent.ts',
+          ],
+          [
+            4,
+            'Stream a turn',
+            'runTurnWithRetries → conversation.runTurn: assistant-start, assistant-delta, thinking-delta. Clients use maxRetries: 0; the agent retries itself (4 retries, ~2/4/8/16 s).',
+            'src/main/llm/anthropic.ts, openai_responses.ts, openai.ts; agent/retry.ts',
+          ],
+          [
+            3,
+            'Turn ends',
+            'assistant-end + usage. The assistant turn is recorded only on success. No tool calls → done.',
+            'src/main/agent/agent.ts',
+          ],
+          [
+            3,
+            'Plan tool calls',
+            "propose_plan runs first; consecutive parallelSafe calls run together; truncated responses don't run tools.",
+            'Agent.runTools',
+          ],
+          [
+            5,
+            'Validate + permission',
+            'Zod schema check → decidePermission (rules) → needsApproval (alwaysAsk, mustAsk, requiresApproval in Ask mode, allow-lists).',
+            'agent.ts, agent/permissions.ts',
+          ],
+          [
+            0,
+            'Approve?',
+            'tool-start {awaitingApproval} shows a preview (diff / command / URL). User answers via chat:decide.',
+            'ChatSession.waitForApproval / decide',
+          ],
+          [
+            5,
+            'Run tool',
+            'tool.run with workspace, shell, browser, signal; tool-progress events; secrets redacted from output; tool-end. Edits recorded for undo.',
+            'src/main/tools/*, tools/redact.ts, edit_backups.ts',
+          ],
+          [3, 'Loop', 'addToolResults (all together), checkpoint save, back to "Stream a turn".', 'agent.ts'],
+          [
+            2,
+            'Events out',
+            'Each event updates the main-side transcript (applyChatEvent), then is sent as chat:event.',
+            'session.ts → index.ts',
+          ],
+          [
+            0,
+            'Render',
+            'Events are queued and flushed per animation frame into TranscriptView.',
+            'app.ts, views/transcript.ts',
+          ],
+          [
+            6,
+            'Save',
+            'Debounced 500 ms (immediate on checkpoints and busy:false). Atomic JSON write to userData/chats/<id>.json, then history:changed.',
+            'chat_store.ts, storage/json_file.ts',
+          ],
+        ];
+        const LW = 118,
+          top = 40,
+          RH = 46,
+          left = 10,
+          colW = 118;
+        const width = left + lanes.length * colW + 10,
+          height = top + steps.length * RH + 20;
+        const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Chat turn swimlane' });
+        svg.append(
+          s(
+            'defs',
+            null,
+            s(
+              'marker',
+              {
+                id: 'ar2',
+                viewBox: '0 0 10 10',
+                refX: 9,
+                refY: 5,
+                markerWidth: 6,
+                markerHeight: 6,
+                orient: 'auto-start-reverse',
+              },
+              s('path', { d: 'M0,0 L10,5 L0,10 z', fill: 'var(--muted)' }),
+            ),
+          ),
+        );
+        const laneColors = [
+          'var(--c-renderer)',
+          'var(--c-preload)',
+          'var(--c-main)',
+          'var(--c-main)',
+          'var(--c-ext)',
+          'var(--c-shared)',
+          'var(--c-ext)',
+        ];
+        lanes.forEach((l, i) => {
+          svg.append(
+            s('rect', {
+              x: left + i * colW + 2,
+              y: 4,
+              width: colW - 4,
+              height: height - 8,
+              rx: 8,
+              fill: laneColors[i],
+              opacity: 0.06,
+            }),
+          );
+          svg.append(
+            s(
+              'text',
+              { x: left + i * colW + colW / 2, y: 24, 'text-anchor': 'middle', 'font-size': 11.5, 'font-weight': 600 },
+              l,
+            ),
+          );
+        });
+        const detail = h('div', { class: 'card detail flowdetail' });
+        const boxes = [];
+        const cx = (i) => left + steps[i][0] * colW + colW / 2,
+          cy = (i) => top + i * RH + RH / 2;
+        for (let i = 0; i < steps.length - 1; i++) {
+          svg.append(
+            s('path', {
+              d: `M${cx(i)},${cy(i) + 15} L${cx(i + 1)},${cy(i + 1) - 15}`,
+              class: 'edge',
+              'stroke-width': 1.4,
+              'marker-end': 'url(#ar2)',
+            }),
+          );
+        }
+        // loop back arrow from step 12 to step 6
+        const lx = left + 3 * colW + colW - 6;
+        svg.append(
+          s('path', {
+            d: `M${cx(12) + 48},${cy(12)} C${lx + 40},${cy(12)} ${lx + 40},${cy(6)} ${cx(6) + 52},${cy(6)}`,
+            class: 'edge',
+            'stroke-width': 1.6,
+            'stroke-dasharray': '5 4',
+            'marker-end': 'url(#ar2)',
+            style: 'stroke:var(--accent);opacity:.9',
+          }),
+        );
+        svg.append(
+          s(
+            'text',
+            {
+              x: lx + 46,
+              y: (cy(6) + cy(12)) / 2,
+              'font-size': 11,
+              fill: 'var(--accent)',
+              'text-anchor': 'middle',
+              transform: `rotate(90 ${lx + 46} ${(cy(6) + cy(12)) / 2})`,
+            },
+            'repeat ≤ 200 turns',
+          ),
+        );
+        steps.forEach((st, i) => {
+          const g = s(
+            'g',
+            { class: 'node', tabindex: 0, role: 'button' },
+            s('rect', {
+              x: cx(i) - 54,
+              y: cy(i) - 15,
+              width: 108,
+              height: 30,
+              rx: 8,
+              fill: 'var(--panel)',
+              stroke: laneColors[st[0]],
+              'stroke-width': 1.5,
+            }),
+            s('text', { x: cx(i), y: cy(i) + 4, 'text-anchor': 'middle', 'font-size': 11 }, `${i + 1}. ${st[1]}`),
+          );
+          const pick = () => {
+            boxes.forEach((b) => b.classList.remove('sel'));
+            g.classList.add('sel');
+            detail.replaceChildren(
+              h('h3', null, h('span', { class: 'pill' }, `Step ${i + 1} of ${steps.length}`), st[1]),
+              h('div', { class: 'small muted' }, lanes[st[0]]),
+              h('p', { class: 'small' }, st[2]),
+              h(
+                'div',
+                { class: 'chips' },
+                st[3].split(/;|, /).map((f) => h('span', { class: 'pill mono' }, f.trim())),
+              ),
+            );
+          };
+          g.addEventListener('click', pick);
+          g.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              pick();
+            }
+          });
+          boxes.push(g);
+          svg.append(g);
+        });
+        boxes[0].dispatchEvent(new Event('click'));
+        return [
+          h('h2', null, 'What happens in one chat turn'),
+          h(
+            'p',
+            { class: 'lead' },
+            'Read top to bottom. Each column is a part of the app; each box is a step. The dashed blue arrow is the agent loop: steps 7 to 13 repeat while the model keeps asking for tools. Click a step for detail and file names.',
+          ),
+          h(
+            'div',
+            { class: 'flowlay' },
+            h('div', { class: 'card svgwrap' }, svg),
+            h(
+              'div',
+              null,
+              detail,
+              card(
+                'Limits that bound a turn',
+                bars(
+                  [
+                    ['agent turns (MAX_TURNS)', 200],
+                    ['subagent turns', 25],
+                    ['pause_turn continuations', 5],
+                    ['provider retries', 4],
+                    ['bad tool-input re-asks', 2],
+                  ],
+                  { color: 'var(--c-main)' },
+                ),
+              ),
+              card(
+                'Compaction (manual, chat:compact)',
+                h(
+                  'p',
+                  { class: 'small', style: 'margin:0' },
+                  'A small model summarizes the head of the chat. Stored messages are never changed; only the request is built from summary + messages after keepFrom. The last ~40,000 characters are always kept. The UI suggests compacting at 150,000 tokens.',
+                ),
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 4. Safety ---------------- */
+      builders.safety = () => {
+        const layer = (name, color, what, where) =>
+          h(
+            'div',
+            { class: 'layer', style: `border-left-color:${color}` },
+            h('div', null, h('b', null, name), h('div', { class: 'small muted mono' }, where)),
+            h('div', { class: 'small' }, what),
+          );
+        return [
+          h('h2', null, 'Safety model'),
+          h(
+            'p',
+            { class: 'lead' },
+            'Patch lets a model edit files and run commands, so most of the design is about limits. These are the layers a tool call passes through, from the outside in.',
+          ),
+          h(
+            'div',
+            { class: 'grid g2' },
+            card(
+              'Layers of protection',
+              h(
+                'div',
+                { class: 'layers' },
+                layer(
+                  'Sandboxed renderer',
+                  'var(--c-renderer)',
+                  'contextIsolation + sandbox, no Node, strict CSP, no navigation. DOM built with h(); HTML only from DOMPurify-sanitized markdown/diff.',
+                  'window.ts, dom.ts, markdown.ts',
+                ),
+                layer(
+                  'IPC allow-list',
+                  'var(--c-preload)',
+                  "Only 47 invoke + 10 event channels; a missing channel is a compile error. Only the app page's top frame is answered.",
+                  'preload/index.ts, shared/ipc.ts, main/ipc.ts',
+                ),
+                layer(
+                  'Permission rules',
+                  'var(--c-main)',
+                  'User rules: allow / reject / ask / delegate (external program, 15 s timeout). First match wins; overrides alwaysAsk.',
+                  'agent/permissions.ts',
+                ),
+                layer(
+                  'Approval modes',
+                  'var(--c-main)',
+                  'Ask (default) or Auto (needs a native confirm). requiresApproval asks in Ask mode; alwaysAsk (MCP, propose_plan) asks always; mustAsk per call.',
+                  'tools/types.ts, settings_confirm.ts',
+                ),
+                layer(
+                  'Allow-lists',
+                  'var(--c-main)',
+                  'Commands: whole-word prefix, refused if it contains ; & | < > ` $ ( ) { } or a newline. Network: exact hostname.',
+                  'allowed_commands.ts, allowed_network_hosts.ts',
+                ),
+                layer(
+                  'Protected files',
+                  'var(--warn)',
+                  '.env*, .ssh, .aws, keys, .git/, editor/agent config, shell rc files, databases, system folders: asks even in Auto.',
+                  'tools/guard.ts',
+                ),
+                layer(
+                  'Workspace confinement',
+                  'var(--c-shared)',
+                  'All file paths go through Workspace.resolve: real paths, links resolved, nothing outside the project root.',
+                  'tools/workspace.ts',
+                ),
+                layer(
+                  'Secret redaction',
+                  'var(--c-shared)',
+                  'PEM keys, AWS / GitHub / OpenAI / Anthropic / Slack / Google keys, JWTs and password-like values are replaced before the model sees them.',
+                  'tools/redact.ts',
+                ),
+                layer(
+                  'Packaging',
+                  'var(--c-ext)',
+                  'Electron fuses: RUN_AS_NODE, NODE_OPTIONS and --inspect disabled; asar integrity. Git panel uses a hardened config.',
+                  'package.json, panels/git.ts',
+                ),
+              ),
+            ),
+            h(
+              'div',
+              { class: 'grid', style: 'align-content:start' },
+              card(
+                'Does this tool call need approval?',
+                h(
+                  'div',
+                  { class: 'dec' },
+                  h('div', { class: 'q' }, '1. Input fails schema validation? → returned as an error, nothing runs'),
+                  h('div', { class: 'arrow' }, '↓ valid'),
+                  h('div', { class: 'q' }, '2. A permission rule matches? → reject / allow / ask, as the rule says'),
+                  h('div', { class: 'arrow' }, '↓ no rule'),
+                  h(
+                    'div',
+                    { class: 'q' },
+                    '3. alwaysAsk (MCP, propose_plan) or mustAsk (e.g. a protected file)? → ask',
+                  ),
+                  h('div', { class: 'arrow' }, '↓ no'),
+                  h('div', { class: 'q' }, '4. requiresApproval and mode is Ask and not on an allow-list? → ask'),
+                  h('div', { class: 'arrow' }, '↓ otherwise'),
+                  h('div', { class: 'q', style: 'border-color:var(--good)' }, 'Run it'),
+                ),
+              ),
+              card(
+                'Tools and their approval flags',
+                h(
+                  'div',
+                  { class: 'tablewrap' },
+                  h(
+                    'table',
+                    null,
+                    h(
+                      'thead',
+                      null,
+                      h('tr', null, h('th', null, 'Tool'), h('th', null, 'Asks'), h('th', null, 'Offered')),
+                    ),
+                    h(
+                      'tbody',
+                      null,
+                      D.tools.map((t) =>
+                        h(
+                          'tr',
+                          null,
+                          h(
+                            'td',
+                            { class: 'mono' },
+                            t[0],
+                            D.readOnly.includes(t[0])
+                              ? h('span', { class: 'pill', style: 'margin-left:6px' }, 'subagents')
+                              : null,
+                          ),
+                          h(
+                            'td',
+                            null,
+                            t[3]
+                              ? h('span', { class: 'pill sev-high' }, 'always')
+                              : t[2]
+                                ? h('span', { class: 'pill sev-medium' }, 'in Ask mode')
+                                : h('span', { class: 'pill' }, 'no'),
+                          ),
+                          h('td', { class: 'small muted' }, t[4]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                h(
+                  'p',
+                  { class: 'small muted', style: 'margin:8px 0 0' },
+                  '"subagents" marks the 6 read-only tools that task, finder and oracle get. Subagents can\'t ask for approval and run at most 25 turns.',
+                ),
+              ),
+              card(
+                'Security issues still open',
+                h(
+                  'div',
+                  { class: 'small' },
+                  '12 open issues are in the security theme: 3 medium (#88, #76, #28) and 9 low. Agent commands are sandboxed, with Windows follow-ups still open. See the Issues board.',
+                ),
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 5. Code size ---------------- */
+      builders.size = () => {
+        const cells = [
+          { n: 'renderer/views', v: 2538, p: 'renderer', r: 138 / 6347 },
+          { n: 'renderer CSS', v: 2766, p: 'renderer', r: 138 / 6347 },
+          { n: 'renderer root', v: 1043, p: 'renderer', r: 138 / 6347 },
+          { n: 'main/tools', v: 3248, p: 'main', r: 2860 / 3248 },
+          { n: 'main (root)', v: 2139, p: 'main', r: 1887 / 2139 },
+          { n: 'main/llm', v: 2132, p: 'main', r: 2759 / 2132 },
+          { n: 'main/agent', v: 1537, p: 'main', r: 3236 / 1537 },
+          { n: 'main/panels', v: 491, p: 'main', r: 702 / 491 },
+          { n: 'main/search', v: 436, p: 'main', r: 320 / 436 },
+          { n: 'main/storage', v: 54, p: 'main', r: 2171 / 2517 },
+          { n: 'shared', v: 1236, p: 'shared', r: 852 / 1236 },
+          { n: 'preload', v: 37, p: 'preload', r: 0 },
+        ].sort((a, b) => b.v - a.v);
+        const total = cells.reduce((a, c) => a + c.v, 0);
+        const Wd = 1600,
+          Ht = 900;
+        function worst(row, side) {
+          const sum = row.reduce((a, r) => a + r.a, 0);
+          const mx = Math.max(...row.map((r) => r.a)),
+            mn = Math.min(...row.map((r) => r.a));
+          return Math.max((side * side * mx) / (sum * sum), (sum * sum) / (side * side * mn));
+        }
+        function squarify(items) {
+          let rect = { x: 0, y: 0, w: Wd, h: Ht };
+          let rest = items.map((i) => ({ ...i, a: (i.v / total) * Wd * Ht }));
+          const out = [];
+          while (rest.length) {
+            const side = Math.min(rect.w, rect.h);
+            const row = [rest[0]];
+            let i = 1;
+            while (i < rest.length && worst(row.concat(rest[i]), side) <= worst(row, side)) {
+              row.push(rest[i]);
+              i++;
+            }
+            rest = rest.slice(i);
+            const sum = row.reduce((a, r) => a + r.a, 0);
+            if (rect.w >= rect.h) {
+              const cw = sum / rect.h;
+              let y = rect.y;
+              row.forEach((r) => {
+                const rh = r.a / cw;
+                out.push({ ...r, x: rect.x, y, w: cw, h: rh });
+                y += rh;
+              });
+              rect = { x: rect.x + cw, y: rect.y, w: rect.w - cw, h: rect.h };
+            } else {
+              const rh = sum / rect.w;
+              let x = rect.x;
+              row.forEach((r) => {
+                const rw = r.a / rh;
+                out.push({ ...r, x, y: rect.y, w: rw, h: rh });
+                x += rw;
+              });
+              rect = { x: rect.x, y: rect.y + rh, w: rect.w, h: rect.h - rh };
+            }
+          }
+          return out;
+        }
+        const laid = squarify(cells);
+        const tm = h('div', { class: 'treemap' });
+        let mode = 'proc';
+        const ratioColor = (r) => (r >= 1 ? 'var(--good)' : r >= 0.5 ? 'var(--warn)' : 'var(--bad)');
+        function paint() {
+          tm.replaceChildren(
+            ...laid.map((c) =>
+              h(
+                'div',
+                {
+                  class: 'tm',
+                  title: `${c.n}: ${fmt(c.v)} lines`,
+                  style: `left:${(c.x / Wd) * 100}%;top:${(c.y / Ht) * 100}%;width:${(c.w / Wd) * 100}%;height:${(c.h / Ht) * 100}%;background:${mode === 'proc' ? procColor(c.p) : ratioColor(c.r)}`,
+                },
+                h('b', null, c.n),
+                fmt(c.v) + ' lines',
+                mode === 'tests' && c.w > 160 ? h('div', null, `test/source ${c.r.toFixed(2)}`) : null,
+              ),
+            ),
+          );
+        }
+        paint();
+        const segBtns = [
+          ['proc', 'Color by process'],
+          ['tests', 'Color by test coverage'],
+        ].map(([m, l]) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              class: m === mode ? 'on' : '',
+              onclick: (e) => {
+                mode = m;
+                for (const b of e.target.parentNode.children) b.classList.toggle('on', b === e.target);
+                paint();
+                legend.replaceChildren(...legendKids());
+              },
+            },
+            l,
+          ),
+        );
+        const legendKids = () =>
+          mode === 'proc'
+            ? ['renderer', 'main', 'shared', 'preload'].map((p) =>
+                h('span', null, h('i', { style: `background:${procColor(p)}` }), p),
+              )
+            : [
+                h('span', null, h('i', { style: 'background:var(--good)' }), 'test lines ≥ source lines'),
+                h('span', null, h('i', { style: 'background:var(--warn)' }), '0.5 to 1'),
+                h('span', null, h('i', { style: 'background:var(--bad)' }), 'under 0.5'),
+              ];
+        const legend = h('div', { class: 'legend' }, legendKids());
+        const untested = new Set(D.untested.map((u) => u[1].replace(' *', '')));
+        return [
+          h('h2', null, 'Code size'),
+          h(
+            'p',
+            { class: 'lead' },
+            `Each rectangle's area is its share of the ${fmt(total)} source lines. Switch the color to see where unit tests are thin. (main/storage shares the ratio of the other main files; the 3 renderer cells share the renderer ratio.)`,
+          ),
+          h('div', { class: 'seg' }, segBtns),
+          legend,
+          h('div', { class: 'card' }, tm),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              'Source vs unit-test lines per area',
+              h(
+                'div',
+                { class: 'tablewrap' },
+                h(
+                  'table',
+                  null,
+                  h(
+                    'thead',
+                    null,
+                    h(
+                      'tr',
+                      null,
+                      h('th', null, 'Area'),
+                      h('th', { class: 'n' }, 'Source'),
+                      h('th', { class: 'n' }, 'Tests'),
+                      h('th', { class: 'n' }, 'Ratio'),
+                    ),
+                  ),
+                  h(
+                    'tbody',
+                    null,
+                    D.testsByArea.map((t) =>
+                      h(
+                        'tr',
+                        null,
+                        h('td', null, t.a),
+                        h('td', { class: 'n' }, fmt(t.src)),
+                        h('td', { class: 'n' }, fmt(t.tl)),
+                        h(
+                          'td',
+                          { class: 'n', style: `color:${ratioColor(t.src ? t.tl / t.src : 0)}` },
+                          (t.src ? t.tl / t.src : 0).toFixed(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            card(
+              '15 largest source files',
+              bars(
+                D.largest.map(([n, f]) => [f, n, untested.has(f) ? 'var(--bad)' : 'var(--c-main)']),
+                { mono: true },
+              ),
+              h(
+                'div',
+                { class: 'legend' },
+                h('span', null, h('i', { style: 'background:var(--bad)' }), 'no adjacent test file'),
+                h('span', null, h('i', { style: 'background:var(--c-main)' }), 'has a test file'),
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 6. Dependencies & IPC ---------------- */
+      builders.deps = () => {
+        const byId = Object.fromEntries(D.areas.map((a) => [a.id, a]));
+        // adjacency matrix
+        const ids = [
+          'renderer',
+          'views',
+          'preload',
+          'mainroot',
+          'agent',
+          'llm',
+          'tools',
+          'panels',
+          'search',
+          'storage',
+          'shared',
+        ];
+        const m = {};
+        D.edges.forEach(([a, b, n]) => {
+          m[a + '>' + b] = n;
+        });
+        D.sharedEdges.forEach(([a, n]) => {
+          m[a + '>shared'] = n;
+        });
+        const max = 16;
+        const matrix = h(
+          'table',
+          { style: 'font-size:12px' },
+          h(
+            'thead',
+            null,
+            h(
+              'tr',
+              null,
+              h('th', null, 'from ↓ / to →'),
+              ids.map((i) =>
+                h(
+                  'th',
+                  { class: 'n', style: 'writing-mode:vertical-rl;transform:rotate(180deg);height:90px' },
+                  byId[i].label,
+                ),
+              ),
+            ),
+          ),
+          h(
+            'tbody',
+            null,
+            ids.map((a) =>
+              h(
+                'tr',
+                null,
+                h('th', null, byId[a].label),
+                ids.map((b) => {
+                  const n = m[a + '>' + b];
+                  return h(
+                    'td',
+                    {
+                      class: 'n',
+                      title: n ? `${byId[a].label} → ${byId[b].label}: ${n}` : '',
+                      style: n
+                        ? `background:color-mix(in srgb,var(--accent) ${Math.round(15 + (n / max) * 70)}%,transparent);color:${n > 8 ? '#fff' : 'inherit'}`
+                        : '',
+                    },
+                    n || '',
+                  );
+                }),
+              ),
+            ),
+          ),
+        );
+        const evGroups = Object.entries(D.chatEvents);
+        return [
+          h('h2', null, 'Dependencies & IPC'),
+          h(
+            'p',
+            { class: 'lead' },
+            'How the parts talk. Inside a process they import each other (matrix). Across processes they only talk over named IPC channels, and the agent reports progress to the UI as chat events.',
+          ),
+          h(
+            'div',
+            { class: 'grid g2' },
+            card(
+              'Import matrix (import statements, non-test files)',
+              h('div', { class: 'tablewrap' }, matrix),
+              h(
+                'p',
+                { class: 'small muted', style: 'margin:8px 0 0' },
+                'Darker = more imports. shared is imported by every area, most of all by main (root) with 16 and renderer/views with 13. Inside shared, ipc.ts imports chat, panels, project and settings.',
+              ),
+            ),
+            h(
+              'div',
+              { class: 'grid', style: 'align-content:start' },
+              card(
+                '47 IPC invoke channels, by prefix',
+                bars(
+                  D.ipc.invoke.map(([p, n]) => [p + ':', n]),
+                  { mono: true, color: 'var(--c-preload)' },
+                ),
+                h(
+                  'details',
+                  null,
+                  h('summary', { class: 'small' }, 'Show channel names'),
+                  h(
+                    'div',
+                    { class: 'small' },
+                    D.ipc.invoke.map(([p]) =>
+                      h('div', null, h('b', { class: 'mono' }, p + ': '), D.ipc.invokeNames[p]),
+                    ),
+                  ),
+                ),
+              ),
+              card(
+                '10 event channels (main → renderer)',
+                h(
+                  'div',
+                  { class: 'chips' },
+                  D.ipc.events.map((e) => h('span', { class: 'pill mono' }, e)),
+                ),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              '18 chat event types (shared/chat.ts)',
+              h(
+                'div',
+                { class: 'layers' },
+                evGroups.map(([g, list]) =>
+                  h(
+                    'div',
+                    { class: 'layer', style: 'border-left-color:var(--c-shared)' },
+                    h('b', null, `${g} (${list.length})`),
+                    h(
+                      'div',
+                      { class: 'chips' },
+                      list.map((e) => h('span', { class: 'pill mono' }, e)),
+                    ),
+                  ),
+                ),
+              ),
+              h(
+                'p',
+                { class: 'small muted', style: 'margin:8px 0 0' },
+                'Transcript items have 5 kinds (user, assistant, tool, error, notice); a tool card has 5 states (awaiting-approval, running, done, error, declined).',
+              ),
+            ),
+            card(
+              'Providers, models and packages',
+              h(
+                'div',
+                { class: 'small' },
+                h('b', null, 'Anthropic'),
+                ' (Messages API, anthropic.ts): ',
+                D.models.anthropic.join(', '),
+              ),
+              h(
+                'div',
+                { class: 'small', style: 'margin-top:4px' },
+                h('b', null, 'OpenAI'),
+                ' (Responses API, openai_responses.ts): ',
+                D.models.openai.join(', '),
+              ),
+              h(
+                'div',
+                { class: 'small', style: 'margin-top:4px' },
+                h('b', null, 'Custom OpenAI-compatible endpoints'),
+                ' use Chat Completions (openai.ts). Claude can also go through a proxy or gateway (Settings, Claude base URL, confirmed natively because the key goes to that host).',
+              ),
+              h(
+                'div',
+                { class: 'small', style: 'margin-top:4px' },
+                'Code search: Voyage voyage-code-4 embeddings and rerank-3 reranking, both through OpenRouter.',
+              ),
+              h('hr', { style: 'border:0;border-top:1px solid var(--line);margin:12px 0' }),
+              bars(
+                [
+                  ['dependencies', D.npmDeps],
+                  ['devDependencies', D.npmDev],
+                ],
+                { color: 'var(--c-ext)' },
+              ),
+              h(
+                'p',
+                { class: 'small muted', style: 'margin:6px 0 0' },
+                'Runtime dependencies: @anthropic-ai/sdk, openai, @modelcontextprotocol/sdk, zod, node-pty, simple-git, diff, ignore, linkedom, @mozilla/readability. Renderer libraries (marked, DOMPurify, highlight.js, xterm, bootstrap…) are devDependencies because Vite bundles them.',
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 7. Health ---------------- */
+      builders.health = () => {
+        const ciJob = (name, os, steps) =>
+          h(
+            'div',
+            { style: 'margin:8px 0' },
+            h(
+              'div',
+              { class: 'small' },
+              h('b', null, name),
+              ' ',
+              os.map((o) => h('span', { class: 'pill', style: 'margin-left:4px' }, o)),
+            ),
+            h(
+              'div',
+              { class: 'pipe', style: 'margin-top:5px' },
+              steps.flatMap((st, i) => [i ? h('span', { class: 'ar' }, '→') : null, h('span', { class: 'st' }, st)]),
+            ),
+          );
+        return [
+          h('h2', null, 'Tests, docs and CI'),
+          h(
+            'p',
+            { class: 'lead' },
+            'How well each part is checked. The main process has dense unit tests; the UI relies on end-to-end tests; CI runs the tests on Windows, Linux and macOS.',
+          ),
+          h(
+            'div',
+            { class: 'grid kpis' },
+            h(
+              'div',
+              { class: 'card kpi' },
+              h('div', { class: 'v' }, '798'),
+              h('div', { class: 'l' }, 'unit test cases'),
+              h('div', { class: 's' }, '62 files, Vitest'),
+            ),
+            h(
+              'div',
+              { class: 'card kpi' },
+              h('div', { class: 'v' }, '98'),
+              h('div', { class: 'l' }, 'e2e cases'),
+              h('div', { class: 's' }, '28 files, Playwright + mock APIs'),
+            ),
+            h(
+              'div',
+              { class: 'card kpi' },
+              h('div', { class: 'v' }, '12'),
+              h('div', { class: 'l' }, 'benchmark tasks'),
+              h('div', { class: 's' }, '5 small + 7 large, plus an opt-in prompt cache suite'),
+            ),
+            h(
+              'div',
+              { class: 'card kpi' },
+              h('div', { class: 'v' }, '10'),
+              h('div', { class: 'l' }, 'perf cases'),
+              h('div', { class: 's' }, '3 files, opt-in'),
+            ),
+            h(
+              'div',
+              { class: 'card kpi' },
+              h('div', { class: 'v' }, '4'),
+              h('div', { class: 'l' }, 'CI workflows'),
+              h('div', { class: 's' }, 'ci, release, claude, code-review'),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              'Unit test cases per area',
+              bars(D.testsByArea.map((t) => [t.a, t.c, t.c < 20 ? 'var(--bad)' : 'var(--good)'])),
+            ),
+            card('End-to-end cases per file', bars(D.e2e, { mono: true, color: 'var(--c-renderer)' })),
+          ),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              'Big files without an adjacent test file',
+              bars(
+                D.untested.map(([n, f]) => [f, n, 'var(--bad)']),
+                { mono: true },
+              ),
+              h(
+                'p',
+                { class: 'small muted', style: 'margin:6px 0 0' },
+                '* files.ts is probably covered by tools/tools.test.ts. 4 of these 8 are renderer views.',
+              ),
+            ),
+            card(
+              'CI pipeline (.github/workflows)',
+              ciJob('ci.yml: format', ['ubuntu'], ['npm ci', 'format:check']),
+              ciJob('ci.yml: lint', ['ubuntu'], ['npm ci', 'lint']),
+              ciJob('ci.yml: test', ['win', 'ubuntu', 'macos'], ['npm ci', 'typecheck', 'test:unit', 'test:e2e']),
+              ciJob('ci.yml: package', ['ubuntu', 'macos'], ['build', 'electron-builder', 'smoke-test app', 'upload']),
+              ciJob(
+                'release.yml (tag v*, or dry run)',
+                ['win', 'ubuntu', 'macos'],
+                ['signing secrets', 'typecheck', 'test:unit', 'e2e', 'build + sign', 'SHA256SUMS', 'gh release'],
+              ),
+              h(
+                'p',
+                { class: 'small', style: 'margin:8px 0 0;color:var(--warn)' },
+                'All three platforms run the tests (#14 fixed). The command-lifecycle e2e isolation fixed #54; the Windows shell cancellation unit test in #50 can still time out.',
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              'Docs (lines)',
+              bars(D.docs, { mono: true, color: 'var(--c-shared)' }),
+              h('p', { class: 'small muted', style: 'margin:6px 0 0' }, 'Plus 4 screenshots in docs/images.'),
+            ),
+            card(
+              'Release bookkeeping',
+              h(
+                'ul',
+                { class: 'small', style: 'margin:0;padding-left:18px' },
+                h(
+                  'li',
+                  null,
+                  'package.json version: ',
+                  h('code', null, '0.1.0'),
+                  ' (the version of the first release)',
+                ),
+                h('li', null, 'Git tags: v0.1.0, v0.1.1, v0.2.0, v0.3.0 (2026-09-29 to 09-30)'),
+                h('li', null, 'CHANGELOG has one heading, [Unreleased], with 105 bullet lines'),
+                h(
+                  'li',
+                  null,
+                  'release.yml checks the tag against package.json; tag v0.1.0 already exists on an old commit, so releasing 0.1.0 needs that tag moved or removed',
+                ),
+                h('li', null, 'tsconfig.node.tsbuildinfo, a build artifact, shows 16 changes in recent history'),
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 8. Issues ---------------- */
+      builders.issues = () => {
+        let filter = 'all';
+        const board = h('div', { class: 'board' });
+        const sevCount = { high: 0, medium: 0, low: 0 };
+        D.issues.forEach((i) => sevCount[i[3]]++);
+        function paint() {
+          const themes = Object.keys(D.themes)
+            .map((t) => [t, D.issues.filter((i) => i[2] === t && (filter === 'all' || i[3] === filter))])
+            .filter(([, l]) => l.length);
+          const order = { high: 0, medium: 1, low: 2 };
+          board.replaceChildren(
+            ...themes
+              .sort((a, b) => b[1].length - a[1].length)
+              .map(([t, list]) =>
+                h(
+                  'div',
+                  { class: 'col' },
+                  h('h4', null, h('span', null, D.themes[t]), h('span', { class: 'pill' }, list.length)),
+                  list
+                    .sort((a, b) => order[a[3]] - order[b[3]])
+                    .map((i) =>
+                      h(
+                        'div',
+                        { class: 'icard ' + i[3] },
+                        h(
+                          'a',
+                          {
+                            href: `https://github.com/PierrunoYT/patch/issues/${i[0]}`,
+                            target: '_blank',
+                            rel: 'noopener',
+                          },
+                          '#' + i[0],
+                        ),
+                        ' ',
+                        i[1],
+                        h(
+                          'div',
+                          { class: 'meta' },
+                          h('span', { class: 'pill sev-' + i[3] }, i[3] + (i[4] ? ' (est.)' : '')),
+                          ' opened ',
+                          i[5],
+                        ),
+                      ),
+                    ),
+                ),
+              ),
+          );
+        }
+        paint();
+        const seg = h(
+          'div',
+          { class: 'seg' },
+          [
+            ['all', `All (${D.issues.length})`],
+            ['high', `High (${sevCount.high})`],
+            ['medium', `Medium (${sevCount.medium})`],
+            ['low', `Low (${sevCount.low})`],
+          ].map(([k, l]) =>
+            h(
+              'button',
+              {
+                type: 'button',
+                class: k === filter ? 'on' : '',
+                onclick: (e) => {
+                  filter = k;
+                  for (const b of seg.children) b.classList.toggle('on', b === e.target);
+                  paint();
+                },
+              },
+              l,
+            ),
+          ),
+        );
+        const themeCounts = Object.keys(D.themes)
+          .map((t) => [D.themes[t], D.issues.filter((i) => i[2] === t).length])
+          .sort((a, b) => b[1] - a[1]);
+        return [
+          h('h2', null, 'Open issues board'),
+          h(
+            'p',
+            { class: 'lead' },
+            `${D.issues.length} open and ${D.closedCount} closed issues on GitHub. Most came from the Sep 30–Oct 3 audit; four Windows sandbox follow-ups were added on Oct 4. Columns are themes; the colored edge is severity. "(est.)" means the issue has no sev: label and the severity is an estimate.`,
+          ),
+          h(
+            'div',
+            { class: 'grid g2' },
+            card('Open issues by theme', bars(themeCounts, { color: 'var(--accent)' })),
+            card(
+              'Open issues by severity',
+              bars([
+                ['high', sevCount.high, 'var(--sev-high)'],
+                ['medium', sevCount.medium, 'var(--sev-med)'],
+                ['low', sevCount.low, 'var(--sev-low)'],
+              ]),
+              h(
+                'p',
+                { class: 'small muted', style: 'margin:6px 0 0' },
+                'No high-severity issue is open. Five are shown as medium and 36 as low; estimates are used where an issue has no severity label.',
+              ),
+            ),
+          ),
+          seg,
+          board,
+        ];
+      };
+
+      /* ---------------- 9. Activity ---------------- */
+      builders.activity = () => {
+        const maxD = Math.max(...D.commitsByDay.map((d) => d[1]));
+        return [
+          h('h2', null, 'Recent activity'),
+          h(
+            'p',
+            { class: 'lead' },
+            '256 commits in total. Apart from 3 commits on 2024-07-29, all of them landed from 2026-09-29 to 2026-10-04. The project is moving fast, which is part of why it feels big.',
+          ),
+          h(
+            'div',
+            { class: 'grid g2' },
+            card(
+              'Commits per day',
+              h(
+                'div',
+                { class: 'mini' },
+                D.commitsByDay.map(([d, n]) =>
+                  h(
+                    'div',
+                    { class: 'b' },
+                    h('div', null, n),
+                    h('div', { class: 'bar', style: `height:${(n / maxD) * 120}px` }),
+                    h('div', { class: 't' }, d),
+                  ),
+                ),
+              ),
+            ),
+            card(
+              'Commit types (Conventional Commits)',
+              bars(
+                D.types.map(([t, n]) => [
+                  t,
+                  n,
+                  t === 'fix'
+                    ? 'var(--bad)'
+                    : t === 'feat'
+                      ? 'var(--good)'
+                      : t === 'docs'
+                        ? 'var(--c-shared)'
+                        : 'var(--accent)',
+                ]),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'grid g2', style: 'margin-top:14px' },
+            card(
+              'Most-changed files, last 60 days',
+              bars(
+                D.churn.map(([f, n]) => [f, n, f.startsWith('src/') ? 'var(--c-main)' : 'var(--c-ext)']),
+                { mono: true },
+              ),
+              h(
+                'div',
+                { class: 'legend' },
+                h('span', null, h('i', { style: 'background:var(--c-main)' }), 'source'),
+                h('span', null, h('i', { style: 'background:var(--c-ext)' }), 'docs, config, build'),
+              ),
+            ),
+            h(
+              'div',
+              { class: 'grid', style: 'align-content:start' },
+              card('Authors', bars(D.authors, { color: 'var(--c-renderer)' })),
+              card(
+                '15 most recent commits (2026-10-03 to 10-04)',
+                h(
+                  'div',
+                  { class: 'tablewrap' },
+                  h(
+                    'table',
+                    null,
+                    h(
+                      'tbody',
+                      null,
+                      D.recent.map(([c, m]) =>
+                        h('tr', null, h('td', { class: 'mono muted' }, c), h('td', { class: 'small' }, m)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- 10. Focus ---------------- */
+      builders.focus = () => {
+        const items = [
+          [
+            'Finish Windows sandbox reliability: #76, #88, #91',
+            'Agent commands now run through bubblewrap on Linux, Seatbelt on macOS, Docker or Podman when configured, and AppContainer on Windows. The Windows implementation still has concrete follow-ups.',
+            [
+              '#88: PowerShell starts in C:\\ for projects under the user home',
+              '#91: transient profile and capability entries are not always cleaned up',
+              '#90: large rustc and cargo toolchains exceed the current grant limits',
+              '#87: MCP stdio servers are not yet covered by the command sandbox',
+            ],
+            'The core sandbox is shipped; close the Windows correctness and cleanup gaps before treating #76 as complete.',
+          ],
+          [
+            'Finish making CI trustworthy: #50',
+            'Windows, Linux and macOS run tests and packaged-app smoke checks. Isolating command lifecycle tests fixed #54, leaving one known Windows timeout.',
+            [
+              '#50: the shell cancellation test times out and can leave its temporary folder locked',
+              '#54 is closed after command tests received isolated app profiles and shell runners',
+              '253 commits landed in six days; a flaky gate at this pace either blocks work or gets ignored',
+            ],
+            'Until CI is green and steady, every other fix is harder to trust.',
+          ],
+          [
+            'Add unit tests to the renderer',
+            '6347 renderer source lines have 138 unit-test lines (ratio 0.02), against 0.7 to 2.1 for the main-process areas.',
+            [
+              'app.ts (826), dialogs.ts (723), panels.ts (648), transcript.ts (572) have no test file',
+              'app.ts is also among the most-changed source files (26 changes in 60 days)',
+              '#62 asks for e2e tests of the chat list, model picker and status-bar branch',
+              '#47 (failed tool cards should say why) is a UI change that would land in this untested code',
+            ],
+            'Start with the pure logic in transcript and app (event handling) rather than DOM details.',
+          ],
+          [
+            'Get release bookkeeping straight before the next tag',
+            'package.json says 0.1.0 while old tags already go to v0.3.0; the CHANGELOG has only [Unreleased] with 105 bullets; Windows signing waits on a certificate.',
+            [
+              'release.yml checks the tag against package.json, and tag v0.1.0 already points at an old commit',
+              '#26 (signing, checksums) and #28 (macOS entitlements) are sev:medium',
+              '#71, #70, #40, #22 are low-severity release items',
+            ],
+            'Mostly a decision (what to do with the old v0.1.0 to v0.3.0 tags) plus a CHANGELOG cut.',
+          ],
+        ];
+        return [
+          h('h2', null, 'What to focus on next'),
+          h(
+            'p',
+            { class: 'lead' },
+            'A ranked shortlist drawn from the data on the other tabs: open issues and their severity, test gaps, CI state and churn. Order: security risk first, then the things that make every later change safer.',
+          ),
+          h(
+            'div',
+            { class: 'focus' },
+            items.map(([t, what, ev, note], i) =>
+              h(
+                'div',
+                { class: 'card fitem' },
+                h('div', { class: 'rank' }, i + 1),
+                h(
+                  'div',
+                  null,
+                  h('h3', null, t),
+                  h('div', { class: 'small' }, what),
+                  h(
+                    'ul',
+                    { class: 'small' },
+                    ev.map((e) => h('li', null, e)),
+                  ),
+                  h('div', { class: 'why' }, note),
+                ),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { class: 'card', style: 'margin-top:14px' },
+            h('h3', null, 'Also worth knowing (low effort, low risk)'),
+            h(
+              'ul',
+              { class: 'small', style: 'margin:0;padding-left:18px' },
+              h('li', null, 'McpHub still introduces itself to MCP servers as "CodeCompanion" (#72).'),
+              h(
+                'li',
+                null,
+                'main/agent and main/tools import each other: one import back from tools to agent closes the cycle.',
+              ),
+              h(
+                'li',
+                null,
+                '#55: crash-resume checkpoints are written synchronously on the main thread after each tool batch.',
+              ),
+              h('li', null, 'tsconfig.node.tsbuildinfo has been committed 16 times; it is a build artifact.'),
+            ),
+          ),
+        ];
+      };
+
+      /* ---------------- boot ---------------- */
+      const nav = $('#tabs'),
+        mainEl = $('#main');
+      for (const [id, label] of TABS) {
+        nav.append(h('button', { type: 'button', role: 'tab', 'data-id': id, onclick: () => showTab(id) }, label));
+        const sec = h('section', { class: 'tab', id: 'tab-' + id });
+        try {
+          sec.append(...builders[id]());
+        } catch (err) {
+          sec.append(h('p', null, 'Could not draw this view: ' + err.message));
+          console.error(err);
+        }
+        mainEl.append(sec);
+      }
+      let start = 'overview';
+      try {
+        const t = localStorage.getItem('patchmap-tab');
+        if (t && builders[t]) start = t;
+      } catch (e) {}
+      showTab(start);
+
+      const themes = ['auto', 'light', 'dark'];
+      let ti = 0;
+      try {
+        ti = Math.max(0, themes.indexOf(localStorage.getItem('patchmap-theme') || 'auto'));
+      } catch (e) {}
+      function applyTheme() {
+        const t = themes[ti];
+        if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
+        $('#themeBtn').textContent = 'Theme: ' + t;
+        try {
+          localStorage.setItem('patchmap-theme', t);
+        } catch (e) {}
+      }
+      $('#themeBtn').addEventListener('click', () => {
+        ti = (ti + 1) % 3;
+        applyTheme();
+      });
+      applyTheme();
+    </script>
+  </body>
+</html>
