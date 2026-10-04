@@ -929,7 +929,7 @@
           ['fetch_url', 'web.ts', 1, 0, 'always'],
           ['web_search', 'web.ts', 0, 0, 'web search provider set'],
           ['browser', 'browser.ts', 1, 0, 'browser panel available'],
-          ['propose_plan', 'plan.ts', 1, 1, 'plan mode on'],
+          ['propose_plan', 'plan.ts', 1, 1, 'always (asks only while plan mode is on)'],
           ['load_skill', 'skills.ts', 0, 0, 'project has skills'],
           ['search_code', 'search/code_index.ts', 0, 0, 'code index available (per chat)'],
           ['task', 'task.ts', 0, 0, 'per chat (subagent)'],
@@ -1618,7 +1618,7 @@
           [
             3,
             'Plan tool calls',
-            "propose_plan runs first; consecutive parallelSafe calls run together; truncated responses don't run tools.",
+            "In plan mode propose_plan runs first; consecutive parallelSafe calls run together; truncated responses don't run tools.",
             'Agent.runTools',
           ],
           [
@@ -1655,7 +1655,7 @@
           [
             6,
             'Save',
-            'Debounced 500 ms (immediate on checkpoints and busy:false). Atomic JSON write to userData/chats/<id>.json, then history:changed.',
+            'Debounced 500 ms (immediate on checkpoints and busy:false). Atomic JSON write to userData/chats/<id>.json, then history:changed. A checkpoint writes only the chat file, in the background.',
             'chat_store.ts, storage/json_file.ts',
           ],
         ];
@@ -2374,7 +2374,7 @@
               h(
                 'p',
                 { class: 'small muted', style: 'margin:6px 0 0' },
-                'Runtime dependencies: @anthropic-ai/sdk, openai, @modelcontextprotocol/sdk, zod, node-pty, simple-git, diff, ignore, linkedom, @mozilla/readability. Renderer libraries (marked, DOMPurify, highlight.js, xterm, bootstrap…) are devDependencies because Vite bundles them.',
+                'Runtime dependencies: @anthropic-ai/sdk, openai, zod, node-pty, simple-git, diff, ignore, linkedom, @mozilla/readability. Renderer libraries (marked, DOMPurify, highlight.js, xterm, bootstrap…) and the MCP SDK client (@modelcontextprotocol/sdk) are devDependencies because Vite bundles them.',
               ),
             ),
           ),
@@ -2810,7 +2810,7 @@
               h(
                 'li',
                 null,
-                '#55: crash-resume checkpoints are written synchronously on the main thread after each tool batch.',
+                'Crash-resume checkpoints still serialize the whole chat on the main thread after each tool batch; only the file write is in the background (#55).',
               ),
               h('li', null, 'tsconfig.node.tsbuildinfo has been committed 16 times; it is a build artifact.'),
             ),
