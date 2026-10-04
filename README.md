@@ -42,6 +42,7 @@ The application and installer are named Patch (`Patch.exe` and `Patch-Installer.
 - `AGENTS.md` (or `CLAUDE.md`) in the project root is always added to the chat's instructions; the status bar shows "AGENTS.md"
 - Image attachments (attach or paste) for models that accept images, with a compact paperclip beside the model and mode controls; attachment chips take space only when present. The paperclip and paste are disabled for a Claude model id the app does not know to accept images (entered under _Other model id…_)
 - Token totals and estimated cost for the built-in Claude and GPT-6 models, including cache reads and writes, in the status bar (with how full the model's context window is), and each chat's estimated cost in the chat list and history; custom endpoints have no official-price estimate
+- Prompt caching tuned for agent loops: the fixed tools and system prompt are cached once and reused, also by subagents on the chat's model, and an optional setting keeps an idle Claude chat's cache warm for up to an hour so a reply after a pause does not write the whole chat again (see [PERFORMANCE.md](docs/PERFORMANCE.md#prompt-cache-changes-77-2026-10-03) for what it saved)
 
 ## Getting started
 
