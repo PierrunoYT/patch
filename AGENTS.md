@@ -62,3 +62,4 @@ Don't leave a finished change uncommitted or its docs stale.
 - `node-pty` is a native module: packaging uses its prebuilds (`npmRebuild: false`) and it is unpacked from the asar.
 - If `node_modules/electron/dist` is missing after install, run `node node_modules/electron/install.js`.
 - `PATCH_USER_DATA=<folder>` starts the app with a clean profile.
+- On Windows, do not launch `sandbox-helper.exe` through a dynamically constructed nested PowerShell or .NET process with redirected standard input; antivirus software flags that diagnostic pattern as a malicious command line. Use `npm run build:sandbox` and the existing Vitest integration tests, or add focused instrumentation to the helper source instead.
