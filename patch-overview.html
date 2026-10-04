@@ -2722,13 +2722,13 @@
         const items = [
           [
             'Finish Windows sandbox reliability: #76, #91',
-            'Agent commands now run through bubblewrap on Linux, Seatbelt on macOS, Docker or Podman when configured, and AppContainer on Windows. Projects under the Windows user profile start from a private project-root drive; cleanup reliability still has a concrete follow-up.',
+            'Windows commands start from a private project-root drive. Permission recovery is implemented locally: the next helper startup undoes abandoned grants and restores git-hooks ACLs without touching live runs.',
             [
-              '#91: transient profile and capability entries are not always cleaned up',
+              '#91: local recovery fix; older unrecorded orphan SIDs cannot be identified safely',
               '#90: large rustc and cargo toolchains exceed the current grant limits',
               '#87: MCP stdio servers are not yet covered by the command sandbox',
             ],
-            'The core sandbox is shipped and #88 is fixed; close the remaining cleanup gap before treating #76 as complete.',
+            '#88 and #91 have local fixes; GitHub remains open until those commits are pushed. #76 still needs toolchain and platform verification.',
           ],
           [
             'Finish making CI trustworthy: #50',

@@ -1,6 +1,15 @@
 import { once } from 'node:events';
-import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
@@ -280,4 +289,85 @@ setTimeout(() => { console.log('RESULT ok=' + ok + ' failed=' + failed); process
       expect(output + String(exitCode)).not.toContain('ALLOCATED');
     }, 60_000);
   });
+});
+
+describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
+  it('recovers a forcibly killed helper without revoking a live helper grant', async () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'patch-sbx-recovery-'));
+    const project = join(fixture, 'project');
+    const tools = join(fixture, 'tools');
+    const hooks = join(project, '.git', 'hooks');
+    const local = join(fixture, 'local');
+    const journal = join(local, 'Patch', 'sandbox-recovery');
+    mkdirSync(hooks, { recursive: true });
+    mkdirSync(tools);
+    writeFileSync(join(tools, 'nested.txt'), 'tool');
+    const request = buildHelperRequest({
+      id: 1,
+      shell: {
+        file: 'powershell.exe',
+        args: ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 120'],
+      },
+      cwd: project,
+      env: scrubEnv(process.env),
+      home: local,
+      network: false,
+      exists: () => false,
+    });
+    request.readOnly = [tools];
+    const env = { ...process.env, LOCALAPPDATA: local };
+    const recover = async () => {
+      const child = spawn(helper!, [], { env, windowsHide: true });
+      const closed = once(child, 'close');
+      let output = '';
+      child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+      child.stdin.end();
+      await closed;
+      expect(output).toBe('');
+      expect(child.exitCode).toBe(0);
+    };
+    const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
+    const originalHooksAcl = acl(hooks);
+    const child = spawn(helper!, [], { env, windowsHide: true });
+    const closed = once(child, 'close');
+    try {
+      const started = new Promise<void>((resolve, reject) => {
+        let output = '';
+        child.stdout.on('data', (chunk: Buffer) => {
+          output += chunk;
+          if (output.includes('"type":"started"')) resolve();
+          if (output.includes('"type":"error"')) reject(new Error(output));
+        });
+        child.on('error', reject);
+        child.on('close', () => reject(new Error('helper closed before starting')));
+      });
+      child.stdin.write(`${JSON.stringify(request)}\n`);
+      await started;
+      const liveAcl = acl(tools);
+      expect(liveAcl).toMatch(/patch\.sbx\.|S-1-15-2-/);
+      expect(readdirSync(journal)).toHaveLength(1);
+      await recover();
+      expect(acl(tools)).toBe(liveAcl);
+      expect(readdirSync(journal)).toHaveLength(1);
+
+      // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
+      child.kill();
+      await closed;
+      expect(acl(tools)).toBe(liveAcl);
+      await recover();
+      for (const path of [project, tools, join(tools, 'nested.txt'), hooks])
+        expect(acl(path)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
+      expect(readdirSync(journal)).toEqual([]);
+      // Windows recomputes inherited entries from the parent. Explicit entries must stay unchanged,
+      // rather than accumulating the copies produced when inheritance was temporarily protected.
+      const explicit = (text: string) => text.split(/\r?\n/).filter((line) => !line.includes('(I)'));
+      expect(explicit(acl(hooks))).toEqual(explicit(originalHooksAcl));
+      expect(acl(hooks)).toContain('(I)');
+    } finally {
+      if (child.exitCode === null) child.kill();
+      await closed;
+      await recover();
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

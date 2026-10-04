@@ -1,9 +1,12 @@
 use crate::proto::{encode_event, parse_message, Event, Message, Request};
 use crate::text::{command_line, environment_block, Utf8Chunker};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::io::{BufRead, Write};
-use std::path::Path;
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, Read, Write};
+use std::os::windows::fs::OpenOptionsExt;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -129,6 +132,13 @@ type Jobs = Arc<Mutex<HashMap<u64, usize>>>;
 
 pub fn serve() {
     let emitter = Emitter(Arc::new(Mutex::new(std::io::stdout())));
+    if let Err(message) = recover_abandoned_runs() {
+        emitter.send(&Event::Error {
+            id: None,
+            message: &message,
+        });
+        return;
+    }
     let jobs: Jobs = Arc::new(Mutex::new(HashMap::new()));
     let mut workers = Vec::new();
     for line in std::io::stdin().lock().lines() {
@@ -224,6 +234,30 @@ fn edit_acl(path: &str, sid: PSID, access: u32, change: Change) -> Result<()> {
             ));
         }
         let _descriptor = LocalMem(descriptor.0);
+        if change == Change::Revoke {
+            let mut present = false;
+            if !old_dacl.is_null() {
+                for index in 0..(*old_dacl).AceCount as u32 {
+                    let mut ace = std::ptr::null_mut();
+                    GetAce(old_dacl, index, &mut ace).map_err(|e| describe("GetAce", e))?;
+                    // Our grants use ordinary ACCESS_ALLOWED_ACE (type 0), never object/callback ACEs.
+                    let allowed = ace as *const ACCESS_ALLOWED_ACE;
+                    if (*allowed).Header.AceType == 0
+                        && EqualSid(
+                            PSID(std::ptr::addr_of!((*allowed).SidStart) as *mut c_void),
+                            sid,
+                        )
+                        .is_ok()
+                    {
+                        present = true;
+                        break;
+                    }
+                }
+            }
+            if !present {
+                return Ok(());
+            }
+        }
         let entry = EXPLICIT_ACCESS_W {
             grfAccessPermissions: if change == Change::Revoke { 0 } else { access },
             grfAccessMode: match change {
@@ -438,34 +472,259 @@ fn make_job(request: &Request) -> Result<Handle> {
     }
 }
 
-// Removes the container's access entries and its profile when the run ends, however it ends.
+// Written and flushed before any permission change. A sharing lock distinguishes a live run from
+// an abandoned one without relying on PIDs (which Windows can reuse). Recovery knows the exact
+// profile even after Windows has forgotten its SID-to-name mapping; unrelated container ACEs stay intact.
+#[derive(Serialize, Deserialize)]
+struct RecoveryRecord {
+    name: String,
+    granted: Vec<String>,
+    protected: Vec<ProtectedPath>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ProtectedPath {
+    path: String,
+    dacl: String,
+}
+
+impl ProtectedPath {
+    fn restore(&self) -> Result<()> {
+        let path = wide(&self.path);
+        let dacl = wide(&self.dacl);
+        unsafe {
+            let mut descriptor = PSECURITY_DESCRIPTOR::default();
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                PCWSTR(dacl.as_ptr()),
+                1,
+                &mut descriptor,
+                None,
+            )
+            .map_err(|e| describe("read original sandbox permissions", e))?;
+            let _descriptor = LocalMem(descriptor.0);
+            let mut acl = std::ptr::null_mut();
+            let mut present = false.into();
+            let mut defaulted = false.into();
+            GetSecurityDescriptorDacl(descriptor, &mut present, &mut acl, &mut defaulted)
+                .map_err(|e| describe("GetSecurityDescriptorDacl", e))?;
+            let status = SetNamedSecurityInfoW(
+                PCWSTR(path.as_ptr()),
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION | UNPROTECTED_DACL_SECURITY_INFORMATION,
+                None,
+                None,
+                Some(acl),
+                None,
+            );
+            if status != ERROR_SUCCESS {
+                return Err(format!(
+                    "cannot restore original sandbox permissions (error {})",
+                    status.0
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn recovery_dir() -> Result<PathBuf> {
+    let local = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is missing")?;
+    Ok(PathBuf::from(local).join("Patch").join("sandbox-recovery"))
+}
+
+fn lock_record(path: &Path, create: bool) -> std::io::Result<File> {
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(create)
+        .share_mode(FILE_SHARE_DELETE.0)
+        .open(path)
+}
+
+fn record_sid(name: &str) -> Result<Sid> {
+    let name = wide(name);
+    unsafe { DeriveAppContainerSidFromAppContainerName(PCWSTR(name.as_ptr())) }
+        .map(Sid)
+        .map_err(|e| describe("DeriveAppContainerSidFromAppContainerName", e))
+}
+
+impl RecoveryRecord {
+    fn undo(&self, sid: PSID) -> Result<()> {
+        // Try every path even if one is unavailable. Keep the record for a later retry on any error.
+        let mut result = Ok(());
+        for path in self.granted.iter().rev() {
+            if Path::new(path).exists() {
+                if let Err(error) = edit_acl(path, sid, 0, Change::Revoke) {
+                    result = Err(error);
+                }
+            }
+        }
+        for path in self.protected.iter().rev() {
+            if Path::new(&path.path).exists() {
+                if let Err(error) = path.restore() {
+                    result = Err(error);
+                }
+            }
+        }
+        result?;
+        let name = wide(&self.name);
+        unsafe { DeleteAppContainerProfile(PCWSTR(name.as_ptr())) }
+            .or_else(|error| {
+                if error.code() == windows::core::HRESULT::from_win32(ERROR_FILE_NOT_FOUND.0) {
+                    Ok(())
+                } else {
+                    Err(error)
+                }
+            })
+            .map_err(|e| describe("DeleteAppContainerProfile", e))
+    }
+}
+
+fn recover_abandoned_runs() -> Result<()> {
+    let dir = recovery_dir()?;
+    fs::create_dir_all(&dir).map_err(|e| format!("cannot create sandbox recovery folder: {e}"))?;
+    for entry in
+        fs::read_dir(&dir).map_err(|e| format!("cannot read sandbox recovery folder: {e}"))?
+    {
+        let path = entry
+            .map_err(|e| format!("cannot read sandbox recovery record: {e}"))?
+            .path();
+        let extension = path.extension().and_then(|s| s.to_str());
+        if !matches!(extension, Some("json" | "pending")) {
+            continue;
+        }
+        let mut file = match lock_record(&path, false) {
+            Ok(file) => file,
+            Err(error) if error.raw_os_error() == Some(ERROR_SHARING_VIOLATION.0 as i32) => {
+                continue
+            }
+            // Another helper may have finished recovery while we were opening it.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(format!("cannot lock sandbox recovery record: {error}")),
+        };
+        let mut text = String::new();
+        file.read_to_string(&mut text)
+            .map_err(|e| format!("cannot read sandbox recovery record: {e}"))?;
+        // Pending writes cannot have changed permissions. A published record must remain intact.
+        if extension == Some("json") {
+            let record: RecoveryRecord = serde_json::from_str(&text)
+                .map_err(|e| format!("invalid sandbox recovery record: {e}"))?;
+            if !record.name.starts_with("patch.sbx.")
+                || path.file_stem().and_then(|s| s.to_str()) != Some(&record.name)
+            {
+                return Err("invalid sandbox recovery profile".to_string());
+            }
+            let sid = record_sid(&record.name)?;
+            record.undo(sid.0)?;
+        }
+        fs::remove_file(&path)
+            .map_err(|e| format!("cannot remove sandbox recovery record: {e}"))?;
+    }
+    Ok(())
+}
+
+fn original_inheritance(path: &str) -> Result<Option<ProtectedPath>> {
+    let wpath = wide(path);
+    unsafe {
+        let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        let status = GetNamedSecurityInfoW(
+            PCWSTR(wpath.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            None,
+            None,
+            &mut descriptor,
+        );
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot read sandbox permission inheritance (error {})",
+                status.0
+            ));
+        }
+        let _descriptor = LocalMem(descriptor.0);
+        let mut control = SECURITY_DESCRIPTOR_CONTROL::default();
+        let mut revision = 0;
+        GetSecurityDescriptorControl(descriptor, &mut control.0, &mut revision)
+            .map_err(|e| describe("GetSecurityDescriptorControl", e))?;
+        if control.contains(SE_DACL_PROTECTED) {
+            return Ok(None);
+        }
+        let mut sddl = PWSTR::null();
+        ConvertSecurityDescriptorToStringSecurityDescriptorW(
+            descriptor,
+            1,
+            DACL_SECURITY_INFORMATION,
+            &mut sddl,
+            None,
+        )
+        .map_err(|e| describe("save original sandbox permissions", e))?;
+        let _sddl = LocalMem(sddl.0 as *mut c_void);
+        Ok(Some(ProtectedPath {
+            path: path.to_string(),
+            dacl: sddl
+                .to_string()
+                .map_err(|e| describe("decode original sandbox permissions", e.into()))?,
+        }))
+    }
+}
+
+// Normal exits undo immediately. Forced termination releases the lock for the next helper to recover.
 struct Cleanup {
-    name: Vec<u16>,
-    sid: Option<Sid>,
-    // In the order applied; undone in reverse.
-    granted: Vec<(String, u32)>,
-    protected: Vec<String>,
+    record: RecoveryRecord,
+    sid: Sid,
+    path: PathBuf,
+    _file: File,
 }
 
 impl Drop for Cleanup {
     fn drop(&mut self) {
-        if let Some(sid) = &self.sid {
-            for (path, access) in self.granted.iter().rev() {
-                let _ = edit_acl(path, sid.0, *access, Change::Revoke);
-            }
-        }
-        for path in self.protected.iter().rev() {
-            let _ = set_acl_protected(path, false);
-        }
-        unsafe {
-            let _ = DeleteAppContainerProfile(PCWSTR(self.name.as_ptr()));
+        if self.record.undo(self.sid.0).is_ok() {
+            let _ = fs::remove_file(&self.path);
         }
     }
 }
 
 fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     let id = request.id;
-    let name = wide(&profile_name());
+    let record = RecoveryRecord {
+        name: profile_name(),
+        granted: request
+            .read_only
+            .iter()
+            .chain(&request.read_write)
+            .filter(|path| Path::new(path).exists())
+            .cloned()
+            .collect(),
+        protected: request
+            .deny_write
+            .iter()
+            .filter(|path| Path::new(path).exists())
+            .map(|path| original_inheritance(path))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect(),
+    };
+    let name = wide(&record.name);
+    let sid = record_sid(&record.name)?;
+    let pending = recovery_dir()?.join(format!("{}.pending", record.name));
+    let path = pending.with_extension("json");
+    let mut file = lock_record(&pending, true)
+        .map_err(|e| format!("cannot create sandbox recovery record: {e}"))?;
+    serde_json::to_writer(&mut file, &record)
+        .map_err(|e| format!("cannot write sandbox recovery record: {e}"))?;
+    file.sync_all()
+        .map_err(|e| format!("cannot flush sandbox recovery record: {e}"))?;
+    fs::rename(&pending, &path)
+        .map_err(|e| format!("cannot publish sandbox recovery record: {e}"))?;
+    let cleanup = Cleanup {
+        record,
+        sid,
+        path,
+        _file: file,
+    };
     let sid = unsafe {
         CreateAppContainerProfile(
             PCWSTR(name.as_ptr()),
@@ -475,20 +734,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         )
         .map_err(|e| describe("CreateAppContainerProfile", e))?
     };
-    let mut cleanup = Cleanup {
-        name,
-        sid: Some(Sid(sid)),
-        granted: Vec::new(),
-        protected: Vec::new(),
-    };
+    let _created_sid = Sid(sid);
 
     // Package-SID deny ACEs do not override the restricted token's inherited project grant.
     // Stop that grant from inheriting into sensitive paths instead, then restore inheritance on cleanup.
-    for path in &request.deny_write {
-        if Path::new(path).exists() {
-            set_acl_protected(path, true)?;
-            cleanup.protected.push(path.clone());
-        }
+    for path in &cleanup.record.protected {
+        set_acl_protected(&path.path, true)?;
     }
 
     for (paths, access, required) in [
@@ -499,8 +750,6 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             if !Path::new(path).exists() {
                 continue;
             }
-            // Record first: a half-applied change must still be undone.
-            cleanup.granted.push((path.clone(), access));
             if let Err(message) = edit_acl(path, sid, access, Change::Grant) {
                 if required {
                     return Err(message);
@@ -685,4 +934,87 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         timed_out,
     });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_is_idempotent_even_after_the_profile_has_been_deleted() {
+        let name = profile_name();
+        let root = std::env::temp_dir().join(&name);
+        fs::create_dir(&root).unwrap();
+        let path = root.to_str().unwrap().to_string();
+        let wname = wide(&name);
+        let sid = Sid(unsafe {
+            CreateAppContainerProfile(
+                PCWSTR(wname.as_ptr()),
+                windows::core::w!("Patch test"),
+                windows::core::w!("Patch test"),
+                None,
+            )
+            .unwrap()
+        });
+        let record = RecoveryRecord {
+            name,
+            granted: vec![path.clone()],
+            protected: vec![],
+        };
+        let other_name = wide(&profile_name());
+        let other = Sid(unsafe {
+            CreateAppContainerProfile(
+                PCWSTR(other_name.as_ptr()),
+                windows::core::w!("Patch test"),
+                windows::core::w!("Patch test"),
+                None,
+            )
+            .unwrap()
+        });
+        // SDDL always uses SID strings, independent of account-name lookup and OS language.
+        let permissions = || {
+            let wpath = wide(&path);
+            unsafe {
+                let mut descriptor = PSECURITY_DESCRIPTOR::default();
+                assert_eq!(
+                    GetNamedSecurityInfoW(
+                        PCWSTR(wpath.as_ptr()),
+                        SE_FILE_OBJECT,
+                        DACL_SECURITY_INFORMATION,
+                        None,
+                        None,
+                        None,
+                        None,
+                        &mut descriptor
+                    ),
+                    ERROR_SUCCESS
+                );
+                let _descriptor = LocalMem(descriptor.0);
+                let mut sddl = PWSTR::null();
+                ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                    descriptor,
+                    1,
+                    DACL_SECURITY_INFORMATION,
+                    &mut sddl,
+                    None,
+                )
+                .unwrap();
+                let _sddl = LocalMem(sddl.0 as *mut c_void);
+                sddl.to_string().unwrap()
+            }
+        };
+        edit_acl(&path, other.0, FILE_READ_EXECUTE, Change::Grant).unwrap();
+        let unrelated = permissions();
+        edit_acl(&path, sid.0, FILE_MODIFY, Change::Grant).unwrap();
+        assert_ne!(permissions(), unrelated);
+        unsafe { DeleteAppContainerProfile(PCWSTR(wname.as_ptr())).unwrap() };
+        let derived = record_sid(&record.name).unwrap();
+        record.undo(derived.0).unwrap();
+        assert_eq!(permissions(), unrelated);
+        record.undo(derived.0).unwrap();
+        assert_eq!(permissions(), unrelated);
+        edit_acl(&path, other.0, 0, Change::Revoke).unwrap();
+        unsafe { DeleteAppContainerProfile(PCWSTR(other_name.as_ptr())).unwrap() };
+        fs::remove_dir(&root).unwrap();
+    }
 }

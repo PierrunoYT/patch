@@ -17,6 +17,7 @@ The application and installer are named Patch (`Patch.exe` and `Patch-Installer.
 - OpenCode Desktop-inspired interface with neutral light/dark themes, project and session navigation, a collapsible sidebar, and model/approval controls beside the prompt
 - Chat with Claude (Opus 5.5 by default, Sonnet 5.5, Haiku 4.5), OpenAI GPT-6 (Astra, Sol, Luna) or any OpenAI-compatible endpoint, with streaming answers; Claude can also go through a proxy or gateway (Settings → Claude base URL)
 - Works directly in your project: read, search, edit and create files, run commands
+- Windows sandbox permissions recover on the next helper startup after a forced stop; cleanup leaves live commands and unrelated container permissions intact
 - File replacements on supported Claude models use strict tool inputs to prevent omitted required fields in batched edits; every edit still validates locally and follows the approval rules
 - Every file change and command is shown first (diffs, command text) and waits for **Approve** or **Decline** — or switch to **Auto** mode
 - Decline with a note ("use pnpm instead") and the assistant adjusts

@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows sandbox: permission changes are recorded before grants and recovered at the next helper startup after a forced kill. Cleanup preserves live runs and unrelated container grants, works after profile deletion, and restores the original git-hooks ACL without accumulating copied entries (fixes #91). Older unrecorded orphan SIDs are left untouched because their ownership cannot be determined safely.
 - Windows AppContainer commands now start on a temporary drive mapped directly to the authorized project, so projects beneath the user profile support relative reads and writes without exposing parent folders (fixes #88).
 - End-to-end command lifecycle tests no longer depend on whether the Windows AppContainer helper happens to be present, eliminating host-ACL-dependent full-suite failures (fixes #54).
 - Windows AppContainer integration tests no longer grant temporary access to dependencies in the shared checkout, preventing concurrent Electron tests from aborting with exception `0x80000003`.
