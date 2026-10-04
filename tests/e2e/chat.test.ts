@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer, type Server } from 'node:http';
@@ -18,6 +18,7 @@ describe('chat end to end (mock Claude API)', () => {
   beforeAll(async () => {
     project = mkdtempSync(join(tmpdir(), 'patch-e2e-project-'));
     writeFileSync(join(project, 'notes.txt'), 'The secret word is pineapple.\n');
+    writeFileSync(join(project, 'other.txt'), 'pear\n');
     writeFileSync(join(project, 'AGENTS.md'), 'Always answer in lowercase.\n');
     claude = new MockClaude();
     const url = await claude.start();
@@ -147,6 +148,67 @@ describe('chat end to end (mock Claude API)', () => {
     await waitFor((current) => !current.busy && current.transcript.at(-1)?.kind === 'assistant');
     const { readFileSync } = await import('node:fs');
     expect(readFileSync(join(project, 'notes.txt'), 'utf8')).toContain('mango');
+  });
+
+  it('sends a strict edit schema and approves each edit in a batched response separately', async () => {
+    await invoke(`window.api.invoke('chat:new')`);
+    const requestStart = claude.agentRequests.length;
+    claude.script(
+      {
+        blocks: [
+          { type: 'tool_use', id: 'batch_read_1', name: 'read_file', input: { path: 'notes.txt' } },
+          { type: 'tool_use', id: 'batch_read_2', name: 'read_file', input: { path: 'other.txt' } },
+        ],
+        stopReason: 'tool_use',
+      },
+      {
+        blocks: [
+          {
+            type: 'tool_use',
+            id: 'batch_edit_1',
+            name: 'edit_file',
+            input: { path: 'notes.txt', old_string: 'mango', new_string: 'kiwi' },
+          },
+          {
+            type: 'tool_use',
+            id: 'batch_edit_2',
+            name: 'edit_file',
+            input: { path: 'other.txt', old_string: 'pear', new_string: '' },
+          },
+        ],
+        stopReason: 'tool_use',
+      },
+      { blocks: [{ type: 'text', text: 'Both edits complete.' }], stopReason: 'end_turn' },
+    );
+    await invoke(`window.api.invoke('chat:send', { text: 'Edit both notes files' })`);
+    const pending = () =>
+      waitFor((current) =>
+        current.transcript.find((item) => item.kind === 'tool' && item.status === 'awaiting-approval'),
+      );
+    const first = await pending();
+    expect(readFileSync(join(project, 'notes.txt'), 'utf8')).toContain('mango');
+    expect(readFileSync(join(project, 'other.txt'), 'utf8')).toBe('pear\n');
+    const request = claude.agentRequests[requestStart + 1];
+    const editSchema = request.tools.find((tool: any) => tool.name === 'edit_file');
+    expect(editSchema.strict).toBe(true);
+    expect(editSchema.eager_input_streaming).toBeUndefined();
+    expect(editSchema.input_schema.required).toEqual(['path', 'old_string', 'new_string']);
+    expect(request.tool_choice).toBeUndefined();
+    await running.page.evaluate((id) => window.api.invoke('chat:decide', id, { approved: true }), first.id);
+    const second = await pending();
+    expect(second.id).not.toBe(first.id);
+    expect(readFileSync(join(project, 'notes.txt'), 'utf8')).toContain('kiwi');
+    expect(readFileSync(join(project, 'other.txt'), 'utf8')).toBe('pear\n');
+    await running.page.evaluate((id) => window.api.invoke('chat:decide', id, { approved: true }), second.id);
+    const done = await waitForIdle();
+    expect(done.transcript.filter((item) => item.kind === 'tool' && item.name === 'edit_file')).toMatchObject([
+      { status: 'done', undo: 'available' },
+      { status: 'done', undo: 'available' },
+    ]);
+    expect(readFileSync(join(project, 'other.txt'), 'utf8')).toBe('\n');
+    const results = claude.agentRequests[requestStart + 2].messages.at(-1).content;
+    expect(results.map((result: any) => result.tool_use_id)).toEqual(['batch_edit_1', 'batch_edit_2']);
+    expect(results.every((result: any) => !result.is_error)).toBe(true);
   });
 
   it('reopens a saved chat from history', async () => {

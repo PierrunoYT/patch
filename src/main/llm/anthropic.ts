@@ -322,14 +322,18 @@ export class AnthropicConversation implements Conversation {
   buildParams(request: Pick<TurnRequest, 'system' | 'tools'>): Anthropic.Beta.MessageCreateParamsStreaming {
     const capabilities = claudeCapabilities(this.model);
     const betas: Anthropic.Beta.AnthropicBeta[] = [];
-    const tools: Array<Anthropic.Beta.BetaTool> = request.tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      input_schema: toolInputSchema(tool),
-      // Stream large inputs (file contents) as they are generated. The API no longer validates them, so the
-      // agent validates every input against the tool's schema before running it.
-      eager_input_streaming: true,
-    }));
+    const tools: Array<Anthropic.Beta.BetaTool> = request.tools.map((tool) => {
+      const strict = capabilities.strictTools && tool.strictInput && tool.schema && !tool.jsonSchema;
+      return {
+        name: tool.name,
+        description: tool.description,
+        // The SDK moves unsupported constraints (e.g. minLength) into descriptions. The agent still
+        // validates the original Zod schema, including those constraints, before previewing or running.
+        input_schema: strict ? { ...zodOutputFormat(tool.schema!).schema, type: 'object' } : toolInputSchema(tool),
+        // Buffer strict inputs for API validation; other tools keep streaming large inputs as generated.
+        ...(strict ? { strict: true } : { eager_input_streaming: true }),
+      };
+    });
     const lastTool = tools.at(-1);
     if (lastTool) lastTool.cache_control = { type: 'ephemeral' };
 

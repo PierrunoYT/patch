@@ -10,6 +10,8 @@ export interface ToolSpec {
   // Built-in tools declare a Zod schema; MCP tools arrive with a JSON Schema instead. One of the two is required.
   schema?: z.ZodObject<z.ZodRawShape>;
   jsonSchema?: JsonObjectSchema;
+  // Opt in to provider-enforced inputs where supported. Only for built-in Zod schemas.
+  strictInput?: boolean;
 }
 
 // A JSON Schema for an object-shaped tool input, as the providers expect it.

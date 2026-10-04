@@ -183,6 +183,7 @@ describe('task tool (subagent)', () => {
     const writeTool = defineTool({
       name: 'write_file',
       description: 'write a file',
+      strictInput: true,
       schema: z.object({ path: z.string(), content: z.string() }),
       requiresApproval: true,
       async run() {
@@ -211,6 +212,7 @@ describe('task tool (subagent)', () => {
     expect(request.tools.map((tool) => [tool.name, tool.description, tool.schema])).toEqual(
       parentTools.map((tool) => [tool.name, tool.description, tool.schema]),
     );
+    expect(request.tools[1]?.strictInput).toBe(true);
     // The role moves into the first message instead.
     expect(conversation.users[0]?.text).toContain('read-only research subagent');
     expect(conversation.users[0]?.text).toContain('# Delegated question\nFix a.ts');

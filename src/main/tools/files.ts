@@ -209,6 +209,7 @@ export const writeFileTool = defineTool({
 
 export const editFileTool = defineTool({
   name: 'edit_file',
+  strictInput: true,
   description:
     'Replace an exact string in a file. old_string must match the file exactly (including indentation) and be unique unless replace_all is true. Read the file first with read_file (in an earlier step, not in the same batch as the edit). Always send path, old_string and new_string. Include enough surrounding lines to make old_string unique.',
   schema: z.object({

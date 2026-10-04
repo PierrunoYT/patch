@@ -49,6 +49,7 @@ function readOnlyStandIn(tool: AgentTool): AgentTool {
     description: tool.description,
     schema: tool.schema,
     jsonSchema: tool.jsonSchema,
+    strictInput: tool.strictInput,
     requiresApproval: false,
     parallelSafe: true,
     run: async () => {

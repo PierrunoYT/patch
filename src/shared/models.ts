@@ -168,6 +168,8 @@ export interface ClaudeCapabilities {
   refusalFallback: boolean;
   // Image input: attached or pasted images in a user message.
   images: boolean;
+  // Grammar-constrained tool inputs (strict: true).
+  strictTools: boolean;
 }
 
 // Claude models known to accept images. A custom Claude id is not assumed to, since an image it cannot take is a 400.
@@ -184,6 +186,7 @@ export function claudeCapabilities(model: string): ClaudeCapabilities {
     compaction: current,
     refusalFallback: /^claude-(opus-5-5|sonnet-5-5|fable-5-1)$/.test(model),
     images: IMAGE_MODELS.test(model),
+    strictTools: current || model === 'claude-haiku-4-5',
   };
 }
 

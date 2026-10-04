@@ -71,6 +71,8 @@ export interface AgentTool<S extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.
   // input is only checked structurally (object with required fields) before being sent to the server.
   schema?: S;
   jsonSchema?: JsonObjectSchema;
+  // Ask supporting providers to enforce the input schema; local validation still runs.
+  strictInput?: boolean;
   // Tools that change files or run commands wait for approval unless the user chose auto mode.
   requiresApproval: boolean;
   // Still asks in Auto mode. MCP tools run programs the user configured, so they are never pre-approved.

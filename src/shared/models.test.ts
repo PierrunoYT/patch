@@ -14,6 +14,17 @@ import {
   subagentModelId,
 } from './models';
 
+describe('strict tool inputs', () => {
+  it('is enabled for built-in Claude models and disabled for unknown ids', () => {
+    for (const option of MODEL_OPTIONS.filter((option) => option.provider === 'anthropic')) {
+      expect(claudeCapabilities(option.id).strictTools).toBe(true);
+    }
+    for (const model of ['claude-custom', 'claude-2.1', 'claude-opus-5-5-preview']) {
+      expect(claudeCapabilities(model).strictTools).toBe(false);
+    }
+  });
+});
+
 describe('image input', () => {
   it('is on for every built-in model', () => {
     for (const option of MODEL_OPTIONS) expect(acceptsImages(option.id)).toBe(true);

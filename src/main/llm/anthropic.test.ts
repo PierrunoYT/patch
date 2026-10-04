@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { appLog } from '../app_log';
+import { editFileTool } from '../tools/files';
+import { toToolSpecs } from '../tools/registry';
 import { AnthropicCompletionClient, AnthropicConversation, createAnthropicClient } from './anthropic';
 import { anthropicStream, MockApiServer } from './test_server';
 import type { ToolSpec, TurnRequest } from './types';
@@ -164,7 +166,75 @@ describe('AnthropicConversation', () => {
     expect(headers['anthropic-beta']).toContain('server-side-fallback-2026-07-01');
   });
 
-  it('sends a plain request to models without those features', async () => {
+  it.each([
+    'claude-opus-5-5',
+    'claude-sonnet-5-5',
+    'claude-haiku-4-5',
+    'claude-opus-5',
+    'claude-fable-5-1',
+    'claude-fable-5',
+  ])('enforces edit_file inputs on %s without forcing or serializing tool calls', async (model) => {
+    server.queueSse(anthropicStream([{ type: 'text', text: 'ok' }], 'end_turn'));
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model,
+      effort: 'high',
+    });
+    conversation.addUserMessage({ text: 'edit two files' });
+    await conversation.runTurn(request({ tools: [readFileTool, ...toToolSpecs([editFileTool])] }));
+
+    const body = server.requests[0]!.body;
+    const edit = body.tools[1];
+    expect(edit.strict).toBe(true);
+    expect(edit.eager_input_streaming).toBeUndefined();
+    expect(edit.input_schema).toMatchObject({
+      type: 'object',
+      additionalProperties: false,
+      required: ['path', 'old_string', 'new_string'],
+      properties: {
+        path: { type: 'string' },
+        old_string: { type: 'string' },
+        new_string: { type: 'string' },
+      },
+    });
+    const replaceAll = edit.input_schema.properties.replace_all;
+    const replaceAllSchema = replaceAll.$ref ? edit.input_schema.$defs[replaceAll.$ref.split('/').at(-1)] : replaceAll;
+    expect(replaceAllSchema).toMatchObject({ type: 'boolean' });
+    // Unsupported constraints stay in local validation, rather than making the API reject the request.
+    expect(edit.input_schema.properties.old_string.minLength).toBeUndefined();
+    expect(edit.input_schema.properties.old_string.description).toContain('minLength');
+    expect(editFileTool.schema!.safeParse({ path: 'a', old_string: '', new_string: '' }).success).toBe(false);
+    expect(editFileTool.schema!.safeParse({ path: 'a', old_string: 'x', new_string: '' }).success).toBe(true);
+    expect(body.tools[0].strict).toBeUndefined();
+    expect(body.tools[0].eager_input_streaming).toBe(true);
+    expect(edit.cache_control).toEqual({ type: 'ephemeral' });
+    expect(body.tool_choice).toBeUndefined();
+  });
+
+  it('leaves custom models and server-provided schemas outside strict mode', () => {
+    const tools = toToolSpecs([editFileTool]);
+    const unknown = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-custom',
+      effort: 'high',
+    });
+    expect(unknown.buildParams({ system: 'test', tools }).tools?.[0]).toMatchObject({
+      eager_input_streaming: true,
+      input_schema: { properties: { old_string: { minLength: 1 } } },
+    });
+    expect(unknown.buildParams({ system: 'test', tools }).tools?.[0]).not.toHaveProperty('strict');
+    const known = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-opus-5-5',
+      effort: 'high',
+    });
+    const jsonSchema = { type: 'object' as const, additionalProperties: true };
+    const mcp = known.buildParams({
+      system: 'test',
+      tools: [{ ...tools[0]!, jsonSchema }],
+    }).tools?.[0];
+    expect(mcp).toMatchObject({ input_schema: jsonSchema, eager_input_streaming: true });
+    expect(mcp).not.toHaveProperty('strict');
+  });
+
+  it('omits thinking, compaction and fallback for Haiku', async () => {
     server.queueSse(anthropicStream([{ type: 'text', text: 'ok' }], 'end_turn'));
     const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
       model: 'claude-haiku-4-5',
