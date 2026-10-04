@@ -385,6 +385,33 @@ describe('agent loop', () => {
       expect(reopened.conversation.users[0]!.text).toBe(`${note(PLAN_MODE_OFF_NOTE)}two`);
       expect(reopened.session.serialize().planModeTold).toBeUndefined();
     });
+
+    it('tells a change made during a run with the next tool results, once', async () => {
+      let on = false;
+      const look = (id: string) => ({ toolCalls: [{ id, name: 'look', input: { what: id } }] });
+      const { session, conversation } = setup(
+        [
+          async () => {
+            on = true;
+            return look('l1');
+          },
+          look('l2'),
+          async () => {
+            on = false;
+            return look('l3');
+          },
+          { text: 'done' },
+        ],
+        { mode: 'auto', planMode: () => on },
+      );
+      await session.send({ text: 'go' });
+
+      const contents = conversation.toolResults.map((batch) => batch.at(-1)!.content);
+      expect(contents[0]).toMatch(new RegExp(`\\[Note from the app: ${PLAN_MODE_ON_NOTE}\\]$`));
+      expect(contents[1]).not.toContain('Note from the app');
+      expect(contents[2]).toMatch(new RegExp(`\\[Note from the app: ${PLAN_MODE_OFF_NOTE}\\]$`));
+      expect(session.serialize().planModeTold).toBeUndefined();
+    });
   });
 
   it('rejects invalid tool input without running the tool', async () => {

@@ -38,6 +38,9 @@ export interface AgentOptions {
   // Whether plan mode is on. propose_plan is always in the tool list; while this is false a call to it is answered
   // without an approval card and holds nothing back. Without it, a propose_plan call always shows its card.
   planMode?: () => boolean;
+  // Asked after each tool batch: text the model must be told now (plan mode was toggled during the run), added to the
+  // batch's last result as a note from the app. Empty when there is nothing to tell.
+  toolBatchNote?: () => string;
   // True for a call the user allowed in advance (see the allowedCommands setting); it then skips the approval card.
   isPreApproved?: (toolName: string, input: unknown) => boolean;
   // A permission rule's verdict on a call (see the permissionRules setting): allow skips the approval card, ask
@@ -178,6 +181,10 @@ export class Agent {
       // A response cut off by the output limit or by a full context window may have cut off a tool input too.
       const truncated = result.stopReason === 'max_tokens' || result.stopReason === 'context_exceeded';
       const { results, stop } = await this.runTools(tools, result.toolCalls, truncated, signal);
+      const note = this.options.toolBatchNote?.() ?? '';
+      const last = results.at(-1);
+      if (note && last)
+        results[results.length - 1] = { ...last, content: `${last.content}\n\n[Note from the app: ${note}]` };
       conversation.addToolResults(results);
       this.options.onCheckpoint?.();
       if (stop || signal.aborted) {

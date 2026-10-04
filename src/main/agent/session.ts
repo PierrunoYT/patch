@@ -122,6 +122,7 @@ export class ChatSession {
       tools: options.tools,
       approvalMode: options.approvalMode,
       planMode: () => options.planMode?.() ?? false,
+      toolBatchNote: () => this.planChangeNote(),
       isPreApproved: options.isPreApproved,
       decidePermission: options.decidePermission,
       requestApproval: (id, signal) => this.waitForApproval(id, signal),
@@ -237,6 +238,15 @@ export class ChatSession {
     this.planModeTold = on;
     if (on) return [PLAN_MODE_ON_NOTE];
     return wasOn ? [PLAN_MODE_OFF_NOTE] : [];
+  }
+
+  // During a run, plan mode is told only when it was toggled since the model last heard about it: the note goes with
+  // the next tool results, so the model does not have to wait for the user's next message to learn the change.
+  private planChangeNote(): string {
+    const on = this.options.planMode?.() ?? false;
+    if (on === this.planModeTold) return '';
+    this.planModeTold = on;
+    return on ? PLAN_MODE_ON_NOTE : PLAN_MODE_OFF_NOTE;
   }
 
   private async run(work: (signal: AbortSignal) => Promise<boolean>): Promise<void> {
