@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { appLog } from './app_log';
 import {
   DEFAULT_SETTINGS,
   sanitizeMcpServers,
@@ -128,6 +129,26 @@ export class SettingsStore extends EventEmitter {
     } catch {
       return '';
     }
+  }
+
+  // Saved keys that cannot be decrypted. safeStorage keeps its own key in the profile's `Local State`, which Chromium
+  // writes about 10 s after the key is created or when the app quits, so a crash or forced exit soon after saving the
+  // first key loses it and the saved keys can never be read again (#54). getSecret then returns '' and the app asks for
+  // the key as if it was never entered; this lets startup say why. Nothing is deleted: on Linux decryption can also
+  // fail while the keyring is locked, and saving the key again replaces it anyway.
+  unreadableSecrets(): SecretName[] {
+    const unreadable = SECRET_NAMES.filter((name) => {
+      const stored = this.secrets[name];
+      if (!stored || stored.startsWith('plain:')) return false;
+      try {
+        this.cipher.decrypt(stored);
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    for (const name of unreadable) appLog.warn('settings', 'A saved key could not be decrypted.', { name });
+    return unreadable;
   }
 
   setSecret(name: SecretName, value: string): SettingsView {

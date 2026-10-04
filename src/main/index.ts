@@ -359,6 +359,24 @@ function start(): void {
   const openWindow = () => createMainWindow((guest) => browser.attach(guest));
   buildMenu(() => mainWindow, join(userData, 'logs'));
   mainWindow = openWindow();
+  // Tell the user once the page can show it, instead of only asking for the key as if it was never entered.
+  const unreadable = settings.unreadableSecrets();
+  if (unreadable.length > 0) {
+    const labels: Record<string, string> = {
+      anthropicApiKey: 'Anthropic API key',
+      openaiApiKey: 'OpenAI API key',
+      openrouterApiKey: 'OpenRouter API key',
+      googleApiKey: 'Google API key',
+    };
+    const names = unreadable.map((name) => labels[name] ?? name).join(', ');
+    mainWindow.webContents.once('did-finish-load', () =>
+      send(
+        mainWindow,
+        'app:notice',
+        `Your saved ${names} could not be read, likely because Patch was closed right after it was saved. Enter it again in Settings.`,
+      ),
+    );
+  }
   mainWindow.on('closed', () => (mainWindow = null));
 
   app.on('activate', () => {

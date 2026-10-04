@@ -80,6 +80,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- A saved key that can no longer be decrypted is reported instead of looking like no key at all ([#54](https://github.com/PierrunoYT/patch/issues/54)). Electron keeps its encryption key in memory for about 10 seconds after the first key is saved, so a crash in that window made the key unreadable and Patch simply asked for it again. Patch now tells you at start to enter it again and logs which key it was. Notices from the main process (such as "MCP servers updated") are now actually shown.
+- The end-to-end tests that restart the app on the same profile wait until saved keys are on disk first, which removes the intermittent "Add your Anthropic API key" failures on Windows CI ([#54](https://github.com/PierrunoYT/patch/issues/54)).
 - Code search errors from OpenRouter say what to do next: a rejected key (401/403, such as "User not found") asks to check the OpenRouter API key in Settings, and 402 asks to add credits.
 - `grep` accepts a leading `(?i)`, the inline case-insensitive flag models often write, as `ignore_case` instead of failing with "Invalid group"; other invalid patterns point to `ignore_case`.
 - Sign in with ChatGPT keeps a valid session when two chats refresh at once. A refresh that finishes after sign-out, or after a sign-in to another account, leaves that newer choice in place. Starting sign-in again cancels one that is still waiting, and a callback for a different login does not abort the current one.

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core';
@@ -10,13 +10,40 @@ export interface RunningApp {
   userData: string;
   errors: string[];
   // Ends the app abruptly (SIGKILL), as a crash or power loss would: no quit handlers run and nothing more is saved.
-  kill(): Promise<void>;
+  // On a profile the test reuses, it first waits until saved keys are decryptable after a restart (see
+  // waitForDurableSecrets); `{ keepSecrets: false }` skips that, to test what a crash right after saving a key does.
+  kill(options?: { keepSecrets?: boolean }): Promise<void>;
   // Output the main process wrote to stderr (e.g. errors from IPC handlers).
   mainErrors: string[];
   close(): Promise<void>;
 }
 
 const CLOSE_TIMEOUT_MS = 20_000;
+const SECRETS_TIMEOUT_MS = 15_000;
+
+// Saved keys are encrypted with Electron's safeStorage, whose own key lives in the profile's `Local State` file. Chromium
+// writes that file about 10 s after the key is created, or when the app quits, so a test that saves a key and restarts
+// the app on the same profile soon after must not race that write: a restarted app that finds no key in `Local State`
+// creates a new one and cannot decrypt the saved secrets (#54). Waits until the key is on disk when the profile holds
+// encrypted secrets; returns at once otherwise.
+export async function waitForDurableSecrets(userData: string): Promise<void> {
+  const read = (file: string): Record<string, any> | null => {
+    try {
+      return JSON.parse(readFileSync(join(userData, file), 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+  const secrets = Object.values(read('settings.json')?.secrets ?? {});
+  if (!secrets.some((value) => typeof value === 'string' && !value.startsWith('plain:'))) return;
+  const deadline = Date.now() + SECRETS_TIMEOUT_MS;
+  while (!read('Local State')?.os_crypt?.encrypted_key) {
+    if (Date.now() > deadline) {
+      throw new Error(`The saved keys' encryption key never reached ${join(userData, 'Local State')}.`);
+    }
+    await delay(200);
+  }
+}
 
 export const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -92,7 +119,8 @@ export async function launchApp(
     userData,
     errors,
     mainErrors,
-    async kill() {
+    async kill({ keepSecrets = true }: { keepSecrets?: boolean } = {}) {
+      if (options.userData && keepSecrets && existsSync(userData)) await waitForDurableSecrets(userData);
       const child = app.process();
       const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
       killed = true;
@@ -106,6 +134,8 @@ export async function launchApp(
         if (!options.userData) rmSync(userData, { recursive: true, force: true });
         return;
       }
+      // A profile the test reuses must keep its saved keys usable for the next launch.
+      if (options.userData) await waitForDurableSecrets(userData);
       // A hang here would otherwise surface as an opaque 60-second hook timeout. After 20 seconds the app is killed, so
       // no processes are left behind, and the test fails with what the main process printed.
       const pid = app.process().pid;

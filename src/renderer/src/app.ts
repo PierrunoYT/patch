@@ -209,6 +209,8 @@ export class App {
       // Stream deltas arrive quickly; apply them in batches once per frame.
       this.frame ||= requestAnimationFrame(() => this.flushEvents());
     });
+    // Notices from the main process (MCP servers reconnected, a saved key that can no longer be read).
+    api.on('app:notice', (text) => this.toast(text, 'warning'));
     api.on('menu:command', (command) => {
       if (command === 'open-project') void this.chooseProject();
       else if (command === 'new-chat') void this.newChat();
@@ -812,7 +814,7 @@ export class App {
     document.documentElement.dataset.bsTheme = this.settings.theme;
   }
 
-  toast(error: unknown, kind: 'danger' | 'success' = 'danger'): void {
+  toast(error: unknown, kind: 'danger' | 'success' | 'warning' = 'danger'): void {
     const message =
       error instanceof Error
         ? error.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')

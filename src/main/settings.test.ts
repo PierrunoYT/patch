@@ -32,6 +32,23 @@ describe('SettingsStore', () => {
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  it('reports saved keys that can no longer be decrypted, without deleting them', () => {
+    new SettingsStore(file, reversingCipher).setSecret('anthropicApiKey', 'sk-ant-123');
+    // The encryption key is gone (#54): the stored value no longer decrypts.
+    const lost: SecretCipher = {
+      ...reversingCipher,
+      decrypt: () => {
+        throw new Error('bad key');
+      },
+    };
+    const store = new SettingsStore(file, lost);
+    expect(store.unreadableSecrets()).toEqual(['anthropicApiKey']);
+    expect(store.getSecret('anthropicApiKey')).toBe('');
+    // Still stored: saving the key again replaces it, and a keyring that was only locked can read it later.
+    expect(store.view().secrets.anthropicApiKey).toBe(true);
+    expect(new SettingsStore(file, reversingCipher).unreadableSecrets()).toEqual([]);
+  });
+
   it('keeps a Claude base URL only when it is http(s), rejecting a typo and dropping a bad saved one', () => {
     const store = new SettingsStore(file, reversingCipher);
     expect(store.update({ anthropicBaseUrl: ' https://gateway.example/anthropic ' }).anthropicBaseUrl).toBe(
