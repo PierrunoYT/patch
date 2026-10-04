@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AppLog, redact } from './app_log';
+import { AppLog, logNativeCrashDumps, redact } from './app_log';
 
 let dir: string;
 let file: string;
@@ -145,5 +145,40 @@ describe('redact', () => {
 
   it('redacts JSON-style key fields', () => {
     expect(redact('{"apiKey":"supersecretvalue","model":"m"}')).toBe('{"apiKey":"[redacted]","model":"m"}');
+  });
+});
+
+describe('logNativeCrashDumps', () => {
+  it('logs each native dump once and remembers it across launches', () => {
+    const crashDirectory = join(dir, 'crashes');
+    const stateFile = join(dir, 'logs', 'native-crashes.json');
+    mkdirSync(join(crashDirectory, 'pending'), { recursive: true });
+    writeFileSync(join(crashDirectory, 'pending', 'first.dmp'), 'first crash');
+    writeFileSync(join(crashDirectory, 'metadata'), 'not a dump');
+
+    expect(logNativeCrashDumps(log, crashDirectory, stateFile)).toBe(1);
+    mkdirSync(join(crashDirectory, 'completed'));
+    renameSync(join(crashDirectory, 'pending', 'first.dmp'), join(crashDirectory, 'completed', 'first.dmp'));
+    expect(logNativeCrashDumps(log, crashDirectory, stateFile)).toBe(0);
+
+    const nativeCrashes = entries().filter((entry) => entry.source === 'native-crash');
+    expect(nativeCrashes).toHaveLength(1);
+    expect(nativeCrashes[0]).toMatchObject({
+      level: 'error',
+      message: expect.stringContaining('crashed natively'),
+      context: {
+        dump: 'first.dmp',
+        bytes: 11,
+        modified: expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
+      },
+    });
+  });
+
+  it('does not disrupt startup when the crash database or marker is unreadable', () => {
+    const blocker = join(dir, 'blocker');
+    writeFileSync(blocker, 'not a directory');
+
+    expect(() => logNativeCrashDumps(log, blocker, join(blocker, 'state.json'))).not.toThrow();
+    expect(existsSync(file)).toBe(false);
   });
 });

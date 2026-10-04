@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, safeStorage, session, shell } from 'electron';
+import { app, BrowserWindow, crashReporter, dialog, safeStorage, session, shell } from 'electron';
 import { join } from 'node:path';
 import { SECRET_NAMES } from '@shared/settings';
 import { ToolErrorLog } from './agent/tool_error_log';
 import { EditBackups } from './tools/edit_backups';
-import { appLog } from './app_log';
+import { appLog, logNativeCrashDumps } from './app_log';
 import { ChatManager } from './chat_manager';
 import { ChatStore } from './chat_store';
 import { chatToMarkdown, exportFileName } from '@shared/export';
@@ -38,7 +38,13 @@ setPackagedBuild(app.isPackaged);
 app.setPath('userData', process.env.PATCH_USER_DATA || join(app.getPath('appData'), 'Patch'));
 
 // Crashes and other problems go to a local log (never sent anywhere). Set up before anything else can fail.
-appLog.setFile(join(app.getPath('userData'), 'logs', 'app.log.jsonl'));
+const userDataPath = app.getPath('userData');
+const logsPath = join(userDataPath, 'logs');
+appLog.setFile(join(logsPath, 'app.log.jsonl'));
+// JavaScript cannot handle a native main-process exception such as a Chromium assertion. Crashpad writes a local
+// minidump before the process exits; a later launch records it in the ordinary log. Reports never leave the machine.
+crashReporter.start({ productName: 'Patch', uploadToServer: false });
+logNativeCrashDumps(appLog, app.getPath('crashDumps'), join(logsPath, 'native-crashes.json'));
 process.on('uncaughtException', (error) => {
   appLog.error('uncaught-exception', error);
   // A listener replaces Electron's own error dialog, so keep telling the user.

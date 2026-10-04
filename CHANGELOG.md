@@ -34,6 +34,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - `todo_list` tool: a per-chat checklist shown on its card.
 - `finder` (small model) and `oracle` read-only subagents next to `task`; the subagents can also use `glob`.
 - `fetch_url` returns long pages in parts (`offset`), caches pages for 15 minutes (`force_refetch`) and takes an `objective` that lists the matching lines of a long page first.
+- Native Electron crashes are retained locally as minidumps with uploads disabled. On the next launch, each new dump adds a `native-crash` entry to `logs/app.log.jsonl`, so main-process assertions and breakpoint exceptions are no longer absent from Patch's crash log.
 
 - Desktop coding assistant with streaming Claude, OpenAI Responses API and OpenAI-compatible chat, configurable models and reasoning effort.
 - Workspace tools for reading, searching and editing files, running foreground and background commands, fetching pages, web search and optional semantic code search.

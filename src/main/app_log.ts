@@ -1,3 +1,5 @@
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { JsonlLog } from './storage/jsonl_log';
 
 const MAX_MESSAGE = 2000;
@@ -70,3 +72,81 @@ function safeString(value: unknown): string {
 }
 
 export const appLog = new AppLog();
+
+interface NativeCrashDump {
+  key: string;
+  bytes: number;
+  modified: string;
+}
+
+// A native main-process failure cannot run JavaScript to log itself. Electron's crash reporter saves a minidump first;
+// the next launch calls this function to add one log entry for each dump that has not been reported before.
+export function logNativeCrashDumps(log: AppLog, crashDirectory: string, stateFile: string): number {
+  const dumps = findCrashDumps(crashDirectory);
+  const seen = readSeenCrashDumps(stateFile);
+  const newDumps = dumps.filter((dump) => !seen.has(dump.key));
+
+  for (const dump of newDumps) {
+    log.error(
+      'native-crash',
+      'An Electron process crashed natively during an earlier run. A local minidump was saved.',
+      {
+        dump: dump.key,
+        bytes: dump.bytes,
+        modified: dump.modified,
+      },
+    );
+  }
+
+  if (newDumps.length > 0) {
+    try {
+      mkdirSync(dirname(stateFile), { recursive: true });
+      writeFileSync(stateFile, JSON.stringify([...new Set([...seen, ...dumps.map((dump) => dump.key)])]), 'utf8');
+    } catch {
+      // The app log itself is best-effort too. A failed marker write may repeat an entry next launch, but must not
+      // prevent Patch from starting.
+    }
+  }
+  return newDumps.length;
+}
+
+function findCrashDumps(root: string): NativeCrashDump[] {
+  const found: NativeCrashDump[] = [];
+  const visit = (directory: string): void => {
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(path);
+      } else if (entry.isFile() && entry.name.endsWith('.dmp')) {
+        try {
+          const stats = statSync(path);
+          found.push({
+            // Crashpad can move reports between its internal folders; the UUID-style file name stays stable.
+            key: entry.name,
+            bytes: stats.size,
+            modified: stats.mtime.toISOString(),
+          });
+        } catch {
+          // A report may disappear while Crashpad tidies its database; the next launch can try any remaining dump.
+        }
+      }
+    }
+  };
+  visit(resolve(root));
+  return found.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function readSeenCrashDumps(file: string): Set<string> {
+  try {
+    const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    return new Set(Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}

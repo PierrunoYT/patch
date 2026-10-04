@@ -30,6 +30,15 @@ describe('crash and error log', () => {
     expect(entries().find((entry) => entry.source === 'app')?.context).toMatchObject({ platform: process.platform });
   });
 
+  it('collects native crash dumps locally without uploading them', async () => {
+    const crashReporter = await running.app.evaluate(({ app, crashReporter }) => ({
+      directory: app.getPath('crashDumps'),
+      uploadToServer: crashReporter.getUploadToServer(),
+    }));
+    expect(crashReporter.directory.startsWith(running.userData)).toBe(true);
+    expect(crashReporter.uploadToServer).toBe(false);
+  });
+
   it('logs an error that reaches the top of the UI', async () => {
     await running.page.evaluate(() => {
       setTimeout(() => {
