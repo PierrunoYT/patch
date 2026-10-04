@@ -40,12 +40,10 @@ describe('decideSandbox', () => {
     });
   });
 
-  it('says plainly when automatic mode finds nothing to use', () => {
-    const win = decideSandbox('ls', config, { ...none, container: 'docker' }, {}, 'win32');
-    expect(win.kind).toBe('none');
-    expect(describeSandbox(win)).toMatch(/NOT sandboxed.*Windows/);
-    const linux = decideSandbox('ls', config, none, {}, 'linux');
-    expect(describeSandbox(linux)).toMatch(/NOT sandboxed.*bubblewrap/);
+  it.each(['win32', 'linux', 'darwin'] as const)('fails closed without a native backend on %s', (platform) => {
+    const decision = decideSandbox('ls', config, { ...none, container: 'docker' }, {}, platform);
+    expect(decision.kind).toBe('unavailable');
+    expect(describeSandbox(decision)).toMatch(/Cannot run:.*unsandboxed access.*not run/);
   });
 
   it('uses the AppContainer helper on Windows and says so', () => {
@@ -57,7 +55,7 @@ describe('decideSandbox', () => {
       kind: 'appcontainer',
       network: true,
     });
-    expect(decideSandbox('ls', config, support, {}, 'linux').kind).toBe('none');
+    expect(decideSandbox('ls', config, support, {}, 'linux').kind).toBe('unavailable');
   });
 
   it('does not run in the AppContainer when sandboxing is off or allowed to be skipped', () => {
@@ -110,7 +108,7 @@ describe('wantsNetwork', () => {
 });
 
 describe('bwrapArgs', () => {
-  const existing = ['/usr', '/bin', '/etc', '/home/u/.cargo', '/home/u/.gitconfig', '/home/u/proj/.git/hooks'];
+  const existing = ['/usr', '/bin', '/etc', '/home/u/.cargo/bin', '/home/u/.gitconfig', '/home/u/proj/.git/hooks'];
 
   it('hides home, binds the project writable and unshares the network', () => {
     const args = bwrapArgs(env(existing), false);
@@ -120,7 +118,7 @@ describe('bwrapArgs', () => {
     const text = args.join(' ');
     expect(text).toContain('--tmpfs /home/u');
     expect(text).toContain('--ro-bind /usr /usr');
-    expect(text).toContain('--ro-bind /home/u/.cargo /home/u/.cargo');
+    expect(text).toContain('--ro-bind /home/u/.cargo/bin /home/u/.cargo/bin');
     expect(text).toContain('--bind /home/u/proj /home/u/proj');
     expect(text).toContain('--ro-bind /home/u/proj/.git/hooks /home/u/proj/.git/hooks');
     expect(text).not.toContain('.ssh');
@@ -130,7 +128,7 @@ describe('bwrapArgs', () => {
 
   it('hides the home folder before opening anything inside it', () => {
     const args = bwrapArgs(env(existing), false);
-    expect(args.indexOf('--tmpfs')).toBeLessThan(args.indexOf('/home/u/.cargo'));
+    expect(args.indexOf('--tmpfs')).toBeLessThan(args.indexOf('/home/u/.cargo/bin'));
     expect(args.lastIndexOf('--tmpfs', args.indexOf('--bind'))).toBeLessThan(args.indexOf('--bind'));
   });
 
@@ -147,13 +145,13 @@ describe('bwrapArgs', () => {
 
 describe('seatbeltProfile', () => {
   it('denies by default, hides home, opens the project and denies the network', () => {
-    const profile = seatbeltProfile({ ...env(['/home/u/.cargo']) }, false);
+    const profile = seatbeltProfile({ ...env(['/home/u/.cargo/bin']) }, false);
     expect(profile).toContain('(deny default)');
     expect(profile).toContain('(deny file-read* (subpath "/home/u"))');
     expect(profile.indexOf('(deny file-read*')).toBeLessThan(
       profile.indexOf('(allow file-read* (subpath "/home/u/proj")'),
     );
-    expect(profile).toContain('(subpath "/home/u/.cargo")');
+    expect(profile).toContain('(subpath "/home/u/.cargo/bin")');
     expect(profile).toMatch(/\(allow file-write\* \(subpath "\/home\/u\/proj"\)/);
     expect(profile).toContain('(deny file-write* (subpath "/home/u/proj/.git/hooks"))');
     expect(profile).not.toContain('network');
@@ -166,6 +164,14 @@ describe('seatbeltProfile', () => {
 });
 
 describe('containerArgs', () => {
+  it.each(['docker', 'podman'] as const)('protects existing Git hooks in %s after mounting the project', (engine) => {
+    const { args } = containerArgs(engine, env(['/home/u/proj/.git/hooks']), false);
+    const mount = '/home/u/proj/.git/hooks:/workspace/.git/hooks:ro';
+    expect(args).toContain(mount);
+    expect(args.indexOf(mount)).toBeGreaterThan(args.indexOf('/home/u/proj:/workspace'));
+    expect(args.indexOf(mount)).toBeLessThan(args.indexOf('node:lts'));
+  });
+
   it('mounts only the project, drops privileges and has no network by default', () => {
     const { args, stop } = containerArgs('docker', env(), false);
     expect(args.slice(0, 2)).toEqual(['run', '--rm']);
@@ -212,5 +218,32 @@ describe('describeSandbox', () => {
     expect(describeSandbox({ kind: 'container', network: true }, { network: true })).toMatch(
       /allowed for this command/,
     );
+    expect(describeSandbox({ kind: 'bwrap', network: true })).toContain(
+      'unrestricted network on (not filtered by hostname)',
+    );
+  });
+});
+
+describe('home credential isolation', () => {
+  it('opens tool binaries and caches without opening their credential-bearing parents', () => {
+    const input = { ...env(), exists: () => true };
+    const args = bwrapArgs(input, false);
+    const mounts = args.filter((_, i) => args[i - 1] === '--ro-bind');
+    const profile = seatbeltProfile(input, false);
+    for (const rel of [
+      '.cargo/bin',
+      '.cargo/registry',
+      '.cargo/git',
+      '.m2/repository',
+      '.gradle/caches',
+      '.gradle/wrapper',
+    ]) {
+      expect(mounts).toContain(`${input.home}/${rel}`);
+      expect(profile).toContain(`(subpath "${input.home}/${rel}")`);
+    }
+    for (const rel of ['.cargo', '.m2', '.gradle', '.gitconfig', '.config/git']) {
+      expect(mounts).not.toContain(`${input.home}/${rel}`);
+      expect(profile).not.toContain(`(subpath "${input.home}/${rel}")`);
+    }
   });
 });

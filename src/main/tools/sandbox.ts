@@ -36,9 +36,11 @@ export type SandboxDecision =
   { kind: SandboxKind; network: boolean; note?: string } | { kind: 'unavailable'; reason: string };
 
 // Read-only inside the sandbox when they exist: what builds need. Everything else in the home folder is hidden.
-// Credentials (.ssh, .aws, .npmrc, browser profiles, ...) are deliberately not listed.
+// Open binaries/caches, not their credential-bearing parent folders or global Git configuration.
 export const HOME_READ_ONLY = [
-  '.cargo',
+  '.cargo/bin',
+  '.cargo/registry',
+  '.cargo/git',
   '.rustup',
   '.nvm',
   '.volta',
@@ -52,11 +54,10 @@ export const HOME_READ_ONLY = [
   '.local/share/pnpm',
   '.npm',
   '.cache/pip',
-  '.m2',
-  '.gradle',
+  '.m2/repository',
+  '.gradle/caches',
+  '.gradle/wrapper',
   'go/pkg/mod',
-  '.gitconfig',
-  '.config/git',
 ];
 
 const SYSTEM_READ_ONLY = [
@@ -79,8 +80,8 @@ export function commandUrlsAllowed(command: string, allowedHosts: string): boole
 }
 
 // Whether the sandbox gets network. "allow-list" cannot filter by host (neither bubblewrap, Seatbelt nor a plain
-// container can): the network is granted only when every URL written in the command is on the list. A program that
-// connects elsewhere by itself stays offline.
+// container can): matching command URLs request unrestricted network access, which must be approved for each run.
+// This is a request heuristic, never a host-level network boundary.
 export function wantsNetwork(command: string, config: SandboxConfig, access: CommandAccess): boolean {
   if (access.network || config.network === 'on') return true;
   return config.network === 'allow-list' && commandUrlsAllowed(command, config.allowedHosts);
@@ -116,9 +117,8 @@ export function decideSandbox(
         ? 'sandbox-exec is not available'
         : 'the Windows sandbox helper (sandbox-helper.exe) was not found';
   return {
-    kind: 'none',
-    network: true,
-    note: `NOT sandboxed: ${why}. Choose "container" mode to use Docker or Podman.`,
+    kind: 'unavailable',
+    reason: `Sandbox unavailable: ${why}. Choose "container" mode to use Docker or Podman, or request unsandboxed access for this command. The command was not run.`,
   };
 }
 
@@ -221,9 +221,10 @@ export function containerArgs(
     // Files the command creates in the project belong to the user, not to root.
     args.push(engine === 'podman' ? '--userns=keep-id' : `--user=${env.uid}:${env.gid}`);
   }
+  args.push('-v', `${env.cwd}:/workspace`);
+  const hooks = `${env.cwd}/.git/hooks`;
+  if (env.exists(hooks)) args.push('-v', `${hooks}:/workspace/.git/hooks:ro`);
   args.push(
-    '-v',
-    `${env.cwd}:/workspace`,
     '-w',
     '/workspace',
     '-e',
@@ -277,7 +278,11 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
     appcontainer: 'Sandboxed (AppContainer)',
     container: 'Sandboxed (container)',
   }[decision.kind];
-  const net = decision.network ? (access.network ? 'network allowed for this command' : 'network on') : 'no network';
+  const net = decision.network
+    ? access.network
+      ? 'unrestricted network allowed for this command'
+      : 'unrestricted network on (not filtered by hostname)'
+    : 'no network';
   return `${where}: only the project folder is writable, the rest of your home folder is hidden, ${net}.`;
 }
 

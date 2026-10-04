@@ -1,11 +1,20 @@
 import { once } from 'node:events';
-import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildHelperRequest, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
+import { buildHelperRequest, exceedsEntryLimit, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
 import { ShellRunner } from './shell';
 import { scrubEnv } from './env';
 
@@ -25,7 +34,7 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
   let hostCanConnect = false;
 
   beforeAll(async () => {
-    // Under the temp folder (inside the home folder), like a project in Documents would be.
+    // Under the user-profile temp folder, matching the reported PowerShell failure in #88.
     root = mkdtempSync(join(tmpdir(), 'patch-sbx-proj-'));
     outside = mkdtempSync(join(tmpdir(), 'patch-sbx-secret-'));
     sandboxNode = join(root, 'node.exe');
@@ -64,9 +73,62 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
     expect(text).toMatch(/AppContainer/);
   });
 
-  it('lets a command write in the project folder', async () => {
-    const result = await shell.run('Set-Content -Path inside.txt -Value written; Get-Content inside.txt');
-    expect(result.exitCode).toBe(0);
+  it('gives a native process cwd access without exposing its siblings or home', async () => {
+    const script = join(root, 'native-probe.js');
+    writeFileSync(
+      script,
+      `const fs = require('fs'); const path = require('path');
+const [outside, home] = process.argv.slice(2);
+const attempt = (run) => { try { return { ok: true, value: run() }; } catch (error) { return { ok: false, code: error.code }; } };
+const result = {
+  initialCwd: attempt(() => process.cwd()),
+  listProject: attempt(() => fs.readdirSync('.').sort()),
+  relativeWrite: attempt(() => { fs.writeFileSync('native-probe.txt', 'written'); return true; }),
+  readOutside: attempt(() => fs.readFileSync(path.join(outside, 'secret.txt'), 'utf8')),
+  listHome: attempt(() => fs.readdirSync(home)),
+};
+console.log(JSON.stringify(result));`,
+    );
+    const request = buildHelperRequest({
+      id: 1,
+      shell: { file: sandboxNode, args: ['native-probe.js', outside, homedir()] },
+      cwd: root,
+      env: sandboxEnv,
+      network: false,
+      home: homedir(),
+      exists: (path) => existsSync(path),
+      tooLarge: (path) => exceedsEntryLimit(path),
+      limits: { timeoutMs: 5000 },
+    });
+    const child = new HelperProcess(helper!, request);
+    let output = '';
+    let error = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk));
+    child.on('error', (value: Error) => (error = value.message));
+    await Promise.race([once(child, 'close'), once(child, 'error')]);
+
+    expect(error).toBe('');
+    expect(child.exitCode, output).toBe(0);
+    const result = JSON.parse(output) as Record<
+      'initialCwd' | 'listProject' | 'relativeWrite' | 'readOutside' | 'listHome',
+      { ok: boolean; value?: unknown }
+    >;
+    expect(result.initialCwd.ok).toBe(true);
+    expect(result.initialCwd.value).toMatch(/^[P-Z]:\\$/i);
+    expect(result.listProject.ok).toBe(true);
+    expect(result.relativeWrite).toEqual({ ok: true, value: true });
+    expect(readFileSync(join(root, 'native-probe.txt'), 'utf8')).toBe('written');
+    expect(result.readOutside.ok).toBe(false);
+    expect(result.listHome.ok).toBe(false);
+  }, 60_000);
+
+  it('starts PowerShell in a project under the user profile and writes there', async () => {
+    const result = await shell.run(
+      'Write-Output (Get-Location).Path; Set-Content -Path inside.txt -Value written; Get-Content inside.txt',
+    );
+    expect(result.exitCode, result.output).toBe(0);
+    expect(result.output).toMatch(/[P-Z]:\\/i);
     expect(result.output).toContain('written');
     expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toContain('written');
   }, 60_000);
@@ -111,23 +173,71 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
     expect(existsSync(target)).toBe(false);
   }, 60_000);
 
+  it('hides toolchain credentials while keeping their allowed caches readable', async () => {
+    const cases = [
+      ['.cargo', 'credentials.toml', 'bin'],
+      ['.m2', 'settings.xml', 'repository'],
+      ['.gradle', 'gradle.properties', 'caches'],
+    ] as const;
+    for (const [tool, secret, cache] of cases) {
+      mkdirSync(join(outside, tool, cache), { recursive: true });
+      writeFileSync(join(outside, tool, secret), 'DUMMY-CREDENTIAL');
+      writeFileSync(join(outside, tool, cache, 'fixture'), 'CACHE-READABLE');
+    }
+    const script = join(root, 'credentials.cjs');
+    writeFileSync(
+      script,
+      `
+const fs = require('node:fs');
+const path = require('node:path');
+const home = ${JSON.stringify(outside)};
+console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) => {
+  let error;
+  try { fs.readFileSync(path.join(home, tool, secret), 'utf8'); } catch (e) { error = e.code; }
+  return { error, cache: fs.readFileSync(path.join(home, tool, cache, 'fixture'), 'utf8') };
+})));`,
+    );
+    const request = buildHelperRequest({
+      id: 1,
+      shell: { file: sandboxNode, args: ['credentials.cjs'] },
+      cwd: root,
+      env: sandboxEnv,
+      network: false,
+      home: outside,
+      exists: existsSync,
+    });
+    const child = new HelperProcess(helper!, request);
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk));
+    try {
+      const [code] = await once(child, 'close');
+      expect(code, output).toBe(0);
+      expect(JSON.parse(output)).toEqual(
+        cases.map(() => ({ error: expect.stringMatching(/^(EACCES|EPERM)$/), cache: 'CACHE-READABLE' })),
+      );
+    } finally {
+      child.stopTree();
+    }
+  }, 60_000);
+
   it('cannot write git hooks, which later run with the user full rights', async () => {
     const hook = join(root, '.git', 'hooks', 'pre-commit');
     const result = await shell.run(`Set-Content -Path '${hook}' -Value 'echo pwned'`);
-    expect(result.exitCode).not.toBe(0);
-    expect(existsSync(hook)).toBe(false);
+    expect(existsSync(hook), result.output).toBe(false);
     const other = await shell.run(`Set-Content -Path '${join(root, '.git', 'config-test')}' -Value ok`);
     expect(other.exitCode).toBe(0);
   }, 60_000);
 
-  it('blocks the network by default', async () => {
+  it('blocks the network by default', async ({ skip }) => {
+    if (!hostCanConnect) skip('The host cannot reach the control endpoint; network isolation is unverified.');
     const result = await shell.run(NET_PROBE);
     expect(result.output).toContain('NOCONNECT');
     expect(result.output).not.toContain('CONNECTED\r');
   }, 60_000);
 
-  it('allows the network when the command was granted it', async () => {
-    if (!hostCanConnect) return;
+  it('allows the network when the command was granted it', async ({ skip }) => {
+    if (!hostCanConnect) skip('The host cannot reach the control endpoint.');
     const result = await shell.run(NET_PROBE, { access: { network: true } });
     expect(result.output.trim()).toBe('CONNECTED');
   }, 60_000);
@@ -189,12 +299,13 @@ setInterval(() => {}, 1000);`,
       writeFileSync(file, script);
       const request = buildHelperRequest({
         id: 1,
-        shell: { file: sandboxNode, args: [file] },
+        shell: { file: sandboxNode, args: ['limit.js'] },
         cwd: root,
         env: sandboxEnv,
         network: false,
         home: homedir(),
         exists: (path) => existsSync(path),
+        tooLarge: (path) => exceedsEntryLimit(path),
         limits,
       });
       const child = new HelperProcess(helper!, request);
@@ -208,11 +319,13 @@ setInterval(() => {}, 1000);`,
     it('refuses more processes than allowed', async () => {
       const { output } = await run(
         `const { spawn } = require('child_process'); let ok = 0, failed = 0;
-for (let i = 0; i < 12; i++) { const c = spawn(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore' }); c.on('spawn', () => ok++); c.on('error', () => failed++); }
+for (let i = 0; i < 12; i++) { try { const c = spawn(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore' }); c.on('spawn', () => ok++); c.on('error', () => failed++); } catch { failed++; } }
 setTimeout(() => { console.log('RESULT ok=' + ok + ' failed=' + failed); process.exit(0); }, 2000);`,
         { processes: 4, memoryMb: 0 },
       );
-      const [, ok, failed] = /ok=(\d+) failed=(\d+)/.exec(output) ?? [];
+      const match = /ok=(\d+) failed=(\d+)/.exec(output);
+      expect(match, output).not.toBeNull();
+      const [, ok, failed] = match!;
       expect(Number(ok)).toBeLessThan(4);
       expect(Number(failed)).toBeGreaterThan(0);
     }, 60_000);
@@ -225,4 +338,91 @@ setTimeout(() => { console.log('RESULT ok=' + ok + ' failed=' + failed); process
       expect(output + String(exitCode)).not.toContain('ALLOCATED');
     }, 60_000);
   });
+});
+
+describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
+  it('recovers a forcibly killed helper without revoking a live helper grant', async () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'patch-sbx-recovery-'));
+    const project = join(fixture, 'project');
+    const tools = join(fixture, 'tools');
+    const hooks = join(project, '.git', 'hooks');
+    const local = join(fixture, 'local');
+    const journal = join(local, 'Patch', 'sandbox-recovery');
+    mkdirSync(hooks, { recursive: true });
+    mkdirSync(tools);
+    writeFileSync(join(tools, 'nested.txt'), 'tool');
+    const request = buildHelperRequest({
+      id: 1,
+      shell: {
+        file: 'powershell.exe',
+        args: ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 120'],
+      },
+      cwd: project,
+      env: scrubEnv(process.env),
+      home: local,
+      network: false,
+      exists: () => false,
+    });
+    request.readOnly = [tools];
+    const env = { ...process.env, LOCALAPPDATA: local };
+    const recover = async () => {
+      const child = spawn(helper!, [], { env, windowsHide: true });
+      const closed = once(child, 'close');
+      let output = '';
+      child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+      child.stdin.end();
+      await closed;
+      expect(output).toBe('');
+      expect(child.exitCode).toBe(0);
+    };
+    const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
+    const originalHooksAcl = acl(hooks);
+    const child = spawn(helper!, [], { env, windowsHide: true });
+    const closed = once(child, 'close');
+    try {
+      const started = new Promise<void>((resolve, reject) => {
+        let output = '';
+        child.stdout.on('data', (chunk: Buffer) => {
+          output += chunk;
+          if (output.includes('"type":"started"')) resolve();
+          if (output.includes('"type":"error"')) reject(new Error(output));
+        });
+        child.on('error', reject);
+        child.on('close', () => reject(new Error('helper closed before starting')));
+      });
+      child.stdin.write(`${JSON.stringify(request)}\n`);
+      await started;
+      const liveAcl = acl(tools);
+      expect(liveAcl).toMatch(/patch\.sbx\.|S-1-15-2-/);
+      expect(readdirSync(journal)).toHaveLength(1);
+      await recover();
+      expect(acl(tools)).toBe(liveAcl);
+      expect(readdirSync(journal)).toHaveLength(1);
+
+      // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
+      child.kill();
+      await closed;
+      expect(acl(tools)).toBe(liveAcl);
+      await recover();
+      for (const path of [project, tools, join(tools, 'nested.txt'), hooks])
+        expect(acl(path)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
+      expect(readdirSync(journal)).toEqual([]);
+      // Windows recomputes inherited entries from the parent. Explicit entries must stay unchanged,
+      // rather than accumulating the copies produced when inheritance was temporarily protected.
+      const explicit = (text: string) => text.split(/\r?\n/).filter((line) => !line.includes('(I)'));
+      expect(explicit(acl(hooks))).toEqual(explicit(originalHooksAcl));
+      expect(acl(hooks)).toContain('(I)');
+    } finally {
+      if (child.exitCode === null) child.kill();
+      await closed;
+      await recover();
+      // Forced termination also bypasses ProjectDrive's destructor. Permission recovery does not yet reclaim
+      // drive mappings: remove only this fixture's mapping so repeated test runs do not consume P: through Z:.
+      for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
+        const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
+        if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
+      }
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

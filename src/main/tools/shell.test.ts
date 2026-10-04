@@ -104,30 +104,40 @@ describe('sandbox selection', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('does not run a command when the chosen container sandbox is unavailable', async () => {
-    const shell = new ShellRunner(
-      () => root,
-      () => config,
-      () => noSupport,
-    );
-    const result = await shell.run("node -e \"require('fs').writeFileSync('ran.txt', 'x')\"");
-    expect(result.exitCode).toBeNull();
-    expect(result.output).toMatch(/Docker nor Podman/);
-    expect(existsSync(join(root, 'ran.txt'))).toBe(false);
-    expect(() => shell.startBackground('echo hi')).toThrow(/Docker nor Podman/);
-  });
+  it.each(['auto', 'container'] as const)(
+    'does not run foreground or background commands without the %s sandbox',
+    async (mode) => {
+      const shell = new ShellRunner(
+        () => root,
+        () => ({ ...config, mode }),
+        () => noSupport,
+      );
+      const command = "node -e \"require('fs').writeFileSync('ran.txt', 'x')\"";
+      const result = await shell.run(command);
+      expect(result.exitCode).toBeNull();
+      expect(result.output).toMatch(/The command was not run/);
+      expect(() => shell.startBackground(command)).toThrow(/The command was not run/);
+      expect(shell.getBackground(1)).toBeUndefined();
+      expect(existsSync(join(root, 'ran.txt'))).toBe(false);
+    },
+  );
 
-  it('runs unsandboxed once when the user allowed it, and says so in the preview', async () => {
-    const shell = new ShellRunner(
-      () => root,
-      () => config,
-      () => noSupport,
-    );
-    expect(shell.describe('echo hi').sandboxed).toBe(false);
-    const result = await shell.run('echo hi', { access: { unsandboxed: true } });
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain('hi');
-  });
+  it.each(['auto', 'container'] as const)(
+    'allows one unsandboxed run without disabling %s confinement',
+    async (mode) => {
+      const shell = new ShellRunner(
+        () => root,
+        () => ({ ...config, mode }),
+        () => noSupport,
+      );
+      expect(shell.describe('echo hi').sandboxed).toBe(false);
+      expect(shell.describe('echo hi', { unsandboxed: true }).text).toContain('Allowed to run without a sandbox');
+      const result = await shell.run('echo hi', { access: { unsandboxed: true } });
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain('hi');
+      expect((await shell.run('echo hi')).output).toContain('The command was not run');
+    },
+  );
 
   it('uses an injected environment for commands', async () => {
     const shell = new ShellRunner(
@@ -142,8 +152,29 @@ describe('sandbox selection', () => {
   });
 
   it('asks even in Auto mode when the model requests more access', () => {
-    expect(runCommandTool.mustAsk?.({ command: 'x', network: true }, {} as ToolContext)).toBe(true);
-    expect(runCommandTool.mustAsk?.({ command: 'x', unsandboxed: true }, {} as ToolContext)).toBe(true);
-    expect(runCommandTool.mustAsk?.({ command: 'x' }, {} as ToolContext)).toBe(false);
+    const context = {
+      shell: new ShellRunner(
+        () => root,
+        () => config,
+      ),
+    } as ToolContext;
+    expect(runCommandTool.mustAsk?.({ command: 'x', network: true }, context)).toBe(true);
+    expect(runCommandTool.mustAsk?.({ command: 'x', unsandboxed: true }, context)).toBe(true);
+    expect(runCommandTool.mustAsk?.({ command: 'x' }, context)).toBe(false);
+  });
+
+  it('requires approval for URL-triggered network access, including a harmless URL hiding another command', () => {
+    const context = {
+      shell: new ShellRunner(
+        () => root,
+        () => ({ ...config, network: 'allow-list', allowedHosts: 'allowed.test' }),
+      ),
+    } as ToolContext;
+    for (const command of ['curl https://allowed.test/x', 'echo https://allowed.test/x; node steal.js']) {
+      expect(runCommandTool.mustAsk?.({ command }, context)).toBe(true);
+      expect(runCommandTool.mustAsk?.({ command, background: true }, context)).toBe(true);
+    }
+    expect(runCommandTool.mustAsk?.({ command: 'npm test' }, context)).toBe(false);
+    expect(runCommandTool.mustAsk?.({ command: 'curl https://blocked.test' }, context)).toBe(false);
   });
 });

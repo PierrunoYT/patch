@@ -1,0 +1,108 @@
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { launchApp, type RunningApp } from './app';
+import { MockClaude } from './mock_claude';
+
+describe('sandbox escalation approvals', () => {
+  let running: RunningApp;
+  let claude: MockClaude;
+  let project: string;
+  const captureDir = process.env.E2E_SCREENSHOTS;
+
+  beforeAll(async () => {
+    project = mkdtempSync(join(tmpdir(), 'patch-sandbox-approval-'));
+    claude = new MockClaude();
+    running = await launchApp({ PATCH_TEST_ANTHROPIC_URL: await claude.start() });
+    await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
+    await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-e2e'));
+    await running.page.evaluate(() =>
+      window.api.invoke('settings:update', {
+        approvalMode: 'auto',
+        sandboxMode: 'auto',
+        sandboxNetwork: 'allow-list',
+        allowedNetworkHosts: 'allowed.test',
+        allowedCommands: 'echo',
+        permissionRules: [{ tool: 'run_command', action: 'allow' }],
+      }),
+    );
+    if (captureDir) mkdirSync(resolve(captureDir), { recursive: true });
+  });
+
+  afterAll(async () => {
+    await running?.close();
+    await claude?.stop();
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('explains fail-closed behavior and unrestricted network requests in Settings', async () => {
+    await running.page.getByTitle('Settings (Ctrl+,)').click();
+    const dialog = running.page.locator('.app-dialog');
+    await running.page.getByLabel('Run commands in a sandbox').scrollIntoViewIfNeeded();
+    expect(await dialog.textContent()).toContain('Commands do not run when the selected sandbox is unavailable');
+    expect(await dialog.textContent()).toContain('Matching command URLs request unrestricted network access');
+    expect(await running.page.getByLabel('Network in the sandbox').inputValue()).toBe('allow-list');
+    if (captureDir) await dialog.screenshot({ path: join(captureDir, 'sandbox-settings.png') });
+    await running.page.getByRole('button', { name: 'Cancel' }).click();
+  });
+
+  it.each([
+    { network: true },
+    { unsandboxed: true },
+    { background: true, unsandboxed: true },
+    {},
+    { background: true },
+  ])('does not let Auto or an allow rule bypass escalation: %j', async (access) => {
+    await running.page.evaluate(() => window.api.invoke('chat:new'));
+    // A literal allow-listed URL must not authorize arbitrary code or background work without a card.
+    const command =
+      'network' in access || 'unsandboxed' in access
+        ? 'echo denied > denied.txt'
+        : 'echo https://allowed.test > denied.txt';
+    claude.script({
+      blocks: [{ type: 'tool_use', id: 'request', name: 'run_command', input: { command, ...access } }],
+      stopReason: 'tool_use',
+    });
+    await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Run the test command' }));
+    const card = running.page.locator('.tool-card.awaiting');
+    await card.waitFor();
+    expect(existsSync(join(project, 'denied.txt'))).toBe(false);
+    if (captureDir && Object.keys(access).length === 0)
+      await card.screenshot({ path: join(captureDir, 'sandbox-network-approval.png') });
+    await card.getByRole('button', { name: 'Skip', exact: true }).click();
+    await expect
+      .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy))
+      .toBe(false);
+    expect(existsSync(join(project, 'denied.txt'))).toBe(false);
+  });
+
+  it('approves only one unsandboxed run, then asks again for the same command', async () => {
+    await running.page.evaluate(() => window.api.invoke('chat:new'));
+    const command = 'echo approved-once >> approved.txt';
+    claude.script(
+      ...['first', 'second'].map((id) => ({
+        blocks: [{ type: 'tool_use' as const, id, name: 'run_command', input: { command, unsandboxed: true } }],
+        stopReason: 'tool_use' as const,
+      })),
+    );
+    await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Run twice' }));
+    const card = running.page.locator('.tool-card.awaiting');
+    await card.waitFor();
+    expect(await card.textContent()).toContain('Allowed to run without a sandbox');
+    expect(existsSync(join(project, 'approved.txt'))).toBe(false);
+    await card.getByRole('button', { name: 'Approve & Run', exact: true }).click();
+    await expect.poll(() => running.page.locator('.tool-card').count()).toBe(2);
+    await card.waitFor();
+    if (captureDir) await card.screenshot({ path: join(captureDir, 'sandbox-approval.png') });
+    await card.getByRole('button', { name: 'Skip', exact: true }).click();
+    await expect
+      .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy))
+      .toBe(false);
+    const output = readFileSync(join(project, 'approved.txt'));
+    // Windows PowerShell redirects as UTF-16LE; POSIX shells use UTF-8.
+    expect(output.toString(process.platform === 'win32' ? 'utf16le' : 'utf8').match(/approved-once/g)).toHaveLength(1);
+    expect(await running.page.evaluate(async () => (await window.api.invoke('settings:get')).sandboxMode)).toBe('auto');
+    expect(running.errors).toEqual([]);
+  });
+});

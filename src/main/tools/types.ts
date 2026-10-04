@@ -80,7 +80,7 @@ export interface AgentTool<S extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.
   // True for tools that only read and never ask for approval. Consecutive calls to such tools in one model turn run at
   // the same time; any other call runs alone, in order.
   parallelSafe?: boolean;
-  // Asks for approval in Auto mode too when this particular call needs it (e.g. an edit to a protected file).
+  // Per-call safety check (protected files, sandbox escalation): asks even in Auto mode or with an allow rule.
   mustAsk?(input: z.infer<S>, context: ToolContext): boolean;
   preview?(input: z.infer<S>, context: ToolContext): Promise<ToolPreview>;
   run(input: z.infer<S>, context: ToolContext): Promise<ToolOutput>;

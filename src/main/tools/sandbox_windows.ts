@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, readdirSync, type Dirent } from 'node:fs';
 import { PassThrough } from 'node:stream';
-import { win32 } from 'node:path';
+import { join, win32 } from 'node:path';
 
 // The Windows sandbox: sandbox-helper.exe (native/sandbox-helper) starts the command in an AppContainer. The planning
 // code here is pure so it can be tested on any platform; the protocol client can be pointed at any script that speaks
@@ -41,7 +41,9 @@ export const DEFAULT_LIMITS = { memoryMb: 8192, processes: 512 };
 // Looked at from the home folder: what builds need (the same list as on the other platforms, plus the npm and pnpm
 // folders Windows installs put under AppData). Credentials are deliberately not listed.
 const HOME_READ_ONLY_WINDOWS = [
-  '.cargo',
+  '.cargo\\bin',
+  '.cargo\\registry',
+  '.cargo\\git',
   '.rustup',
   '.nvm',
   '.volta',
@@ -52,11 +54,10 @@ const HOME_READ_ONLY_WINDOWS = [
   '.asdf',
   '.local\\bin',
   '.local\\share\\pnpm',
-  '.m2',
-  '.gradle',
+  '.m2\\repository',
+  '.gradle\\caches',
+  '.gradle\\wrapper',
   'go\\pkg\\mod',
-  '.gitconfig',
-  '.config\\git',
   'AppData\\Roaming\\npm',
   'AppData\\Local\\pnpm',
   'scoop',
@@ -71,7 +72,7 @@ const sizeCache = new Map<string, boolean>();
 // True when the folder holds more than `limit` entries. Stops counting at the limit, and remembers the answer for
 // the life of the app (a toolchain folder does not shrink).
 export function exceedsEntryLimit(path: string, limit = GRANT_ENTRY_LIMIT): boolean {
-  const key = `${limit}|${path.toLowerCase()}`;
+  const key = `${limit}|${process.platform === 'win32' ? path.toLowerCase() : path}`;
   const known = sizeCache.get(key);
   if (known !== undefined) return known;
   let count = 0;
@@ -85,7 +86,7 @@ export function exceedsEntryLimit(path: string, limit = GRANT_ENTRY_LIMIT): bool
       continue;
     }
     count += entries.length;
-    for (const entry of entries) if (entry.isDirectory()) pending.push(win32.join(dir, entry.name));
+    for (const entry of entries) if (entry.isDirectory()) pending.push(join(dir, entry.name));
   }
   const result = count > limit;
   sizeCache.set(key, result);
@@ -122,12 +123,25 @@ function within(path: string, dir: string): boolean {
 export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   const { cwd, home, exists } = input;
   const builtIn = [input.systemRoot, ...input.programDirs];
+  // PATH must not reopen the configuration/credentials excluded from the toolchain grants above.
+  const privatePaths = [
+    '.cargo\\credentials',
+    '.cargo\\credentials.toml',
+    '.cargo\\config.toml',
+    '.cargo\\config',
+    '.m2\\settings.xml',
+    '.m2\\settings-security.xml',
+    '.gradle\\gradle.properties',
+    '.gitconfig',
+    '.config\\git',
+  ].map((rel) => win32.join(home, rel));
   const readOnly: string[] = [];
   const add = (path: string) => {
     const full = win32.resolve(path);
     if (readOnly.some((existing) => same(existing, full))) return;
     if (builtIn.some((dir) => dir && within(full, dir))) return;
     if (within(cwd, full) || same(full, win32.parse(full).root) || within(home, full)) return;
+    if (privatePaths.some((path) => within(path, full) || within(full, path))) return;
     if (!exists(full)) return;
     if (!input.tooLarge?.(full)) {
       readOnly.push(full);

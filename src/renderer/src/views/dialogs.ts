@@ -170,11 +170,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
   const sandboxMode = h(
     'select',
     { class: 'form-select' },
-    h(
-      'option',
-      { value: 'auto', selected: settings.sandboxMode === 'auto' },
-      'Automatic (bubblewrap on Linux, Seatbelt on macOS)',
-    ),
+    h('option', { value: 'auto', selected: settings.sandboxMode === 'auto' }, 'Automatic (native OS sandbox)'),
     h(
       'option',
       { value: 'container', selected: settings.sandboxMode === 'container' },
@@ -189,7 +185,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     h(
       'option',
       { value: 'allow-list', selected: settings.sandboxNetwork === 'allow-list' },
-      'Only for commands that use allowed hosts',
+      'Ask for network when command URLs match allowed hosts',
     ),
     h('option', { value: 'on', selected: settings.sandboxNetwork === 'on' }, 'On'),
   );
@@ -415,12 +411,12 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field(
       'Run commands in a sandbox',
       sandboxMode,
-      'Applies to run_command and background commands, not to the terminal panel. Only the project folder is writable and the rest of your home folder is hidden. Windows has no built-in sandbox: use the container option there, otherwise commands are not sandboxed (the approval card says so). With the container option a command does not run at all when Docker or Podman is not running. Not enforced for MCP servers.',
+      'Applies to run_command and background commands. Automatic mode uses AppContainer on Windows (bundled helper), bubblewrap on Linux, or Seatbelt on macOS. Commands do not run when the selected sandbox is unavailable; the agent must request unsandboxed access for one run. Only the project and temporary folders are writable, and private home files are hidden. The terminal panel and MCP servers are not sandboxed.',
     ),
     field(
       'Network in the sandbox',
       sandboxNetwork,
-      'The allow-list option grants the network only when every URL written in the command is on the allowed hosts list; it cannot filter connections a program makes by itself. The agent can ask for network or unsandboxed access for one command, and you approve each time.',
+      'Matching command URLs request unrestricted network access, not hostname filtering. You must approve each run, even in Auto mode or with an allow permission rule. Explicit network or unsandboxed requests also require approval each time. On grants unrestricted network access to all sandboxed commands.',
     ),
     field(
       'Container image',

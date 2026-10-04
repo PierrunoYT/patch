@@ -14,6 +14,7 @@ import {
   describeSandbox,
   detectSandboxSupport,
   systemLaunchEnv,
+  wantsNetwork,
   type CommandAccess,
   type Launch,
   type SandboxConfig,
@@ -92,6 +93,13 @@ export class ShellRunner {
     private readonly detect: () => SandboxSupport = detectSandboxSupport,
     private readonly env: () => NodeJS.ProcessEnv = () => process.env,
   ) {}
+
+  // URL matching cannot constrain the connections a program makes. Treat it as a request for full network access.
+  mustAsk(command: string, access: CommandAccess): boolean {
+    if (access.network || access.unsandboxed) return true;
+    const config = this.sandbox();
+    return config.mode !== 'off' && config.network === 'allow-list' && wantsNetwork(command, config, access);
+  }
 
   // What would happen to this command: shown on the approval card and in the result.
   describe(command: string, access: CommandAccess = {}): { sandboxed: boolean; text: string } {
@@ -361,7 +369,7 @@ export const runCommandTool = defineTool({
       .describe('The command needs rights the sandbox withholds. The user is asked to allow this one run.'),
   }),
   requiresApproval: true,
-  mustAsk: ({ network, unsandboxed }) => Boolean(network || unsandboxed),
+  mustAsk: ({ command, network, unsandboxed }, context) => context.shell.mustAsk(command, { network, unsandboxed }),
   async preview({ command, background, network, unsandboxed }, context) {
     const { text } = context.shell.describe(command, { network, unsandboxed });
     return { title: background ? 'Start background command' : 'Run command', command, note: text };

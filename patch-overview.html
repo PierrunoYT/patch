@@ -748,7 +748,7 @@
             tests: 17,
             lines: 3248,
             testLines: 2860,
-            desc: 'Every model tool, plus command sandbox policy, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents.',
+            desc: 'Every model tool, plus fail-closed command sandboxes, credential-safe toolchain grants, read-only container hooks, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Sandbox escalation always asks; matching URLs request unrestricted network access, not hostname filtering.',
             list: [
               'registry.ts',
               'files.ts (318)',
@@ -756,6 +756,7 @@
               'shell.ts',
               'sandbox.ts (335)',
               'sandbox_windows.ts (331)',
+              'sandbox.integration.test.ts',
               'env.ts',
               'apply_patch.ts',
               'glob.ts',
@@ -1093,7 +1094,6 @@
         issues: [
           [91, 'Windows sandbox leaves transient profile and capability entries', 'security', 'low', 0, '10-04'],
           [90, 'Windows sandbox rejects large rustc and cargo toolchains', 'security', 'low', 0, '10-04'],
-          [88, 'PowerShell starts in C:\\ for projects under the user home', 'security', 'medium', 0, '10-04'],
           [87, 'Sandbox MCP stdio servers', 'security', 'low', 0, '10-04'],
           [85, 'Smarter context: tell the agent what changed since its last turn', 'tools', 'low', 1, '10-03'],
           [84, 'Smarter over time: a project memory the agent can propose additions to', 'tools', 'low', 1, '10-03'],
@@ -1165,7 +1165,7 @@
           other: 'Lifecycle bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 32,
+        closedCount: 33,
       };
 
       /* ---------------- helpers ---------------- */
@@ -1341,7 +1341,7 @@
                   'li',
                   null,
                   h('b', null, 'Security is the largest issue theme: '),
-                  '12 of 41 open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.',
+                  '11 of 40 open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.',
                 ),
                 h(
                   'li',
@@ -1359,7 +1359,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed and native Electron crashes are logged locally. Next, finish Windows sandbox reliability (#76, #88, #91) and the remaining CI flake (#50). See ',
+                'Short answer: agent commands are sandboxed and native Electron crashes are logged locally. Next, finish Windows sandbox reliability (#76, #91) and the remaining CI flake (#50). See ',
                 h(
                   'a',
                   {
@@ -1927,12 +1927,12 @@
                   { class: 'dec' },
                   h('div', { class: 'q' }, '1. Input fails schema validation? → returned as an error, nothing runs'),
                   h('div', { class: 'arrow' }, '↓ valid'),
-                  h('div', { class: 'q' }, '2. A permission rule matches? → reject / allow / ask, as the rule says'),
-                  h('div', { class: 'arrow' }, '↓ no rule'),
+                  h('div', { class: 'q' }, '2. Permission rule rejects? → blocked; mustAsk safety check? → ask'),
+                  h('div', { class: 'arrow' }, '↓ neither'),
                   h(
                     'div',
                     { class: 'q' },
-                    '3. alwaysAsk (MCP, propose_plan) or mustAsk (e.g. a protected file)? → ask',
+                    '3. Rule allows/asks? → follow it; otherwise alwaysAsk (MCP, propose_plan)? → ask',
                   ),
                   h('div', { class: 'arrow' }, '↓ no'),
                   h('div', { class: 'q' }, '4. requiresApproval and mode is Ask and not on an allow-list? → ask'),
@@ -1994,7 +1994,7 @@
                 h(
                   'div',
                   { class: 'small' },
-                  '12 open issues are in the security theme: 3 medium (#88, #76, #28) and 9 low. Agent commands are sandboxed, with Windows follow-ups still open. See the Issues board.',
+                  '11 open issues are in the security theme: 2 medium (#76, #28) and 9 low. Agent commands are sandboxed, with Windows follow-ups still open. See the Issues board.',
                 ),
               ),
             ),
@@ -2722,15 +2722,14 @@
       builders.focus = () => {
         const items = [
           [
-            'Finish Windows sandbox reliability: #76, #88, #91',
-            'Agent commands now run through bubblewrap on Linux, Seatbelt on macOS, Docker or Podman when configured, and AppContainer on Windows. The Windows implementation still has concrete follow-ups.',
+            'Finish Windows sandbox reliability: #76, #91',
+            'Windows commands start from a private project-root drive. Permission recovery is implemented locally: the next helper startup undoes abandoned grants and restores git-hooks ACLs without touching live runs.',
             [
-              '#88: PowerShell starts in C:\\ for projects under the user home',
-              '#91: transient profile and capability entries are not always cleaned up',
+              '#91: local recovery fix; older unrecorded orphan SIDs cannot be identified safely',
               '#90: large rustc and cargo toolchains exceed the current grant limits',
               '#87: MCP stdio servers are not yet covered by the command sandbox',
             ],
-            'The core sandbox is shipped; close the Windows correctness and cleanup gaps before treating #76 as complete.',
+            '#88 and #91 have local fixes; GitHub remains open until those commits are pushed. #76 still needs toolchain and platform verification.',
           ],
           [
             'Finish making CI trustworthy: #50',

@@ -2,7 +2,7 @@
 
 ## Setup
 
-Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git. On Windows, the command sandbox helper (`native/sandbox-helper`) also needs a Rust toolchain: `npm run build:sandbox` builds it into `native/sandbox-helper/target/release/` (git-ignored). Without it the app still works and `run_command` runs unsandboxed; with it the Windows integration tests (`sandbox_windows.integration.test.ts`) run real commands in an AppContainer. Those tests use a copied Node executable and isolated `PATH`, so their temporary AppContainer ACLs never touch checkout dependencies or interfere with concurrent Electron tests. End-to-end tests whose concern is command lifecycle or output set `sandboxMode: 'off'`; AppContainer behavior belongs in the dedicated integration suite, keeping the general e2e suite independent of helper availability and host ACLs.
+Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git. On Windows, the command sandbox helper (`native/sandbox-helper`) also needs a Rust toolchain: `npm run build:sandbox` builds it into `native/sandbox-helper/target/release/` (git-ignored). Without it the app still works, but Automatic mode refuses agent commands unless the user approves an explicit unsandboxed request; with it the Windows integration tests (`sandbox_windows.integration.test.ts`) run real commands in an AppContainer. Those tests use a copied Node executable and isolated `PATH`, so their temporary AppContainer ACLs never touch checkout dependencies or interfere with concurrent Electron tests. End-to-end tests whose concern is command lifecycle or output set `sandboxMode: 'off'`; AppContainer behavior belongs in the dedicated integration suite, keeping the general e2e suite independent of helper availability and host ACLs.
 
 ```bash
 npm install
@@ -15,7 +15,7 @@ npm 11 runs dependency install scripts only for packages listed under `allowScri
 
 ### Amp orbs
 
-`.agents/setup` prepares Debian-based Amp orbs with native build tools, Electron libraries, Xvfb and locked npm dependencies. It uses the orb's Node.js toolchain (Node 22.12+, 24.x or 26+, as required by Vitest 5), ensures the Electron binary is downloaded and checks `node-pty` loads. No API keys or backing services are needed for tests.
+`.agents/setup` prepares Debian-based Amp orbs with native build tools, bubblewrap, Electron libraries, Xvfb and locked npm dependencies. It uses the orb's Node.js toolchain (Node 22.12+, 24.x or 26+, as required by Vitest 5), ensures the Electron binary is downloaded and checks `node-pty` loads. No API keys or backing services are needed for the default tests; container sandbox tests additionally need a local Docker/Podman engine and a cached `node:lts` image.
 
 Amp snapshots the prepared environment. When setup runs again on a stale snapshot, it skips apt for installed packages and reuses `node_modules` when the package files, setup script, Node/npm versions and platform match. Changed inputs trigger `npm ci`; deleting `node_modules/.amp-setup-fingerprint` forces a reinstall. `.agents/resume` only checks dependency readiness, without installing anything or authenticating services.
 
@@ -26,6 +26,21 @@ xvfb-run -a npm test       # unit tests, build and headless Electron tests
 ```
 
 Both lifecycle scripts must be executable. They become available to future project orbs after reaching the project's default branch; a local commit alone does not activate them. No persistent server or shell-profile changes are required.
+
+### Real sandbox tests
+
+Run `npm run test:sandbox` for policy tests and real sandbox probes. These also run in `npm run test:unit`.
+
+- **Linux:** install `bubblewrap`; the host must allow its namespaces. Amp orb setup installs it.
+- **macOS:** uses the system `/usr/bin/sandbox-exec` (Seatbelt).
+- **Windows:** run `npm run build:sandbox` first to enable the existing AppContainer integration suite, including dummy toolchain credential checks.
+- **Containers:** start a local Docker/Podman engine and explicitly run `docker pull node:lts` (or `podman pull node:lts`) before testing. The test suite never pulls an image. Remote engines are not supported by the host-fixture bind mounts and local TCP control.
+
+Unavailable backends and missing container images produce explicit skips, not successful isolation results. `PATCH_REQUIRE_NATIVE_SANDBOX=1 npm run test:sandbox` additionally fails if the platform's native backend is missing; the CI test matrix sets this variable, installs bubblewrap and pulls the container image on Linux, and builds the helper on Windows.
+
+The Windows forced-termination recovery test removes only its own fixture's temporary drive mapping during teardown. Without this cleanup, repeated test runs exhaust P: through Z:. Production recovery of drive mappings after a forced helper exit remains tracked in [#94](https://github.com/PierrunoYT/patch/issues/94); permission recovery alone does not remove them.
+
+The Unix/container suite (`src/main/tools/sandbox.integration.test.ts`) runs the production launch builders against a disposable project and fake home, never falling back to unsandboxed execution. It checks project/temp writes, private-file and dummy-credential reads, read-only toolchain caches, existing/new hooks, symlink confinement and network off/on against a local TCP listener. Every denial requires a successfully started probe; a broken runtime or failed sandbox launch is a failure, not proof of isolation. Host files must remain unchanged even when bubblewrap permits a write into its private home tmpfs. Linux bubblewrap and Docker were executed successfully in an orb; Seatbelt and AppContainer require their native hosts. The Windows internet probe reports a skip if its control endpoint is unreachable.
 
 ## Scripts
 
