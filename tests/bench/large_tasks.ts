@@ -62,7 +62,7 @@ function git(project: string, ...args: string[]): void {
 
 // A fresh copy of the pinned commit with `mutate` applied, committed as the starting point so `git diff` shows only
 // what the model changes.
-function createLargeProject(mutate?: (project: string) => void): string {
+export function createLargeProject(mutate?: (project: string) => void): string {
   prepareLargeBase();
   const project = mkdtempSync(join(tmpdir(), 'patch-bench-large-'));
   cpSync(base!, project, { recursive: true });

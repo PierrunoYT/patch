@@ -11,12 +11,19 @@ export interface Verdict {
 
 export interface Task {
   id: string;
-  // `small`: a tiny project written from `files`. `large`: a copy of this repository at a pinned commit.
-  suite: 'small' | 'large';
+  // `small`: a tiny project written from `files`. `large`: a copy of this repository at a pinned commit. `cache`: prompt
+  // cache measurements on such a copy (cache_tasks.ts), run only when asked for.
+  suite: 'small' | 'large' | 'cache';
   description: string;
   // Creates the task's project folder and returns its path.
   create(): string;
   prompt: string;
+  // A second message, sent `pauseSeconds` after the first answer (cache suite). The run reports usage per phase.
+  followUp?: { prompt: string; pauseSeconds: number };
+  // Settings applied before the run, on top of the model, Auto mode and no plan mode or MCP servers.
+  settings?: Record<string, unknown>;
+  // Tools the run must have called, e.g. the subagent task tool; otherwise it does not count as solved.
+  requireTools?: string[];
   // Whether the task was solved, judged from the project folder and the chat after the run.
   check(project: string, answer: string, before: Map<string, string>): Verdict;
   // A reference solution, for the self-test that proves `check` fails before and passes after (no API).

@@ -289,6 +289,7 @@ The runs of each task were consistent, and every failed tool call was recovered 
 ```bash
 PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run bench:agent
 # only one suite:            PATCH_BENCH_SUITE=small   or   PATCH_BENCH_SUITE=large
+# prompt cache suite:        PATCH_BENCH_SUITE=cache   (not part of all; PATCH_BENCH_PAUSE_SECONDS, default 360)
 # check the tasks, no API:   PATCH_BENCH_SELFTEST=1 npx vitest run --project bench
 ```
 
@@ -296,6 +297,7 @@ PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run 
 - **The run:** each run starts the app on a fresh copy, opens a fresh temporary project, sets the model (`PATCH_BENCH_MODEL`, default `claude-sonnet-5-5`) and **Auto** mode, sends the task in a new chat, and waits until the assistant is done. In Auto mode the model runs commands without asking, inside the temporary project.
 - **Scoring:** afterwards an objective check decides whether the task was solved, from the project files and the answer, often with a test the model never saw. `PATCH_BENCH_REPS` (default 2), `PATCH_BENCH_SUITE` and `PATCH_BENCH_TASKS` (comma-separated ids) choose what runs.
 - **Self-test:** `PATCH_BENCH_SELFTEST=1` runs every check without the API. It must reject the untouched project, and for the large suite accept a reference solution, so no task can be passed by doing nothing, and none is impossible.
+- **Cache suite** (`tests/bench/cache_tasks.ts`, `PATCH_BENCH_SUITE=cache`): prompt caching on a copy of this repository, so the chat is big enough for cache writes to matter. It is not part of `all`, because each pause run waits several minutes. `subagent-question` tells the model to delegate a question to the `task` subagent; a run that does not call `task` does not count as solved. `pause-followup` asks a question, leaves the app idle for `PATCH_BENCH_PAUSE_SECONDS` (default 360, past the 5-minute cache), then asks a follow-up; `pause-followup-warm` is the same with Settings → Prompt cache on. Runs with a follow-up report usage per phase (`phases`: first turn, pause, follow-up), so the follow-up's cache writes and the keep-alives' own cost show separately.
 
 **Small suite:** five tiny projects using Node's built-in test runner, so no `npm install` is needed:
 
@@ -395,3 +397,24 @@ Every task cost less, from −2% (`export-bug`) to −50% (`cli-fix`); the small
 - **Where it comes from:** cache writes fell by a third while reads stayed level, so the requests that used to write the fixed part again now read it. No run used a subagent, so this is #86's breakpoint and tool order, not the subagent change; that one saves the tools and system prompt write on each `task` or `oracle` run on the chat's model (about 10k tokens per run), which these tasks do not exercise.
 - **Noise:** one before and one after run of each configuration, and the model's own choices vary (the small suite made 10 more tool calls after, the large suite 8 fewer). The cache-write drop is far larger than that variation, and consistent across all 12 tasks.
 - **The keep-alive** (Settings → Prompt cache, `26cbfe4`) is off by default and is not exercised here: the benchmark has no pauses between turns. Its request shape was checked against the API on Claude Sonnet 5.5 and Claude Opus 5.5 (with compaction and refusal fallback): after one real turn, two keep-alives read the whole cached prefix (8,466 and 8,470 tokens), wrote 4 and 0 tokens and returned no output, and the next real turn read the cache.
+
+### Cache suite results (2026-10-04)
+
+**Question:** what do the subagent change and the keep-alive save, which the 12 tasks above do not exercise?
+
+**Answer:** the keep-alive cut a follow-up after a 6-minute pause from $0.040–0.042 to $0.011–0.012 including the keep-alive itself, and the whole run by about 35%. The subagent change cut a delegated question's cache writes by about a fifth. All runs were solved. Claude Sonnet 5.5, 2 runs each, `PATCH_BENCH_SUITE=cache`, pause 360 s:
+
+| Run                     | Pause                         | Follow-up: cache read / write | Follow-up cost | Run cost     |
+| ----------------------- | ----------------------------- | ----------------------------- | -------------- | ------------ |
+| Keep-alive off          | nothing sent                  | 0 / 13,457–14,403             | $0.040–0.042   | $0.080–0.082 |
+| Keep-alive on (`-warm`) | 1 keep-alive, $0.004 each run | 13,404–13,848 / 29            | $0.007–0.008   | $0.051–0.055 |
+
+- **Keep-alive:** without it, the cache expired during the pause and the follow-up wrote the whole chat again. With it, one keep-alive at about 4 minutes (reading about 13k tokens, writing 583) kept it alive, and the follow-up wrote 29 tokens. On Claude Opus 5.5 and with longer chats the gap grows with the chat's size; the keep-alive costs a cache read, the rewrite a cache write.
+- **Subagent:** `subagent-question` on `d5bf942` (before the subagent change) and on `26cbfe4`, same benchmark files:
+
+| Build              | Cache writes   | Cache reads    | Cost           |
+| ------------------ | -------------- | -------------- | -------------- |
+| Before (`d5bf942`) | 26,665, 19,714 | 36,198, 44,511 | $0.111, $0.094 |
+| After (`26cbfe4`)  | 20,965, 14,844 | 51,627, 41,444 | $0.097, $0.079 |
+
+About 23% fewer cache writes and 14% lower cost per delegated question, as the subagent's first request now reads the chat's tools and system prompt. Two runs each and the subagent's own exploration varies, so read this as a direction rather than an exact figure.

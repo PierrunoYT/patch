@@ -3,15 +3,18 @@
 // and the estimated cost. Results are recorded in docs/PERFORMANCE.md ("Agent task benchmark").
 //
 // Two suites: `small` (tiny projects written from scratch) and `large` (tasks on a copy of this repository at a pinned
-// commit, see large_tasks.ts). Opt-in and not part of `npm test` or CI, because it spends API credits:
+// commit, see large_tasks.ts). A third, `cache` (cache_tasks.ts), measures prompt caching: a subagent run, and a
+// follow-up after a pause with the keep-alive off and on. It waits minutes per run, so it only runs when asked for
+// (PATCH_BENCH_SUITE=cache) and is not part of `all`. Opt-in and not part of `npm test` or CI, because it spends API
+// credits:
 //
 //   PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run bench:agent
 //
 // Only `settings.json` and `Local State` are copied from that profile into a throwaway folder (the key stays encrypted;
 // `Local State` holds what decrypts it for the same Windows or macOS user). The copy's MCP servers are cleared so none
 // start. The real profile is never written to. Options: PATCH_BENCH_MODEL (default claude-sonnet-5-5),
-// PATCH_BENCH_REPS (default 2), PATCH_BENCH_SUITE (small, large or all; default all), PATCH_BENCH_TASKS
-// (comma-separated task ids).
+// PATCH_BENCH_REPS (default 2), PATCH_BENCH_SUITE (small, large, all or cache; default all, which is small and large),
+// PATCH_BENCH_TASKS (comma-separated task ids), PATCH_BENCH_PAUSE_SECONDS (cache suite pause, default 360).
 //
 // PATCH_BENCH_SELFTEST=1 checks every task without the API: its check must fail on the untouched project and pass on
 // the reference solution.
@@ -22,9 +25,10 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import type { ChatSnapshot } from '../../src/shared/chat';
+import type { ChatSnapshot, UsageTotals } from '../../src/shared/chat';
 import { estimateCost } from '../../src/shared/models';
 import { delay, launchApp } from '../e2e/app';
+import { CACHE_TASKS } from './cache_tasks';
 import { cleanupLargeBase, LARGE_TASKS, removeLargeProject } from './large_tasks';
 import { changedFiles, hashes, type Task } from './task';
 
@@ -255,10 +259,13 @@ for (let i = 1; i < count; i++) {
 const TASKS: Task[] = [
   ...SMALL_TASKS.map(({ files, ...task }): Task => ({ ...task, suite: 'small', create: () => writeProject(files) })),
   ...LARGE_TASKS,
-].filter((task) => (SUITE === 'all' || task.suite === SUITE) && (!ONLY || ONLY.includes(task.id)));
+  ...CACHE_TASKS,
+].filter(
+  (task) => (SUITE === 'all' ? task.suite !== 'cache' : task.suite === SUITE) && (!ONLY || ONLY.includes(task.id)),
+);
 
 const removeProject = (task: Task, project: string) =>
-  task.suite === 'large' ? removeLargeProject(project) : rmSync(project, { recursive: true, force: true });
+  task.suite === 'small' ? rmSync(project, { recursive: true, force: true }) : removeLargeProject(project);
 
 interface Result {
   task: string;
@@ -285,9 +292,41 @@ interface Result {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   costUsd: number | null;
+  // Usage per phase for runs with a follow-up: the first turn, the pause (keep-alive requests only) and the follow-up.
+  phases?: Phase[];
   error?: string;
 }
+
+interface Phase {
+  phase: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  costUsd: number | null;
+}
 const results: Result[] = [];
+
+// The usage between two snapshots of the chat totals.
+function phase(name: string, from: UsageTotals, to: UsageTotals): Phase {
+  const diff: UsageTotals = {
+    requests: (to.requests ?? 0) - (from.requests ?? 0),
+    inputTokens: to.inputTokens - from.inputTokens,
+    outputTokens: to.outputTokens - from.outputTokens,
+    cacheReadTokens: to.cacheReadTokens - from.cacheReadTokens,
+    cacheWriteTokens: (to.cacheWriteTokens ?? 0) - (from.cacheWriteTokens ?? 0),
+  };
+  return {
+    phase: name,
+    requests: diff.requests ?? 0,
+    inputTokens: diff.inputTokens,
+    outputTokens: diff.outputTokens,
+    cacheReadTokens: diff.cacheReadTokens,
+    cacheWriteTokens: diff.cacheWriteTokens ?? 0,
+    costUsd: estimateCost(MODEL, diff, true),
+  };
+}
 
 // A throwaway profile holding only the saved settings and the key's decryption material.
 function copyProfile(): string {
@@ -314,23 +353,51 @@ async function runTask(task: Task, rep: number): Promise<Result> {
   try {
     const page = running.page;
     await page.evaluate(
-      (model) => window.api.invoke('settings:update', { model, approvalMode: 'auto', planMode: false, mcpServers: [] }),
-      MODEL,
+      ({ model, extra }) =>
+        window.api.invoke('settings:update', {
+          model,
+          approvalMode: 'auto',
+          planMode: false,
+          mcpServers: [],
+          ...extra,
+        }),
+      { model: MODEL, extra: task.settings ?? {} },
     );
     await page.evaluate((path) => window.api.invoke('project:open', path), project);
     await page.evaluate(() => window.api.invoke('chat:new'));
-    await page.evaluate((text) => window.api.invoke('chat:send', { text }), task.prompt);
 
-    let chat: ChatSnapshot;
-    for (;;) {
-      await delay(1000);
-      chat = await page.evaluate(() => window.api.invoke('chat:snapshot'));
-      const answered = chat.transcript.some((item) => item.kind === 'assistant');
-      if (!chat.busy && answered) break;
-      if (Date.now() - started > (task.timeoutMs ?? RUN_TIMEOUT_MS)) {
-        await page.evaluate(() => window.api.invoke('chat:stop'));
-        throw new Error('timed out');
+    const snapshot = () => page.evaluate(() => window.api.invoke('chat:snapshot'));
+    // Sends one message and waits until the assistant has answered it.
+    const ask = async (text: string): Promise<ChatSnapshot> => {
+      const answersBefore = (await snapshot()).transcript.filter((item) => item.kind === 'assistant').length;
+      const askedAt = Date.now();
+      await page.evaluate((message) => window.api.invoke('chat:send', { text: message }), text);
+      for (;;) {
+        await delay(1000);
+        const current = await snapshot();
+        const answers = current.transcript.filter((item) => item.kind === 'assistant').length;
+        if (!current.busy && answers > answersBefore) return current;
+        if (Date.now() - askedAt > (task.timeoutMs ?? RUN_TIMEOUT_MS)) {
+          await page.evaluate(() => window.api.invoke('chat:stop'));
+          throw new Error('timed out');
+        }
       }
+    };
+
+    const start = (await snapshot()).usage;
+    let chat = await ask(task.prompt);
+    let phases: Phase[] | undefined;
+    if (task.followUp) {
+      const afterFirst = chat.usage;
+      // The app stays open and idle, as a user would leave it; keep-alives (if on) run in the main process.
+      await delay(task.followUp.pauseSeconds * 1000);
+      const afterPause = (await snapshot()).usage;
+      chat = await ask(task.followUp.prompt);
+      phases = [
+        phase('first turn', start, afterFirst),
+        phase('pause', afterFirst, afterPause),
+        phase('follow-up', afterPause, chat.usage),
+      ];
     }
     const seconds = (Date.now() - started) / 1000;
     const assistants = chat.transcript.filter((item) => item.kind === 'assistant');
@@ -339,10 +406,13 @@ async function runTask(task: Task, rep: number): Promise<Result> {
     for (const item of tools) if (item.kind === 'tool') toolsByName[item.name] = (toolsByName[item.name] ?? 0) + 1;
     const answer = assistants.map((item) => (item.kind === 'assistant' ? item.text : '')).join('\n');
     const errors = chat.transcript.filter((item) => item.kind === 'error');
+    const missingTools = (task.requireTools ?? []).filter((name) => !toolsByName[name]);
     const verdict =
       errors.length > 0
         ? { ok: false, why: `chat error: ${errors[0]!.kind === 'error' ? errors[0]!.text.slice(0, 100) : ''}` }
-        : task.check(project, answer, before);
+        : missingTools.length > 0
+          ? { ok: false, why: `did not use ${missingTools.join(', ')}` }
+          : task.check(project, answer, before);
     return {
       task: task.id,
       suite: task.suite,
@@ -365,6 +435,7 @@ async function runTask(task: Task, rep: number): Promise<Result> {
       cacheReadTokens: chat.usage.cacheReadTokens,
       cacheWriteTokens: chat.usage.cacheWriteTokens ?? 0,
       costUsd: estimateCost(MODEL, chat.usage, true),
+      ...(phases ? { phases } : {}),
     };
   } catch (error) {
     return {
@@ -398,7 +469,11 @@ async function runTask(task: Task, rep: number): Promise<Result> {
 describe.skipIf(!PROFILE || SELFTEST)('agent task benchmark (real API)', () => {
   afterAll(() => {
     console.log(`\nAgent task benchmark: ${MODEL}, ${REPS} run(s) per task, suite ${SUITE}\n`);
-    console.table(results.map(({ error: _error, ...row }) => row));
+    console.table(results.map(({ error: _error, phases: _phases, ...row }) => row));
+    const phased = results.flatMap((result) =>
+      (result.phases ?? []).map((row) => ({ task: result.task, rep: result.rep, ...row })),
+    );
+    if (phased.length > 0) console.table(phased);
     mkdirSync(join(__dirname, '../../out'), { recursive: true });
     writeFileSync(
       join(__dirname, `../../out/bench-agent-tasks-${SUITE}.json`),
