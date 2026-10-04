@@ -108,6 +108,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- API keys and ChatGPT tokens can no longer be redirected by the environment ([#64](https://github.com/PierrunoYT/patch/issues/64)). The installed app ignores the `PATCH_TEST_*` test hooks (including the ChatGPT ones), and the API clients always use the official endpoint or the base URL from Settings, so `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` profile set for another tool no longer change where Patch sends your key.
 - A page opened by the `browser` tool can no longer show files from outside the project in an `<iframe>` (or any other sub-resource), which a screenshot then handed to the model without an approval card. The browser session now checks every `file://` request against the project, not only top-level navigations ([#63](https://github.com/PierrunoYT/patch/issues/63)).
 - Enforce the browser guest's `persist:browser` partition in the main process, rejecting omitted and different partitions before attachment so a compromised renderer cannot share the app's default session (#34).
 - Update Electron from 44.4.5 to 44.5.1, incorporating upstream ANGLE, Chromium, Dawn and V8 fixes (#33). Existing installations need a rebuilt installer because Patch has no automatic updates.

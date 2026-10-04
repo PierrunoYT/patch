@@ -1,3 +1,5 @@
+import { testEndpoint } from './endpoints';
+
 // Which credential and URL an official or compatible OpenAI request uses.
 // A custom base URL wins, then a ChatGPT session, then an API key.
 
@@ -36,7 +38,8 @@ export function chooseOpenAIRoute(input: {
   return { kind: 'missing' };
 }
 
-// Tests point this at a local stand-in. Unset in normal use, so chats go to the Codex ChatGPT backend.
+// Tests point this at a local stand-in; packaged builds ignore it (endpoints.ts, #64), so chats go to the Codex ChatGPT
+// backend.
 export function codexResponsesBaseUrl(): string {
-  return process.env.PATCH_TEST_CODEX_URL || CODEX_RESPONSES_BASE_URL;
+  return testEndpoint('PATCH_TEST_CODEX_URL') || CODEX_RESPONSES_BASE_URL;
 }

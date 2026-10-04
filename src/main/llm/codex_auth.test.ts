@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { retryDecision } from '../agent/retry';
 import { appLog } from '../app_log';
 import { SettingsStore, type SecretCipher } from '../settings';
@@ -14,6 +14,7 @@ import {
   signInWithChatGpt,
   signOutChatGpt,
 } from './codex_auth';
+import { setPackagedBuild } from './endpoints';
 import { LlmService } from './index';
 import { CODEX_RESPONSES_BASE_URL, chooseOpenAIRoute, codexResponsesBaseUrl } from './openai_route';
 import { MockApiServer } from './test_server';
@@ -104,6 +105,10 @@ function turn(): TurnRequest & { text: string[] } {
 function form(body: unknown): URLSearchParams {
   return new URLSearchParams(typeof body === 'string' ? body : '');
 }
+
+// These tests point the clients at local servers through the PATCH_TEST_* hooks, which only development builds honor.
+beforeAll(() => setPackagedBuild(false));
+afterAll(() => setPackagedBuild(true));
 
 describe('ChatGPT Codex login', () => {
   let dir: string;
@@ -605,6 +610,8 @@ describe('ChatGPT Codex precedence', () => {
     vi.stubEnv('PATCH_TEST_OPENAI_URL', platformUrl);
     vi.stubEnv('PATCH_TEST_CODEX_URL', codexUrl);
     vi.resetModules();
+    // The PATCH_TEST_* hooks work only in a development build (#64); the fresh modules start as a packaged one.
+    (await import('./endpoints')).setPackagedBuild(false);
     Service = (await import('./index')).LlmService;
   });
 

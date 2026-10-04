@@ -11,6 +11,7 @@ import { openInEditor, pickImages, saveTextFile } from './files';
 import { handle, send } from './ipc';
 import { LlmService } from './llm';
 import { signInWithChatGpt, signOutChatGpt } from './llm/codex_auth';
+import { setPackagedBuild } from './llm/endpoints';
 import { CodeIndex, openRouterEmbedder, openRouterReranker, searchCodeTool } from './search/code_index';
 import { buildMenu } from './menu';
 import { ProjectStore } from './projects';
@@ -30,6 +31,9 @@ import { createMainWindow } from './window';
 const MAX_MENTION_FILES = 20_000;
 
 app.setName('Patch');
+
+// Test hooks for API endpoints (PATCH_TEST_*) work in development builds only (#64).
+setPackagedBuild(app.isPackaged);
 
 app.setPath('userData', process.env.PATCH_USER_DATA || join(app.getPath('appData'), 'Patch'));
 

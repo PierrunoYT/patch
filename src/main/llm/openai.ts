@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
+import { OPENAI_API_URL } from './endpoints';
 import type { z } from 'zod';
 import {
   clip,
@@ -36,8 +37,9 @@ const MAX_HISTORY_TOKENS = 100_000;
 
 // Conversations pass 0 retries: the agent loop retries their requests itself and shows each retry in the chat.
 // Background calls (chat titles) keep the SDK's silent retries.
+// The base URL is always explicit, so OPENAI_BASE_URL cannot redirect the key (#64).
 export function createOpenAIClient(apiKey: string, baseURL?: string, maxRetries = 0): OpenAI {
-  return new OpenAI({ apiKey, baseURL: baseURL || undefined, maxRetries });
+  return new OpenAI({ apiKey, baseURL: baseURL || OPENAI_API_URL, maxRetries });
 }
 
 function textOf(content: unknown): string {

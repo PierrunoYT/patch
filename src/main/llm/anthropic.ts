@@ -3,6 +3,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import type { z } from 'zod';
 import { claudeCapabilities, type Effort } from '@shared/models';
 import { appLog } from '../app_log';
+import { ANTHROPIC_API_URL } from './endpoints';
 import {
   clip,
   MAX_TEXT_CHARS,
@@ -41,8 +42,10 @@ const MAX_CONTINUATIONS = 5;
 // The SDK runs in the Electron main process (Node), never in the renderer. baseURL is only overridden in tests.
 // Conversations pass 0: the agent loop retries their requests itself and shows each retry in the chat. Background
 // calls (chat titles) keep the SDK's silent retries.
+// The base URL and credentials are always explicit, so ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN or an `ant auth
+// login` profile cannot redirect the key or add another credential (#64).
 export function createAnthropicClient(apiKey: string, baseURL?: string, maxRetries = 0): Anthropic {
-  return new Anthropic({ apiKey, baseURL, maxRetries });
+  return new Anthropic({ apiKey, authToken: null, baseURL: baseURL || ANTHROPIC_API_URL, maxRetries });
 }
 
 export interface AnthropicConversationOptions {

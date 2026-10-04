@@ -32,7 +32,8 @@ describe('LlmService summarizer selection', () => {
     vi.stubEnv('PATCH_TEST_OPENAI_URL', standardURL);
     vi.stubEnv('PATCH_TEST_ANTHROPIC_URL', standardURL);
     vi.resetModules();
-    // Module loading is intentional: the local API overrides are captured at module initialization.
+    // The PATCH_TEST_* hooks work only in a development build (#64); the fresh modules start as a packaged one.
+    (await import('./endpoints')).setPackagedBuild(false);
     ({ LlmService } = await import('./index'));
   });
 

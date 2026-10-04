@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import OpenAI from 'openai';
 import type { SettingsStore, ChatGptSession } from '../settings';
 import { appLog } from '../app_log';
+import { testEndpoint } from './endpoints';
 import { OpenAIResponsesConversation } from './openai_responses';
 import {
   ChatGptSignInRequiredError,
@@ -62,8 +63,9 @@ export function codexAuthorizeUrl(input: { state: string; challenge: string; aut
   return `${input.authUrl ?? CODEX_AUTHORIZE_URL}?${params.toString()}`;
 }
 
+// Tests point this at a local stand-in; packaged builds ignore it (endpoints.ts, #64).
 export function codexTokenUrl(): string {
-  return process.env.PATCH_TEST_CODEX_TOKEN_URL || CODEX_TOKEN_URL;
+  return testEndpoint('PATCH_TEST_CODEX_TOKEN_URL') || CODEX_TOKEN_URL;
 }
 
 export function accessTokenNeedsRefresh(expiresAt: number, now: number): boolean {

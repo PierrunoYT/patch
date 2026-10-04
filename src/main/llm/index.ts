@@ -13,12 +13,14 @@ import {
   type SerializedConversation,
 } from './types';
 
+import { testEndpoint } from './endpoints';
+
 export * from './types';
 
-// End-to-end tests point the app at a local mock API. Unset in normal use.
-const TEST_ANTHROPIC_BASE_URL = process.env.PATCH_TEST_ANTHROPIC_URL || undefined;
-// Only used when no custom base URL is set in settings, so the Responses API path can be tested.
-const TEST_OPENAI_BASE_URL = process.env.PATCH_TEST_OPENAI_URL || undefined;
+// End-to-end tests point the app at a local mock API; packaged builds ignore it (endpoints.ts, #64). The OpenAI one is
+// only used when no custom base URL is set in settings, so the Responses API path can be tested.
+const testAnthropicUrl = () => testEndpoint('PATCH_TEST_ANTHROPIC_URL');
+const testOpenAIUrl = () => testEndpoint('PATCH_TEST_OPENAI_URL');
 
 // Requests that are not part of a chat turn (titles) retry silently inside the SDK. Chat turns are retried by the
 // agent loop instead, where the retry can be shown.
@@ -60,14 +62,14 @@ export class LlmService {
         const key = this.settings.getSecret('anthropicApiKey');
         if (key)
           return new AnthropicCompletionClient(
-            createAnthropicClient(key, TEST_ANTHROPIC_BASE_URL, BACKGROUND_RETRIES),
+            createAnthropicClient(key, testAnthropicUrl(), BACKGROUND_RETRIES),
             SMALL_MODELS.anthropic,
           );
       } else {
         const key = this.settings.getSecret('openaiApiKey');
         if (key) {
           return new OpenAICompletionClient(
-            createOpenAIClient(key, customEndpoint || TEST_OPENAI_BASE_URL, BACKGROUND_RETRIES),
+            createOpenAIClient(key, customEndpoint || testOpenAIUrl(), BACKGROUND_RETRIES),
             customEndpoint ? customModel : SMALL_MODELS.openai,
           );
         }
@@ -92,7 +94,7 @@ export class LlmService {
     if (providerForModel(model) === 'anthropic') {
       const key = this.settings.getSecret('anthropicApiKey');
       if (!key) throw new MissingApiKeyError('anthropic');
-      return new AnthropicConversation(createAnthropicClient(key, TEST_ANTHROPIC_BASE_URL), {
+      return new AnthropicConversation(createAnthropicClient(key, testAnthropicUrl()), {
         model,
         effort,
         messages: messages as never,
@@ -103,7 +105,7 @@ export class LlmService {
     if (openaiApi === 'chat') {
       if (!key) throw new MissingApiKeyError('openai');
       return new OpenAIConversation(
-        createOpenAIClient(key, settings.openaiBaseUrl || TEST_OPENAI_BASE_URL),
+        createOpenAIClient(key, settings.openaiBaseUrl || testOpenAIUrl()),
         model,
         messages as never,
         compaction,
@@ -131,7 +133,7 @@ export class LlmService {
     }
     if (!key) throw new MissingApiKeyError('openai');
     return new OpenAIResponsesConversation(
-      createOpenAIClient(key, settings.openaiBaseUrl || TEST_OPENAI_BASE_URL),
+      createOpenAIClient(key, settings.openaiBaseUrl || testOpenAIUrl()),
       model,
       effort,
       messages as never,
