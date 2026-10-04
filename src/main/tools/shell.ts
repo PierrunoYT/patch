@@ -1,6 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
+import { scrubEnv } from './env';
 import { defineTool, truncateOutput } from './types';
 
 const DEFAULT_TIMEOUT_SECONDS = 120;
@@ -161,7 +162,7 @@ export class ShellRunner {
     const { file, args } = shellCommand(command);
     return spawn(file, args, {
       cwd: this.cwd(),
-      env: { ...process.env, CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+      env: { ...scrubEnv(process.env), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // Own process group on POSIX so the whole tree can be killed.
