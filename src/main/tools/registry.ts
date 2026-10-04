@@ -22,18 +22,20 @@ const CORE_TOOLS: AgentTool[] = [
   fetchUrlTool,
 ];
 
-// Tools offered to the model depend on what is configured, so it never calls one that cannot work.
+// Tools offered to the model depend on what is configured, so it never calls one that cannot work. propose_plan is
+// the exception: it is always offered, and the user message says whether plan mode is on, so turning plan mode on or
+// off never changes a chat's tool list (and with it the cached prompt prefix).
 export function availableTools(
   context: Pick<ToolContext, 'browser' | 'codeSearch' | 'webSearch'>,
   extra: AgentTool[] = [],
-  { planMode = false, skills = false }: { planMode?: boolean; skills?: boolean } = {},
+  { skills = false }: { skills?: boolean } = {},
 ): AgentTool[] {
   const extras = [...extra].sort((a, b) => a.name.localeCompare(b.name));
   return [
     ...CORE_TOOLS,
     ...(context.webSearch ? [webSearchTool] : []),
     ...(context.browser ? [browserTool] : []),
-    ...(planMode ? [proposePlanTool] : []),
+    proposePlanTool,
     ...(skills ? [loadSkillTool] : []),
     ...extras,
   ];

@@ -538,13 +538,7 @@ describe('helpers', () => {
       availableTools({ browser: null, codeSearch: null, webSearch: null, ...ctx }).map((tool) => tool.name);
     expect(names({})).not.toContain('web_search');
     expect(names({})).not.toContain('browser');
-    expect(names({})).not.toContain('propose_plan');
     expect(names({ webSearch: { googleApiKey: 'k', googleSearchEngineId: 'c' } })).toContain('web_search');
-    expect(
-      availableTools({ browser: null, codeSearch: null, webSearch: null }, [], { planMode: true }).map(
-        (tool) => tool.name,
-      ),
-    ).toContain('propose_plan');
   });
 });
 

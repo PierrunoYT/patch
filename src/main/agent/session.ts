@@ -12,6 +12,7 @@ import {
 import type { UndoResult } from '@shared/ipc';
 import type { ApprovalMode } from '@shared/settings';
 import type { CompletionClient, Conversation, SerializedConversation } from '../llm/types';
+import { PLAN_MODE_OFF_NOTE, PLAN_MODE_ON_NOTE } from '../tools/plan';
 import type { AgentTool, EditUndo, ToolContext } from '../tools/types';
 import { appLog } from '../app_log';
 import { compactionPrompt } from '../llm/compaction';
@@ -30,6 +31,8 @@ export interface SavedChat {
   conversation: SerializedConversation;
   readFiles: string[];
   pendingNotes?: string[];
+  // The last message sent to the model said plan mode is on, so turning it off is told with the next one.
+  planModeTold?: boolean;
   agentFile?: string | null;
   resumable?: boolean;
   // False for custom OpenAI-compatible endpoints, whose prices are unknown. Missing in chats saved by older versions.
@@ -56,7 +59,10 @@ export interface ChatSessionOptions {
   readFiles?: string[];
   pendingNotes?: string[];
   resumable?: boolean;
+  planModeTold?: boolean;
   approvalMode: () => ApprovalMode;
+  // Settings → Plan mode. The model is told with each user message (see planNote); the tool list never changes.
+  planMode?: () => boolean;
   isPreApproved?: (toolName: string, input: unknown) => boolean;
   decidePermission?: AgentOptions['decidePermission'];
   toolContext: (base: Pick<ToolContext, 'signal' | 'readFiles' | 'onProgress'>) => ToolContext;
@@ -96,6 +102,7 @@ export class ChatSession {
   private updatedAt: string;
   // Things that happened to the project outside the conversation, for the model's next message.
   private readonly notes: string[];
+  private planModeTold: boolean;
 
   constructor(private readonly options: ChatSessionOptions) {
     this.id = options.id ?? randomUUID();
@@ -105,6 +112,7 @@ export class ChatSession {
     this.transcript = options.transcript ? closeStaleRows(options.transcript) : [];
     this.readFiles = new Set(options.readFiles ?? []);
     this.notes = [...(options.pendingNotes ?? [])];
+    this.planModeTold = options.planModeTold ?? false;
     // A chat saved mid-run (see `running`), or whose saved history ends in unanswered tool calls, was interrupted by a
     // crash; it resumes like a user-stopped run.
     this.resumable = (options.resumable ?? false) || options.conversation.hasPendingToolCalls();
@@ -113,6 +121,7 @@ export class ChatSession {
       system: options.system,
       tools: options.tools,
       approvalMode: options.approvalMode,
+      planMode: () => options.planMode?.() ?? false,
       isPreApproved: options.isPreApproved,
       decidePermission: options.decidePermission,
       requestApproval: (id, signal) => this.waitForApproval(id, signal),
@@ -186,7 +195,8 @@ export class ChatSession {
     this.emit({ type: 'user', id: randomUUID(), text, imageCount: message.images?.length ?? 0 });
     if (isFirst) void this.generateTitle(text);
 
-    // What the user did to the project since the last message (undone edits) is told to the model with this one.
+    // What the user did to the project since the last message (undone edits) and whether plan mode is on are told to
+    // the model with this one.
     const note = this.takeNotes();
     const modelText = `${note}${text || '(see attached images)'}`;
     return this.run((signal) => this.agent.send({ text: modelText, images: message.images }, signal));
@@ -213,10 +223,20 @@ export class ChatSession {
   }
 
   private takeNotes(): string {
-    if (this.notes.length === 0) return '';
-    const text = `[Note from the app: ${this.notes.join(' ')}]\n\n`;
+    const notes = [...this.notes, ...this.planNote()];
     this.notes.length = 0;
-    return text;
+    return notes.length > 0 ? `[Note from the app: ${notes.join(' ')}]\n\n` : '';
+  }
+
+  // Plan mode reaches the model as message text, not as a change to the tool list, so toggling it keeps the prompt
+  // cache. The note is repeated on every message while plan mode is on (a compacted history may no longer hold an
+  // earlier one); turning it off is said once.
+  private planNote(): string[] {
+    const on = this.options.planMode?.() ?? false;
+    const wasOn = this.planModeTold;
+    this.planModeTold = on;
+    if (on) return [PLAN_MODE_ON_NOTE];
+    return wasOn ? [PLAN_MODE_OFF_NOTE] : [];
   }
 
   private async run(work: (signal: AbortSignal) => Promise<boolean>): Promise<void> {
@@ -378,6 +398,7 @@ export class ChatSession {
       conversation: this.options.conversation.serialize(),
       readFiles: [...this.readFiles],
       pendingNotes: [...this.notes],
+      ...(this.planModeTold ? { planModeTold: true } : {}),
       agentFile: this.options.agentFile,
       resumable: this.resumable || this.running,
       officialPricing: this.options.officialPricing ?? this.options.conversation.provider === 'anthropic',

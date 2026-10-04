@@ -66,6 +66,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- Turning plan mode on or off in a chat no longer invalidates the prompt cache. `propose_plan` is always in the tool list, and a note on each user message tells the model whether plan mode is on; a plan proposed while it is off is answered without an approval card. The change takes effect with the next message (fixes #44).
 - Subagents on the chat's own model reuse the chat's cached prompt: they are sent the chat's exact system prompt and tool list, with their role in the first message, so their first request reads the cached tools and system prompt instead of writing them again. Tools they may not use are stand-ins that only return an error, so they still cannot edit, run commands or reach the network.
 - Anthropic requests put an ephemeral cache breakpoint on the system prompt and the last tool, as well as the top-level breakpoint. Each completed turn writes cache reads, cache writes, and whether that prefix changed to the local log (counts and hashes only). Extra tools are offered in name order.
 - Semantic code search embeds the project with Voyage `voyage-code-4` through OpenRouter instead of OpenAI `text-embedding-3-small`. It needs the new **OpenRouter API key** setting instead of the OpenAI key; queries and code chunks are sent with Voyage's `query` and `document` input types. Existing indexes are rebuilt with the new model on the next search.

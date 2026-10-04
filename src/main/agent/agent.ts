@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ApprovalDecision, ChatEvent, UsageTotals } from '@shared/chat';
 import type { ApprovalMode } from '@shared/settings';
 import type { Conversation, ToolCall, ToolResult, UserInput } from '../llm/types';
+import { PLAN_MODE_OFF_RESULT } from '../tools/plan';
 import { redactSecrets } from '../tools/redact';
 import { toToolSpecs } from '../tools/registry';
 import { ToolError, type AgentTool, type EditUndo, type ToolContext, type ToolPreview } from '../tools/types';
@@ -34,6 +35,9 @@ export interface AgentOptions {
   // Asked for on every turn, so tools that become available mid-chat (e.g. after an API key is saved) are offered.
   tools: () => AgentTool[];
   approvalMode: () => ApprovalMode;
+  // Whether plan mode is on. propose_plan is always in the tool list; while this is false a call to it is answered
+  // without an approval card and holds nothing back. Without it, a propose_plan call always shows its card.
+  planMode?: () => boolean;
   // True for a call the user allowed in advance (see the allowedCommands setting); it then skips the approval card.
   isPreApproved?: (toolName: string, input: unknown) => boolean;
   // A permission rule's verdict on a call (see the permissionRules setting): allow skips the approval card, ask
@@ -243,6 +247,10 @@ export class Agent {
     }
   }
 
+  private planModeOn(): boolean {
+    return this.options.planMode?.() ?? true;
+  }
+
   // Every tool call gets a result, even when skipped, because the API requires one per call.
   private async runTools(
     tools: AgentTool[],
@@ -256,7 +264,7 @@ export class Agent {
     // A plan has to be decided before anything else in the batch runs. Calls the model sent alongside it (before or
     // after) are answered and not executed, so an edit cannot land before the user has seen the plan, and a decline
     // with feedback cannot let the rest of the batch through.
-    const planCall = calls.find((call) => call.name === 'propose_plan');
+    const planCall = this.planModeOn() ? calls.find((call) => call.name === 'propose_plan') : undefined;
     const heldForPlan = planCall ? calls.filter((call) => call !== planCall) : [];
     const ordered = planCall ? [planCall, ...heldForPlan] : calls;
 
@@ -373,6 +381,15 @@ export class Agent {
       };
     }
     const input = (parsed?.success ? parsed.data : call.input) as Record<string, unknown>;
+
+    // The model proposed a plan although plan mode is off (it was turned off, or the model misread the tool). No card:
+    // the user did not ask to review plans.
+    if (tool.name === 'propose_plan' && !this.planModeOn()) {
+      emit({ type: 'tool-start', id: eventId, name: tool.name, awaitingApproval: false });
+      emit({ type: 'tool-end', id: eventId, status: 'done', summary: 'Plan skipped: plan mode is off' });
+      return { result: { id: call.id, content: PLAN_MODE_OFF_RESULT } };
+    }
+
     const onProgress = (text: string) => emit({ type: 'tool-progress', id: eventId, text });
     const context = this.options.toolContext(signal, onProgress);
 

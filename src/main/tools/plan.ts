@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { defineTool } from './types';
 
+// Added by the app to each user message while plan mode is on, and once when it was turned off again. The tool is
+// always in the tool list, so toggling plan mode in a chat changes only message text and never the cached prefix
+// (tools sit before the system prompt in Claude's prompt cache).
+export const PLAN_MODE_ON_NOTE =
+  'Plan mode is on: before changing files or running commands for a multi-step task, call propose_plan and wait for the decision.';
+export const PLAN_MODE_OFF_NOTE = 'Plan mode is off now: do not call propose_plan.';
+
+// What a propose_plan call gets when plan mode is off. No approval card is shown and nothing else is held back.
+export const PLAN_MODE_OFF_RESULT = 'Plan mode is off, so no plan is needed. Carry on with the task.';
+
 // Plan mode: the model describes what it intends to do, the user approves or declines on an approval card, and the
 // decision comes back to the model before any side effect happens. alwaysAsk keeps the card even in Auto mode, so
 // turning plan mode on never silently pretends the user approved a plan they did not see. The agent loop runs this
@@ -8,7 +18,7 @@ import { defineTool } from './types';
 export const proposePlanTool = defineTool({
   name: 'propose_plan',
   description:
-    'The user turned on plan mode: before changing files or running commands for a multi-step task, call this first and wait for the decision. Describe the steps concretely (files, commands, order) and keep the plan short enough to read in a minute. Do not call any other tool in the same response: those calls are not run until the plan is decided, and you should call them again afterwards. A single read or a one-step change does not need a plan.',
+    'Only for plan mode, which is on when the latest user message carries a note from the app saying so; without that note, do not call this. In plan mode: before changing files or running commands for a multi-step task, call this first and wait for the decision. Describe the steps concretely (files, commands, order) and keep the plan short enough to read in a minute. Do not call any other tool in the same response: those calls are not run until the plan is decided, and you should call them again afterwards. A single read or a one-step change does not need a plan.',
   schema: z.object({
     plan: z.string().describe('The plan in markdown: numbered steps, files to change, commands to run.'),
     summary: z.string().describe('One line describing the goal, shown as the card title.'),

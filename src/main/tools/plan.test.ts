@@ -5,7 +5,8 @@ describe('propose_plan tool', () => {
   it('always asks, so Auto mode cannot skip the card', () => {
     expect(proposePlanTool.alwaysAsk).toBe(true);
     expect(proposePlanTool.requiresApproval).toBe(true);
-    expect(proposePlanTool.description).toContain('turned on plan mode');
+    // The tool is always offered, so its description must tie it to the note the app adds in plan mode.
+    expect(proposePlanTool.description).toContain('without that note, do not call this');
   });
 
   it('shows the plan as markdown on the approval card', async () => {

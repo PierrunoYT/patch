@@ -11,6 +11,7 @@ import type {
   TurnResult,
   UserInput,
 } from '../llm/types';
+import { PLAN_MODE_OFF_NOTE, PLAN_MODE_OFF_RESULT, PLAN_MODE_ON_NOTE } from '../tools/plan';
 import { defineTool, type AgentTool, type ToolContext } from '../tools/types';
 import { ChatSession, type ChatSessionOptions } from './session';
 
@@ -123,6 +124,8 @@ function setup(
     transcript = undefined as ChatSessionOptions['transcript'],
     readFiles = undefined as string[] | undefined,
     pendingNotes = undefined as string[] | undefined,
+    planMode = undefined as (() => boolean) | undefined,
+    planModeTold = undefined as boolean | undefined,
     smallModel = (() => null) as ChatSessionOptions['smallModel'],
     onEditApplied = undefined as ChatSessionOptions['onEditApplied'],
     pending = false,
@@ -147,6 +150,8 @@ function setup(
     transcript,
     readFiles,
     pendingNotes,
+    planMode,
+    planModeTold,
     approvalMode: () => mode,
     isPreApproved,
     toolContext: (base) =>
@@ -274,18 +279,19 @@ describe('agent loop', () => {
     expect(ran).toEqual(['change:z']);
   });
 
+  const planTool = defineTool({
+    name: 'propose_plan',
+    description: 'plan',
+    schema: z.object({ summary: z.string() }),
+    requiresApproval: true,
+    alwaysAsk: true,
+    async run() {
+      ran.push('plan');
+      return { content: 'The user approved the plan.' };
+    },
+  });
+
   it('decides a plan before running the other calls in the same batch', async () => {
-    const plan = defineTool({
-      name: 'propose_plan',
-      description: 'plan',
-      schema: z.object({ summary: z.string() }),
-      requiresApproval: true,
-      alwaysAsk: true,
-      async run() {
-        ran.push('plan');
-        return { content: 'The user approved the plan.' };
-      },
-    });
     const { session, conversation, nextApproval } = setup(
       [
         {
@@ -296,7 +302,7 @@ describe('agent loop', () => {
         },
         { text: 'continuing' },
       ],
-      { mode: 'auto', tools: () => [lookTool, changeTool, plan] },
+      { mode: 'auto', tools: () => [lookTool, changeTool, planTool], planMode: () => true },
     );
     const sending = session.send({ text: 'go' });
     const id = await nextApproval();
@@ -311,6 +317,74 @@ describe('agent loop', () => {
     expect(results.find((result) => result.id === 'edit')!.content).toBe(
       'Not run: wait for the plan decision, then call this again.',
     );
+  });
+
+  // propose_plan is always in the tool list (#44), so the model can call it while plan mode is off.
+  it('answers a plan without a card when plan mode is off, and runs the rest of the batch', async () => {
+    const { session, conversation, events } = setup(
+      [
+        {
+          toolCalls: [
+            { id: 'edit', name: 'change', input: { to: 'x' } },
+            { id: 'plan', name: 'propose_plan', input: { summary: 'Do it' } },
+          ],
+        },
+        { text: 'continuing' },
+      ],
+      { mode: 'auto', tools: () => [lookTool, changeTool, planTool] },
+    );
+    await session.send({ text: 'go' });
+
+    expect(ran).toEqual(['change:x']);
+    expect(conversation.toolResults[0]).toEqual([
+      { id: 'edit', content: 'changed to x' },
+      { id: 'plan', content: PLAN_MODE_OFF_RESULT },
+    ]);
+    expect(events.some((event) => event.type === 'tool-start' && event.awaitingApproval)).toBe(false);
+  });
+
+  describe('telling the model about plan mode', () => {
+    const note = (text: string) => `[Note from the app: ${text}]\n\n`;
+
+    it('adds a note to every message while plan mode is on, and says once that it was turned off', async () => {
+      let on = false;
+      const { session, conversation } = setup(
+        ['a', 'b', 'c', 'd', 'e'].map((text) => ({ text })),
+        { planMode: () => on },
+      );
+      await session.send({ text: 'one' });
+      on = true;
+      await session.send({ text: 'two' });
+      await session.send({ text: 'three' });
+      on = false;
+      await session.send({ text: 'four' });
+      await session.send({ text: 'five' });
+
+      expect(conversation.users.map((user) => user.text)).toEqual([
+        'one',
+        `${note(PLAN_MODE_ON_NOTE)}two`,
+        `${note(PLAN_MODE_ON_NOTE)}three`,
+        `${note(PLAN_MODE_OFF_NOTE)}four`,
+        'five',
+      ]);
+      // The transcript shows only what the user typed.
+      const shown = session
+        .snapshot()
+        .transcript.filter((item) => item.kind === 'user')
+        .map((item) => item.text);
+      expect(shown).toEqual(['one', 'two', 'three', 'four', 'five']);
+    });
+
+    it('remembers across a restart that the model was told plan mode is on', async () => {
+      const first = setup([{ text: 'a' }], { planMode: () => true });
+      await first.session.send({ text: 'one' });
+      expect(first.session.serialize().planModeTold).toBe(true);
+
+      const reopened = setup([{ text: 'b' }], { planMode: () => false, planModeTold: true });
+      await reopened.session.send({ text: 'two' });
+      expect(reopened.conversation.users[0]!.text).toBe(`${note(PLAN_MODE_OFF_NOTE)}two`);
+      expect(reopened.session.serialize().planModeTold).toBeUndefined();
+    });
   });
 
   it('rejects invalid tool input without running the tool', async () => {
