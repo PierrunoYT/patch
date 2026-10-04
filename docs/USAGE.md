@@ -242,6 +242,7 @@ Besides the API keys, approvals and allow-lists described above, **Settings** ha
 - **Editor command**: what the **Open in editor** link on a tool card runs, e.g. `code`, `cursor` or `subl`.
 - **ChatGPT**: **Sign in with ChatGPT** uses a ChatGPT account for official OpenAI models. The button starts the browser login immediately and does not wait for Save. **Sign out** drops the session. With both a session and an API key, and no custom base URL, official chats use the session.
 - **OpenAI-compatible base URL**: for Ollama, OpenRouter, LM Studio and similar. Leave it empty for OpenAI itself. A custom URL always uses the API key, even when a ChatGPT account is signed in.
+- **Claude base URL**: for a proxy or gateway in front of Claude (a company gateway, LiteLLM and similar). Leave it empty for api.anthropic.com. Claude chats, and Claude background work such as chat titles and Compact chat, go there with your Anthropic API key, so setting or changing it asks for confirmation; clearing it does not. It must serve the Anthropic Messages API, including the beta features Patch uses (server-side compaction, refusal fallback, prompt caching). Chats on a custom URL get no official-price estimate.
 - **Google search engine id**: with a Google API key, turns on web search.
 - **Maximum files to index for code search**, and the current project's index status with a **Reindex** button.
 

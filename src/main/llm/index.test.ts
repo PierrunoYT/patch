@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { ChatSession } from '../agent/session';
 import type { SettingsStore } from '../settings';
 import type { LlmService as LlmServiceClass } from './index';
-import { MockApiServer } from './test_server';
+import { anthropicStream, MockApiServer } from './test_server';
 import type { SerializedConversation } from './types';
 
 function completion(title: string) {
@@ -43,10 +43,34 @@ describe('LlmService summarizer selection', () => {
     await Promise.all([standard.stop(), custom.stop()]);
   });
 
+  it('sends Claude chats and Claude background requests to the Claude base URL from Settings', async () => {
+    const llm = new LlmService({
+      get: () => ({ model: 'claude-opus-5-5', effort: 'high', openaiBaseUrl: '', anthropicBaseUrl: customURL }),
+      getSecret: (key: string) => (key === 'anthropicApiKey' ? 'sk-ant-test' : ''),
+      getChatGptSession: () => null,
+    } as unknown as SettingsStore);
+    custom.queueSse(anthropicStream([{ type: 'text', text: 'From the gateway.' }], 'end_turn'));
+    const conversation = llm.createConversation();
+    conversation.addUserMessage({ text: 'hi' });
+    const result = await conversation.runTurn({
+      system: 'sys',
+      tools: [],
+      signal: new AbortController().signal,
+      callbacks: { onText() {} },
+    });
+    expect(result.text).toBe('From the gateway.');
+    expect(custom.requests[0]!.path).toContain('/v1/messages');
+    expect(custom.requests[0]!.headers['x-api-key']).toBe('sk-ant-test');
+    // Not the test stand-in set in PATCH_TEST_ANTHROPIC_URL: Settings wins.
+    expect(standard.requests).toHaveLength(0);
+    // The small model for titles and compaction goes there too.
+    expect(llm.smallModel(conversation)).not.toBeNull();
+  });
+
   it('compacts a saved custom-only chat with its pinned model after the global selection changes', async () => {
     let model = 'local-model';
     const llm = new LlmService({
-      get: () => ({ model, effort: 'high', openaiBaseUrl: customURL }),
+      get: () => ({ model, effort: 'high', openaiBaseUrl: customURL, anthropicBaseUrl: '' }),
       getSecret: (key: string) => (key === 'openaiApiKey' ? 'local-key' : ''),
       getChatGptSession: () => null,
     } as unknown as SettingsStore);
@@ -91,6 +115,7 @@ describe('LlmService summarizer selection', () => {
         model: 'different-global-model',
         effort: 'high',
         openaiBaseUrl: testCase.customURL ? customURL : '',
+        anthropicBaseUrl: '',
       }),
       getSecret: () => 'sk-test',
       getChatGptSession: () => null,

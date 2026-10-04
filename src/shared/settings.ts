@@ -84,6 +84,9 @@ export interface Settings {
   theme: Theme;
   // Base URL for an OpenAI-compatible API. Empty means api.openai.com.
   openaiBaseUrl: string;
+  // Base URL for Claude requests (a proxy or gateway serving the Anthropic Messages API). Empty means api.anthropic.com.
+  // The Anthropic key is sent there, so setting or changing it asks for confirmation.
+  anthropicBaseUrl: string;
   // Command used to open files from chat links, e.g. "code" or "cursor". The file path is appended.
   editorCommand: string;
   maxIndexedFiles: number;
@@ -106,6 +109,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowedNetworkHosts: '',
   theme: 'dark',
   openaiBaseUrl: '',
+  anthropicBaseUrl: '',
   editorCommand: 'code',
   maxIndexedFiles: 2000,
   googleSearchEngineId: '',
@@ -240,4 +244,17 @@ export interface SettingsView extends Omit<Settings, 'mcpServers'> {
 export function openaiCredentialMissing(view: Pick<SettingsView, 'openaiBaseUrl' | 'secrets' | 'chatgpt'>): boolean {
   if (view.openaiBaseUrl.trim()) return !view.secrets.openaiApiKey;
   return !view.secrets.openaiApiKey && !view.chatgpt.signedIn;
+}
+
+// Why a base URL setting cannot be used, or null when it is empty (the official API) or an http(s) URL.
+export function baseUrlError(label: string, value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === 'http:' || url.protocol === 'https:') return null;
+  } catch {
+    // Not a URL at all.
+  }
+  return `${label} must be an http:// or https:// URL.`;
 }

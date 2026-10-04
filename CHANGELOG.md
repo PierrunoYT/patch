@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Added
 
+- Settings → Claude base URL: send Claude requests through a proxy or gateway that serves the Anthropic Messages API. Empty means api.anthropic.com. Setting or changing it asks for confirmation, because the Anthropic API key is sent there, and chats on a custom URL get no official-price estimate.
 - Agent benchmark cache suite (`PATCH_BENCH_SUITE=cache`): a question delegated to the `task` subagent, and a follow-up after a pause past the 5-minute cache with Settings → Prompt cache off and on, with usage per phase. First results in `docs/PERFORMANCE.md`: the keep-alive cut the follow-up from $0.040 to $0.011 including the keep-alive, and the subagent change cut a delegated question's cache writes by about a fifth.
 - Settings → Prompt cache: "Keep the prompt cache warm while a chat is idle" (off by default, Claude chats only). After an answer, Patch re-sends the chat about every 4 minutes for up to an hour with `max_tokens: 0`, so a reply after a pause reads the cache instead of writing the whole chat again. Each keep-alive costs a cache read and counts toward the chat cost ([#77](https://github.com/PierrunoYT/patch/issues/77)).
 - Chat usage counts model requests (`requests`), including retries and subagent calls. The agent benchmark records that count next to assistant text messages.

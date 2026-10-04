@@ -23,6 +23,14 @@ export function changesToConfirm(current: Settings, patch: Partial<Settings>, au
     }
   }
 
+  // The Anthropic key goes to this host. Going back to the official API (empty) needs no confirmation.
+  if (typeof patch.anthropicBaseUrl === 'string') {
+    const next = patch.anthropicBaseUrl.trim();
+    if (next && next !== current.anthropicBaseUrl.trim()) {
+      changes.push(`Send Claude requests and your Anthropic API key to ${next}.`);
+    }
+  }
+
   // Rules that let tool calls run without asking, or hand the decision to a program, are as sensitive as Auto mode.
   if (Array.isArray(patch.permissionRules)) {
     const known = new Set(current.permissionRules.map((rule) => JSON.stringify(rule)));

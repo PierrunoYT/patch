@@ -326,7 +326,9 @@ export class ChatManager {
       conversation,
       officialPricing:
         saved?.officialPricing ??
-        (conversation.provider === 'anthropic' || !this.deps.settings.get().openaiBaseUrl.trim()),
+        (conversation.provider === 'anthropic'
+          ? !this.deps.settings.get().anthropicBaseUrl.trim()
+          : !this.deps.settings.get().openaiBaseUrl.trim()),
       system,
       agentFile: saved ? (saved.agentFile ?? null) : (agentFile?.name ?? null),
       tools: sessionTools,

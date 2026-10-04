@@ -6,6 +6,16 @@ const docs: McpServerConfig = { name: 'docs', transport: 'stdio', command: 'node
 const current: Settings = { ...DEFAULT_SETTINGS, mcpServers: [docs] };
 
 describe('changesToConfirm', () => {
+  it('asks before sending Claude requests and the Anthropic key to another host, not when going back', () => {
+    expect(changesToConfirm(current, { anthropicBaseUrl: 'https://gateway.example' }, false)).toEqual([
+      'Send Claude requests and your Anthropic API key to https://gateway.example.',
+    ]);
+    const custom = { ...current, anthropicBaseUrl: 'https://gateway.example' };
+    expect(changesToConfirm(custom, { anthropicBaseUrl: ' https://gateway.example ' }, false)).toEqual([]);
+    expect(changesToConfirm(custom, { anthropicBaseUrl: 'https://other.example' }, false)).toHaveLength(1);
+    expect(changesToConfirm(custom, { anthropicBaseUrl: '' }, false)).toEqual([]);
+  });
+
   it('needs no confirmation for ordinary settings or an unchanged full save', () => {
     expect(changesToConfirm(current, { theme: 'light', model: 'x', approvalMode: 'ask' }, false)).toEqual([]);
     // The settings dialog sends every setting on save; values equal to the current ones ask nothing.

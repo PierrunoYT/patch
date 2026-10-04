@@ -444,7 +444,10 @@ export class App {
     const cacheWriteTokens = this.chat.usage.cacheWriteTokens ?? 0;
     const total = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
     const officialProvider =
-      this.chat.officialPricing ?? (providerForModel(model) === 'anthropic' || !this.settings.openaiBaseUrl.trim());
+      this.chat.officialPricing ??
+      (providerForModel(model) === 'anthropic'
+        ? !this.settings.anthropicBaseUrl.trim()
+        : !this.settings.openaiBaseUrl.trim());
     const cost = estimateCost(model, this.chat.usage, officialProvider);
     this.tokensLabel.replaceChildren(sym('toll'), `Tokens: ${formatTokens(total)}`);
     this.tokensLabel.title = `${formatTokens(inputTokens)} in · ${formatTokens(cacheReadTokens)} cache read · ${formatTokens(cacheWriteTokens)} cache written · ${formatTokens(outputTokens)} out`;

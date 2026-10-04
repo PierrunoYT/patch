@@ -32,6 +32,19 @@ describe('SettingsStore', () => {
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  it('keeps a Claude base URL only when it is http(s), rejecting a typo and dropping a bad saved one', () => {
+    const store = new SettingsStore(file, reversingCipher);
+    expect(store.update({ anthropicBaseUrl: ' https://gateway.example/anthropic ' }).anthropicBaseUrl).toBe(
+      'https://gateway.example/anthropic',
+    );
+    expect(() => store.update({ anthropicBaseUrl: 'gateway.example' })).toThrow(/http:\/\/ or https:\/\//);
+    expect(() => store.update({ anthropicBaseUrl: 'file:///etc/passwd' })).toThrow(/http:\/\/ or https:\/\//);
+    expect(store.update({ anthropicBaseUrl: '' }).anthropicBaseUrl).toBe('');
+
+    writeFileSync(file, JSON.stringify({ ...DEFAULT_SETTINGS, anthropicBaseUrl: 'ftp://old.example' }));
+    expect(new SettingsStore(file, reversingCipher).get().anthropicBaseUrl).toBe('');
+  });
+
   it('starts from defaults', () => {
     const store = new SettingsStore(file, reversingCipher);
     expect(store.get()).toEqual(DEFAULT_SETTINGS);

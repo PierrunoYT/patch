@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   sanitizeMcpServers,
   sanitizePermissionRules,
+  baseUrlError,
   parsePermissionRules,
   SECRET_NAMES,
   parseMcpServers,
@@ -106,6 +107,10 @@ export class SettingsStore extends EventEmitter {
     // hide typos.
     if ('mcpServers' in known) this.validateMcpServers(known.mcpServers);
     if ('permissionRules' in known) parsePermissionRules(JSON.stringify(known.permissionRules));
+    if ('anthropicBaseUrl' in known) {
+      const error = baseUrlError('The Claude base URL', String(known.anthropicBaseUrl));
+      if (error) throw new Error(error);
+    }
     const next = sanitize({ ...this.settings, ...known });
     if ('mcpServers' in known) this.storeMcpSecrets(next.mcpServers);
     next.mcpServers = next.mcpServers.map(({ env: _env, headers: _headers, ...server }) => server);
@@ -341,6 +346,8 @@ function sanitize(settings: Settings): Settings {
   result.maxIndexedFiles = Math.max(1, Math.floor(result.maxIndexedFiles));
   result.model = result.model.trim() || DEFAULT_SETTINGS.model;
   result.mcpServers = sanitizeMcpServers(result.mcpServers);
+  // A saved value that is not an http(s) URL would send nothing anywhere; fall back to the official API.
+  result.anthropicBaseUrl = baseUrlError('', result.anthropicBaseUrl) ? '' : result.anthropicBaseUrl.trim();
   result.permissionRules = sanitizePermissionRules(result.permissionRules);
   return result;
 }

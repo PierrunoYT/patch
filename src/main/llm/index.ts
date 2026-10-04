@@ -62,7 +62,7 @@ export class LlmService {
         const key = this.settings.getSecret('anthropicApiKey');
         if (key)
           return new AnthropicCompletionClient(
-            createAnthropicClient(key, testAnthropicUrl(), BACKGROUND_RETRIES),
+            createAnthropicClient(key, this.anthropicBaseUrl(), BACKGROUND_RETRIES),
             SMALL_MODELS.anthropic,
           );
       } else {
@@ -76,6 +76,11 @@ export class LlmService {
       }
     }
     return null;
+  }
+
+  // Settings → Claude base URL, else a test stand-in in development builds, else the official API (createAnthropicClient).
+  private anthropicBaseUrl(): string | undefined {
+    return this.settings.get().anthropicBaseUrl.trim() || testAnthropicUrl();
   }
 
   // OpenAI's own API gets the Responses API; custom OpenAI-compatible endpoints usually only implement Chat Completions.
@@ -94,7 +99,7 @@ export class LlmService {
     if (providerForModel(model) === 'anthropic') {
       const key = this.settings.getSecret('anthropicApiKey');
       if (!key) throw new MissingApiKeyError('anthropic');
-      return new AnthropicConversation(createAnthropicClient(key, testAnthropicUrl()), {
+      return new AnthropicConversation(createAnthropicClient(key, this.anthropicBaseUrl()), {
         model,
         effort,
         messages: messages as never,

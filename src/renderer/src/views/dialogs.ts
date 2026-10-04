@@ -178,6 +178,11 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     value: settings.openaiBaseUrl,
     placeholder: 'https://api.openai.com/v1',
   });
+  const anthropicBaseUrl = h('input', {
+    class: 'form-control',
+    value: settings.anthropicBaseUrl,
+    placeholder: 'https://api.anthropic.com',
+  });
   const searchEngine = h('input', { class: 'form-control', value: settings.googleSearchEngineId });
   const editor = h('input', { class: 'form-control', value: settings.editorCommand });
   const maxFiles = h('input', {
@@ -379,6 +384,11 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field('Theme', theme),
     field('Editor command', editor, 'Opens files from the chat, e.g. code, cursor, subl.'),
     field('OpenAI-compatible base URL', baseUrl, 'Leave empty for api.openai.com.'),
+    field(
+      'Claude base URL',
+      anthropicBaseUrl,
+      'Leave empty for api.anthropic.com. For a proxy or gateway that serves the Anthropic Messages API, including the beta features Patch uses (compaction, refusal fallback, prompt caching). Your Anthropic API key is sent to it, so setting it asks for confirmation. Chats on a custom URL get no official-price estimate.',
+    ),
     field('Google search engine id', searchEngine),
     field('Maximum files to index for code search', maxFiles),
     indexSection,
@@ -421,6 +431,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
         allowedNetworkHosts: allowedNetworkHosts.value.trim(),
         theme: theme.value as Settings['theme'],
         openaiBaseUrl: baseUrl.value.trim(),
+        anthropicBaseUrl: anthropicBaseUrl.value.trim(),
         googleSearchEngineId: searchEngine.value.trim(),
         editorCommand: editor.value.trim(),
         maxIndexedFiles: Number(maxFiles.value),
