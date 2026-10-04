@@ -1,11 +1,67 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type McpServerConfig, type Settings } from '@shared/settings';
-import { changesToConfirm } from './settings_confirm';
+import type { ProjectInfo } from '@shared/project';
+import { addedEntries, changesToConfirm, projectChangesToConfirm } from './settings_confirm';
 
 const docs: McpServerConfig = { name: 'docs', transport: 'stdio', command: 'node', args: ['docs.js'] };
 const current: Settings = { ...DEFAULT_SETTINGS, mcpServers: [docs] };
 
 describe('changesToConfirm', () => {
+  it('asks before sending OpenAI requests and the OpenAI key to another host, not when going back', () => {
+    expect(changesToConfirm(current, { openaiBaseUrl: 'https://proxy.example/v1' }, false)).toEqual([
+      'Send OpenAI requests and your OpenAI API key to https://proxy.example/v1.',
+    ]);
+    const custom = { ...current, openaiBaseUrl: 'https://proxy.example/v1' };
+    expect(changesToConfirm(custom, { openaiBaseUrl: 'https://proxy.example/v1' }, false)).toEqual([]);
+    expect(changesToConfirm(custom, { openaiBaseUrl: '' }, false)).toEqual([]);
+  });
+
+  it('asks only about allow-list entries that are new, never about removed or reordered ones', () => {
+    const lists = { ...current, allowedCommands: 'npm test\nnpm run lint', allowedNetworkHosts: 'example.com' };
+    expect(
+      changesToConfirm(lists, { allowedCommands: 'npm run lint\nnpm test\ngit push', allowedNetworkHosts: '' }, false),
+    ).toEqual(['Run these commands without asking: "git push".']);
+    expect(changesToConfirm(lists, { allowedNetworkHosts: 'example.com\nevil.example\n' }, false)).toEqual([
+      'Let network tools contact these hosts without asking: "evil.example".',
+    ]);
+    // The dialog sends every setting on save: unchanged lists ask nothing.
+    expect(changesToConfirm(lists, { ...lists }, false)).toEqual([]);
+  });
+
+  it("asks about a project's own new allow-list entries, naming the project", () => {
+    const project: ProjectInfo = {
+      path: '/p',
+      name: 'demo',
+      instructions: '',
+      allowedCommands: 'npm test',
+      allowedNetworkHosts: '',
+      lastOpened: '',
+    };
+    expect(
+      projectChangesToConfirm(project, {
+        instructions: 'x',
+        allowedCommands: 'npm test\nmake',
+        allowedNetworkHosts: 'api.example',
+      }),
+    ).toEqual([
+      'In demo, run these commands without asking: "make".',
+      'In demo, let network tools contact these hosts without asking: "api.example".',
+    ]);
+    expect(
+      projectChangesToConfirm(project, {
+        instructions: 'changed',
+        allowedCommands: 'npm test',
+        allowedNetworkHosts: '',
+      }),
+    ).toEqual([]);
+  });
+
+  it('lists added entries once, trimmed, and shortens a long list', () => {
+    expect(addedEntries('a\r\nb', ' c \nb\nc\n\n')).toEqual(['c']);
+    const many = Array.from({ length: 12 }, (_, i) => `cmd${i}`).join('\n');
+    expect(changesToConfirm(current, { allowedCommands: many }, false)[0]).toMatch(/"cmd7" and 4 more\.$/);
+  });
+
   it('asks before sending Claude requests and the Anthropic key to another host, not when going back', () => {
     expect(changesToConfirm(current, { anthropicBaseUrl: 'https://gateway.example' }, false)).toEqual([
       'Send Claude requests and your Anthropic API key to https://gateway.example.',

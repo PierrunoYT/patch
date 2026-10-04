@@ -17,7 +17,7 @@ import { buildMenu } from './menu';
 import { ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
-import { changesToConfirm } from './settings_confirm';
+import { changesToConfirm, projectChangesToConfirm } from './settings_confirm';
 import { McpHub } from './tools/mcp';
 import { Workspace } from './tools/workspace';
 import type { IndexStatus } from '@shared/ipc';
@@ -198,24 +198,27 @@ function start(): void {
   handle('settings:get', () => settings.view());
   // Switching to Auto mode is confirmed once per app session; MCP and editor commands every time they change.
   let autoConfirmed = false;
+  // A native dialog for sensitive settings changes (settings_confirm.ts). Throws when the user cancels.
+  const confirmChanges = async (changes: string[]): Promise<void> => {
+    if (changes.length === 0) return;
+    const options: Electron.MessageBoxOptions = {
+      type: 'warning',
+      title: 'Confirm settings',
+      message: 'Apply these settings?',
+      detail: changes.map((change) => `• ${change}`).join('\n'),
+      buttons: ['Apply', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    };
+    const { response } = await (mainWindow
+      ? dialog.showMessageBox(mainWindow, options)
+      : dialog.showMessageBox(options));
+    if (response !== 0) throw new Error('Settings not changed: the change was cancelled.');
+  };
+
   handle('settings:update', async (patch) => {
-    const changes = changesToConfirm(settings.get(), patch, autoConfirmed);
-    if (changes.length > 0) {
-      const options: Electron.MessageBoxOptions = {
-        type: 'warning',
-        title: 'Confirm settings',
-        message: 'Apply these settings?',
-        detail: changes.map((change) => `• ${change}`).join('\n'),
-        buttons: ['Apply', 'Cancel'],
-        defaultId: 1,
-        cancelId: 1,
-        noLink: true,
-      };
-      const { response } = await (mainWindow
-        ? dialog.showMessageBox(mainWindow, options)
-        : dialog.showMessageBox(options));
-      if (response !== 0) throw new Error('Settings not changed: the change was cancelled.');
-    }
+    await confirmChanges(changesToConfirm(settings.get(), patch, autoConfirmed));
     const view = settings.update(patch);
     if (patch.approvalMode === 'auto') autoConfirmed = true;
     return view;
@@ -259,7 +262,10 @@ function start(): void {
     send(mainWindow, 'project:changed', projects.current());
   });
   handle('project:set-instructions', (path, instructions) => projects.setInstructions(path, instructions));
-  handle('project:update-settings', (path, projectSettings) => projects.updateSettings(path, projectSettings));
+  handle('project:update-settings', async (path, projectSettings) => {
+    await confirmChanges(projectChangesToConfirm(projects.get(path), projectSettings));
+    return projects.updateSettings(path, projectSettings);
+  });
   handle('project:remove', (path) => {
     manager.requireIdle();
     manager.closeProject(path);

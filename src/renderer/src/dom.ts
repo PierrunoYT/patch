@@ -1,3 +1,5 @@
+import type { SanitizedHtml } from './markdown';
+
 type Child = Node | string | number | null | undefined | false;
 
 type Props = {
@@ -54,11 +56,12 @@ export function sym(name: string, extraClass = ''): HTMLElement {
   return h('span', { class: `sym ${extraClass}`.trim(), 'aria-hidden': 'true', translate: 'no' }, name);
 }
 
-// For HTML that has already been sanitized (rendered markdown and diffs).
-export function trustedHtml(tag: keyof HTMLElementTagNameMap, className: string, html: string): HTMLElement {
+// For HTML that has already been sanitized: only renderMarkdown and renderDiff produce a SanitizedHtml. Under the page's
+// Trusted Types policy a plain string here would throw instead of being parsed.
+export function trustedHtml(tag: keyof HTMLElementTagNameMap, className: string, html: SanitizedHtml): HTMLElement {
   const element = document.createElement(tag);
   element.className = className;
-  element.innerHTML = html;
+  element.innerHTML = html as unknown as string;
   return element;
 }
 
