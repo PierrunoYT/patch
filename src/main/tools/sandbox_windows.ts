@@ -1,6 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, type Dirent } from 'node:fs';
 import { PassThrough } from 'node:stream';
 import { win32 } from 'node:path';
 
@@ -62,6 +62,36 @@ const HOME_READ_ONLY_WINDOWS = [
   'scoop',
 ];
 
+// Granting a folder rewrites the permissions of every file inside it before each command (about 50 s for the 128,000
+// files of ~/.rustup), so a folder with more entries than this is not opened whole.
+export const GRANT_ENTRY_LIMIT = 5000;
+
+const sizeCache = new Map<string, boolean>();
+
+// True when the folder holds more than `limit` entries. Stops counting at the limit, and remembers the answer for
+// the life of the app (a toolchain folder does not shrink).
+export function exceedsEntryLimit(path: string, limit = GRANT_ENTRY_LIMIT): boolean {
+  const key = `${limit}|${path.toLowerCase()}`;
+  const known = sizeCache.get(key);
+  if (known !== undefined) return known;
+  let count = 0;
+  const pending = [path];
+  while (pending.length > 0 && count <= limit) {
+    const dir = pending.pop() as string;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    count += entries.length;
+    for (const entry of entries) if (entry.isDirectory()) pending.push(win32.join(dir, entry.name));
+  }
+  const result = count > limit;
+  sizeCache.set(key, result);
+  return result;
+}
+
 export interface WindowsPolicyInput {
   cwd: string;
   home: string;
@@ -69,6 +99,8 @@ export interface WindowsPolicyInput {
   programDirs: string[];
   pathEntries: string[];
   exists: (path: string) => boolean;
+  // Whether a folder is too big to grant whole; such a folder is replaced by its `bin` subfolder, or left closed.
+  tooLarge?: (path: string) => boolean;
 }
 
 export interface WindowsPolicy {
@@ -96,7 +128,15 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
     if (readOnly.some((existing) => same(existing, full))) return;
     if (builtIn.some((dir) => dir && within(full, dir))) return;
     if (within(cwd, full) || same(full, win32.parse(full).root) || within(home, full)) return;
-    if (exists(full)) readOnly.push(full);
+    if (!exists(full)) return;
+    if (!input.tooLarge?.(full)) {
+      readOnly.push(full);
+      return;
+    }
+    // A big toolchain folder (.rustup, .cargo) is not opened whole: its commands alone are, when that is small.
+    const bin = win32.join(full, 'bin');
+    if (exists(bin) && !same(bin, full) && !input.tooLarge(bin) && !readOnly.some((entry) => same(entry, bin)))
+      readOnly.push(bin);
   };
   for (const rel of HOME_READ_ONLY_WINDOWS) add(win32.join(home, rel));
   for (const entry of input.pathEntries) if (entry && win32.isAbsolute(entry)) add(entry);
@@ -111,6 +151,7 @@ export interface BuildRequestInput {
   network: boolean;
   home: string;
   exists: (path: string) => boolean;
+  tooLarge?: (path: string) => boolean;
   limits?: Partial<HelperLimits>;
 }
 
@@ -126,6 +167,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     programDirs: [lookup('programfiles'), lookup('programfiles(x86)'), lookup('programw6432')].filter(Boolean),
     pathEntries: lookup('path').split(';'),
     exists: input.exists,
+    tooLarge: input.tooLarge,
   });
   const shell = win32.isAbsolute(input.shell.file)
     ? input.shell.file

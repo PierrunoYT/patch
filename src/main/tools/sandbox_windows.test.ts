@@ -1,10 +1,11 @@
 import { once } from 'node:events';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildHelperRequest,
+  exceedsEntryLimit,
   helperCandidates,
   HelperProcess,
   parseHelperEvent,
@@ -69,6 +70,26 @@ describe('windowsPolicy', () => {
     expect(policy.readOnly).not.toContain('C:\\Users\\me\\work');
   });
 
+  it('opens only the bin folder of a toolchain folder that is too large, or nothing when that is too large too', () => {
+    const big = new Set([
+      `${home}\\.rustup`.toLowerCase(),
+      `${home}\\scoop`.toLowerCase(),
+      `${home}\\scoop\\bin`.toLowerCase(),
+    ]);
+    const policy = windowsPolicy({
+      ...base,
+      exists: present(
+        `${home}\\.cargo`,
+        `${home}\\.cargo\\bin`,
+        `${home}\\.rustup`,
+        `${home}\\scoop`,
+        `${home}\\scoop\\bin`,
+      ),
+      tooLarge: (path) => big.has(path.toLowerCase()) || path.toLowerCase() === `${home}\\.cargo`.toLowerCase(),
+    });
+    expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`]);
+  });
+
   it('does not list a folder twice', () => {
     const policy = windowsPolicy({
       ...base,
@@ -76,6 +97,21 @@ describe('windowsPolicy', () => {
       exists: () => true,
     });
     expect(policy.readOnly.filter((path) => path.toLowerCase().startsWith('d:\\tools'))).toHaveLength(1);
+  });
+});
+
+describe('exceedsEntryLimit', () => {
+  it('counts nested entries and stops at the limit', () => {
+    const root = mkdtempSync(join(tmpdir(), 'patch-grant-size-'));
+    try {
+      mkdirSync(join(root, 'a', 'b'), { recursive: true });
+      for (let i = 0; i < 6; i++) writeFileSync(join(root, 'a', 'b', `f${i}`), '');
+      expect(exceedsEntryLimit(root, 100)).toBe(false);
+      expect(exceedsEntryLimit(root, 5)).toBe(true);
+      expect(exceedsEntryLimit(join(root, 'missing'), 5)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

@@ -8,6 +8,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows sandbox: a toolchain folder with more than 5000 entries (such as `~/.rustup`) is no longer granted whole before each command, which made every command start about a minute late; only its small `bin` folder is opened, or nothing. Tools that need such a folder's other files (`rustc`, `cargo`) will not work in the sandbox until a better grant exists (fixes #89).
+
 ### Added
 
 - Agent commands (including background ones) run in a sandbox: bubblewrap on Linux, Seatbelt on macOS, or an opt-in Docker/Podman container on every platform, with the project folder writable, the rest of the home folder hidden and the network off by default. New settings: sandbox mode, sandbox network and container image. The approval card says whether a command is sandboxed (Windows without a container is not), and the model can request network or unsandboxed access for one command, which always asks. Untested against real bubblewrap, Seatbelt and Docker (refs #76).

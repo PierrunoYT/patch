@@ -20,7 +20,7 @@ import {
   type SandboxDecision,
   type SandboxSupport,
 } from './sandbox';
-import { buildHelperRequest, HelperProcess } from './sandbox_windows';
+import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
 import { defineTool, truncateOutput } from './types';
 
 const DEFAULT_TIMEOUT_SECONDS = 120;
@@ -281,6 +281,7 @@ export class ShellRunner {
       network,
       home: real(homedir()),
       exists: (path) => existsSync(path),
+      tooLarge: (path) => exceedsEntryLimit(path),
     });
     appLog.info('sandbox', 'Command started.', { kind: 'appcontainer', network });
     return new HelperProcess(helper, request);
