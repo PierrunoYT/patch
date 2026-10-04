@@ -66,6 +66,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- `command_output` returns only the output that is new since the last read of that background command (the result of starting it counts as a read), instead of the whole buffered output on every poll. A new `full` option returns all of it again. A watcher or server that is checked several times no longer adds up to 30,000 characters to the conversation per check.
 - Turning plan mode on or off in a chat no longer invalidates the prompt cache. `propose_plan` is always in the tool list, and a note on each user message tells the model whether plan mode is on; a plan proposed while it is off is answered without an approval card. The change takes effect with the next message (fixes #44).
 - Subagents on the chat's own model reuse the chat's cached prompt: they are sent the chat's exact system prompt and tool list, with their role in the first message, so their first request reads the cached tools and system prompt instead of writing them again. Tools they may not use are stand-ins that only return an error, so they still cannot edit, run commands or reach the network.
 - Anthropic requests put an ephemeral cache breakpoint on the system prompt and the last tool, as well as the top-level breakpoint. Each completed turn writes cache reads, cache writes, and whether that prefix changed to the local log (counts and hashes only). Extra tools are offered in name order.

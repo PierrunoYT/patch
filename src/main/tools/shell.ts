@@ -49,8 +49,18 @@ interface BackgroundCommand {
   command: string;
   process: CommandProcess;
   output: string;
+  // The part of `output` no tool result has carried yet. A poll returns only this, so a command that is checked
+  // several times does not put its whole output into the conversation again each time.
+  unread: string;
   exitCode: number | null | undefined;
   detachAbort: () => void;
+}
+
+// The output that arrived since the last call, which it marks as read.
+function takeUnread(entry: BackgroundCommand): string {
+  const text = entry.unread;
+  entry.unread = '';
+  return text;
 }
 
 // The shell the agent's commands run in. Named in the system prompt so the model writes matching syntax.
@@ -179,12 +189,15 @@ export class ShellRunner {
       command,
       process: child,
       output: '',
+      unread: '',
       exitCode: undefined,
       detachAbort: () => signal?.removeEventListener('abort', onAbort),
     };
-    const collect = (chunk: Buffer) => {
-      entry.output = (entry.output + chunk.toString('utf8')).slice(-MAX_BUFFERED_CHARS);
+    const append = (text: string) => {
+      entry.output = (entry.output + text).slice(-MAX_BUFFERED_CHARS);
+      entry.unread = (entry.unread + text).slice(-MAX_BUFFERED_CHARS);
     };
+    const collect = (chunk: Buffer) => append(chunk.toString('utf8'));
     child.stdout?.on('data', collect);
     child.stderr?.on('data', collect);
     child.on('close', (code) => {
@@ -192,7 +205,7 @@ export class ShellRunner {
       entry.detachAbort();
     });
     child.on('error', (error) => {
-      entry.output += `\n${error.message}`;
+      append(`\n${error.message}`);
       entry.exitCode = null;
       entry.detachAbort();
     });
@@ -367,7 +380,7 @@ export const runCommandTool = defineTool({
       await delay(3000, undefined, { signal: context.signal });
       const status = entry.exitCode === undefined ? 'still running' : `exited with code ${entry.exitCode}`;
       return {
-        content: `Started background command ${entry.id} (${status}).\n${truncateOutput(stripAnsi(entry.output)) || '(no output yet)'}`,
+        content: `Started background command ${entry.id} (${status}).\n${truncateOutput(stripAnsi(takeUnread(entry))) || '(no output yet)'}`,
         summary: `Started \`${command}\` in the background`,
       };
     }
@@ -386,17 +399,22 @@ export const runCommandTool = defineTool({
 });
 export const commandOutputTool = defineTool({
   name: 'command_output',
-  description: 'Get the output of a background command started with run_command, or stop it.',
+  description:
+    'Get the output of a background command started with run_command, or stop it. Returns only the output that is new since your last read of that command (the result of starting it counts as a read); set full to true to get all of its output again.',
   schema: z.object({
     id: z.number().int(),
     stop: z.boolean().optional().describe('Stop the command after reading its output.'),
+    full: z.boolean().optional().describe('Return all of the output so far, not only what is new.'),
   }),
   requiresApproval: false,
-  async run({ id, stop }, context) {
+  async run({ id, stop, full }, context) {
     const entry = context.shell.getBackground(id);
     if (!entry) return { content: `No background command with id ${id}.`, isError: true };
     const status = entry.exitCode === undefined ? 'running' : `exited with code ${entry.exitCode}`;
-    const output = truncateOutput(stripAnsi(entry.output).trim()) || '(no output)';
+    const unread = takeUnread(entry);
+    const output = full
+      ? truncateOutput(stripAnsi(entry.output).trim()) || '(no output)'
+      : truncateOutput(stripAnsi(unread).trim()) || '(no new output since your last read)';
     if (stop) context.shell.stopBackground(id);
     return {
       content: `Command ${id}: ${entry.command}\nStatus: ${stop ? 'stopped' : status}\n${output}`,
