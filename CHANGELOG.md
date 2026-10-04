@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- The first history search over many long chats no longer freezes the window. The search still reads each chat file once, but gives the window a turn after each file instead of reading them all in one go (fixes #69).
 - End-to-end command lifecycle tests no longer depend on whether the Windows AppContainer helper happens to be present, eliminating host-ACL-dependent full-suite failures (fixes #54).
 - Windows AppContainer integration tests no longer grant temporary access to dependencies in the shared checkout, preventing concurrent Electron tests from aborting with exception `0x80000003`.
 - Claude `edit_file` calls use strict tool inputs on supported models, preventing omitted required fields such as `new_string` in batched edits. Empty replacements still allow deletion; local validation, per-edit approval and Undo remain in place. Custom Claude ids and other providers retain the existing validation path (fixes #20).

@@ -28,11 +28,9 @@ export class ChatStore {
   // Returns whether the index was written, i.e. whether the chat list changed.
   save(chat: SavedChat, checkpoint = false): boolean {
     writeJson(this.chatFile(chat.id), chat);
-    if (checkpoint && this.index.some((item) => item.id === chat.id)) {
-      // The cached search text is keyed to the index timestamp, which a checkpoint leaves unchanged.
-      this.textCache.delete(chat.id);
-      return false;
-    }
+    // The cached search text is keyed to the index timestamp, which a checkpoint leaves unchanged.
+    this.textCache.delete(chat.id);
+    if (checkpoint && this.has(chat.id)) return false;
     const summary = summarize(chat);
     this.index = [summary, ...this.index.filter((item) => item.id !== chat.id)];
     writeJson(this.indexFile, this.index);
@@ -40,30 +38,45 @@ export class ChatStore {
   }
 
   // Chats whose title, project or messages contain every word of the query, newest first. Message text is read from
-  // the chat files the first time it is needed and kept in memory until the chat changes.
-  search(query: string): ChatSummary[] {
+  // the chat files the first time it is needed and kept in memory until the chat changes. The search gives the event
+  // loop a turn after each file it reads, so the first search over a long history does not freeze the window. Each
+  // file is read in one synchronous step: a file held open across turns would make a save of that chat fail on
+  // Windows, where an open file cannot be renamed over.
+  async search(query: string): Promise<ChatSummary[]> {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length === 0) return this.list();
     const results: ChatSummary[] = [];
+    let waited = false;
     for (const summary of this.list()) {
       const head = `${summary.title} ${summary.projectPath ?? ''}`.toLowerCase();
       if (words.every((word) => head.includes(word))) {
         results.push(summary);
         continue;
       }
-      const text = this.messageText(summary);
+      const cached = this.textCache.get(summary.id);
+      let text: string;
+      if (cached?.updatedAt === summary.updatedAt) {
+        text = cached.text;
+      } else {
+        text = this.readMessageText(summary);
+        await nextTurn();
+        waited = true;
+      }
       const all = `${head}\n${text.toLowerCase()}`;
       if (words.every((word) => all.includes(word))) results.push({ ...summary, snippet: searchSnippet(text, words) });
     }
-    return results;
+    // Chats deleted while the search was waiting are not results.
+    return waited ? results.filter((result) => this.has(result.id)) : results;
   }
 
-  private messageText(summary: ChatSummary): string {
-    const cached = this.textCache.get(summary.id);
-    if (cached?.updatedAt === summary.updatedAt) return cached.text;
+  private readMessageText(summary: ChatSummary): string {
     const text = transcriptSearchText(this.load(summary.id)?.transcript ?? []);
-    this.textCache.set(summary.id, { updatedAt: summary.updatedAt, text });
+    if (this.has(summary.id)) this.textCache.set(summary.id, { updatedAt: summary.updatedAt, text });
     return text;
+  }
+
+  private has(id: string): boolean {
+    return this.index.some((item) => item.id === id);
   }
 
   load(id: string): SavedChat | null {
@@ -105,6 +118,11 @@ export class ChatStore {
       .map(summarize);
     if (this.index.length > 0) writeJson(this.indexFile, this.index);
   }
+}
+
+// Lets the events that arrived in the meantime (window input, other requests) run before the caller continues.
+function nextTurn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 // What the chat list shows for a chat, including its estimated cost so far.

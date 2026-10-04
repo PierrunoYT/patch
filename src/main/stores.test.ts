@@ -75,18 +75,18 @@ describe('ChatStore', () => {
     expect(store.list()[0]?.title).toBe('Later');
   });
 
-  it('searches the text a checkpoint wrote, though the index timestamp is unchanged', () => {
+  it('searches the text a checkpoint wrote, though the index timestamp is unchanged', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     const user = (text: string) => ({ kind: 'user' as const, id: 'u1', text, imageCount: 0 });
     store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('first draft')] });
-    expect(store.search('draft').map((item) => item.id)).toEqual([idA]);
+    expect((await store.search('draft')).map((item) => item.id)).toEqual([idA]);
 
     store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('second version')] }, true);
-    expect(store.search('version').map((item) => item.id)).toEqual([idA]);
-    expect(store.search('draft')).toEqual([]);
+    expect((await store.search('version')).map((item) => item.id)).toEqual([idA]);
+    expect(await store.search('draft')).toEqual([]);
   });
 
-  it('searches titles, projects and message text, and explains message matches', () => {
+  it('searches titles, projects and message text, and explains message matches', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     const first = {
       ...chat(idA, '2026-01-01T00:00:00Z'),
@@ -106,32 +106,96 @@ describe('ChatStore', () => {
     store.save(first);
     store.save(second);
 
-    expect(store.search('   ').map((item) => item.id)).toEqual([idB, idA]);
+    expect((await store.search('   ')).map((item) => item.id)).toEqual([idB, idA]);
     // A title match has no snippet; a message match carries an excerpt.
-    expect(store.search('fix')).toEqual([expect.not.objectContaining({ snippet: expect.anything() })]);
-    const [byMessage] = store.search('refresh token');
+    expect(await store.search('fix')).toEqual([expect.not.objectContaining({ snippet: expect.anything() })]);
+    const [byMessage] = await store.search('refresh token');
     expect(byMessage!.id).toBe(idA);
     expect(byMessage!.snippet).toContain('refresh token is rejected');
     // Words may be split between the title and the messages; tool output is not searched.
-    expect(store.search('login rejected').map((item) => item.id)).toEqual([idA]);
-    expect(store.search('zebra')).toEqual([]);
-    expect(store.search('blog').map((item) => item.id)).toEqual([idB]);
+    expect((await store.search('login rejected')).map((item) => item.id)).toEqual([idA]);
+    expect(await store.search('zebra')).toEqual([]);
+    expect((await store.search('blog')).map((item) => item.id)).toEqual([idB]);
   });
 
-  it('forgets cached text when a chat changes or is deleted', () => {
+  it('forgets cached text when a chat changes or is deleted', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     const base = chat(idA, '2026-01-01T00:00:00Z');
     store.save({ ...base, transcript: [{ kind: 'user', id: 'u', text: 'alpha', imageCount: 0 }] });
-    expect(store.search('alpha')).toHaveLength(1);
+    expect(await store.search('alpha')).toHaveLength(1);
     store.save({
       ...base,
       updatedAt: '2026-01-02T00:00:00Z',
       transcript: [{ kind: 'user', id: 'u', text: 'beta', imageCount: 0 }],
     });
-    expect(store.search('alpha')).toHaveLength(0);
-    expect(store.search('beta')).toHaveLength(1);
+    expect(await store.search('alpha')).toHaveLength(0);
+    expect(await store.search('beta')).toHaveLength(1);
     store.delete(idA);
-    expect(store.search('beta')).toHaveLength(0);
+    expect(await store.search('beta')).toHaveLength(0);
+  });
+
+  it('does not keep text that a save replaced during a search', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    const user = (text: string) => ({ kind: 'user' as const, id: 'u1', text, imageCount: 0 });
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('first draft')] });
+
+    // The search has read the file and is waiting for its next turn when the checkpoint replaces it.
+    const searching = store.search('draft');
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('second version')] }, true);
+    await searching;
+
+    expect((await store.search('version')).map((item) => item.id)).toEqual([idA]);
+    expect(await store.search('draft')).toEqual([]);
+  });
+
+  it('leaves out a chat that was deleted during a search', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    const user = (text: string) => ({ kind: 'user' as const, id: 'u1', text, imageCount: 0 });
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('alpha')] });
+    store.save({ ...chat(idB, '2026-02-01T00:00:00Z'), transcript: [user('alpha')] });
+
+    const searching = store.search('alpha');
+    store.delete(idA);
+    expect((await searching).map((item) => item.id)).toEqual([idB]);
+    expect((await store.search('alpha')).map((item) => item.id)).toEqual([idB]);
+  });
+
+  it('gives other work a turn between the chat files it reads', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    const user = (text: string) => ({ kind: 'user' as const, id: 'u1', text, imageCount: 0 });
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('alpha')] });
+    store.save({ ...chat(idB, '2026-02-01T00:00:00Z'), transcript: [user('alpha')] });
+
+    let turns = 0;
+    let done = false;
+    const count = () => {
+      if (done) return;
+      turns += 1;
+      setImmediate(count);
+    };
+    setImmediate(count);
+    await store.search('alpha');
+    done = true;
+    expect(turns).toBeGreaterThanOrEqual(2);
+
+    // Cached text needs no file, so a repeated search does not wait.
+    turns = 0;
+    done = false;
+    setImmediate(count);
+    await store.search('alpha');
+    done = true;
+    expect(turns).toBe(0);
+  });
+
+  it('answers searches that overlap with the same results', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    const user = (text: string) => ({ kind: 'user' as const, id: 'u1', text, imageCount: 0 });
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('alpha beta')] });
+    store.save({ ...chat(idB, '2026-02-01T00:00:00Z'), transcript: [user('alpha gamma')] });
+
+    const [both, one] = await Promise.all([store.search('alpha'), store.search('gamma')]);
+    expect(both.map((item) => item.id)).toEqual([idB, idA]);
+    expect(one.map((item) => item.id)).toEqual([idB]);
   });
 
   it('rejects ids that are not UUIDs', () => {
@@ -179,21 +243,21 @@ describe('ChatStore', () => {
     expect(store.list()).toHaveLength(1);
   });
 
-  it('deletes every chat and its file', () => {
+  it('deletes every chat and its file', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     store.save(chat(idA, '2026-01-01T00:00:00Z'));
     store.save(chat(idB, '2026-02-01T00:00:00Z'));
     store.deleteAll();
 
     expect(store.list()).toEqual([]);
-    expect(store.search('chat')).toEqual([]);
+    expect(await store.search('chat')).toEqual([]);
     expect(store.load(idA)).toBeNull();
     expect(existsSync(join(dir, 'chats', `${idA}.json`))).toBe(false);
     expect(existsSync(join(dir, 'chats', `${idB}.json`))).toBe(false);
     expect(new ChatStore(join(dir, 'chats')).list()).toEqual([]);
   });
 
-  it('requires every word to match and ignores case when searching', () => {
+  it('requires every word to match and ignores case when searching', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     store.save({
       ...chat(idA, '2026-01-01T00:00:00Z'),
@@ -202,10 +266,10 @@ describe('ChatStore', () => {
       transcript: [{ kind: 'user', id: 'u', text: 'Refresh TOKEN expired', imageCount: 0 }],
     });
 
-    expect(store.search('FIX shop').map((item) => item.id)).toEqual([idA]);
-    expect(store.search('token REFRESH').map((item) => item.id)).toEqual([idA]);
-    expect(store.search('fix missing')).toEqual([]);
-    expect(store.search('token missing')).toEqual([]);
+    expect((await store.search('FIX shop')).map((item) => item.id)).toEqual([idA]);
+    expect((await store.search('token REFRESH')).map((item) => item.id)).toEqual([idA]);
+    expect(await store.search('fix missing')).toEqual([]);
+    expect(await store.search('token missing')).toEqual([]);
   });
 
   it('rebuilds the index without corrupt, unsupported or foreign files', () => {
