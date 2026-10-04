@@ -10,6 +10,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Command sandboxes expose Cargo, Maven and Gradle binaries/caches instead of their credential-bearing parent directories, and no longer expose global Git configuration. Windows PATH grants cannot reopen these private paths. Directory-size checks now traverse nested files correctly on Linux and macOS too.
+- Git-panel operations disable hooks, including hooks redirected by a repository's `core.hooksPath`, so sandboxed commands cannot plant hooks that the panel later runs with host permissions. Docker/Podman also mount an existing `.git/hooks` directory read-only. Run Git explicitly in the terminal when trusted hooks are needed.
 - End-to-end command lifecycle tests no longer depend on whether the Windows AppContainer helper happens to be present, eliminating host-ACL-dependent full-suite failures (fixes #54).
 - Windows AppContainer integration tests no longer grant temporary access to dependencies in the shared checkout, preventing concurrent Electron tests from aborting with exception `0x80000003`.
 - Claude `edit_file` calls use strict tool inputs on supported models, preventing omitted required fields such as `new_string` in batched edits. Empty replacements still allow deletion; local validation, per-edit approval and Undo remain in place. Custom Claude ids and other providers retain the existing validation path (fixes #20).

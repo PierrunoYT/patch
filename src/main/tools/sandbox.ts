@@ -36,9 +36,11 @@ export type SandboxDecision =
   { kind: SandboxKind; network: boolean; note?: string } | { kind: 'unavailable'; reason: string };
 
 // Read-only inside the sandbox when they exist: what builds need. Everything else in the home folder is hidden.
-// Credentials (.ssh, .aws, .npmrc, browser profiles, ...) are deliberately not listed.
+// Open binaries/caches, not their credential-bearing parent folders or global Git configuration.
 export const HOME_READ_ONLY = [
-  '.cargo',
+  '.cargo/bin',
+  '.cargo/registry',
+  '.cargo/git',
   '.rustup',
   '.nvm',
   '.volta',
@@ -52,11 +54,10 @@ export const HOME_READ_ONLY = [
   '.local/share/pnpm',
   '.npm',
   '.cache/pip',
-  '.m2',
-  '.gradle',
+  '.m2/repository',
+  '.gradle/caches',
+  '.gradle/wrapper',
   'go/pkg/mod',
-  '.gitconfig',
-  '.config/git',
 ];
 
 const SYSTEM_READ_ONLY = [
@@ -221,9 +222,10 @@ export function containerArgs(
     // Files the command creates in the project belong to the user, not to root.
     args.push(engine === 'podman' ? '--userns=keep-id' : `--user=${env.uid}:${env.gid}`);
   }
+  args.push('-v', `${env.cwd}:/workspace`);
+  const hooks = `${env.cwd}/.git/hooks`;
+  if (env.exists(hooks)) args.push('-v', `${hooks}:/workspace/.git/hooks:ro`);
   args.push(
-    '-v',
-    `${env.cwd}:/workspace`,
     '-w',
     '/workspace',
     '-e',
