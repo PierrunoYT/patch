@@ -2,7 +2,7 @@
 
 ## Setup
 
-Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git. On Windows, the command sandbox helper (`native/sandbox-helper`) also needs a Rust toolchain: `npm run build:sandbox` builds it into `native/sandbox-helper/target/release/` (git-ignored). Without it the app still works and `run_command` runs unsandboxed; with it the Windows integration tests (`sandbox_windows.integration.test.ts`) run real commands in an AppContainer. Those tests use a copied Node executable and isolated `PATH`, so their temporary AppContainer ACLs never touch checkout dependencies or interfere with concurrent Electron tests.
+Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git. On Windows, the command sandbox helper (`native/sandbox-helper`) also needs a Rust toolchain: `npm run build:sandbox` builds it into `native/sandbox-helper/target/release/` (git-ignored). Without it the app still works and `run_command` runs unsandboxed; with it the Windows integration tests (`sandbox_windows.integration.test.ts`) run real commands in an AppContainer. Those tests use a copied Node executable and isolated `PATH`, so their temporary AppContainer ACLs never touch checkout dependencies or interfere with concurrent Electron tests. End-to-end tests whose concern is command lifecycle or output set `sandboxMode: 'off'`; AppContainer behavior belongs in the dedicated integration suite, keeping the general e2e suite independent of helper availability and host ACLs.
 
 ```bash
 npm install

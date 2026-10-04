@@ -22,8 +22,11 @@ describe('stop and resume of a long agent run (mock Claude API)', () => {
     running = await launchApp({ PATCH_TEST_ANTHROPIC_URL: url }, { userData: profile });
     await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
     await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-e2e'));
+    // This test owns shell stop/resume behavior, not the host-dependent sandbox integration covered separately.
     // Commands run without approval cards, so the run goes on by itself until it is stopped.
-    await running.page.evaluate(() => window.api.invoke('settings:update', { approvalMode: 'auto' }));
+    await running.page.evaluate(() =>
+      window.api.invoke('settings:update', { approvalMode: 'auto', sandboxMode: 'off' }),
+    );
   });
 
   afterAll(async () => {

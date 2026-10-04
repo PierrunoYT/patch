@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- End-to-end command lifecycle tests no longer depend on whether the Windows AppContainer helper happens to be present, eliminating host-ACL-dependent full-suite failures (fixes #54).
 - Windows AppContainer integration tests no longer grant temporary access to dependencies in the shared checkout, preventing concurrent Electron tests from aborting with exception `0x80000003`.
 - Claude `edit_file` calls use strict tool inputs on supported models, preventing omitted required fields such as `new_string` in batched edits. Empty replacements still allow deletion; local validation, per-edit approval and Undo remain in place. Custom Claude ids and other providers retain the existing validation path (fixes #20).
 - Windows sandbox: a toolchain folder with more than 5000 entries (such as `~/.rustup`) is no longer granted whole before each command, which made every command start about a minute late; only its small `bin` folder is opened, or nothing. Tools that need such a folder's other files (`rustc`, `cargo`) will not work in the sandbox until a better grant exists (fixes #89).

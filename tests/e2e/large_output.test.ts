@@ -66,7 +66,10 @@ describe('very large tool results in the chat (mock Claude API)', () => {
   });
 
   it('keeps the end of very long command output and says the start was left out', async () => {
-    await running.page.evaluate(() => window.api.invoke('settings:update', { approvalMode: 'auto' }));
+    // Output truncation is independent of the host-dependent sandbox integration, which has its own test suite.
+    await running.page.evaluate(() =>
+      window.api.invoke('settings:update', { approvalMode: 'auto', sandboxMode: 'off' }),
+    );
     claude.script(
       {
         blocks: [
