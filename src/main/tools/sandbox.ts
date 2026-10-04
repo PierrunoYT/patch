@@ -80,8 +80,8 @@ export function commandUrlsAllowed(command: string, allowedHosts: string): boole
 }
 
 // Whether the sandbox gets network. "allow-list" cannot filter by host (neither bubblewrap, Seatbelt nor a plain
-// container can): the network is granted only when every URL written in the command is on the list. A program that
-// connects elsewhere by itself stays offline.
+// container can): matching command URLs request unrestricted network access, which must be approved for each run.
+// This is a request heuristic, never a host-level network boundary.
 export function wantsNetwork(command: string, config: SandboxConfig, access: CommandAccess): boolean {
   if (access.network || config.network === 'on') return true;
   return config.network === 'allow-list' && commandUrlsAllowed(command, config.allowedHosts);
@@ -117,9 +117,8 @@ export function decideSandbox(
         ? 'sandbox-exec is not available'
         : 'the Windows sandbox helper (sandbox-helper.exe) was not found';
   return {
-    kind: 'none',
-    network: true,
-    note: `NOT sandboxed: ${why}. Choose "container" mode to use Docker or Podman.`,
+    kind: 'unavailable',
+    reason: `Sandbox unavailable: ${why}. Choose "container" mode to use Docker or Podman, or request unsandboxed access for this command. The command was not run.`,
   };
 }
 
@@ -279,7 +278,11 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
     appcontainer: 'Sandboxed (AppContainer)',
     container: 'Sandboxed (container)',
   }[decision.kind];
-  const net = decision.network ? (access.network ? 'network allowed for this command' : 'network on') : 'no network';
+  const net = decision.network
+    ? access.network
+      ? 'unrestricted network allowed for this command'
+      : 'unrestricted network on (not filtered by hostname)'
+    : 'no network';
   return `${where}: only the project folder is writable, the rest of your home folder is hidden, ${net}.`;
 }
 

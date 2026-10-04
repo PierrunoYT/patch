@@ -1153,31 +1153,42 @@ describe('Agent: permission rules', () => {
 });
 
 describe('Agent: calls that must ask', () => {
-  it('asks in Auto mode when the tool says this call needs it', async () => {
-    const ran = vi.fn();
-    const guarded = defineTool({
-      name: 'guarded',
-      description: 'guarded',
-      schema: z.object({ what: z.string() }),
-      requiresApproval: true,
-      mustAsk: ({ what }) => what === 'secret',
-      async run() {
-        ran();
-        return { content: 'ok' };
-      },
-    });
-    const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => ({ approved: false }));
-    const { agent } = setup(
-      [
-        { toolCalls: [call('t1', 'guarded', { what: 'plain' }), call('t2', 'guarded', { what: 'secret' })] },
-        { text: 'x' },
-      ],
-      { tools: [guarded], mode: 'auto', requestApproval },
-    );
-    await agent.send({ text: 'go' }, new AbortController().signal);
-    expect(requestApproval).toHaveBeenCalledTimes(1);
-    expect(ran).toHaveBeenCalledTimes(1);
-  });
+  it.each([null, 'allow', 'reject'] as const)(
+    'enforces per-call approval with permission decision %s',
+    async (action) => {
+      const ran = vi.fn();
+      const guarded = defineTool({
+        name: 'guarded',
+        description: 'guarded',
+        schema: z.object({ what: z.string() }),
+        requiresApproval: true,
+        mustAsk: ({ what }) => what === 'secret',
+        async run() {
+          ran();
+          return { content: 'ok' };
+        },
+      });
+      const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => ({ approved: false }));
+      const { agent } = setup(
+        [
+          { toolCalls: [call('t1', 'guarded', { what: 'plain' }), call('t2', 'guarded', { what: 'secret' })] },
+          { text: 'x' },
+        ],
+        {
+          tools: [guarded],
+          mode: 'auto',
+          requestApproval,
+          agentOptions: {
+            isPreApproved: () => true,
+            decidePermission: async () => (action ? { action } : null),
+          },
+        },
+      );
+      await agent.send({ text: 'go' }, new AbortController().signal);
+      expect(requestApproval).toHaveBeenCalledTimes(action === 'reject' ? 0 : 1);
+      expect(ran).toHaveBeenCalledTimes(action === 'reject' ? 0 : 1);
+    },
+  );
 });
 
 describe('Agent: parallel read-only tools', () => {

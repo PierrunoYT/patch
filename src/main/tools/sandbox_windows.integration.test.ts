@@ -416,6 +416,12 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
       if (child.exitCode === null) child.kill();
       await closed;
       await recover();
+      // Forced termination also bypasses ProjectDrive's destructor. Permission recovery does not yet reclaim
+      // drive mappings: remove only this fixture's mapping so repeated test runs do not consume P: through Z:.
+      for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
+        const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
+        if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
+      }
       rmSync(fixture, { recursive: true, force: true });
     }
   }, 60_000);

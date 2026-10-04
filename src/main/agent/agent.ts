@@ -385,13 +385,14 @@ export class Agent {
       emit({ type: 'tool-end', id: eventId, status: 'error', summary: `${tool.name} blocked`, output: content });
       return { result: { id: call.id, content, isError: true } };
     }
-    const needsApproval = rule
-      ? rule.action === 'ask'
-      : tool.alwaysAsk ||
-        mustAsk(tool, input, context) ||
-        (tool.requiresApproval &&
-          this.options.approvalMode() === 'ask' &&
-          !this.options.isPreApproved?.(tool.name, input));
+    const needsApproval =
+      mustAsk(tool, input, context) ||
+      (rule
+        ? rule.action === 'ask'
+        : tool.alwaysAsk ||
+          (tool.requiresApproval &&
+            this.options.approvalMode() === 'ask' &&
+            !this.options.isPreApproved?.(tool.name, input)));
     let preview: ToolPreview | undefined;
     if (tool.preview) {
       try {

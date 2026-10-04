@@ -40,12 +40,10 @@ describe('decideSandbox', () => {
     });
   });
 
-  it('says plainly when automatic mode finds nothing to use', () => {
-    const win = decideSandbox('ls', config, { ...none, container: 'docker' }, {}, 'win32');
-    expect(win.kind).toBe('none');
-    expect(describeSandbox(win)).toMatch(/NOT sandboxed.*Windows/);
-    const linux = decideSandbox('ls', config, none, {}, 'linux');
-    expect(describeSandbox(linux)).toMatch(/NOT sandboxed.*bubblewrap/);
+  it.each(['win32', 'linux', 'darwin'] as const)('fails closed without a native backend on %s', (platform) => {
+    const decision = decideSandbox('ls', config, { ...none, container: 'docker' }, {}, platform);
+    expect(decision.kind).toBe('unavailable');
+    expect(describeSandbox(decision)).toMatch(/Cannot run:.*unsandboxed access.*not run/);
   });
 
   it('uses the AppContainer helper on Windows and says so', () => {
@@ -57,7 +55,7 @@ describe('decideSandbox', () => {
       kind: 'appcontainer',
       network: true,
     });
-    expect(decideSandbox('ls', config, support, {}, 'linux').kind).toBe('none');
+    expect(decideSandbox('ls', config, support, {}, 'linux').kind).toBe('unavailable');
   });
 
   it('does not run in the AppContainer when sandboxing is off or allowed to be skipped', () => {
@@ -219,6 +217,9 @@ describe('describeSandbox', () => {
     expect(describeSandbox({ kind: 'bwrap', network: false })).toMatch(/bubblewrap.*no network/);
     expect(describeSandbox({ kind: 'container', network: true }, { network: true })).toMatch(
       /allowed for this command/,
+    );
+    expect(describeSandbox({ kind: 'bwrap', network: true })).toContain(
+      'unrestricted network on (not filtered by hostname)',
     );
   });
 });
