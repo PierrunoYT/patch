@@ -215,7 +215,7 @@ Same machine as above. The numbers were stable across three runs.
 
 ### Crash-resume checkpoints (2026-09-30)
 
-A crash-resume checkpoint writes the whole chat synchronously after every tool-result batch: pretty-printed JSON, including base64 screenshots. Until #17 it also rewrote the chat index and sent a `history:changed` broadcast; checkpoints now skip both (see "Checkpoints skip the index" below). Quick read-only batches, and batches that return browser screenshots, block the main process once per batch, and the stall grows with the chat. Checkpointing only batches that need approval or change state, or skipping the index rewrite and the broadcast until the run finishes, is tracked in [#17](https://github.com/PierrunoYT/patch/issues/17). Measured in [The agent loop](#the-agent-loop-2026-10-01) below.
+A crash-resume checkpoint wrote the whole chat synchronously after every tool-result batch: pretty-printed JSON, including base64 screenshots. Until #17 it also rewrote the chat index and sent a `history:changed` broadcast; checkpoints now skip both (see "Checkpoints skip the index" below), and since #55 the file is written in the background (see "Checkpoints are written in the background" below). Quick read-only batches, and batches that return browser screenshots, block the main process once per batch, and the stall grows with the chat. Checkpointing only batches that need approval or change state, or skipping the index rewrite and the broadcast until the run finishes, is tracked in [#17](https://github.com/PierrunoYT/patch/issues/17). Measured in [The agent loop](#the-agent-loop-2026-10-01) below.
 
 ## The agent loop (2026-10-01)
 
@@ -261,7 +261,27 @@ Serialization grows linearly with the chat. The write does not: the same 6.4 MB 
 
 ### Checkpoints skip the index ([#17](https://github.com/PierrunoYT/patch/issues/17))
 
-A checkpoint now writes only the chat file. The chat index is rewritten and `history:changed` is sent only by the regular saves (debounced changes and the end of a run), or when the chat is not in the index yet. That removes the index write and the broadcast from every tool batch. The chat file is still written synchronously, which crash-resume needs, so the per-batch cost in a very long chat is reduced but not gone; moving that write off the main thread is the remaining step ([#55](https://github.com/PierrunoYT/patch/issues/55)). The numbers above are from before this change and have not been re-measured: re-run `npm run perf`.
+A checkpoint now writes only the chat file. The chat index is rewritten and `history:changed` is sent only by the regular saves (debounced changes and the end of a run), or when the chat is not in the index yet. That removes the index write and the broadcast from every tool batch. The numbers in the tables above are from before this change.
+
+### Checkpoints are written in the background ([#55](https://github.com/PierrunoYT/patch/issues/55))
+
+A checkpoint of a chat that is already in the index now only serializes the chat in the call (`ChatStore.save` with `checkpoint`). The file is written in the background and moved into place when it is complete (`writeJsonLater` in `src/main/storage/json_file.ts`), still through a temporary file and a rename. One write per chat runs at a time; a checkpoint made while one is running replaces the content that is waiting, so checkpoints land in order. Every other save stays synchronous and replaces a checkpoint that has not landed. A chat that is not in the index yet is saved and indexed synchronously, as before.
+
+Measured with `tests/perf/agent_loop.perf.ts` on a different machine from the tables above (AMD Ryzen 9 9900X, 62 GB RAM, Windows 11, Node 26), so compare the columns with each other, not with the earlier tables. Range over three runs:
+
+| Chat                           | Synchronous save (before) | The checkpoint call | Main thread busy until on disk | Until on disk |
+| ------------------------------ | ------------------------- | ------------------- | ------------------------------ | ------------- |
+| 1,250 items (1.6 MB)           | 3.5–6.7 ms                | 1.6–3.6 ms          | 2.6–6.1 ms                     | 3.6–8.4 ms    |
+| 5,000 items (6.4 MB)           | 11–22 ms                  | 7.1–12 ms           | 9.6–18 ms                      | 12–24 ms      |
+| 20,000 items (25.9 MB)         | 39–43 ms                  | 23–26 ms            | 29–33 ms                       | 37–41 ms      |
+| 5,000 items and 10 screenshots | 11–12 ms                  | 6.3–6.4 ms          | 8.9–9.0 ms                     | 12 ms         |
+
+"Synchronous save" is a full save (the chat file and a one-entry index), which is what a checkpoint cost before, plus the small index write. "Main thread busy" is the event loop's own utilization counter from the call until the file is in place: the call, then encoding the text to bytes and the rename in later turns.
+
+- **The longest block is now the serialization.** The checkpoint call takes as long as `JSON.stringify` alone, about 55–60% of the synchronous save on this machine, and the rest of the main-thread work (1–7 ms) runs in later turns, so other events are handled in between.
+- **The gain depends on how slow the write is.** On this machine the write is fast (a few milliseconds), so the total main-thread work only drops by 15–25%. On the machine of the earlier tables the write was the larger part (13–77 ms for a 6.4 MB chat, 2–8 ms of it serialization); that part no longer blocks. It has not been re-measured there: re-run `npm run perf`.
+- **What is left is `JSON.stringify`**, which grows linearly with the chat (about 1 ms per MB here). Removing it would need a different format (appending to the chat file instead of rewriting it) or serializing in a worker, which first has to copy the chat there.
+- **What a kill can lose:** a checkpoint that is still being written when the process is killed is lost, and the chat resumes from the checkpoint before it. That window is the "until on disk" column. The end-to-end kill tests (`tests/e2e/crash_kill.test.ts`) pass unchanged.
 
 ### Re-run of the renderer and main-process benchmarks (2026-10-01)
 

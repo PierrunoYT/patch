@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { searchSnippet, transcriptSearchText, type ChatSummary } from '@shared/chat';
 import { estimateCost } from '@shared/models';
 import type { SavedChat } from './agent/session';
-import { readJson, writeJson } from './storage/json_file';
+import { appLog } from './app_log';
+import { cancelJsonWrite, readJson, writeJson, writeJsonLater } from './storage/json_file';
 
 const ID_PATTERN = /^[0-9a-f-]{36}$/;
 
@@ -11,6 +12,8 @@ const ID_PATTERN = /^[0-9a-f-]{36}$/;
 export class ChatStore {
   private index: ChatSummary[];
   private readonly textCache = new Map<string, { updatedAt: string; text: string }>();
+  // Checkpoints still being written, by chat id.
+  private readonly checkpoints = new Map<string, Promise<void>>();
 
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true });
@@ -24,17 +27,44 @@ export class ChatStore {
   }
 
   // A `checkpoint` save is a crash-resume checkpoint: it writes only the chat file, which is all a resume needs, and
-  // leaves the index to the next full save. A chat missing from the index is still indexed, so it is never orphaned.
+  // leaves the index to the next full save. The chat is serialized before this returns and its file is written in the
+  // background, so a tool batch in a long chat does not hold up the main process for the write. A chat missing from
+  // the index is saved and indexed at once, so it is never orphaned. Any other save is complete when this returns
+  // and replaces a checkpoint that is still being written.
   // Returns whether the index was written, i.e. whether the chat list changed.
   save(chat: SavedChat, checkpoint = false): boolean {
-    writeJson(this.chatFile(chat.id), chat);
     // The cached search text is keyed to the index timestamp, which a checkpoint leaves unchanged.
     this.textCache.delete(chat.id);
-    if (checkpoint && this.has(chat.id)) return false;
+    if (checkpoint && this.has(chat.id)) {
+      this.writeLater(chat);
+      return false;
+    }
+    writeJson(this.chatFile(chat.id), chat);
     const summary = summarize(chat);
     this.index = [summary, ...this.index.filter((item) => item.id !== chat.id)];
     writeJson(this.indexFile, this.index);
     return true;
+  }
+
+  private writeLater(chat: SavedChat): void {
+    const id = chat.id;
+    const done = writeJsonLater(this.chatFile(id), chat);
+    // Checkpoints that join a write already running share its promise.
+    if (this.checkpoints.get(id) === done) return;
+    this.checkpoints.set(id, done);
+    void done
+      // The next save writes the chat again. The log gets the error only, never the chat.
+      .catch((error: unknown) => appLog.warn('chats', error, { operation: 'checkpoint' }))
+      .finally(() => {
+        if (this.checkpoints.get(id) === done) this.checkpoints.delete(id);
+        // A search may have read the file before the checkpoint replaced it.
+        this.textCache.delete(id);
+      });
+  }
+
+  // Settles when the checkpoints still being written are on disk.
+  async flush(): Promise<void> {
+    while (this.checkpoints.size > 0) await Promise.allSettled([...this.checkpoints.values()]);
   }
 
   // Chats whose title, project or messages contain every word of the query, newest first. Message text is read from
@@ -87,6 +117,8 @@ export class ChatStore {
 
   delete(id: string): void {
     if (!ID_PATTERN.test(id)) return;
+    // A checkpoint still being written would put the file back.
+    cancelJsonWrite(this.chatFile(id));
     rmSync(this.chatFile(id), { force: true });
     this.textCache.delete(id);
     this.index = this.index.filter((item) => item.id !== id);
@@ -94,7 +126,10 @@ export class ChatStore {
   }
 
   deleteAll(): void {
-    for (const item of this.index) rmSync(this.chatFile(item.id), { force: true });
+    for (const item of this.index) {
+      cancelJsonWrite(this.chatFile(item.id));
+      rmSync(this.chatFile(item.id), { force: true });
+    }
     this.textCache.clear();
     this.index = [];
     writeJson(this.indexFile, this.index);

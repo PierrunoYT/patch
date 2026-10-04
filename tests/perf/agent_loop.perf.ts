@@ -241,6 +241,28 @@ describe('agent loop: the app’s own work per turn, tool call and save', () => 
       const saveMs = await median(15, () => void store.save(chat), 3);
       record(`checkpoint: JSON.stringify only, ${label}`, stringifyMs, 1, 'save');
       record(`checkpoint: ChatStore.save (stringify + write + index), ${label}`, saveMs, 1, 'save');
+
+      // A checkpoint of a chat that is already listed: the chat is serialized in the call and the file is written in
+      // the background. `busy` is the time the main thread worked from the call until the file was in place (the
+      // rest of that time it was free for other events), measured with the event loop's own utilization counter.
+      const call: number[] = [];
+      const busy: number[] = [];
+      const landed: number[] = [];
+      for (let run = -3; run < 15; run++) {
+        const idle = performance.eventLoopUtilization();
+        const start = performance.now();
+        store.save(chat, true);
+        const returned = performance.now() - start;
+        await store.flush();
+        if (run < 0) continue;
+        call.push(returned);
+        busy.push(performance.eventLoopUtilization(idle).active);
+        landed.push(performance.now() - start);
+      }
+      const middle = (times: number[]) => times.sort((a, b) => a - b)[Math.floor(times.length / 2)]!;
+      record(`checkpoint of a listed chat: the save call, ${label}`, middle(call), 1, 'save');
+      record(`checkpoint of a listed chat: main thread busy until on disk, ${label}`, middle(busy), 1, 'save');
+      record(`checkpoint of a listed chat: until on disk, ${label}`, middle(landed), 1, 'save');
     });
   }
 

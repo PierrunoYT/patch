@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -59,7 +60,7 @@ describe('ChatStore', () => {
     expect(new ChatStore(join(dir, 'chats')).list().map((item) => item.id)).toEqual([idA]);
   });
 
-  it('writes only the chat file for a checkpoint of a chat that is already listed', () => {
+  it('writes only the chat file for a checkpoint of a chat that is already listed', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     const index = join(dir, 'chats', 'index.json');
     // A new chat is indexed even by a checkpoint, so a crash before the first full save cannot orphan it.
@@ -68,11 +69,54 @@ describe('ChatStore', () => {
 
     const later = { ...chat(idA, '2026-03-01T00:00:00Z'), title: 'Later' };
     expect(store.save(later, true)).toBe(false);
+    // The checkpoint is written in the background.
+    await store.flush();
     expect(readFileSync(index, 'utf8')).toBe(listed);
     expect(store.load(idA)?.title).toBe('Later');
 
     expect(store.save(later)).toBe(true);
     expect(store.list()[0]?.title).toBe('Later');
+  });
+
+  it('writes checkpoints in the order they were made, without leaving temporary files', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    store.save(chat(idA, '2026-01-01T00:00:00Z'));
+    for (const title of ['One', 'Two', 'Three']) store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), title }, true);
+    // Nothing is on disk yet: only the serializing happened before save returned.
+    expect(store.load(idA)?.title).toBe('Chat 1111');
+
+    await store.flush();
+    expect(store.load(idA)?.title).toBe('Three');
+    expect(readdirSync(join(dir, 'chats')).sort()).toEqual([`${idA}.json`, 'index.json']);
+  });
+
+  it('keeps a full save that was made while a checkpoint was being written', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    store.save(chat(idA, '2026-01-01T00:00:00Z'));
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), title: 'Checkpoint' }, true);
+    store.save({ ...chat(idA, '2026-01-02T00:00:00Z'), title: 'Full' });
+    expect(store.load(idA)?.title).toBe('Full');
+
+    await store.flush();
+    expect(store.load(idA)?.title).toBe('Full');
+    // A checkpoint after the full save is written again.
+    store.save({ ...chat(idA, '2026-01-02T00:00:00Z'), title: 'Next' }, true);
+    await store.flush();
+    expect(store.load(idA)?.title).toBe('Next');
+    expect(readdirSync(join(dir, 'chats')).sort()).toEqual([`${idA}.json`, 'index.json']);
+  });
+
+  it('does not write back a chat that was deleted while its checkpoint was being written', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    store.save(chat(idA, '2026-01-01T00:00:00Z'));
+    store.save(chat(idB, '2026-01-01T00:00:00Z'));
+    store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), title: 'Checkpoint' }, true);
+    store.delete(idA);
+    store.save({ ...chat(idB, '2026-01-01T00:00:00Z'), title: 'Checkpoint' }, true);
+    store.deleteAll();
+
+    await store.flush();
+    expect(readdirSync(join(dir, 'chats'))).toEqual(['index.json']);
   });
 
   it('searches the text a checkpoint wrote, though the index timestamp is unchanged', async () => {
@@ -82,6 +126,7 @@ describe('ChatStore', () => {
     expect((await store.search('draft')).map((item) => item.id)).toEqual([idA]);
 
     store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('second version')] }, true);
+    await store.flush();
     expect((await store.search('version')).map((item) => item.id)).toEqual([idA]);
     expect(await store.search('draft')).toEqual([]);
   });
@@ -143,6 +188,7 @@ describe('ChatStore', () => {
     const searching = store.search('draft');
     store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), transcript: [user('second version')] }, true);
     await searching;
+    await store.flush();
 
     expect((await store.search('version')).map((item) => item.id)).toEqual([idA]);
     expect(await store.search('draft')).toEqual([]);
