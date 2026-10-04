@@ -72,8 +72,17 @@ jobs:
         if: runner.os == 'Windows'
         run: cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml
 
+      - name: Install Linux command sandbox test backends
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bubblewrap
+          docker pull node:lts
+
       - run: npm run typecheck
       - run: npm run test:unit
+        env:
+          PATCH_REQUIRE_NATIVE_SANDBOX: '1'
 
       - if: runner.os != 'Linux'
         run: npm run test:e2e
