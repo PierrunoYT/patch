@@ -80,6 +80,7 @@ export class ShellRunner {
     private readonly cwd: () => string,
     private readonly sandbox: () => SandboxConfig = () => ({ mode: 'off', network: 'on', image: '', allowedHosts: '' }),
     private readonly detect: () => SandboxSupport = detectSandboxSupport,
+    private readonly env: () => NodeJS.ProcessEnv = () => process.env,
   ) {}
 
   // What would happen to this command: shown on the approval card and in the result.
@@ -252,7 +253,7 @@ export class ShellRunner {
     });
     const child = spawn(launch.file, launch.args, {
       cwd: this.cwd(),
-      env: { ...scrubEnv(process.env), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+      env: { ...scrubEnv(this.env()), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // Own process group on POSIX so the whole tree can be killed.
@@ -277,7 +278,7 @@ export class ShellRunner {
       id: this.nextId,
       shell: inner,
       cwd: real(this.cwd()),
-      env: { ...scrubEnv(process.env), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+      env: { ...scrubEnv(this.env()), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
       network,
       home: real(homedir()),
       exists: (path) => existsSync(path),

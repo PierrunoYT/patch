@@ -129,6 +129,18 @@ describe('sandbox selection', () => {
     expect(result.output).toContain('hi');
   });
 
+  it('uses an injected environment for commands', async () => {
+    const shell = new ShellRunner(
+      () => root,
+      undefined,
+      undefined,
+      () => ({ ...process.env, PATCH_TEST_ENV: 'isolated' }),
+    );
+    const result = await shell.run(`node -e "console.log(process.env.PATCH_TEST_ENV)"`);
+    expect(result.exitCode).toBe(0);
+    expect(result.output.trim()).toBe('isolated');
+  });
+
   it('asks even in Auto mode when the model requests more access', () => {
     expect(runCommandTool.mustAsk?.({ command: 'x', network: true }, {} as ToolContext)).toBe(true);
     expect(runCommandTool.mustAsk?.({ command: 'x', unsandboxed: true }, {} as ToolContext)).toBe(true);

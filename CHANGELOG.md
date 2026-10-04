@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows AppContainer integration tests no longer grant temporary access to dependencies in the shared checkout, preventing concurrent Electron tests from aborting with exception `0x80000003`.
 - Windows sandbox: a toolchain folder with more than 5000 entries (such as `~/.rustup`) is no longer granted whole before each command, which made every command start about a minute late; only its small `bin` folder is opened, or nothing. Tools that need such a folder's other files (`rustc`, `cargo`) will not work in the sandbox until a better grant exists (fixes #89).
 
 ### Added

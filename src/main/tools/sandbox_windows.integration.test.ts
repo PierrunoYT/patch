@@ -1,9 +1,9 @@
 import { once } from 'node:events';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildHelperRequest, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
 import { ShellRunner } from './shell';
@@ -13,25 +13,36 @@ import { scrubEnv } from './env';
 // (npm run build:sandbox).
 const helper = process.platform === 'win32' ? findHelper() : null;
 const config = { mode: 'auto' as const, network: 'off' as const, image: '', allowedHosts: '' };
-const node = JSON.stringify(process.execPath.replace(/\\/g, '/')).slice(1, -1);
 // Hosts the machine can reach, so the "network on" check does not fail only because it is offline.
 const NET_PROBE = `node -e "const s=require('net').connect({host:'1.1.1.1',port:443,timeout:4000});s.on('connect',()=>{console.log('CONNECTED');process.exit(0)});s.on('error',e=>{console.log('NOCONNECT '+e.code);process.exit(0)});s.on('timeout',()=>{console.log('NOCONNECT timeout');process.exit(0)})"`;
 
 describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
   let root: string;
   let outside: string;
+  let sandboxNode: string;
   let shell: ShellRunner;
+  let sandboxEnv: NodeJS.ProcessEnv;
   let hostCanConnect = false;
 
   beforeAll(async () => {
     // Under the temp folder (inside the home folder), like a project in Documents would be.
     root = mkdtempSync(join(tmpdir(), 'patch-sbx-proj-'));
     outside = mkdtempSync(join(tmpdir(), 'patch-sbx-secret-'));
+    sandboxNode = join(root, 'node.exe');
+    copyFileSync(process.execPath, sandboxNode);
     writeFileSync(join(outside, 'secret.txt'), 'TOP-SECRET-VALUE');
     mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
+    sandboxEnv = Object.fromEntries(
+      Object.entries(scrubEnv(process.env)).filter(([name]) => name.toLowerCase() !== 'path'),
+    );
+    // Do not let this real-helper suite grant an AppContainer SID to shared checkout dependencies. Electron aborts
+    // during concurrent e2e launches if its install directory has a package SID without ALL APPLICATION PACKAGES.
+    sandboxEnv.PATH = root;
     shell = new ShellRunner(
       () => root,
       () => config,
+      undefined,
+      () => sandboxEnv,
     );
     hostCanConnect = await new Promise<boolean>((resolve) => {
       const socket = connect({ host: '1.1.1.1', port: 443, timeout: 4000 });
@@ -65,6 +76,25 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
     expect(result.output).toContain('42');
     expect(result.exitCode).toBe(0);
   }, 60_000);
+
+  it('does not grant the AppContainer access to the shared checkout', () => {
+    const request = buildHelperRequest({
+      id: 1,
+      shell: { file: 'powershell.exe', args: [] },
+      cwd: root,
+      env: sandboxEnv,
+      network: false,
+      home: homedir(),
+      exists: (path) => existsSync(path),
+    });
+    const checkout = process.cwd();
+    expect(
+      request.readOnly.some((path) => {
+        const rel = relative(checkout, path);
+        return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+      }),
+    ).toBe(false);
+  });
 
   it('hides files outside the project and the home folder contents', async () => {
     const secret = await shell.run(`Get-Content '${join(outside, 'secret.txt')}'`);
@@ -123,7 +153,7 @@ spawn(process.execPath, ['-e', "setInterval(() => require('fs').appendFileSync('
 setInterval(() => {}, 1000);`,
     );
     const started = Date.now();
-    const result = await shell.run(`& '${node}' spawner.js`, { timeoutSeconds: 3 });
+    const result = await shell.run(`& '${sandboxNode.replace(/\\/g, '/')}' spawner.js`, { timeoutSeconds: 3 });
     expect(result.timedOut).toBe(true);
     expect(Date.now() - started).toBeLessThan(15_000);
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -159,9 +189,9 @@ setInterval(() => {}, 1000);`,
       writeFileSync(file, script);
       const request = buildHelperRequest({
         id: 1,
-        shell: { file: process.execPath, args: [file] },
+        shell: { file: sandboxNode, args: [file] },
         cwd: root,
-        env: { ...scrubEnv(process.env) },
+        env: sandboxEnv,
         network: false,
         home: homedir(),
         exists: (path) => existsSync(path),
