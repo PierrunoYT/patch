@@ -1,0 +1,190 @@
+import { describe, expect, it } from 'vitest';
+import {
+  bwrapArgs,
+  buildLaunch,
+  containerArgs,
+  decideSandbox,
+  describeSandbox,
+  seatbeltProfile,
+  wantsNetwork,
+  type LaunchEnv,
+  type SandboxConfig,
+  type SandboxSupport,
+} from './sandbox';
+
+const config: SandboxConfig = { mode: 'auto', network: 'off', image: 'node:lts', allowedHosts: 'registry.npmjs.org' };
+const none: SandboxSupport = { bwrap: false, seatbelt: false, container: null };
+
+const env = (existing: string[] = []): LaunchEnv => ({
+  cwd: '/home/u/proj',
+  home: '/home/u',
+  tmp: '/tmp',
+  inner: { file: '/bin/bash', args: ['-lc', 'npm test'] },
+  command: 'npm test',
+  exists: (path) => existing.includes(path),
+  uid: 1000,
+  gid: 1000,
+  containerName: 'patch-abc',
+  image: 'node:lts',
+});
+
+describe('decideSandbox', () => {
+  it('uses bubblewrap on Linux and Seatbelt on macOS', () => {
+    expect(decideSandbox('ls', config, { ...none, bwrap: true }, {}, 'linux')).toEqual({
+      kind: 'bwrap',
+      network: false,
+    });
+    expect(decideSandbox('ls', config, { ...none, seatbelt: true }, {}, 'darwin')).toEqual({
+      kind: 'seatbelt',
+      network: false,
+    });
+  });
+
+  it('says plainly when automatic mode finds nothing to use', () => {
+    const win = decideSandbox('ls', config, { ...none, container: 'docker' }, {}, 'win32');
+    expect(win.kind).toBe('none');
+    expect(describeSandbox(win)).toMatch(/NOT sandboxed.*Windows/);
+    const linux = decideSandbox('ls', config, none, {}, 'linux');
+    expect(describeSandbox(linux)).toMatch(/NOT sandboxed.*bubblewrap/);
+  });
+
+  it('fails closed in container mode without an engine', () => {
+    const decision = decideSandbox('ls', { ...config, mode: 'container' }, none, {}, 'linux');
+    expect(decision.kind).toBe('unavailable');
+    expect(describeSandbox(decision)).toMatch(/not run/);
+    expect(
+      decideSandbox('ls', { ...config, mode: 'container' }, { ...none, container: 'podman' }, {}, 'win32'),
+    ).toEqual({
+      kind: 'container',
+      network: false,
+    });
+  });
+
+  it('runs without a sandbox only when turned off or allowed once', () => {
+    expect(decideSandbox('ls', { ...config, mode: 'off' }, { ...none, bwrap: true }, {}, 'linux').kind).toBe('none');
+    const once = decideSandbox('ls', { ...config, mode: 'container' }, none, { unsandboxed: true }, 'linux');
+    expect(once.kind).toBe('none');
+  });
+});
+
+describe('wantsNetwork', () => {
+  it('is off by default and on when allowed once or in the settings', () => {
+    expect(wantsNetwork('npm i', config, {})).toBe(false);
+    expect(wantsNetwork('npm i', config, { network: true })).toBe(true);
+    expect(wantsNetwork('npm i', { ...config, network: 'on' }, {})).toBe(true);
+  });
+
+  it('grants the allow-list setting only when every URL in the command is allowed', () => {
+    const list = { ...config, network: 'allow-list' as const };
+    expect(wantsNetwork('curl https://registry.npmjs.org/x', list, {})).toBe(true);
+    expect(wantsNetwork('curl https://registry.npmjs.org/x https://evil.example', list, {})).toBe(false);
+    expect(wantsNetwork('curl https://registry.npmjs.org@evil.example/x', list, {})).toBe(false);
+    expect(wantsNetwork('npm install', list, {})).toBe(false);
+  });
+});
+
+describe('bwrapArgs', () => {
+  const existing = ['/usr', '/bin', '/etc', '/home/u/.cargo', '/home/u/.gitconfig', '/home/u/proj/.git/hooks'];
+
+  it('hides home, binds the project writable and unshares the network', () => {
+    const args = bwrapArgs(env(existing), false);
+    expect(args).toContain('--unshare-all');
+    expect(args).not.toContain('--share-net');
+    expect(args).toContain('--die-with-parent');
+    const text = args.join(' ');
+    expect(text).toContain('--tmpfs /home/u');
+    expect(text).toContain('--ro-bind /usr /usr');
+    expect(text).toContain('--ro-bind /home/u/.cargo /home/u/.cargo');
+    expect(text).toContain('--bind /home/u/proj /home/u/proj');
+    expect(text).toContain('--ro-bind /home/u/proj/.git/hooks /home/u/proj/.git/hooks');
+    expect(text).not.toContain('.ssh');
+    expect(text).not.toContain('/lib64');
+    expect(args.slice(-3)).toEqual(['/bin/bash', '-lc', 'npm test']);
+  });
+
+  it('hides the home folder before opening anything inside it', () => {
+    const args = bwrapArgs(env(existing), false);
+    expect(args.indexOf('--tmpfs')).toBeLessThan(args.indexOf('/home/u/.cargo'));
+    expect(args.lastIndexOf('--tmpfs', args.indexOf('--bind'))).toBeLessThan(args.indexOf('--bind'));
+  });
+
+  it('shares the network when asked', () => {
+    expect(bwrapArgs(env(), true)).toContain('--share-net');
+  });
+
+  it('does not use a shell that lives in the hidden home folder', () => {
+    const args = bwrapArgs({ ...env(), inner: { file: '/home/u/.local/bin/fish', args: ['-lc', 'x'] } }, false);
+    expect(args).toContain('/bin/bash');
+    expect(args).not.toContain('/home/u/.local/bin/fish');
+  });
+});
+
+describe('seatbeltProfile', () => {
+  it('denies by default, hides home, opens the project and denies the network', () => {
+    const profile = seatbeltProfile({ ...env(['/home/u/.cargo']) }, false);
+    expect(profile).toContain('(deny default)');
+    expect(profile).toContain('(deny file-read* (subpath "/home/u"))');
+    expect(profile.indexOf('(deny file-read*')).toBeLessThan(
+      profile.indexOf('(allow file-read* (subpath "/home/u/proj")'),
+    );
+    expect(profile).toContain('(subpath "/home/u/.cargo")');
+    expect(profile).toMatch(/\(allow file-write\* \(subpath "\/home\/u\/proj"\)/);
+    expect(profile).toContain('(deny file-write* (subpath "/home/u/proj/.git/hooks"))');
+    expect(profile).not.toContain('network');
+  });
+
+  it('allows the network when asked and escapes quotes in paths', () => {
+    expect(seatbeltProfile(env(), true)).toContain('(allow network*)');
+    expect(seatbeltProfile({ ...env(), cwd: '/a"b' }, false)).toContain('(subpath "/a\\"b")');
+  });
+});
+
+describe('containerArgs', () => {
+  it('mounts only the project, drops privileges and has no network by default', () => {
+    const { args, stop } = containerArgs('docker', env(), false);
+    expect(args.slice(0, 2)).toEqual(['run', '--rm']);
+    expect(args).toContain('--cap-drop=ALL');
+    expect(args).toContain('--security-opt=no-new-privileges');
+    expect(args.join(' ')).toContain('--network none');
+    expect(args).toContain('--user=1000:1000');
+    expect(args.filter((arg) => arg === '-v')).toHaveLength(1);
+    expect(args).toContain('/home/u/proj:/workspace');
+    expect(args.slice(-4)).toEqual(['node:lts', '/bin/sh', '-c', 'npm test']);
+    expect(stop).toEqual({ file: 'docker', args: ['rm', '-f', 'patch-abc'] });
+  });
+
+  it('keeps the network with network access and maps users for podman', () => {
+    const { args } = containerArgs('podman', env(), true);
+    expect(args).not.toContain('--network');
+    expect(args).toContain('--userns=keep-id');
+  });
+
+  it('passes no host environment variables', () => {
+    const { args } = containerArgs('docker', env(), false);
+    const names = args.filter((_, i) => args[i - 1] === '-e').map((entry) => entry.split('=')[0]);
+    expect(names).toEqual(['HOME', 'CI', 'FORCE_COLOR', 'NO_COLOR']);
+  });
+});
+
+describe('buildLaunch', () => {
+  it('wraps with the right program', () => {
+    expect(buildLaunch({ kind: 'bwrap', network: false }, env(), null).file).toBe('bwrap');
+    const seatbelt = buildLaunch({ kind: 'seatbelt', network: false }, env(), null);
+    expect(seatbelt.file).toBe('/usr/bin/sandbox-exec');
+    expect(seatbelt.args.slice(-3)).toEqual(['/bin/bash', '-lc', 'npm test']);
+    expect(buildLaunch({ kind: 'container', network: false }, env(), 'podman').file).toBe('podman');
+    expect(buildLaunch({ kind: 'none', network: true }, env(), null)).toEqual({
+      file: '/bin/bash',
+      args: ['-lc', 'npm test'],
+    });
+  });
+});
+
+describe('describeSandbox', () => {
+  it('names the sandbox and the network state', () => {
+    expect(describeSandbox({ kind: 'bwrap', network: false })).toMatch(/bubblewrap.*no network/);
+    expect(describeSandbox({ kind: 'container', network: true }, { network: true })).toMatch(
+      /allowed for this command/,
+    );
+  });
+});

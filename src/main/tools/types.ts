@@ -32,6 +32,7 @@ export interface ToolPreview {
   title: string;
   diff?: string;
   command?: string;
+  note?: string;
   // Free-form markdown (the plan in plan mode) shown on the approval card instead of a diff or command.
   text?: string;
 }

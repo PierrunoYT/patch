@@ -93,3 +93,45 @@ describe('background command cancellation', () => {
     expect(shell.getBackground(entry.id)).toBeUndefined();
   }, 20_000);
 });
+
+describe('sandbox selection', () => {
+  const config = { mode: 'container' as const, network: 'off' as const, image: 'node:lts', allowedHosts: '' };
+  const noSupport = { bwrap: false, seatbelt: false, container: null };
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'patch-shell-sandbox-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('does not run a command when the chosen container sandbox is unavailable', async () => {
+    const shell = new ShellRunner(
+      () => root,
+      () => config,
+      () => noSupport,
+    );
+    const result = await shell.run("node -e \"require('fs').writeFileSync('ran.txt', 'x')\"");
+    expect(result.exitCode).toBeNull();
+    expect(result.output).toMatch(/Docker nor Podman/);
+    expect(existsSync(join(root, 'ran.txt'))).toBe(false);
+    expect(() => shell.startBackground('echo hi')).toThrow(/Docker nor Podman/);
+  });
+
+  it('runs unsandboxed once when the user allowed it, and says so in the preview', async () => {
+    const shell = new ShellRunner(
+      () => root,
+      () => config,
+      () => noSupport,
+    );
+    expect(shell.describe('echo hi').sandboxed).toBe(false);
+    const result = await shell.run('echo hi', { access: { unsandboxed: true } });
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain('hi');
+  });
+
+  it('asks even in Auto mode when the model requests more access', () => {
+    expect(runCommandTool.mustAsk?.({ command: 'x', network: true }, {} as ToolContext)).toBe(true);
+    expect(runCommandTool.mustAsk?.({ command: 'x', unsandboxed: true }, {} as ToolContext)).toBe(true);
+    expect(runCommandTool.mustAsk?.({ command: 'x' }, {} as ToolContext)).toBe(false);
+  });
+});

@@ -14,6 +14,16 @@ export function changesToConfirm(current: Settings, patch: Partial<Settings>, au
     changes.push('Switch to Auto mode: file edits and commands run without asking.');
   }
 
+  if (patch.sandboxMode === 'off' && current.sandboxMode !== 'off') {
+    changes.push('Turn the command sandbox off: commands run with your full rights.');
+  }
+  if (patch.sandboxNetwork === 'on' && current.sandboxNetwork !== 'on') {
+    changes.push('Give sandboxed commands full network access.');
+  }
+  if (typeof patch.sandboxImage === 'string' && patch.sandboxImage.trim() !== current.sandboxImage.trim()) {
+    changes.push(`Run container-sandboxed commands in the image "${patch.sandboxImage.trim()}".`);
+  }
+
   if (typeof patch.editorCommand === 'string' && editor(patch.editorCommand) !== editor(current.editorCommand)) {
     changes.push(`Open files with the editor command "${editor(patch.editorCommand)}".`);
   }

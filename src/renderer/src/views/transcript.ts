@@ -528,6 +528,7 @@ export class TranscriptView {
         {},
         h('pre', { class: 'tool-command' }, `$ ${preview.command}${preview.commandOmittedChars ? ' …' : ''}`),
         preview.commandOmittedChars ? notice(commandNotice(preview.commandOmittedChars)) : null,
+        preview.note ? h('div', { class: 'tool-truncated' }, icon('shield'), ` ${preview.note}`) : null,
       );
     }
     // Free-form preview text (the plan in plan mode), rendered as sanitized markdown.

@@ -12,6 +12,14 @@ export type Theme = 'dark' | 'light';
 // 'ask': file edits and shell commands wait for approval. 'auto': the agent runs them directly.
 export type ApprovalMode = 'ask' | 'auto';
 
+// How run_command is confined. 'auto': bubblewrap on Linux or Seatbelt on macOS when available, otherwise no sandbox
+// (and the approval card says so). 'container': always Docker or Podman, and the command does not run without one.
+// 'off': never.
+export type SandboxMode = 'off' | 'auto' | 'container';
+
+// Network inside the sandbox. 'allow-list': only commands whose URLs are all on the allowed network hosts.
+export type SandboxNetwork = 'off' | 'allow-list' | 'on';
+
 // One Model Context Protocol server whose tools are offered to the agent. Stdio servers run as child processes of
 // the app; HTTP servers are Streamable HTTP endpoints.
 export interface McpServerConfig {
@@ -81,6 +89,10 @@ export interface Settings {
   allowedCommands: string;
   // Exact http(s) URL hostnames that network tools may contact without asking, one per line.
   allowedNetworkHosts: string;
+  sandboxMode: SandboxMode;
+  sandboxNetwork: SandboxNetwork;
+  // Image for the container sandbox; it must provide the tools the project's commands need.
+  sandboxImage: string;
   theme: Theme;
   // Base URL for an OpenAI-compatible API. Empty means api.openai.com.
   openaiBaseUrl: string;
@@ -107,6 +119,9 @@ export const DEFAULT_SETTINGS: Settings = {
   keepCacheWarm: false,
   allowedCommands: '',
   allowedNetworkHosts: '',
+  sandboxMode: 'auto',
+  sandboxNetwork: 'off',
+  sandboxImage: 'node:lts',
   theme: 'dark',
   openaiBaseUrl: '',
   anthropicBaseUrl: '',

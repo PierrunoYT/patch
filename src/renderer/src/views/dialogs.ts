@@ -167,6 +167,37 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     value: settings.allowedNetworkHosts,
     placeholder: 'api.example.com\nlocalhost',
   });
+  const sandboxMode = h(
+    'select',
+    { class: 'form-select' },
+    h(
+      'option',
+      { value: 'auto', selected: settings.sandboxMode === 'auto' },
+      'Automatic (bubblewrap on Linux, Seatbelt on macOS)',
+    ),
+    h(
+      'option',
+      { value: 'container', selected: settings.sandboxMode === 'container' },
+      'Always in a Docker or Podman container',
+    ),
+    h('option', { value: 'off', selected: settings.sandboxMode === 'off' }, 'Off: commands run with your full rights'),
+  );
+  const sandboxNetwork = h(
+    'select',
+    { class: 'form-select' },
+    h('option', { value: 'off', selected: settings.sandboxNetwork === 'off' }, 'Off'),
+    h(
+      'option',
+      { value: 'allow-list', selected: settings.sandboxNetwork === 'allow-list' },
+      'Only for commands that use allowed hosts',
+    ),
+    h('option', { value: 'on', selected: settings.sandboxNetwork === 'on' }, 'On'),
+  );
+  const sandboxImage = h('input', {
+    class: 'form-control font-monospace',
+    value: settings.sandboxImage,
+    placeholder: 'node:lts',
+  });
   const theme = h(
     'select',
     { class: 'form-select' },
@@ -380,6 +411,22 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
       permissionRules,
       'Rules decide tool calls before the normal approval: action "allow", "reject", "ask" (also in Auto mode) or "delegate" (a program in "to" answers allow, reject or ask). "tool" and the "matches" values are globs on the tool name and its input, e.g. {"tool":"run_command","matches":{"command":"git push*"},"action":"reject"}. The first matching rule wins. Allow and delegate rules ask for confirmation when saved.',
     ),
+    h('h3', { class: 'h6 text-body-secondary mt-4' }, 'Command sandbox'),
+    field(
+      'Run commands in a sandbox',
+      sandboxMode,
+      'Applies to run_command and background commands, not to the terminal panel. Only the project folder is writable and the rest of your home folder is hidden. Windows has no built-in sandbox: use the container option there, otherwise commands are not sandboxed (the approval card says so). With the container option a command does not run at all when Docker or Podman is not running. Not enforced for MCP servers.',
+    ),
+    field(
+      'Network in the sandbox',
+      sandboxNetwork,
+      'The allow-list option grants the network only when every URL written in the command is on the allowed hosts list; it cannot filter connections a program makes by itself. The agent can ask for network or unsandboxed access for one command, and you approve each time.',
+    ),
+    field(
+      'Container image',
+      sandboxImage,
+      'Used by the container option. It must contain the tools your commands need.',
+    ),
     h('h3', { class: 'h6 text-body-secondary mt-4' }, 'Other'),
     field('Theme', theme),
     field('Editor command', editor, 'Opens files from the chat, e.g. code, cursor, subl.'),
@@ -429,6 +476,9 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
         keepCacheWarm: keepCacheWarm.checked,
         allowedCommands: allowedCommands.value.trim(),
         allowedNetworkHosts: allowedNetworkHosts.value.trim(),
+        sandboxMode: sandboxMode.value as Settings['sandboxMode'],
+        sandboxNetwork: sandboxNetwork.value as Settings['sandboxNetwork'],
+        sandboxImage: sandboxImage.value.trim(),
         theme: theme.value as Settings['theme'],
         openaiBaseUrl: baseUrl.value.trim(),
         anthropicBaseUrl: anthropicBaseUrl.value.trim(),

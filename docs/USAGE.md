@@ -119,6 +119,10 @@ git status
 - File edits are always asked about, whatever is on this list.
 - Only allow commands you would run yourself. `npm run` would let the assistant run any script in `package.json`.
 
+### Command sandbox
+
+Settings → Command sandbox controls how `run_command` and background commands are confined (the terminal panel is your own shell and is not). **Automatic** uses bubblewrap on Linux (install `bwrap`) and Seatbelt on macOS; **container** always uses Docker or Podman with the image you set, mounting only the project at `/workspace`; **off** disables it. Inside the sandbox only the project folder is writable, the rest of your home folder is hidden and the network is off unless _Network in the sandbox_ allows it (the allow-list option grants it only when every URL in the command is on your allowed hosts). On Windows there is no built-in sandbox: choose container mode, otherwise commands run unsandboxed and the approval card says so. Container mode refuses to run commands when no engine is running. When a command needs more, the agent sets _network_ or _unsandboxed_ on the call and you are asked, also in Auto mode; approving allows that one run. The sandbox was written without access to Linux, macOS or Docker hosts, so report problems you find.
+
 ### Network hosts allowed without asking
 
 One hostname per line, matched exactly and on any port:

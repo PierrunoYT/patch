@@ -5,6 +5,8 @@ export interface ToolPreviewView {
   title: string;
   diff?: string;
   command?: string;
+  // How the command is confined (sandboxed or not), shown under it on the approval card.
+  note?: string;
   // Set when the diff was too large to keep in full: the first lines are kept, these many are left out.
   diffOmittedLines?: number;
   // Set when the command text was cut: the start is kept, these many characters are left out.

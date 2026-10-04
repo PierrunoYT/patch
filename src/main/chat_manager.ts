@@ -256,7 +256,7 @@ export class ChatManager {
       saved?.system ??
       buildSystemPrompt({
         workspace,
-        shell: shellName(),
+        shell: shellName(this.deps.settings.get().sandboxMode === 'container'),
         platform: platform(),
         date: new Date().toISOString().slice(0, 10),
         customInstructions: project.instructions,
@@ -403,7 +403,19 @@ export class ChatManager {
   }
 
   private currentShell(workspace: Workspace): ShellRunner {
-    this.shell ??= new ShellRunner(() => workspace.root);
+    this.shell ??= new ShellRunner(
+      () => workspace.root,
+      () => {
+        const settings = this.deps.settings.get();
+        const own = this.deps.projects.get(workspace.root);
+        return {
+          mode: settings.sandboxMode,
+          network: settings.sandboxNetwork,
+          image: settings.sandboxImage,
+          allowedHosts: mergeAllowLists(settings.allowedNetworkHosts, own?.allowedNetworkHosts),
+        };
+      },
+    );
     return this.shell;
   }
 

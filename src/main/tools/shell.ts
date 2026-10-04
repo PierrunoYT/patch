@@ -1,7 +1,22 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { homedir, tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
+import { appLog } from '../app_log';
 import { scrubEnv } from './env';
+import {
+  buildLaunch,
+  decideSandbox,
+  describeSandbox,
+  detectSandboxSupport,
+  systemLaunchEnv,
+  type CommandAccess,
+  type Launch,
+  type SandboxConfig,
+  type SandboxDecision,
+  type SandboxSupport,
+} from './sandbox';
 import { defineTool, truncateOutput } from './types';
 
 const DEFAULT_TIMEOUT_SECONDS = 120;
@@ -26,7 +41,8 @@ interface BackgroundCommand {
 }
 
 // The shell the agent's commands run in. Named in the system prompt so the model writes matching syntax.
-export function shellName(): string {
+export function shellName(containerMode = false): string {
+  if (containerMode) return 'sh in a Linux container; the project is mounted at /workspace';
   return process.platform === 'win32' ? 'PowerShell' : process.env.SHELL?.split('/').pop() || 'bash';
 }
 
@@ -47,7 +63,27 @@ export class ShellRunner {
   private readonly background = new Map<number, BackgroundCommand>();
   private nextId = 1;
 
-  constructor(private readonly cwd: () => string) {}
+  constructor(
+    private readonly cwd: () => string,
+    private readonly sandbox: () => SandboxConfig = () => ({ mode: 'off', network: 'on', image: '', allowedHosts: '' }),
+    private readonly detect: () => SandboxSupport = detectSandboxSupport,
+  ) {}
+
+  // What would happen to this command: shown on the approval card and in the result.
+  describe(command: string, access: CommandAccess = {}): { sandboxed: boolean; text: string } {
+    const decision = this.decide(command, access);
+    return {
+      sandboxed: decision.kind !== 'none' && decision.kind !== 'unavailable',
+      text: describeSandbox(decision, access),
+    };
+  }
+
+  private decide(command: string, access: CommandAccess): SandboxDecision {
+    const config = this.sandbox();
+    const support =
+      config.mode === 'off' || access.unsandboxed ? { bwrap: false, seatbelt: false, container: null } : this.detect();
+    return decideSandbox(command, config, support, access, process.platform);
+  }
 
   run(
     command: string,
@@ -55,12 +91,23 @@ export class ShellRunner {
       timeoutSeconds = DEFAULT_TIMEOUT_SECONDS,
       signal,
       onOutput,
-    }: { timeoutSeconds?: number; signal?: AbortSignal; onOutput?: (text: string) => void } = {},
+      access = {},
+    }: {
+      timeoutSeconds?: number;
+      signal?: AbortSignal;
+      onOutput?: (text: string) => void;
+      access?: CommandAccess;
+    } = {},
   ): Promise<CommandResult> {
     return new Promise((resolve) => {
       // A stop that came in before the command could start: an abort listener added now would never fire.
       if (signal?.aborted) return resolve({ exitCode: null, output: '', timedOut: false, aborted: true });
-      const child = this.spawn(command);
+      let child: ChildProcess;
+      try {
+        child = this.spawn(command, access);
+      } catch (error) {
+        return resolve({ exitCode: null, output: (error as Error).message, timedOut: false, aborted: false });
+      }
       let output = '';
       let timedOut = false;
       let aborted = false;
@@ -107,9 +154,9 @@ export class ShellRunner {
     });
   }
 
-  startBackground(command: string, signal?: AbortSignal): BackgroundCommand {
+  startBackground(command: string, signal?: AbortSignal, access: CommandAccess = {}): BackgroundCommand {
     signal?.throwIfAborted();
-    const child = this.spawn(command);
+    const child = this.spawn(command, access);
     const onAbort = () => this.stopBackground(entry.id);
     const entry: BackgroundCommand = {
       id: this.nextId++,
@@ -158,9 +205,36 @@ export class ShellRunner {
     for (const id of [...this.background.keys()]) this.stopBackground(id);
   }
 
-  private spawn(command: string): ChildProcess {
-    const { file, args } = shellCommand(command);
-    return spawn(file, args, {
+  // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then.
+  private spawn(command: string, access: CommandAccess): ChildProcess {
+    const decision = this.decide(command, access);
+    if (decision.kind === 'unavailable') {
+      appLog.warn('sandbox', 'The chosen sandbox is not available.', { mode: this.sandbox().mode });
+      throw new Error(decision.reason);
+    }
+    const config = this.sandbox();
+    const inner = shellCommand(command);
+    const launch: Launch =
+      decision.kind === 'none'
+        ? { file: inner.file, args: inner.args }
+        : buildLaunch(
+            decision,
+            systemLaunchEnv({
+              cwd: this.cwd(),
+              home: homedir(),
+              tmp: tmpdir(),
+              inner: decision.kind === 'container' ? { file: '/bin/sh', args: ['-c', command] } : inner,
+              command,
+              containerName: `patch-${randomBytes(6).toString('hex')}`,
+              image: config.image,
+            }),
+            this.detect().container,
+          );
+    appLog.info('sandbox', 'Command started.', {
+      kind: decision.kind,
+      network: decision.kind === 'none' ? true : decision.network,
+    });
+    const child = spawn(launch.file, launch.args, {
       cwd: this.cwd(),
       env: { ...scrubEnv(process.env), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -168,10 +242,23 @@ export class ShellRunner {
       // Own process group on POSIX so the whole tree can be killed.
       detached: process.platform !== 'win32',
     });
+    if (launch.stop) stoppers.set(child, launch.stop);
+    return child;
   }
 }
 
+// A container keeps running when its client process is killed, so it is removed by name as well.
+const stoppers = new WeakMap<ChildProcess, NonNullable<Launch['stop']>>();
+
 function killTree(child: ChildProcess): void {
+  const stop = stoppers.get(child);
+  if (stop) {
+    try {
+      spawnSync(stop.file, stop.args, { stdio: 'ignore', timeout: 10_000, windowsHide: true });
+    } catch {
+      // Falls through to killing the client.
+    }
+  }
   if (!child.pid || child.exitCode !== null) return;
   try {
     if (process.platform === 'win32') {
@@ -183,7 +270,6 @@ function killTree(child: ChildProcess): void {
     child.kill('SIGKILL');
   }
 }
-
 export function formatResult(command: string, result: CommandResult): string {
   const status = result.aborted
     ? 'Stopped by the user.'
@@ -201,7 +287,7 @@ export function stripAnsi(text: string): string {
 
 export const runCommandTool = defineTool({
   name: 'run_command',
-  description: `Run a shell command (${shellName()}) in the project root and return its output and exit code. Each call starts a fresh shell: use paths instead of cd. Set background to true for servers and watchers that do not exit, then read their output with command_output. Do not use it to change files (no sed, perl, PowerShell replace scripts or redirects into project files): use edit_file, write_file and apply_patch, which show a diff and can be undone.`,
+  description: `Run a shell command (${shellName()}) in the project root and return its output and exit code. Each call starts a fresh shell: use paths instead of cd. Set background to true for servers and watchers that do not exit, then read their output with command_output. Do not use it to change files (no sed, perl, PowerShell replace scripts or redirects into project files): use edit_file, write_file and apply_patch, which show a diff and can be undone. Commands may run in a sandbox: only the project folder is writable, the rest of the home folder is hidden and the network is usually off. If a command fails because of that, set network (needs the internet) or unsandboxed (needs files outside the project) so the user is asked to allow it once; do not set them otherwise.`,
   schema: z.object({
     command: z.string().min(1),
     background: z.boolean().optional().describe('Start without waiting for it to finish (servers, watchers).'),
@@ -212,14 +298,28 @@ export const runCommandTool = defineTool({
       .max(MAX_TIMEOUT_SECONDS)
       .optional()
       .describe(`Default ${DEFAULT_TIMEOUT_SECONDS}.`),
+    network: z.boolean().optional().describe('The command needs network access. The user is asked to allow it.'),
+    unsandboxed: z
+      .boolean()
+      .optional()
+      .describe('The command needs rights the sandbox withholds. The user is asked to allow this one run.'),
   }),
   requiresApproval: true,
-  async preview({ command, background }) {
-    return { title: background ? 'Start background command' : 'Run command', command };
+  mustAsk: ({ network, unsandboxed }) => Boolean(network || unsandboxed),
+  async preview({ command, background, network, unsandboxed }, context) {
+    const { text } = context.shell.describe(command, { network, unsandboxed });
+    return { title: background ? 'Start background command' : 'Run command', command, note: text };
   },
-  async run({ command, background, timeout_seconds }, context) {
+  async run({ command, background, timeout_seconds, network, unsandboxed }, context) {
+    const access = { network, unsandboxed };
     if (background) {
-      const entry = context.shell.startBackground(command, context.signal);
+      let entry: BackgroundCommand;
+      try {
+        entry = context.shell.startBackground(command, context.signal, access);
+      } catch (error) {
+        if (context.signal.aborted) throw error;
+        return { content: (error as Error).message, isError: true, summary: `Could not start \`${command}\`` };
+      }
       // Give servers a moment so early errors (port in use, syntax errors) show up in the result.
       await delay(3000, undefined, { signal: context.signal });
       const status = entry.exitCode === undefined ? 'still running' : `exited with code ${entry.exitCode}`;
@@ -232,6 +332,7 @@ export const runCommandTool = defineTool({
       timeoutSeconds: timeout_seconds,
       signal: context.signal,
       onOutput: (text) => context.onProgress(stripAnsi(text)),
+      access,
     });
     return {
       content: formatResult(command, result),
@@ -240,7 +341,6 @@ export const runCommandTool = defineTool({
     };
   },
 });
-
 export const commandOutputTool = defineTool({
   name: 'command_output',
   description: 'Get the output of a background command started with run_command, or stop it.',
