@@ -2,7 +2,7 @@
 
 ## Setup
 
-Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git.
+Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git. On Windows, the command sandbox helper (`native/sandbox-helper`) also needs a Rust toolchain: `npm run build:sandbox` builds it into `native/sandbox-helper/target/release/` (git-ignored). Without it the app still works and `run_command` runs unsandboxed; with it the Windows integration tests (`sandbox_windows.integration.test.ts`) run real commands in an AppContainer.
 
 ```bash
 npm install

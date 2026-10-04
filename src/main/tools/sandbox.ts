@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
+import { findHelper } from './sandbox_windows';
 
 // Runs agent commands (run_command, background ones included) with limited rights. The planning code below is pure
 // so it can be tested on any platform; only detectSandboxSupport() looks at the machine.
@@ -18,6 +19,8 @@ export interface SandboxConfig {
 export interface SandboxSupport {
   bwrap: boolean;
   seatbelt: boolean;
+  // Path of sandbox-helper.exe (Windows AppContainer).
+  appcontainer: string | null;
   container: 'docker' | 'podman' | null;
 }
 
@@ -27,7 +30,7 @@ export interface CommandAccess {
   unsandboxed?: boolean;
 }
 
-export type SandboxKind = 'bwrap' | 'seatbelt' | 'container' | 'none';
+export type SandboxKind = 'bwrap' | 'seatbelt' | 'appcontainer' | 'container' | 'none';
 
 export type SandboxDecision =
   { kind: SandboxKind; network: boolean; note?: string } | { kind: 'unavailable'; reason: string };
@@ -105,12 +108,13 @@ export function decideSandbox(
   }
   if (platform === 'linux' && support.bwrap) return { kind: 'bwrap', network };
   if (platform === 'darwin' && support.seatbelt) return { kind: 'seatbelt', network };
+  if (platform === 'win32' && support.appcontainer) return { kind: 'appcontainer', network };
   const why =
     platform === 'linux'
       ? 'bubblewrap (bwrap) is not installed or cannot create a sandbox here'
       : platform === 'darwin'
         ? 'sandbox-exec is not available'
-        : 'Windows has no built-in command sandbox';
+        : 'the Windows sandbox helper (sandbox-helper.exe) was not found';
   return {
     kind: 'none',
     network: true,
@@ -255,6 +259,9 @@ export function buildLaunch(
       const { args, stop } = containerArgs(engine ?? 'docker', env, decision.network);
       return { file: engine ?? 'docker', args, stop };
     }
+    case 'appcontainer':
+      // Needs the helper protocol (sandbox_windows.ts); falling through would run the command unsandboxed.
+      throw new Error('The AppContainer sandbox does not use a launch command line.');
     default:
       return { file: env.inner.file, args: env.inner.args };
   }
@@ -267,6 +274,7 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
   const where = {
     bwrap: 'Sandboxed (bubblewrap)',
     seatbelt: 'Sandboxed (Seatbelt)',
+    appcontainer: 'Sandboxed (AppContainer)',
     container: 'Sandboxed (container)',
   }[decision.kind];
   const net = decision.network ? (access.network ? 'network allowed for this command' : 'network on') : 'no network';
@@ -290,6 +298,7 @@ export function detectSandboxSupport(platform: NodeJS.Platform = process.platfor
   const support: SandboxSupport = {
     bwrap: platform === 'linux' && succeeds('bwrap', ['--unshare-all', '--ro-bind', '/', '/', 'true']),
     seatbelt: platform === 'darwin' && existsSync('/usr/bin/sandbox-exec'),
+    appcontainer: platform === 'win32' ? findHelper() : null,
     container: succeeds('docker', ['version', '--format', '{{.Server.Version}}'])
       ? 'docker'
       : succeeds('podman', ['version'])

@@ -14,6 +14,7 @@
     "postinstall": "node scripts/fix-node-pty.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "build": "electron-vite build",
+    "build:sandbox": "cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml",
     "start": "electron-vite build && electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint .",
@@ -95,7 +96,13 @@
           ]
         }
       ],
-      "artifactName": "${productName}.${ext}"
+      "artifactName": "${productName}.${ext}",
+      "extraResources": [
+        {
+          "from": "native/sandbox-helper/target/release/sandbox-helper.exe",
+          "to": "sandbox-helper.exe"
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,

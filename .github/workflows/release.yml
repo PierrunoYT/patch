@@ -74,6 +74,12 @@ jobs:
             exit 1
           fi
 
+      # The Windows installer ships sandbox-helper.exe (the AppContainer command sandbox), which electron-builder copies
+      # from this build output.
+      - name: Build the Windows sandbox helper
+        if: runner.os == 'Windows'
+        run: cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml
+
       - run: npm run typecheck
       - run: npm run test:unit
 

@@ -327,7 +327,8 @@ describe('project chat retention', () => {
         hasPendingToolCalls: () => false,
       };
     });
-    settings.update({ approvalMode: 'auto' });
+    // The commands connect to a local socket, so they must not run in the Windows sandbox, which has no network.
+    settings.update({ approvalMode: 'auto', sandboxMode: 'off' });
     try {
       // The child sockets prove process-tree survival/death without polling PIDs or guessing shutdown delays.
       open('alpha');

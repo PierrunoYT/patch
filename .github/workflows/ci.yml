@@ -67,6 +67,11 @@ jobs:
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 
+      # The Windows command sandbox: the unit tests also run real commands through it when the helper exists.
+      - name: Build the Windows sandbox helper
+        if: runner.os == 'Windows'
+        run: cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml
+
       - run: npm run typecheck
       - run: npm run test:unit
 

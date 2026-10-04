@@ -1,0 +1,154 @@
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Deserialize, Default, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Limits {
+    pub memory_mb: u64,
+    pub processes: u32,
+    pub timeout_ms: u64,
+}
+
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Request {
+    pub id: u64,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    pub cwd: String,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub network: bool,
+    #[serde(default)]
+    pub read_write: Vec<String>,
+    #[serde(default)]
+    pub read_only: Vec<String>,
+    // Paths inside a writable folder where writing is refused again (git hooks).
+    #[serde(default)]
+    pub deny_write: Vec<String>,
+    #[serde(default)]
+    pub limits: Limits,
+}
+
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub struct Kill {
+    pub id: u64,
+    pub kill: bool,
+}
+
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum Message {
+    Kill(Kill),
+    Run(Request),
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum Event<'a> {
+    Started {
+        id: u64,
+        pid: u32,
+    },
+    Stdout {
+        id: u64,
+        data: &'a str,
+    },
+    Stderr {
+        id: u64,
+        data: &'a str,
+    },
+    #[serde(rename_all = "camelCase")]
+    Exit {
+        id: u64,
+        exit_code: i64,
+        timed_out: bool,
+    },
+    Error {
+        id: Option<u64>,
+        message: &'a str,
+    },
+}
+
+pub fn parse_message(line: &str) -> Result<Message, String> {
+    serde_json::from_str(line).map_err(|e| format!("Invalid request: {e}"))
+}
+
+pub fn encode_event(event: &Event) -> String {
+    serde_json::to_string(event).expect("events always serialize")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_a_full_request() {
+        let line = r#"{"id":3,"command":"C:\\a.exe","args":["x"],"cwd":"C:\\p","env":{"A":"1"},"network":true,"readWrite":["C:\\p"],"readOnly":["C:\\Windows"],"limits":{"memoryMb":512,"processes":8,"timeoutMs":1000}}"#;
+        let Message::Run(req) = parse_message(line).unwrap() else {
+            panic!("not a run")
+        };
+        assert_eq!(req.id, 3);
+        assert_eq!(req.args, vec!["x"]);
+        assert!(req.network);
+        assert_eq!(req.read_write, vec!["C:\\p"]);
+        assert_eq!(
+            req.limits,
+            Limits {
+                memory_mb: 512,
+                processes: 8,
+                timeout_ms: 1000
+            }
+        );
+    }
+
+    #[test]
+    fn optional_fields_default_to_the_safest_values() {
+        let Message::Run(req) = parse_message(r#"{"id":1,"command":"a","cwd":"b"}"#).unwrap()
+        else {
+            panic!("not a run")
+        };
+        assert!(!req.network);
+        assert!(req.read_write.is_empty() && req.read_only.is_empty() && req.deny_write.is_empty());
+        assert_eq!(req.limits, Limits::default());
+    }
+
+    #[test]
+    fn parses_a_kill_message() {
+        assert_eq!(
+            parse_message(r#"{"id":2,"kill":true}"#).unwrap(),
+            Message::Kill(Kill { id: 2, kill: true })
+        );
+    }
+
+    #[test]
+    fn rejects_garbage_and_missing_fields() {
+        assert!(parse_message("nope").is_err());
+        assert!(parse_message(r#"{"id":1}"#).is_err());
+    }
+
+    #[test]
+    fn encodes_events_as_camel_case_json() {
+        assert_eq!(
+            encode_event(&Event::Started { id: 1, pid: 9 }),
+            r#"{"type":"started","id":1,"pid":9}"#
+        );
+        assert_eq!(
+            encode_event(&Event::Exit {
+                id: 1,
+                exit_code: 2,
+                timed_out: true
+            }),
+            r#"{"type":"exit","id":1,"exitCode":2,"timedOut":true}"#
+        );
+        assert_eq!(
+            encode_event(&Event::Stdout {
+                id: 1,
+                data: "a\"b\n"
+            }),
+            r#"{"type":"stdout","id":1,"data":"a\"b\n"}"#
+        );
+    }
+}

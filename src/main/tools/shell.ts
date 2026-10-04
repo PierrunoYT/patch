@@ -1,6 +1,9 @@
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import type { EventEmitter } from 'node:events';
+import { existsSync, realpathSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
+import type { Readable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { appLog } from '../app_log';
@@ -17,6 +20,7 @@ import {
   type SandboxDecision,
   type SandboxSupport,
 } from './sandbox';
+import { buildHelperRequest, HelperProcess } from './sandbox_windows';
 import { defineTool, truncateOutput } from './types';
 
 const DEFAULT_TIMEOUT_SECONDS = 120;
@@ -31,10 +35,19 @@ export interface CommandResult {
   aborted: boolean;
 }
 
+// What the runner needs from a running command: a ChildProcess, or a command running through the Windows helper.
+export interface CommandProcess extends EventEmitter {
+  stdout: Readable | null;
+  stderr: Readable | null;
+  pid?: number;
+  exitCode: number | null;
+  kill(signal?: NodeJS.Signals): boolean;
+}
+
 interface BackgroundCommand {
   id: number;
   command: string;
-  process: ChildProcess;
+  process: CommandProcess;
   output: string;
   exitCode: number | null | undefined;
   detachAbort: () => void;
@@ -81,7 +94,9 @@ export class ShellRunner {
   private decide(command: string, access: CommandAccess): SandboxDecision {
     const config = this.sandbox();
     const support =
-      config.mode === 'off' || access.unsandboxed ? { bwrap: false, seatbelt: false, container: null } : this.detect();
+      config.mode === 'off' || access.unsandboxed
+        ? { bwrap: false, seatbelt: false, appcontainer: null, container: null }
+        : this.detect();
     return decideSandbox(command, config, support, access, process.platform);
   }
 
@@ -102,7 +117,7 @@ export class ShellRunner {
     return new Promise((resolve) => {
       // A stop that came in before the command could start: an abort listener added now would never fire.
       if (signal?.aborted) return resolve({ exitCode: null, output: '', timedOut: false, aborted: true });
-      let child: ChildProcess;
+      let child: CommandProcess;
       try {
         child = this.spawn(command, access);
       } catch (error) {
@@ -206,7 +221,7 @@ export class ShellRunner {
   }
 
   // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then.
-  private spawn(command: string, access: CommandAccess): ChildProcess {
+  private spawn(command: string, access: CommandAccess): CommandProcess {
     const decision = this.decide(command, access);
     if (decision.kind === 'unavailable') {
       appLog.warn('sandbox', 'The chosen sandbox is not available.', { mode: this.sandbox().mode });
@@ -214,6 +229,7 @@ export class ShellRunner {
     }
     const config = this.sandbox();
     const inner = shellCommand(command);
+    if (decision.kind === 'appcontainer') return this.spawnInAppContainer(inner, decision.network);
     const launch: Launch =
       decision.kind === 'none'
         ? { file: inner.file, args: inner.args }
@@ -245,12 +261,37 @@ export class ShellRunner {
     if (launch.stop) stoppers.set(child, launch.stop);
     return child;
   }
+
+  private spawnInAppContainer(inner: { file: string; args: string[] }, network: boolean): CommandProcess {
+    const helper = this.detect().appcontainer;
+    if (!helper)
+      throw new Error('The Windows sandbox helper (sandbox-helper.exe) was not found. The command was not run.');
+    const real = (path: string) => {
+      try {
+        return realpathSync.native(path);
+      } catch {
+        return path;
+      }
+    };
+    const request = buildHelperRequest({
+      id: this.nextId,
+      shell: inner,
+      cwd: real(this.cwd()),
+      env: { ...scrubEnv(process.env), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+      network,
+      home: real(homedir()),
+      exists: (path) => existsSync(path),
+    });
+    appLog.info('sandbox', 'Command started.', { kind: 'appcontainer', network });
+    return new HelperProcess(helper, request);
+  }
 }
 
 // A container keeps running when its client process is killed, so it is removed by name as well.
-const stoppers = new WeakMap<ChildProcess, NonNullable<Launch['stop']>>();
+const stoppers = new WeakMap<CommandProcess, NonNullable<Launch['stop']>>();
 
-function killTree(child: ChildProcess): void {
+function killTree(child: CommandProcess): void {
+  if (child instanceof HelperProcess) return child.stopTree();
   const stop = stoppers.get(child);
   if (stop) {
     try {

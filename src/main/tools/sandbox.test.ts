@@ -13,7 +13,7 @@ import {
 } from './sandbox';
 
 const config: SandboxConfig = { mode: 'auto', network: 'off', image: 'node:lts', allowedHosts: 'registry.npmjs.org' };
-const none: SandboxSupport = { bwrap: false, seatbelt: false, container: null };
+const none: SandboxSupport = { bwrap: false, seatbelt: false, appcontainer: null, container: null };
 
 const env = (existing: string[] = []): LaunchEnv => ({
   cwd: '/home/u/proj',
@@ -48,6 +48,32 @@ describe('decideSandbox', () => {
     expect(describeSandbox(linux)).toMatch(/NOT sandboxed.*bubblewrap/);
   });
 
+  it('uses the AppContainer helper on Windows and says so', () => {
+    const support = { ...none, appcontainer: 'C:\\app\\sandbox-helper.exe' };
+    const decision = decideSandbox('ls', config, support, {}, 'win32');
+    expect(decision).toEqual({ kind: 'appcontainer', network: false });
+    expect(describeSandbox(decision)).toMatch(/Sandboxed \(AppContainer\).*no network/);
+    expect(decideSandbox('ls', config, support, { network: true }, 'win32')).toEqual({
+      kind: 'appcontainer',
+      network: true,
+    });
+    expect(decideSandbox('ls', config, support, {}, 'linux').kind).toBe('none');
+  });
+
+  it('does not run in the AppContainer when sandboxing is off or allowed to be skipped', () => {
+    const support = { ...none, appcontainer: 'C:\\app\\sandbox-helper.exe' };
+    expect(decideSandbox('ls', { ...config, mode: 'off' }, support, {}, 'win32').kind).toBe('none');
+    expect(decideSandbox('ls', config, support, { unsandboxed: true }, 'win32').kind).toBe('none');
+  });
+
+  it('prefers the container when that mode is chosen, even on Windows with the helper', () => {
+    const support = { ...none, appcontainer: 'C:\\h.exe', container: 'docker' as const };
+    expect(decideSandbox('ls', { ...config, mode: 'container' }, support, {}, 'win32').kind).toBe('container');
+  });
+
+  it('never turns an AppContainer decision into an unsandboxed command line', () => {
+    expect(() => buildLaunch({ kind: 'appcontainer', network: false }, env(), null)).toThrow(/AppContainer/);
+  });
   it('fails closed in container mode without an engine', () => {
     const decision = decideSandbox('ls', { ...config, mode: 'container' }, none, {}, 'linux');
     expect(decision.kind).toBe('unavailable');

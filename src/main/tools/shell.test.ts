@@ -96,7 +96,7 @@ describe('background command cancellation', () => {
 
 describe('sandbox selection', () => {
   const config = { mode: 'container' as const, network: 'off' as const, image: 'node:lts', allowedHosts: '' };
-  const noSupport = { bwrap: false, seatbelt: false, container: null };
+  const noSupport = { bwrap: false, seatbelt: false, appcontainer: null, container: null };
   let root: string;
 
   beforeEach(() => {
