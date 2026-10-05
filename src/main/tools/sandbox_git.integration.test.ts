@@ -198,7 +198,7 @@ console.log(JSON.stringify({ status: run(['status', '--porcelain']), diff: run([
       for (const operation of ['add', 'commit']) {
         expect(result[operation].error).toBeUndefined();
         expect(result[operation].code).not.toBe(0);
-        expect(result[operation].output).toMatch(/permission denied|read-only/i);
+        expect(result[operation].output).toMatch(/permission denied|operation not permitted|read-only/i);
       }
       expect(git('log', '--format=%s').trim()).toBe('fixture');
       expect(git('diff', '--cached')).toBe('');
