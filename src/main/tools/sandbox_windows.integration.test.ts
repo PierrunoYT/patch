@@ -515,6 +515,10 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     const grantTools = join(programs, 'grant-node');
     mkdirSync(grantTools);
     copyFileSync(process.execPath, join(grantTools, 'node.exe'));
+    // Normalize this disposable fixture to Windows' automatic inheritance model before taking the baseline: CI's
+    // temp tree can have legacy explicit ACEs that the first edit legitimately reclassifies as inherited. Include a
+    // distinct explicit grant so the revoke must preserve more than recomputed parent permissions.
+    execFileSync('icacls', [grantTools, '/inheritance:e', '/grant', '*S-1-1-0:(R)']);
     expect(allPackages(grantTools)).toBe(false);
     const original = acl(grantTools);
     const drive = ['T:', 'U:', 'V:', 'W:'].find(
