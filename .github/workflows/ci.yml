@@ -70,7 +70,7 @@ jobs:
       # The Windows command sandbox: the unit tests also run real commands through it when the helper exists.
       - name: Build the Windows sandbox helper
         if: runner.os == 'Windows'
-        run: cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml
+        run: cargo build --release --locked --bins --examples --manifest-path native/sandbox-helper/Cargo.toml
 
       - name: Install Linux command sandbox test backends
         if: runner.os == 'Linux'

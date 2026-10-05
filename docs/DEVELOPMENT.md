@@ -48,6 +48,8 @@ Git write-denial assertions accept `EACCES` ("Permission denied"), `EPERM` ("Ope
 
 The sandboxed Git fixture disables system config and supplies an empty global config inside its project, so runner-installed filters or FSMonitor settings cannot launch unrelated helpers. Git tracing is retained in failure output. The Windows timeout test waits for a real descendant heartbeat before advancing the parent timeout clock across its three-second boundary, then checks that the heartbeat stops. A separate real-time watchdog bounds startup/cleanup; slow CI startup cannot pass as successful process-tree termination.
 
+Windows CI also builds the `null_probe` Rust example. When present, the Git fixture includes host and AppContainer null-device open results in failure output, distinguishing DOS-device path lookup from direct device access without changing mappings or permissions. The diagnostic never replaces the Git success assertions.
+
 ## Scripts
 
 | Script                                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |

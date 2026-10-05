@@ -72,6 +72,11 @@ for (const [kind, available] of [
       );
       if (kind !== 'container')
         copyFileSync(process.execPath, join(root, process.platform === 'win32' ? 'node.exe' : 'node'));
+      const nullProbe = join(process.cwd(), 'native/sandbox-helper/target/release/examples/null_probe.exe');
+      if (kind === 'appcontainer' && existsSync(nullProbe)) {
+        copyFileSync(nullProbe, join(root, 'null-probe.exe'));
+        writeFileSync(join(root, 'host-null-probe.json'), execFileSync(nullProbe));
+      }
       const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toLowerCase() !== 'path'));
       env.PATH = root;
       shell = new ShellRunner(
@@ -192,9 +197,16 @@ const run = (args) => {
   fs.closeSync(fd);
   return { code: result.status, error: result.error?.message, output: fs.readFileSync('git-output', 'utf8') };
 };
-console.log(JSON.stringify({ status: run(['status', '--porcelain']), diff: run(['diff', '--no-ext-diff', '--no-textconv']), add: run(['add', 'source.txt']), commit: run(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'denied']) }));
+let nullProbe;
+if (fs.existsSync('null-probe.exe')) {
+  const fd = fs.openSync('null-output', 'w');
+  const result = spawnSync(require('node:path').resolve('null-probe.exe'), [], { stdio: ['inherit', fd, fd] });
+  fs.closeSync(fd);
+  nullProbe = { code: result.status, error: result.error?.message, host: fs.readFileSync('host-null-probe.json', 'utf8'), sandbox: fs.readFileSync('null-output', 'utf8') };
+}
+console.log(JSON.stringify({ nullProbe, status: run(['status', '--porcelain']), diff: run(['diff', '--no-ext-diff', '--no-textconv']), add: run(['add', 'source.txt']), commit: run(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'denied']) }));
 `);
-      expect(result.status.code, JSON.stringify(result.status)).toBe(0);
+      expect(result.status.code, JSON.stringify(result)).toBe(0);
       expect(result.diff.code, JSON.stringify(result.diff)).toBe(0);
       expect(result.diff.output).toContain('+changed');
       for (const operation of ['add', 'commit']) {
