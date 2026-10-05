@@ -310,6 +310,7 @@ The runs of each task were consistent, and every failed tool call was recovered 
 PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run bench:agent
 # only one suite:            PATCH_BENCH_SUITE=small   or   PATCH_BENCH_SUITE=large
 # prompt cache suite:        PATCH_BENCH_SUITE=cache   (not part of all; PATCH_BENCH_PAUSE_SECONDS, default 360)
+# plan mode suite:           PATCH_BENCH_SUITE=plan    (not part of all)
 # check the tasks, no API:   PATCH_BENCH_SELFTEST=1 npx vitest run --project bench
 ```
 
@@ -318,6 +319,7 @@ PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run 
 - **Scoring:** afterwards an objective check decides whether the task was solved, from the project files and the answer, often with a test the model never saw. `PATCH_BENCH_REPS` (default 2), `PATCH_BENCH_SUITE` and `PATCH_BENCH_TASKS` (comma-separated ids) choose what runs.
 - **Self-test:** `PATCH_BENCH_SELFTEST=1` runs every check without the API. It must reject the untouched project, and for the large suite accept a reference solution, so no task can be passed by doing nothing, and none is impossible.
 - **Cache suite** (`tests/bench/cache_tasks.ts`, `PATCH_BENCH_SUITE=cache`): prompt caching on a copy of this repository, so the chat is big enough for cache writes to matter. It is not part of `all`, because each pause run waits several minutes. `subagent-question` tells the model to delegate a question to the `task` subagent; a run that does not call `task` does not count as solved. `pause-followup` asks a question, leaves the app idle for `PATCH_BENCH_PAUSE_SECONDS` (default 360, past the 5-minute cache), then asks a follow-up; `pause-followup-warm` is the same with Settings → Prompt cache on. Runs with a follow-up report usage per phase (`phases`: first turn, pause, follow-up), so the follow-up's cache writes and the keep-alives' own cost show separately.
+- **Plan suite** (`PATCH_BENCH_SUITE=plan`): small tasks with Settings → Plan mode on or off. Plan cards are approved as soon as they appear. With plan mode on, `add-feature` and `rename` count as solved only if `propose_plan` came before the first edit or command (`plannedFirst`), and `question` only if no plan was proposed; with plan mode off, any `propose_plan` call fails the run. Not part of `all`. Results are saved after every run, so an interrupted benchmark keeps what it measured.
 
 **Small suite:** five tiny projects using Node's built-in test runner, so no `npm install` is needed:
 
@@ -438,3 +440,22 @@ Every task cost less, from −2% (`export-bug`) to −50% (`cli-fix`); the small
 | After (`26cbfe4`)  | 20,965, 14,844 | 51,627, 41,444 | $0.097, $0.079 |
 
 About 23% fewer cache writes and 14% lower cost per delegated question, as the subagent's first request now reads the chat's tools and system prompt. Two runs each and the subagent's own exploration varies, so read this as a direction rather than an exact figure.
+
+### Plan mode as a message note (#44, 2026-10-05)
+
+**Question:** with `propose_plan` always in the tool list and plan mode told by a note on the user message (#44), does the model still propose plans as reliably as when the tool only existed in plan mode?
+
+**Answer:** more reliably, on these tasks. Before, the model never proposed a plan for the two small multi-step tasks; with the note it planned first in 4 of 6 runs. Neither version proposed a plan where it should not (the question, or plan mode off). Requests, time and cost did not change beyond noise. Claude Sonnet 5.5, `PATCH_BENCH_SUITE=plan`, 3 runs per task, Windows 11 with the AppContainer sandbox on both builds:
+
+| Task (plan mode)    | Before (`37f8bb6`): planned first, solved | After (PR #92): planned first, solved | Avg. cost before / after |
+| ------------------- | ----------------------------------------- | ------------------------------------- | ------------------------ |
+| `add-feature` (on)  | 0/3, 0/3                                  | 1/3, 1/3                              | $0.039 / $0.046          |
+| `rename` (on)       | 0/3, 0/3                                  | 3/3, 3/3                              | $0.037 / $0.038          |
+| `question` (on)     | none, as wanted; 3/3                      | none, as wanted; 3/3                  | $0.013 / $0.013          |
+| `add-feature` (off) | no plan; 3/3                              | no plan; 3/3                          | $0.037 / $0.033          |
+| `rename` (off)      | no plan; 3/3                              | no plan; 3/3                          | $0.039 / $0.043          |
+
+- An earlier baseline run without the sandbox helper (commands refused at once) also planned 0 of 6 times, so the baseline result does not depend on how commands behaved.
+- "Solved" with plan mode on requires the plan; every run solved the task itself (the hidden tests pass).
+- The tasks are small, and the tool description says a one-step change needs no plan, so the model is right to hesitate on `add-feature`. Larger multi-step tasks are not covered. Three runs per task: read the numbers as a direction.
+- Runs of 150–200 s on both builds come from the sandbox, not plan mode: inside the Windows AppContainer, `npm test` exited with code 1 and `node --test` timed out in every run that tried them, and the model retried variations ([#101](https://github.com/PierrunoYT/patch/issues/101)).
