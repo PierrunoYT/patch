@@ -5,8 +5,19 @@ describe('propose_plan tool', () => {
   it('always asks, so Auto mode cannot skip the card', () => {
     expect(proposePlanTool.alwaysAsk).toBe(true);
     expect(proposePlanTool.requiresApproval).toBe(true);
-    // The tool is always offered, so its description must tie it to the note the app adds in plan mode.
-    expect(proposePlanTool.description).toContain('without that note, do not call this');
+  });
+
+  it('uses the latest app plan-mode note across tool results and intervening messages', () => {
+    // Mid-run toggles arrive in tool results; OpenAI tool images add a user message without a plan-mode note.
+    // Check the model-facing contract, not model compliance (which requires a real-model benchmark).
+    expect(proposePlanTool.description).toContain('most recent plan-mode note from the app');
+    expect(proposePlanTool.description).toContain('in a user message or a tool result');
+    expect(proposePlanTool.description).toContain('until a newer plan-mode note changes it');
+    expect(proposePlanTool.description).toContain('intervening messages and tool images do not change it');
+    expect(proposePlanTool.description).toContain(
+      'If no plan-mode note has been provided, or the latest one says plan mode is off, do not call this',
+    );
+    expect(proposePlanTool.description).not.toContain('latest user message');
   });
 
   it('shows the plan as markdown on the approval card', async () => {

@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Plan-mode instructions now follow the latest app mode note in either a user message or a tool result until superseded, avoiding contradictory guidance after mid-run toggles and tool screenshots (PR #92).
 - The first history search over many long chats no longer freezes the window. The search still reads each chat file once, but gives the window a turn after each file instead of reading them all in one go (fixes #69).
 - Command sandbox safety (#76): Automatic mode now refuses foreground and background commands when its backend is unavailable instead of running with full user rights. URL-matched network requests require approval and explicitly describe unrestricted access. Per-call safety checks (sandbox escalation and protected files) cannot be bypassed by allow/delegate permission rules.
 - Windows sandbox: permission changes are recorded before grants and recovered at the next helper startup after a forced kill. Cleanup preserves live runs and unrelated container grants, works after profile deletion, and restores the original git-hooks ACL without accumulating copied entries (fixes #91). Older unrecorded orphan SIDs are left untouched because their ownership cannot be determined safely.
