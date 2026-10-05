@@ -10,7 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
-- Cross-platform CI: restart tests no longer require Windows encryption-key storage on macOS/Linux or assume an immediate crash always loses a key (fixes #93). Ubuntu grants bubblewrap scoped AppArmor user-namespace permission; Windows sandbox tests use the mapped project cwd and a normalized ACL fixture with an explicit permission to preserve.
+- Cross-platform CI: restart tests no longer require Windows encryption-key storage on macOS/Linux or assume an immediate crash always loses a key (fixes #93). Ubuntu grants bubblewrap scoped AppArmor user-namespace permission; Windows sandbox tests use the mapped project cwd, inherited child stdio instead of reopening `NUL`, and a normalized ACL fixture with an explicit permission to preserve.
 - Plan-mode instructions now follow the latest app mode note in either a user message or a tool result until superseded, avoiding contradictory guidance after mid-run toggles and tool screenshots (PR #92).
 - The first history search over many long chats no longer freezes the window. The search still reads each chat file once, but gives the window a turn after each file instead of reading them all in one go (fixes #69).
 - Command sandbox safety (#76): Automatic mode now refuses foreground and background commands when its backend is unavailable instead of running with full user rights. URL-matched network requests require approval and explicitly describe unrestricted access. Per-call safety checks (sandbox escalation and protected files) cannot be bypassed by allow/delegate permission rules.

@@ -259,7 +259,8 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
     writeFileSync(
       script,
       `const { spawn } = require('child_process');
-spawn(process.execPath, ['-e', "setInterval(() => require('fs').appendFileSync('beat.txt', 'x'), 100)"], { stdio: 'ignore' });
+// Reuse the sandbox's handles: ignored stdio makes libuv open NUL, which can be denied inside an AppContainer.
+spawn(process.execPath, ['-e', "setInterval(() => require('fs').appendFileSync('beat.txt', 'x'), 100)"], { stdio: 'inherit' });
 setInterval(() => {}, 1000);`,
     );
     const started = Date.now();
