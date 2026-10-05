@@ -482,7 +482,7 @@ struct RecoveryRecord {
     protected: Vec<ProtectedPath>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct ProtectedPath {
     path: String,
     dacl: String,
@@ -532,12 +532,67 @@ fn recovery_dir() -> Result<PathBuf> {
     Ok(PathBuf::from(local).join("Patch").join("sandbox-recovery"))
 }
 
+// Serialize only ACL setup/cleanup, never command execution. Every overlapping run carries the original
+// inheritance snapshot; the last remaining record restores it, including after forced termination.
+struct PermissionLock(Handle);
+
+impl PermissionLock {
+    fn acquire() -> Result<Self> {
+        let handle = Handle(
+            unsafe {
+                CreateMutexW(
+                    None,
+                    false,
+                    windows::core::w!("Local\\PatchSandboxPermissions"),
+                )
+            }
+            .map_err(|e| describe("create sandbox permission lock", e))?,
+        );
+        match unsafe { WaitForSingleObject(handle.0, 60_000) } {
+            WAIT_OBJECT_0 | WAIT_ABANDONED => Ok(Self(handle)),
+            _ => Err("cannot acquire sandbox permission lock".into()),
+        }
+    }
+}
+
+impl Drop for PermissionLock {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = ReleaseMutex(self.0 .0);
+        }
+    }
+}
+
+fn recovery_records() -> Result<Vec<RecoveryRecord>> {
+    let dir = recovery_dir()?;
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut records = Vec::new();
+    for entry in
+        fs::read_dir(dir).map_err(|e| format!("cannot read sandbox recovery folder: {e}"))?
+    {
+        let path = entry
+            .map_err(|e| format!("cannot read recovery entry: {e}"))?
+            .path();
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let bytes = fs::read(&path)
+                .map_err(|e| format!("cannot read sandbox protection owner: {e}"))?;
+            records.push(
+                serde_json::from_slice(&bytes)
+                    .map_err(|e| format!("invalid sandbox protection owner: {e}"))?,
+            );
+        }
+    }
+    Ok(records)
+}
+
 fn lock_record(path: &Path, create: bool) -> std::io::Result<File> {
     OpenOptions::new()
         .read(true)
         .write(true)
         .create_new(create)
-        .share_mode(FILE_SHARE_DELETE.0)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
         .open(path)
 }
 
@@ -550,6 +605,7 @@ fn record_sid(name: &str) -> Result<Sid> {
 
 impl RecoveryRecord {
     fn undo(&self, sid: PSID) -> Result<()> {
+        let others = recovery_records()?;
         // Try every path even if one is unavailable. Keep the record for a later retry on any error.
         let mut result = Ok(());
         for path in self.granted.iter().rev() {
@@ -560,7 +616,14 @@ impl RecoveryRecord {
             }
         }
         for path in self.protected.iter().rev() {
-            if Path::new(&path.path).exists() {
+            let shared = others.iter().any(|record| {
+                record.name != self.name
+                    && record
+                        .protected
+                        .iter()
+                        .any(|other| other.path.eq_ignore_ascii_case(&path.path))
+            });
+            if !shared && Path::new(&path.path).exists() {
                 if let Err(error) = path.restore() {
                     result = Err(error);
                 }
@@ -581,6 +644,7 @@ impl RecoveryRecord {
 }
 
 fn recover_abandoned_runs() -> Result<()> {
+    let _lock = PermissionLock::acquire()?;
     let dir = recovery_dir()?;
     fs::create_dir_all(&dir).map_err(|e| format!("cannot create sandbox recovery folder: {e}"))?;
     for entry in
@@ -680,14 +744,31 @@ struct Cleanup {
 
 impl Drop for Cleanup {
     fn drop(&mut self) {
-        if self.record.undo(self.sid.0).is_ok() {
-            let _ = fs::remove_file(&self.path);
+        if let Ok(_lock) = PermissionLock::acquire() {
+            if self.record.undo(self.sid.0).is_ok() {
+                let _ = fs::remove_file(&self.path);
+            }
         }
     }
 }
 
 fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     let id = request.id;
+    let permission_lock = PermissionLock::acquire()?;
+    let owners = recovery_records()?;
+    let git = Path::new(&request.cwd).join(".git");
+    let git = git.to_string_lossy().into_owned();
+    let readonly_git = request
+        .deny_write
+        .iter()
+        .any(|path| path.eq_ignore_ascii_case(&git));
+    if readonly_git {
+        let metadata =
+            fs::symlink_metadata(&git).map_err(|e| format!("Git metadata is required: {e}"))?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err("Git metadata must be a regular directory".into());
+        }
+    }
     let record = RecoveryRecord {
         name: profile_name(),
         granted: request
@@ -701,7 +782,17 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             .deny_write
             .iter()
             .filter(|path| Path::new(path).exists())
-            .map(|path| original_inheritance(path))
+            .map(|path| {
+                let shared = owners
+                    .iter()
+                    .flat_map(|owner| &owner.protected)
+                    .find(|other| other.path.eq_ignore_ascii_case(path))
+                    .cloned();
+                match shared {
+                    Some(snapshot) => Ok(Some(snapshot)),
+                    None => original_inheritance(path),
+                }
+            })
             .collect::<Result<Vec<_>>>()?
             .into_iter()
             .flatten()
@@ -751,12 +842,13 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 continue;
             }
             if let Err(message) = edit_acl(path, sid, access, Change::Grant) {
-                if required {
+                if required || (readonly_git && path.eq_ignore_ascii_case(&git)) {
                     return Err(message);
                 }
             }
         }
     }
+    drop(permission_lock);
     let mut capability_sid = PSID::default();
     let mut capabilities = Vec::new();
     if request.network {

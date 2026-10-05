@@ -748,7 +748,7 @@
             tests: 17,
             lines: 3248,
             testLines: 2860,
-            desc: 'Every model tool, plus fail-closed command sandboxes, credential-safe toolchain grants, read-only container hooks, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Sandbox escalation always asks; matching URLs request unrestricted network access, not hostname filtering.',
+            desc: 'Every model tool, plus fail-closed command sandboxes, credential-safe toolchain grants, read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
               'files.ts (318)',
@@ -757,6 +757,8 @@
               'sandbox.ts (335)',
               'sandbox_windows.ts (331)',
               'sandbox.integration.test.ts',
+              'sandbox_git.ts',
+              'sandbox_git.integration.test.ts',
               'env.ts',
               'apply_patch.ts',
               'glob.ts',
@@ -2723,7 +2725,7 @@
         const items = [
           [
             'Finish Windows sandbox reliability: #76, #91',
-            'Windows commands start from a private project-root drive. Permission recovery is implemented locally: the next helper startup undoes abandoned grants and restores git-hooks ACLs without touching live runs.',
+            'Windows commands start from a private project-root drive. The whole root .git is read-only (#98); cleanup and forced-termination recovery retain protection while another command owns it, then restore the original ACL inheritance.',
             [
               '#91: local recovery fix; older unrecorded orphan SIDs cannot be identified safely',
               '#90: large rustc and cargo toolchains exceed the current grant limits',

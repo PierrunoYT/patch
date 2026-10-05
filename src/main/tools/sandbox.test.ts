@@ -21,7 +21,7 @@ const env = (existing: string[] = []): LaunchEnv => ({
   tmp: '/tmp',
   inner: { file: '/bin/bash', args: ['-lc', 'npm test'] },
   command: 'npm test',
-  exists: (path) => existing.includes(path),
+  exists: (path) => path === '/home/u/proj/.git' || existing.includes(path),
   uid: 1000,
   gid: 1000,
   containerName: 'patch-abc',
@@ -120,7 +120,7 @@ describe('bwrapArgs', () => {
     expect(text).toContain('--ro-bind /usr /usr');
     expect(text).toContain('--ro-bind /home/u/.cargo/bin /home/u/.cargo/bin');
     expect(text).toContain('--bind /home/u/proj /home/u/proj');
-    expect(text).toContain('--ro-bind /home/u/proj/.git/hooks /home/u/proj/.git/hooks');
+    expect(text).toContain('--ro-bind /home/u/proj/.git /home/u/proj/.git');
     expect(text).not.toContain('.ssh');
     expect(text).not.toContain('/lib64');
     expect(args.slice(-3)).toEqual(['/bin/bash', '-lc', 'npm test']);
@@ -153,7 +153,10 @@ describe('seatbeltProfile', () => {
     );
     expect(profile).toContain('(subpath "/home/u/.cargo/bin")');
     expect(profile).toMatch(/\(allow file-write\* \(subpath "\/home\/u\/proj"\)/);
-    expect(profile).toContain('(deny file-write* (subpath "/home/u/proj/.git/hooks"))');
+    expect(profile).toContain('(deny file-write* (subpath "/home/u/proj/.git"))');
+    expect(profile).toContain('(deny file-write-unlink (literal "/home/u/proj"))');
+    expect(profile).toContain('(deny file-write-unlink (literal "/home/u"))');
+    expect(profile).toContain('(deny file-write-unlink (literal "/home"))');
     expect(profile).not.toContain('network');
   });
 
@@ -164,13 +167,20 @@ describe('seatbeltProfile', () => {
 });
 
 describe('containerArgs', () => {
-  it.each(['docker', 'podman'] as const)('protects existing Git hooks in %s after mounting the project', (engine) => {
-    const { args } = containerArgs(engine, env(['/home/u/proj/.git/hooks']), false);
-    const mount = '/home/u/proj/.git/hooks:/workspace/.git/hooks:ro';
-    expect(args).toContain(mount);
-    expect(args.indexOf(mount)).toBeGreaterThan(args.indexOf('/home/u/proj:/workspace'));
-    expect(args.indexOf(mount)).toBeLessThan(args.indexOf('node:lts'));
+  it('refuses commas that would change the bind mount CSV fields', () => {
+    expect(() => containerArgs('docker', { ...env(), cwd: '/tmp/project,dst=/other' }, false)).toThrow(/commas/);
   });
+
+  it.each(['docker', 'podman'] as const)(
+    'protects the whole Git directory in %s after mounting the project',
+    (engine) => {
+      const { args } = containerArgs(engine, env(), false);
+      const mount = 'type=bind,src=/home/u/proj/.git,dst=/workspace/.git,readonly';
+      expect(args).toContain(mount);
+      expect(args.indexOf(mount)).toBeGreaterThan(args.indexOf('/home/u/proj:/workspace'));
+      expect(args.indexOf(mount)).toBeLessThan(args.indexOf('node:lts'));
+    },
+  );
 
   it('mounts only the project, drops privileges and has no network by default', () => {
     const { args, stop } = containerArgs('docker', env(), false);
@@ -199,6 +209,12 @@ describe('containerArgs', () => {
 });
 
 describe('buildLaunch', () => {
+  it('refuses absent metadata instead of silently omitting the read-only mount', () => {
+    const missing = { ...env(), exists: () => false };
+    expect(() => bwrapArgs(missing, false)).toThrow(/existing .git directory/);
+    expect(() => containerArgs('docker', missing, false)).toThrow(/existing .git directory/);
+  });
+
   it('wraps with the right program', () => {
     expect(buildLaunch({ kind: 'bwrap', network: false }, env(), null).file).toBe('bwrap');
     const seatbelt = buildLaunch({ kind: 'seatbelt', network: false }, env(), null);

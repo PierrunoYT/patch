@@ -95,7 +95,7 @@ for (const [kind, available] of [
             timeout: 15_000,
             killSignal: 'SIGKILL',
             // The host engine needs its normal connection config; containerArgs passes no host variables inside.
-            env: kind === 'container' ? process.env : { PATH: '/usr/bin:/bin', HOME: home },
+            env: kind === 'container' ? process.env : { PATH: process.env.PATH, HOME: home },
           });
           return JSON.parse(stdout.trim()) as {
             content?: string;
@@ -118,7 +118,7 @@ for (const [kind, available] of [
         writeFileSync(join(project, 'probe.cjs'), probe);
         writeFileSync(join(project, 'inside.txt'), 'PROJECT-READABLE');
         writeFileSync(join(home, 'outside.txt'), 'OUTSIDE-PRIVATE');
-        writeFileSync(join(project, '.git', 'hooks', 'pre-commit'), 'ORIGINAL-HOOK');
+        writeFileSync(join(project, '.git', 'hooks', 'pre-commit.sample'), 'ORIGINAL-HOOK');
         for (const rel of credentials) {
           const path = join(home, rel);
           mkdirSync(dirname(path), { recursive: true });
@@ -171,11 +171,11 @@ for (const [kind, available] of [
       });
 
       it('cannot create or overwrite Git hooks', async () => {
-        expect((await run('write', '.git/hooks/pre-commit', 'CHANGED')).error).toMatch(/^(EACCES|EPERM|EROFS)$/);
+        expect((await run('write', '.git/hooks/pre-commit.sample', 'CHANGED')).error).toMatch(/^(EACCES|EPERM|EROFS)$/);
         expect((await run('write', '.git/hooks/pre-push', 'NEW')).error).toMatch(/^(EACCES|EPERM|EROFS)$/);
-        expect(readFileSync(join(project, '.git', 'hooks', 'pre-commit'), 'utf8')).toBe('ORIGINAL-HOOK');
+        expect(readFileSync(join(project, '.git', 'hooks', 'pre-commit.sample'), 'utf8')).toBe('ORIGINAL-HOOK');
         expect(existsSync(join(project, '.git', 'hooks', 'pre-push'))).toBe(false);
-        expect(await run('write', '.git/config-test', 'ALLOWED')).toEqual({ written: true });
+        expect((await run('write', '.git/config-test', 'DENIED')).error).toMatch(/^(EACCES|EPERM|EROFS)$/);
       });
 
       it.skipIf(process.platform === 'win32')('cannot follow a project symlink into the private home', async () => {

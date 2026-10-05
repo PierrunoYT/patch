@@ -23,6 +23,7 @@ import {
 } from './sandbox';
 import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
 import { defineTool, truncateOutput } from './types';
+import { validateSandboxGit } from './sandbox_git';
 
 const DEFAULT_TIMEOUT_SECONDS = 120;
 const MAX_TIMEOUT_SECONDS = 600;
@@ -288,6 +289,7 @@ export class ShellRunner {
     const helper = this.detect().appcontainer;
     if (!helper)
       throw new Error('The Windows sandbox helper (sandbox-helper.exe) was not found. The command was not run.');
+    validateSandboxGit(this.cwd());
     const real = (path: string) => {
       try {
         return realpathSync.native(path);

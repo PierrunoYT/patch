@@ -154,7 +154,8 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   };
   for (const rel of HOME_READ_ONLY_WINDOWS) add(win32.join(home, rel));
   for (const entry of input.pathEntries) if (entry && win32.isAbsolute(entry)) add(entry);
-  return { readWrite: [cwd], readOnly, denyWrite: [win32.join(cwd, '.git', 'hooks')] };
+  const git = win32.join(cwd, '.git');
+  return { readWrite: [cwd], readOnly: [...readOnly, git], denyWrite: [git] };
 }
 
 export interface BuildRequestInput {
