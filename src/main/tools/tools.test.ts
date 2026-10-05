@@ -516,6 +516,37 @@ describe('shell tools', () => {
     const output = await call(commandOutputTool, { id: 1, stop: true });
     expect(output.content).toContain('Status: stopped');
   }, 20_000);
+
+  // A poll must not put the whole output into the conversation again: only what is new since the last read.
+  it('returns only new output on each read of a background command, and all of it with full', async () => {
+    const shell = new ShellRunner(() => root);
+    // A script file, because the result repeats the command line and must not contain the output words itself.
+    writeFileSync(
+      join(root, 'bg.js'),
+      `process.stdout.write('first\\n'); setTimeout(() => process.stdout.write('second\\n'), 4500); setTimeout(() => {}, 30000);`,
+    );
+    const ctx = { ...context, shell };
+    try {
+      const started = await call(runCommandTool, { command: 'node bg.js', background: true }, ctx);
+      expect(started.content).toContain('first');
+      const id = Number(/Started background command (\d+)/.exec(started.content)![1]);
+
+      const idle = await call(commandOutputTool, { id }, ctx);
+      expect(idle.content).toContain('(no new output since your last read)');
+      expect(idle.content).not.toContain('first');
+
+      await new Promise((resolve) => setTimeout(resolve, 3_000));
+      const next = await call(commandOutputTool, { id }, ctx);
+      expect(next.content).toContain('second');
+      expect(next.content).not.toContain('first');
+
+      const all = await call(commandOutputTool, { id, full: true }, ctx);
+      expect(all.content).toContain('first');
+      expect(all.content).toContain('second');
+    } finally {
+      shell.stopAll();
+    }
+  }, 30_000);
 });
 
 describe('helpers', () => {
@@ -538,13 +569,7 @@ describe('helpers', () => {
       availableTools({ browser: null, codeSearch: null, webSearch: null, ...ctx }).map((tool) => tool.name);
     expect(names({})).not.toContain('web_search');
     expect(names({})).not.toContain('browser');
-    expect(names({})).not.toContain('propose_plan');
     expect(names({ webSearch: { googleApiKey: 'k', googleSearchEngineId: 'c' } })).toContain('web_search');
-    expect(
-      availableTools({ browser: null, codeSearch: null, webSearch: null }, [], { planMode: true }).map(
-        (tool) => tool.name,
-      ),
-    ).toContain('propose_plan');
   });
 });
 

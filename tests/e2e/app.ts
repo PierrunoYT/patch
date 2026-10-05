@@ -21,12 +21,12 @@ export interface RunningApp {
 const CLOSE_TIMEOUT_MS = 20_000;
 const SECRETS_TIMEOUT_MS = 15_000;
 
-// Saved keys are encrypted with Electron's safeStorage, whose own key lives in the profile's `Local State` file. Chromium
-// writes that file about 10 s after the key is created, or when the app quits, so a test that saves a key and restarts
-// the app on the same profile soon after must not race that write: a restarted app that finds no key in `Local State`
-// creates a new one and cannot decrypt the saved secrets (#54). Waits until the key is on disk when the profile holds
-// encrypted secrets; returns at once otherwise.
+// On Windows, safeStorage uses a profile key protected by DPAPI. Chromium writes that key to `Local State` about 10 s
+// after creating it, or when the app quits, so an abrupt restart must not race that write. macOS stores its key in the
+// Keychain, while Linux may use a keyring or the `basic_text` backend; neither platform uses this Windows durability
+// signal. Waits for it only when a Windows profile contains encrypted secrets, and returns at once otherwise.
 export async function waitForDurableSecrets(userData: string): Promise<void> {
+  if (process.platform !== 'win32') return;
   const read = (file: string): Record<string, any> | null => {
     try {
       return JSON.parse(readFileSync(join(userData, file), 'utf8'));

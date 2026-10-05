@@ -1,12 +1,19 @@
 // Checks that a packaged build works: `node scripts/smoke-packaged.mjs <app executable> [args...]`.
 // It starts the app on a throwaway profile with Chromium's remote debugging (the packaged app's fuses turn off the
 // Node inspector Playwright's Electron support needs), opens a project, lists its files and runs a command in the
-// terminal panel, which loads node-pty. Exits non-zero, with what it saw, when anything fails.
+// terminal panel, which loads node-pty. It also connects a stdio and an HTTP MCP server: the MCP SDK client is
+// bundled into the main process (it is a dev dependency), so only a packaged app shows that nothing it needs is
+// missing. Exits non-zero, with what it saw, when anything fails.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { chromium } from 'playwright-core';
+import { z } from 'zod';
 
 const [executable, ...extraArgs] = process.argv.slice(2);
 if (!executable) {
@@ -18,6 +25,39 @@ const port = 9300 + Math.floor(Math.random() * 500);
 const profile = mkdtempSync(join(tmpdir(), 'patch-smoke-profile-'));
 const project = mkdtempSync(join(tmpdir(), 'patch-smoke-project-'));
 writeFileSync(join(project, 'hello.txt'), 'hello\n');
+
+// A stateless streamable HTTP MCP server: a fresh server and transport for each request.
+const mcpHttp = createServer(async (req, res) => {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = chunks.length > 0 ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : undefined;
+  const server = new McpServer({ name: 'smoke-http', version: '1.0.0' });
+  server.registerTool('shout', { description: 'Upper-cases text.', inputSchema: { text: z.string() } }, ({ text }) => ({
+    content: [{ type: 'text', text: text.toUpperCase() }],
+  }));
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  res.on('close', () => {
+    void transport.close();
+    void server.close();
+  });
+  await server.connect(transport);
+  await transport.handleRequest(req, res, body);
+});
+await new Promise((resolve) => mcpHttp.listen(0, '127.0.0.1', resolve));
+// Written before the start, as a saved profile: adding servers through settings:update would ask for confirmation.
+const mockStdioServer = fileURLToPath(new URL('../tests/e2e/mock_mcp_server.mjs', import.meta.url));
+writeFileSync(
+  join(profile, 'settings.json'),
+  JSON.stringify({
+    settings: {
+      mcpServers: [
+        { name: 'stdio', transport: 'stdio', command: process.execPath, args: [mockStdioServer] },
+        { name: 'http', transport: 'http', url: `http://127.0.0.1:${mcpHttp.address().port}/mcp` },
+      ],
+    },
+    secrets: {},
+  }),
+);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const child = spawn(executable, [...extraArgs, `--remote-debugging-port=${port}`], {
@@ -78,6 +118,16 @@ try {
   await page.evaluate(() => window.api.invoke('terminal:write', 'echo SMOKE-$((6*7))\r'));
   await page.waitForFunction(() => window.__smokeTerminal.includes('SMOKE-42'));
   seen.terminal = 'ran a command';
+
+  let mcp = [];
+  for (let attempt = 0; attempt < 80; attempt++) {
+    mcp = await page.evaluate(() => window.api.invoke('mcp:status'));
+    if (mcp.length === 2 && mcp.every((server) => server.state !== 'connecting')) break;
+    await delay(250);
+  }
+  seen.mcp = mcp.map(({ name, state, error, tools }) => ({ name, state, error, tools }));
+  if (mcp.length !== 2 || !mcp.every((server) => server.state === 'connected' && server.tools.length > 0))
+    throw new Error('The MCP servers did not connect.');
   await page.screenshot({ path: process.env.SMOKE_SCREENSHOT || join(tmpdir(), 'patch-smoke.png') });
   await browser.close();
 } catch (error) {
@@ -87,6 +137,7 @@ await finish();
 
 async function finish() {
   clearTimeout(deadline);
+  mcpHttp.close();
   try {
     process.kill(-child.pid, 'SIGTERM');
   } catch {

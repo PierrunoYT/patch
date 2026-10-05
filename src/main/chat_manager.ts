@@ -273,7 +273,7 @@ export class ChatManager {
       return availableTools(
         { browser, codeSearch: codeSearch?.search ?? null, webSearch },
         [...(codeSearch?.tools ?? []), ...this.deps.mcp.tools(), taskTool, finderTool, oracleTool, todoTool],
-        { planMode: this.deps.settings.get().planMode, skills: offersSkills },
+        { skills: offersSkills },
       );
     };
     // The checklist lives and dies with this chat; subagents do not get it (they only read).
@@ -337,7 +337,9 @@ export class ChatManager {
       readFiles: saved?.readFiles,
       pendingNotes: saved?.pendingNotes,
       resumable: saved?.resumable,
+      planModeTold: saved?.planModeTold,
       approvalMode: () => this.deps.settings.get().approvalMode,
+      planMode: () => this.deps.settings.get().planMode,
       decidePermission: (name, input) =>
         decidePermission(this.deps.settings.get().permissionRules, name, input, 'thread'),
       isPreApproved: (toolName, input) => {

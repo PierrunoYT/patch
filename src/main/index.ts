@@ -396,7 +396,8 @@ function start(): void {
     quitting = true;
     manager.dispose();
     terminal.stop();
-    void mcp.stop().finally(() => app.quit());
+    // The chats were saved by dispose; a checkpoint it replaced may still be cleaning up its temporary file.
+    void Promise.allSettled([mcp.stop(), chats.flush()]).finally(() => app.quit());
   });
 }
 
