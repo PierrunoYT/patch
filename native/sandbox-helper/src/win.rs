@@ -5,11 +5,12 @@ use std::collections::HashMap;
 use std::ffi::c_void;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, Read, Write};
-use std::os::windows::fs::OpenOptionsExt;
+use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use windows::core::{Error, PCWSTR, PWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::Security::Authorization::*;
@@ -128,7 +129,16 @@ impl Emitter {
 }
 
 // Jobs of the commands in flight, so end of input or a kill message can stop them.
-type Jobs = Arc<Mutex<HashMap<u64, usize>>>;
+// Some(0) is preparation, None is cancellation, Some(handle) is a running job.
+type Jobs = Arc<Mutex<HashMap<u64, Option<usize>>>>;
+
+fn ensure_active(jobs: &Jobs, id: u64) -> Result<()> {
+    if jobs.lock().unwrap().get(&id).copied().flatten().is_none() {
+        Err("sandbox command stopped during preparation".to_string())
+    } else {
+        Ok(())
+    }
+}
 
 pub fn serve() {
     let emitter = Emitter(Arc::new(Mutex::new(std::io::stdout())));
@@ -149,6 +159,7 @@ pub fn serve() {
         match parse_message(&line) {
             Ok(Message::Run(request)) => {
                 let (emitter, jobs) = (emitter.clone(), jobs.clone());
+                jobs.lock().unwrap().insert(request.id, Some(0));
                 workers.push(thread::spawn(move || {
                     let id = request.id;
                     if let Err(message) = run(&request, &emitter, &jobs) {
@@ -157,6 +168,7 @@ pub fn serve() {
                             message: &message,
                         });
                     }
+                    jobs.lock().unwrap().remove(&id);
                 }));
             }
             Ok(Message::Kill(kill)) => {
@@ -178,11 +190,16 @@ pub fn serve() {
 }
 
 fn kill_job(jobs: &Jobs, id: Option<u64>) {
-    for (job_id, job) in jobs.lock().unwrap().iter() {
+    for (job_id, job) in jobs.lock().unwrap().iter_mut() {
         if id.is_none() || id == Some(*job_id) {
-            unsafe {
-                let _ = TerminateJobObject(HANDLE(*job as *mut c_void), 1);
+            if let Some(handle) = *job {
+                if handle != 0 {
+                    unsafe {
+                        let _ = TerminateJobObject(HANDLE(handle as *mut c_void), 1);
+                    }
+                }
             }
+            *job = None;
         }
     }
 }
@@ -480,6 +497,9 @@ struct RecoveryRecord {
     name: String,
     granted: Vec<String>,
     protected: Vec<ProtectedPath>,
+    // Deterministic private staging root; exact-target drive removal never touches another run's mapping.
+    #[serde(default)]
+    staged: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -527,6 +547,175 @@ impl ProtectedPath {
     }
 }
 
+const TOOLCHAIN_ENTRIES: usize = 5000;
+const TOOLCHAIN_BYTES: u64 = 256 * 1024 * 1024;
+const INSPECTION_ENTRIES: usize = 100_000;
+
+fn staging_path(name: &str) -> Result<PathBuf> {
+    Ok(recovery_dir()?
+        .parent()
+        .ok_or("missing recovery parent")?
+        .join("sandbox-toolchains")
+        .join(name))
+}
+
+// Compute effective package rights, not just the presence of a package ACE. Generic and inherit-only ACEs matter.
+fn package_access(path: &Path, package: PSID) -> Result<(bool, bool)> {
+    let text = wide(path.to_str().ok_or("non-Unicode toolchain path")?);
+    unsafe {
+        let mut acl = std::ptr::null_mut();
+        let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        let status = GetNamedSecurityInfoW(
+            PCWSTR(text.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(&mut acl),
+            None,
+            &mut descriptor,
+        );
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot inspect toolchain permissions (error {})",
+                status.0
+            ));
+        }
+        let _descriptor = LocalMem(descriptor.0);
+        let mut control = SECURITY_DESCRIPTOR_CONTROL::default();
+        let mut revision = 0;
+        GetSecurityDescriptorControl(descriptor, &mut control.0, &mut revision)
+            .map_err(|e| describe("inspect toolchain inheritance", e))?;
+        let protected = control.contains(SE_DACL_PROTECTED);
+        if acl.is_null() {
+            return Ok((true, protected));
+        }
+        let trustee = TRUSTEE_W {
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_WELL_KNOWN_GROUP,
+            ptstrName: PWSTR(package.0 as *mut u16),
+            ..Default::default()
+        };
+        let mut rights = 0;
+        let status = GetEffectiveRightsFromAclW(acl, &trustee, &mut rights);
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot evaluate package permissions (error {})",
+                status.0
+            ));
+        }
+        let mapping = GENERIC_MAPPING {
+            GenericRead: FILE_GENERIC_READ.0,
+            GenericWrite: FILE_GENERIC_WRITE.0,
+            GenericExecute: FILE_GENERIC_EXECUTE.0,
+            GenericAll: FILE_ALL_ACCESS.0,
+        };
+        MapGenericMask(&mut rights, &mapping);
+        Ok((rights & FILE_READ_EXECUTE == FILE_READ_EXECUTE, protected))
+    }
+}
+
+#[cfg(test)]
+fn package_readable(path: &Path, package: PSID) -> Result<bool> {
+    package_access(path, package).map(|(readable, _)| readable)
+}
+
+struct ToolchainPlan {
+    source: String,
+    files: Vec<PathBuf>,
+    stage: bool,
+}
+
+// Inspection is bounded separately from copying: large already-readable installs (e.g. Python) need no grant.
+fn inspect_toolchain(
+    source: &str,
+    package: PSID,
+    check: impl Fn() -> Result<()>,
+) -> Result<Option<ToolchainPlan>> {
+    let root = Path::new(source);
+    let canonical = fs::canonicalize(root).map_err(|e| format!("cannot resolve toolchain: {e}"))?;
+    let resolved = canonical
+        .to_str()
+        .ok_or("non-Unicode resolved toolchain")?
+        .strip_prefix(r"\\?\")
+        .unwrap_or(canonical.to_str().ok_or("non-Unicode resolved toolchain")?);
+    if !resolved.eq_ignore_ascii_case(
+        source
+            .trim_end_matches(['\\', '/'])
+            .replace('/', "\\")
+            .as_str(),
+    ) {
+        return Err("toolchain resolves through an ancestor reparse point".to_string());
+    }
+    let started = Instant::now();
+    let mut pending = vec![root.to_path_buf()];
+    let mut files = Vec::new();
+    let mut readable = true;
+    let mut protected = false;
+    let mut bytes = 0u64;
+    while let Some(path) = pending.pop() {
+        check()?;
+        if files.len() >= INSPECTION_ENTRIES || started.elapsed() > Duration::from_secs(15) {
+            return Err("toolchain inspection exceeds its entry/time limit".to_string());
+        }
+        let meta =
+            fs::symlink_metadata(&path).map_err(|e| format!("cannot inspect toolchain: {e}"))?;
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+            || !fs::canonicalize(&path)
+                .map_err(|e| format!("cannot resolve toolchain entry: {e}"))?
+                .starts_with(&canonical)
+        {
+            return Err("toolchain contains a reparse point or escaping path".to_string());
+        }
+        let (package_readable, acl_protected) = package_access(&path, package)?;
+        readable &= package_readable;
+        // Protected descendants do not inherit a grant placed on their install directory.
+        protected |= acl_protected;
+        if meta.is_dir() {
+            for entry in fs::read_dir(&path).map_err(|e| format!("cannot list toolchain: {e}"))? {
+                if files.len() + pending.len() >= INSPECTION_ENTRIES {
+                    return Err("toolchain inspection exceeds its entry limit".to_string());
+                }
+                pending.push(
+                    entry
+                        .map_err(|e| format!("cannot list toolchain entry: {e}"))?
+                        .path(),
+                );
+            }
+        } else {
+            bytes = bytes
+                .checked_add(meta.len())
+                .ok_or("toolchain size overflow")?;
+        }
+        files.push(path);
+    }
+    if readable {
+        return Ok(None);
+    }
+    if files.len().saturating_sub(1) > TOOLCHAIN_ENTRIES || bytes > TOOLCHAIN_BYTES {
+        return Err("inaccessible toolchain exceeds the 5000-entry/256 MiB limit".to_string());
+    }
+    let text = wide(source);
+    let writable = unsafe {
+        CreateFileW(
+            PCWSTR(text.as_ptr()),
+            WRITE_DAC.0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+            None,
+        )
+    }
+    .map(Handle)
+    .is_ok();
+    Ok(Some(ToolchainPlan {
+        source: source.to_string(),
+        files,
+        stage: !writable || protected,
+    }))
+}
+
 fn recovery_dir() -> Result<PathBuf> {
     let local = std::env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is missing")?;
     Ok(PathBuf::from(local).join("Patch").join("sandbox-recovery"))
@@ -563,6 +752,32 @@ impl RecoveryRecord {
             if Path::new(&path.path).exists() {
                 if let Err(error) = path.restore() {
                     result = Err(error);
+                }
+            }
+        }
+        if let Some(staged) = &self.staged {
+            let expected = staging_path(&self.name)?;
+            if Path::new(staged) != expected {
+                return Err("invalid sandbox staging path".to_string());
+            }
+            for letter in b'P'..=b'Z' {
+                let name = wide(&format!("{}:", letter as char));
+                let target = wide(&format!(r"\??\{staged}"));
+                unsafe {
+                    // EXACT_MATCH prevents removing a drive now owned by another run.
+                    let _ = DefineDosDeviceW(
+                        DDD_REMOVE_DEFINITION
+                            | DDD_EXACT_MATCH_ON_REMOVE
+                            | DDD_RAW_TARGET_PATH
+                            | DDD_NO_BROADCAST_SYSTEM,
+                        PCWSTR(name.as_ptr()),
+                        PCWSTR(target.as_ptr()),
+                    );
+                }
+            }
+            if expected.exists() {
+                if let Err(error) = fs::remove_dir_all(&expected) {
+                    result = Err(format!("cannot remove staged toolchain: {error}"));
                 }
             }
         }
@@ -676,20 +891,157 @@ struct Cleanup {
     sid: Sid,
     path: PathBuf,
     _file: File,
+    finished: bool,
 }
 
 impl Drop for Cleanup {
     fn drop(&mut self) {
-        if self.record.undo(self.sid.0).is_ok() {
+        if !self.finished && self.record.undo(self.sid.0).is_ok() {
             let _ = fs::remove_file(&self.path);
         }
     }
 }
 
+// Copies file bytes, never source ACLs or links. Hold a no-write/no-delete handle while validating and reading.
+fn copy_toolchain(
+    plan: &ToolchainPlan,
+    target: &Path,
+    started: Instant,
+    copied: &mut u64,
+    check: impl Fn() -> Result<()>,
+) -> Result<()> {
+    fs::create_dir(target).map_err(|e| format!("cannot create staged toolchain: {e}"))?;
+    let canonical =
+        fs::canonicalize(&plan.source).map_err(|e| format!("cannot resolve toolchain: {e}"))?;
+    // Retain directory handles without delete sharing so a parent cannot be swapped mid-copy.
+    let mut directories = Vec::new();
+    for path in &plan.files {
+        check()?;
+        if started.elapsed() > Duration::from_secs(30) {
+            return Err("toolchain copy exceeds 30 seconds".to_string());
+        }
+        let relative = path
+            .strip_prefix(&plan.source)
+            .map_err(|_| "toolchain path escaped")?;
+        let destination = target.join(relative);
+        let file = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ.0)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0 | FILE_FLAG_BACKUP_SEMANTICS.0)
+            .open(path)
+            .map_err(|e| format!("cannot open toolchain entry: {e}"))?;
+        let meta = file
+            .metadata()
+            .map_err(|e| format!("cannot inspect opened toolchain entry: {e}"))?;
+        let mut final_path = vec![0u16; 32768];
+        let length = unsafe {
+            GetFinalPathNameByHandleW(
+                HANDLE(file.as_raw_handle()),
+                &mut final_path,
+                FILE_NAME_NORMALIZED,
+            )
+        } as usize;
+        if length == 0 || length >= final_path.len() {
+            return Err("cannot resolve opened toolchain handle".to_string());
+        }
+        let opened = PathBuf::from(
+            String::from_utf16(&final_path[..length])
+                .map_err(|_| "non-Unicode opened toolchain path")?,
+        );
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+            || !opened.starts_with(&canonical)
+        {
+            return Err("toolchain changed to a reparse point or escaping path".to_string());
+        }
+        if meta.is_dir() {
+            if !relative.as_os_str().is_empty() {
+                fs::create_dir_all(&destination)
+                    .map_err(|e| format!("cannot create staged subdirectory: {e}"))?;
+            }
+            directories.push(file);
+        } else {
+            *copied = copied
+                .checked_add(meta.len())
+                .ok_or("toolchain copy size overflow")?;
+            if *copied > TOOLCHAIN_BYTES {
+                return Err("toolchain copies exceed 256 MiB".to_string());
+            }
+            if let Some(parent) = destination.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("cannot create staged parent: {e}"))?;
+            }
+            let mut output = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&destination)
+                .map_err(|e| format!("cannot create staged file: {e}"))?;
+            let count = std::io::copy(&mut file.take(meta.len() + 1), &mut output)
+                .map_err(|e| format!("cannot copy toolchain: {e}"))?;
+            if count != meta.len() {
+                return Err("toolchain file changed during copy".to_string());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn mapped_path(path: &str, mappings: &[(String, String)]) -> String {
+    let lower = path.replace('/', "\\").to_ascii_lowercase();
+    for (source, target) in mappings {
+        let source = source
+            .trim_end_matches(['\\', '/'])
+            .replace('/', "\\")
+            .to_ascii_lowercase();
+        if lower == source {
+            return target.clone();
+        }
+        if lower.starts_with(&format!("{source}\\")) {
+            return format!("{}{}", target.trim_end_matches('\\'), &path[source.len()..]);
+        }
+    }
+    path.to_string()
+}
+
 fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     let id = request.id;
-    let record = RecoveryRecord {
-        name: profile_name(),
+    let mut package = PSID::default();
+    unsafe { ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package) }
+        .map_err(|e| describe("create package SID", e))?;
+    let _package = LocalMem(package.0);
+    if request.toolchains.len() > 32 {
+        return Err("too many Program Files toolchain candidates (maximum 32)".to_string());
+    }
+    let mut toolchains = Vec::new();
+    let mut entries = 0usize;
+    let preparation = Instant::now();
+    for source in &request.toolchains {
+        if let Some(plan) = inspect_toolchain(source, package, || {
+            ensure_active(jobs, id)?;
+            if preparation.elapsed() > Duration::from_secs(30) {
+                return Err("toolchain preparation exceeds 30 seconds".to_string());
+            }
+            Ok(())
+        })? {
+            entries += plan.files.len().saturating_sub(1);
+            if entries > TOOLCHAIN_ENTRIES {
+                return Err("inaccessible toolchains exceed 5000 entries per command".to_string());
+            }
+            toolchains.push(plan);
+        }
+    }
+    let profile = profile_name();
+    let staged = if toolchains.is_empty() {
+        None
+    } else {
+        Some(
+            staging_path(&profile)?
+                .to_str()
+                .ok_or("non-Unicode staging path")?
+                .to_string(),
+        )
+    };
+    let mut record = RecoveryRecord {
+        name: profile,
         granted: request
             .read_only
             .iter()
@@ -706,7 +1058,17 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             .into_iter()
             .flatten()
             .collect(),
+        staged,
     };
+    // Journal candidate grants before attempting them. A failed grant is safe to revoke idempotently.
+    for plan in &toolchains {
+        if !plan.stage {
+            record.granted.push(plan.source.clone());
+        }
+    }
+    if let Some(staged) = &record.staged {
+        record.granted.push(staged.clone());
+    }
     let name = wide(&record.name);
     let sid = record_sid(&record.name)?;
     let pending = recovery_dir()?.join(format!("{}.pending", record.name));
@@ -719,11 +1081,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         .map_err(|e| format!("cannot flush sandbox recovery record: {e}"))?;
     fs::rename(&pending, &path)
         .map_err(|e| format!("cannot publish sandbox recovery record: {e}"))?;
-    let cleanup = Cleanup {
+    let mut cleanup = Cleanup {
         record,
         sid,
         path,
         _file: file,
+        finished: false,
     };
     let sid = unsafe {
         CreateAppContainerProfile(
@@ -755,6 +1118,42 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                     return Err(message);
                 }
             }
+        }
+    }
+    let mut mappings = Vec::new();
+    let mut staging_drive = None;
+    let started = Instant::now();
+    let mut copied = 0u64;
+    for (index, plan) in toolchains.iter_mut().enumerate() {
+        if !plan.stage {
+            // WRITE_DAC was checked before journaling. A concurrent permissions change can still deny the grant.
+            plan.stage = edit_acl(&plan.source, sid, FILE_READ_EXECUTE, Change::Grant).is_err();
+        }
+        if plan.stage {
+            let staged = cleanup
+                .record
+                .staged
+                .as_ref()
+                .ok_or("missing staged toolchain root")?;
+            let root = Path::new(staged);
+            if staging_drive.is_none() {
+                fs::create_dir_all(root.parent().ok_or("missing staging parent")?)
+                    .map_err(|e| format!("cannot create staging parent: {e}"))?;
+                fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
+                staging_drive = Some(ProjectDrive::create(staged)?);
+            }
+            let target = root.join(index.to_string());
+            copy_toolchain(plan, &target, started, &mut copied, || {
+                ensure_active(jobs, id)
+            })?;
+            let drive = staging_drive.as_ref().ok_or("missing staging drive")?;
+            let prefix = String::from_utf16_lossy(&drive.cwd[..drive.cwd.len() - 1]);
+            mappings.push((plan.source.clone(), format!("{prefix}{index}")));
+        }
+    }
+    if let Some(staged) = &cleanup.record.staged {
+        if Path::new(staged).exists() {
+            edit_acl(staged, sid, FILE_READ_EXECUTE, Change::Grant)?;
         }
     }
     let mut capability_sid = PSID::default();
@@ -824,13 +1223,23 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     startup.StartupInfo.hStdError = stderr.write.0;
     startup.lpAttributeList = list;
 
-    let mut cmdline = wide(&command_line(&request.command, &request.args));
-    let application = wide(&request.command);
+    let command = mapped_path(&request.command, &mappings);
+    let mut cmdline = wide(&command_line(&command, &request.args));
+    let application = wide(&command);
     // An ordinary AppContainer cannot traverse a Windows 11 volume root, even when its project
     // itself is granted. A temporary drive makes that project the root without exposing its parents.
     let project_drive = ProjectDrive::create(&request.cwd)?;
     // Process creation in a container fails (ERROR_ENVVAR_NOT_FOUND) without LOCALAPPDATA, which Windows rewrites.
     let mut vars = request.env.clone();
+    for (key, value) in &mut vars {
+        if key.eq_ignore_ascii_case("PATH") {
+            *value = value
+                .split(';')
+                .map(|entry| mapped_path(entry, &mappings))
+                .collect::<Vec<_>>()
+                .join(";");
+        }
+    }
     if !vars
         .keys()
         .any(|key| key.eq_ignore_ascii_case("LOCALAPPDATA"))
@@ -877,7 +1286,16 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             return Err(message);
         }
     };
-    jobs.lock().unwrap().insert(id, job.0 .0 as usize);
+    {
+        let mut active = jobs.lock().unwrap();
+        if active.get(&id).copied().flatten().is_none() {
+            unsafe {
+                let _ = TerminateProcess(process.0, 1);
+            }
+            return Err("sandbox command stopped during preparation".to_string());
+        }
+        active.insert(id, Some(job.0 .0 as usize));
+    }
 
     // Only the command holds the write ends now, so the readers end when it and its children are gone.
     let Pipe {
@@ -927,6 +1345,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     }
     jobs.lock().unwrap().remove(&id);
     drop(job);
+    drop(staging_drive);
+    // Report cleanup failures rather than claiming success; the journal remains for the next startup to retry.
+    cleanup.record.undo(cleanup.sid.0)?;
+    fs::remove_file(&cleanup.path)
+        .map_err(|e| format!("cannot remove sandbox recovery record: {e}"))?;
+    cleanup.finished = true;
     drop(cleanup);
     emitter.send(&Event::Exit {
         id,
@@ -939,6 +1363,144 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancelled_preparation_never_registers_a_running_command() {
+        let jobs: Jobs = Arc::new(Mutex::new(HashMap::from([(7, Some(0))])));
+        ensure_active(&jobs, 7).unwrap();
+        kill_job(&jobs, Some(7));
+        assert!(ensure_active(&jobs, 7)
+            .unwrap_err()
+            .contains("stopped during preparation"));
+        assert_eq!(jobs.lock().unwrap().get(&7), Some(&None));
+    }
+
+    #[test]
+    fn old_recovery_records_default_to_no_staging() {
+        let record: RecoveryRecord =
+            serde_json::from_str(r#"{"name":"patch.sbx.test","granted":[],"protected":[]}"#)
+                .unwrap();
+        assert!(record.staged.is_none());
+    }
+
+    #[test]
+    fn mapped_paths_preserve_boundaries_and_case_insensitive_path_order() {
+        let mappings = vec![(r"C:\Program Files\nodejs".to_string(), r"Z:\0".to_string())];
+        assert_eq!(
+            mapped_path(r"c:\PROGRAM FILES\NODEJS\node.exe", &mappings),
+            r"Z:\0\node.exe"
+        );
+        assert_eq!(
+            mapped_path(r"C:\Program Files\nodejs-other", &mappings),
+            r"C:\Program Files\nodejs-other"
+        );
+        assert_eq!(
+            mapped_path(r"C:\Windows\System32", &mappings),
+            r"C:\Windows\System32"
+        );
+    }
+
+    #[test]
+    fn package_readability_requires_effective_read_execute_rights() {
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        let path = root.to_str().unwrap();
+        let mut package = PSID::default();
+        unsafe {
+            ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package).unwrap();
+        }
+        let _package = LocalMem(package.0);
+        let mut other = PSID::default();
+        unsafe {
+            ConvertStringSidToSidW(windows::core::w!("S-1-15-2-2"), &mut other).unwrap();
+        }
+        let _other = LocalMem(other.0);
+        // A different package group or a partial allow ACE is not enough.
+        edit_acl(path, package, 0, Change::Revoke).unwrap();
+        edit_acl(path, other, FILE_READ_EXECUTE, Change::Grant).unwrap();
+        assert!(!package_readable(&root, package).unwrap());
+        edit_acl(path, package, FILE_GENERIC_READ.0, Change::Grant).unwrap();
+        assert!(!package_readable(&root, package).unwrap());
+        edit_acl(path, package, FILE_READ_EXECUTE, Change::Grant).unwrap();
+        assert!(package_readable(&root, package).unwrap());
+        fs::write(root.join("fixture"), "test").unwrap();
+        assert!(inspect_toolchain(path, package, || Ok(()))
+            .unwrap()
+            .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn staging_recovery_removes_only_its_exact_mapping_and_directory() {
+        let name = profile_name();
+        let staged = staging_path(&name).unwrap();
+        fs::create_dir_all(&staged).unwrap();
+        fs::write(staged.join("partial-copy"), "bytes").unwrap();
+        let drive = ProjectDrive::create(staged.to_str().unwrap()).unwrap();
+        let mut record = RecoveryRecord {
+            name,
+            granted: vec![],
+            protected: vec![],
+            staged: Some(staged.to_str().unwrap().to_string()),
+        };
+        let sid = record_sid(&record.name).unwrap();
+        record.undo(sid.0).unwrap();
+        assert!(!staged.exists());
+        record.undo(sid.0).unwrap();
+        drop(drive);
+        record.staged = Some(std::env::temp_dir().to_str().unwrap().to_string());
+        assert!(record
+            .undo(sid.0)
+            .unwrap_err()
+            .contains("invalid sandbox staging path"));
+    }
+
+    #[test]
+    fn copy_is_bounded_and_preserves_file_bytes_without_copying_source_acls() {
+        let root = std::env::temp_dir().join(profile_name());
+        let source = root.join("source");
+        let target = root.join("target");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("file"), "payload").unwrap();
+        let plan = ToolchainPlan {
+            source: source.to_str().unwrap().to_string(),
+            files: vec![source.clone(), source.join("file")],
+            stage: true,
+        };
+        let mut copied = 0;
+        copy_toolchain(&plan, &target, Instant::now(), &mut copied, || Ok(())).unwrap();
+        assert_eq!(copied, 7);
+        assert_eq!(fs::read(target.join("file")).unwrap(), b"payload");
+        let mut copied = TOOLCHAIN_BYTES;
+        assert!(copy_toolchain(
+            &plan,
+            &root.join("overflow"),
+            Instant::now(),
+            &mut copied,
+            || Ok(())
+        )
+        .unwrap_err()
+        .contains("256 MiB"));
+        assert!(copy_toolchain(
+            &plan,
+            &root.join("timeout"),
+            Instant::now() - Duration::from_secs(31),
+            &mut 0,
+            || Ok(()),
+        )
+        .unwrap_err()
+        .contains("30 seconds"));
+        assert!(copy_toolchain(
+            &plan,
+            &root.join("cancelled"),
+            Instant::now(),
+            &mut 0,
+            || Err("cancelled".to_string())
+        )
+        .unwrap_err()
+        .contains("cancelled"));
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn recovery_is_idempotent_even_after_the_profile_has_been_deleted() {
@@ -960,6 +1522,7 @@ mod tests {
             name,
             granted: vec![path.clone()],
             protected: vec![],
+            staged: None,
         };
         let other_name = wide(&profile_name());
         let other = Sid(unsafe {

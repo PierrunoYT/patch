@@ -2,7 +2,9 @@ import { once } from 'node:events';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import { runCommandTool, ShellRunner } from './shell';
 import type { ToolContext } from './types';
 import { Workspace } from './workspace';
@@ -81,6 +83,35 @@ describe('background command cancellation', () => {
     await closed;
     expect(shell.getBackground(entry.id)).toBeUndefined();
   }, 20_000);
+
+  it.skipIf(process.platform !== 'win32')(
+    'terminates its owned process when taskkill fails during startup',
+    async () => {
+      const taskkill = vi.spyOn(childProcess, 'spawnSync').mockReturnValue({
+        pid: 0,
+        output: [],
+        stdout: Buffer.from(''),
+        stderr: Buffer.from(''),
+        status: 128,
+        signal: null,
+      });
+      syncBuiltinESMExports();
+      try {
+        const entry = shell.startBackground('Start-Sleep -Seconds 120', controller.signal);
+        const closed = once(entry.process, 'close');
+        await once(entry.process, 'spawn');
+        controller.abort();
+        await closed;
+        expect(taskkill).toHaveBeenCalledWith('taskkill', expect.any(Array), expect.any(Object));
+        expect(entry.exitCode).not.toBeUndefined();
+        expect(shell.getBackground(entry.id)).toBeUndefined();
+      } finally {
+        taskkill.mockRestore();
+        syncBuiltinESMExports();
+      }
+    },
+    20_000,
+  );
 
   it('keeps a background command cancellable after its startup result has returned', async () => {
     const result = await runCommandTool.run({ command, background: true }, context);

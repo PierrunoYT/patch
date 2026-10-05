@@ -23,9 +23,14 @@ describe('per-project allow-lists (mock Claude API)', () => {
     claude = new MockClaude();
     running = await launchApp({ PATCH_TEST_ANTHROPIC_URL: await claude.start() });
     await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-e2e'));
+    // This tests approval rules, not host toolchain ACLs; real sandbox behavior has dedicated integration coverage.
     // Ask mode, with a global list that allows something else.
     await running.page.evaluate(() =>
-      window.api.invoke('settings:update', { approvalMode: 'ask', allowedCommands: 'git --version' }),
+      window.api.invoke('settings:update', {
+        approvalMode: 'ask',
+        allowedCommands: 'git --version',
+        sandboxMode: 'off',
+      }),
     );
   });
 

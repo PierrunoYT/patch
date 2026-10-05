@@ -25,6 +25,8 @@ export interface HelperRequest {
   network: boolean;
   readWrite: string[];
   readOnly: string[];
+  // Individual Program Files PATH directories; the helper checks package access before granting or staging.
+  toolchains: string[];
   denyWrite: string[];
   limits: HelperLimits;
 }
@@ -107,6 +109,8 @@ export interface WindowsPolicyInput {
 export interface WindowsPolicy {
   readWrite: string[];
   readOnly: string[];
+  // Individual Program Files PATH directories; the helper checks package access before granting or staging.
+  toolchains: string[];
   denyWrite: string[];
 }
 
@@ -117,12 +121,11 @@ function within(path: string, dir: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !win32.isAbsolute(rel));
 }
 
-// The project folder is the only writable place. Windows and Program Files are readable by every container already,
-// so they need no grant; other folders on PATH (a Node install under the home folder, nvm, scoop, cargo) are opened
-// read-only so the toolchain works. A folder that would expose the home folder or a whole drive is never opened.
+// Windows system paths need no grant. Program Files installers can replace inherited package permissions, so
+// individual PATH directories there need native inspection. Never open a whole install root, home or drive.
 export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   const { cwd, home, exists } = input;
-  const builtIn = [input.systemRoot, ...input.programDirs];
+  const toolchains: string[] = [];
   // PATH must not reopen the configuration/credentials excluded from the toolchain grants above.
   const privatePaths = [
     '.cargo\\credentials',
@@ -138,11 +141,17 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   const readOnly: string[] = [];
   const add = (path: string) => {
     const full = win32.resolve(path);
-    if (readOnly.some((existing) => same(existing, full))) return;
-    if (builtIn.some((dir) => dir && within(full, dir))) return;
+    if ([...readOnly, ...toolchains].some((existing) => same(existing, full))) return;
+    if (input.systemRoot && within(full, input.systemRoot)) return;
+    if (input.programDirs.some((dir) => dir && within(dir, full))) return;
     if (within(cwd, full) || same(full, win32.parse(full).root) || within(home, full)) return;
     if (privatePaths.some((path) => within(path, full) || within(full, path))) return;
     if (!exists(full)) return;
+    if (input.programDirs.some((dir) => dir && within(full, dir))) {
+      // Native code enforces resource bounds too, and fails explicitly for oversized inaccessible installs.
+      toolchains.push(full);
+      return;
+    }
     if (!input.tooLarge?.(full)) {
       readOnly.push(full);
       return;
@@ -154,7 +163,7 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   };
   for (const rel of HOME_READ_ONLY_WINDOWS) add(win32.join(home, rel));
   for (const entry of input.pathEntries) if (entry && win32.isAbsolute(entry)) add(entry);
-  return { readWrite: [cwd], readOnly, denyWrite: [win32.join(cwd, '.git', 'hooks')] };
+  return { readWrite: [cwd], readOnly, toolchains, denyWrite: [win32.join(cwd, '.git', 'hooks')] };
 }
 
 export interface BuildRequestInput {
