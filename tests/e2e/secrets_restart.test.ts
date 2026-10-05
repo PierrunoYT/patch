@@ -20,7 +20,9 @@ describe('saved keys across an abrupt exit', () => {
       expect(running.errors).toEqual([]);
     } finally {
       await running.kill({ keepSecrets: false });
-      rmSync(userData, { recursive: true, force: true });
+      // taskkill can return before Chromium's database handles finish closing on Windows. Retry only teardown;
+      // a persistent lock still throws, and no application assertion or launch is retried.
+      rmSync(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 

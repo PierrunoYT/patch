@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- The unreadable-key restart test tolerates transient Windows database-file locks during forced-exit cleanup, with bounded deletion retries; persistent locks and application failures still fail the test.
 - Windows CI provisions AppContainer access to the null device on disposable hosted runners, preserving other permissions; the preparation tool is not shipped with Patch. Windows unit files run serially to reduce PowerShell startup contention while retaining explicit concurrency tests and their assertions.
 - Cross-platform CI: restart tests no longer require Windows encryption-key storage on macOS/Linux or assume an immediate crash always loses a key (fixes #93). Ubuntu grants bubblewrap scoped AppArmor user-namespace permission; Windows sandbox tests use the mapped project cwd, inherited child stdio instead of reopening `NUL`, and a normalized ACL fixture with an explicit permission to preserve.
 - Plan-mode instructions now follow the latest app mode note in either a user message or a tool result until superseded, avoiding contradictory guidance after mid-run toggles and tool screenshots (PR #92).
