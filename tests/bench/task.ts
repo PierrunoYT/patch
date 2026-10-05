@@ -12,8 +12,9 @@ export interface Verdict {
 export interface Task {
   id: string;
   // `small`: a tiny project written from `files`. `large`: a copy of this repository at a pinned commit. `cache`: prompt
-  // cache measurements on such a copy (cache_tasks.ts), run only when asked for.
-  suite: 'small' | 'large' | 'cache';
+  // cache measurements on such a copy (cache_tasks.ts), run only when asked for. `plan`: small tasks with plan mode on
+  // or off, scored on whether the model proposed a plan when it should (run only when asked for).
+  suite: 'small' | 'large' | 'cache' | 'plan';
   description: string;
   // Creates the task's project folder and returns its path.
   create(): string;
@@ -24,6 +25,9 @@ export interface Task {
   settings?: Record<string, unknown>;
   // Tools the run must have called, e.g. the subagent task tool; otherwise it does not count as solved.
   requireTools?: string[];
+  // Plan suite: true when the run must call propose_plan before its first edit or command, false when it must not
+  // call propose_plan at all. Otherwise it does not count as solved.
+  planExpected?: boolean;
   // Whether the task was solved, judged from the project folder and the chat after the run.
   check(project: string, answer: string, before: Map<string, string>): Verdict;
   // A reference solution, for the self-test that proves `check` fails before and passes after (no API).

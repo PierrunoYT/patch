@@ -16,6 +16,11 @@
 // PATCH_BENCH_REPS (default 2), PATCH_BENCH_SUITE (small, large, all or cache; default all, which is small and large),
 // PATCH_BENCH_TASKS (comma-separated task ids), PATCH_BENCH_PAUSE_SECONDS (cache suite pause, default 360).
 //
+// A fourth suite, `plan` (PATCH_BENCH_SUITE=plan, not part of `all`), runs small tasks with Settings → Plan mode on or
+// off. Plan cards are approved as soon as they appear. With plan mode on, a multi-step task counts as solved only if
+// propose_plan came before the first edit or command, and a question only if no plan was proposed; with plan mode off,
+// any propose_plan call fails the run.
+//
 // PATCH_BENCH_SELFTEST=1 checks every task without the API: its check must fail on the untouched project and pass on
 // the reference solution.
 //
@@ -39,6 +44,8 @@ const REPS = Number(process.env.PATCH_BENCH_REPS || 2);
 const SUITE = process.env.PATCH_BENCH_SUITE || 'all';
 const ONLY = process.env.PATCH_BENCH_TASKS?.split(',').map((id) => id.trim());
 const RUN_TIMEOUT_MS = 8 * 60_000;
+// Tools that change files or run commands: a plan has to come before the first of them.
+const SIDE_EFFECT_TOOLS = new Set(['edit_file', 'write_file', 'apply_patch', 'run_command']);
 
 type Files = Record<string, string>;
 
@@ -256,16 +263,44 @@ for (let i = 1; i < count; i++) {
   },
 ];
 
+// The plan suite: small tasks again, with plan mode on (multi-step tasks must plan, a question must not) or off (no task
+// may plan).
+const PLAN_RUNS: Array<{ id: string; planMode: boolean; planExpected: boolean }> = [
+  { id: 'add-feature', planMode: true, planExpected: true },
+  { id: 'rename', planMode: true, planExpected: true },
+  { id: 'question', planMode: true, planExpected: false },
+  { id: 'add-feature', planMode: false, planExpected: false },
+  { id: 'rename', planMode: false, planExpected: false },
+];
+
+const PLAN_TASKS: Task[] = PLAN_RUNS.map(({ id, planMode, planExpected }) => {
+  const { files, ...task } = SMALL_TASKS.find((small) => small.id === id)!;
+  return {
+    ...task,
+    id: `plan-${planMode ? 'on' : 'off'}-${id}`,
+    suite: 'plan',
+    description: `${task.description}; plan mode ${planMode ? 'on' : 'off'}, ${planExpected ? 'must' : 'must not'} plan`,
+    create: () => writeProject(files),
+    settings: { planMode },
+    planExpected,
+  };
+});
+
 const TASKS: Task[] = [
   ...SMALL_TASKS.map(({ files, ...task }): Task => ({ ...task, suite: 'small', create: () => writeProject(files) })),
   ...LARGE_TASKS,
   ...CACHE_TASKS,
+  ...PLAN_TASKS,
 ].filter(
-  (task) => (SUITE === 'all' ? task.suite !== 'cache' : task.suite === SUITE) && (!ONLY || ONLY.includes(task.id)),
+  (task) =>
+    (SUITE === 'all' ? task.suite !== 'cache' && task.suite !== 'plan' : task.suite === SUITE) &&
+    (!ONLY || ONLY.includes(task.id)),
 );
 
 const removeProject = (task: Task, project: string) =>
-  task.suite === 'small' ? rmSync(project, { recursive: true, force: true }) : removeLargeProject(project);
+  task.suite === 'small' || task.suite === 'plan'
+    ? rmSync(project, { recursive: true, force: true })
+    : removeLargeProject(project);
 
 interface Result {
   task: string;
@@ -287,6 +322,9 @@ interface Result {
   // Project files changed although no edit_file or write_file call was made: the model edited through run_command,
   // which skips the diff preview and Undo (issue #45).
   editedWithoutEditTools: boolean;
+  // propose_plan calls, and whether the first one came before any edit or command.
+  planCalls: number;
+  plannedFirst: boolean;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
@@ -307,6 +345,14 @@ interface Phase {
   costUsd: number | null;
 }
 const results: Result[] = [];
+
+function saveResults(): void {
+  mkdirSync(join(__dirname, '../../out'), { recursive: true });
+  writeFileSync(
+    join(__dirname, `../../out/bench-agent-tasks-${SUITE}.json`),
+    JSON.stringify({ model: MODEL, reps: REPS, suite: SUITE, date: new Date().toISOString(), results }, null, 2),
+  );
+}
 
 // The usage between two snapshots of the chat totals.
 function phase(name: string, from: UsageTotals, to: UsageTotals): Phase {
@@ -375,6 +421,10 @@ async function runTask(task: Task, rep: number): Promise<Result> {
       for (;;) {
         await delay(1000);
         const current = await snapshot();
+        // Plan cards ask even in Auto mode; the benchmark approves them as a user would.
+        for (const item of current.transcript)
+          if (item.kind === 'tool' && item.status === 'awaiting-approval')
+            await page.evaluate((id) => window.api.invoke('chat:decide', id, { approved: true }), item.id);
         const answers = current.transcript.filter((item) => item.kind === 'assistant').length;
         if (!current.busy && answers > answersBefore) return current;
         if (Date.now() - askedAt > (task.timeoutMs ?? RUN_TIMEOUT_MS)) {
@@ -407,12 +457,27 @@ async function runTask(task: Task, rep: number): Promise<Result> {
     const answer = assistants.map((item) => (item.kind === 'assistant' ? item.text : '')).join('\n');
     const errors = chat.transcript.filter((item) => item.kind === 'error');
     const missingTools = (task.requireTools ?? []).filter((name) => !toolsByName[name]);
+    const toolNames = tools.map((item) => (item.kind === 'tool' ? item.name : ''));
+    const planCalls = toolNames.filter((name) => name === 'propose_plan').length;
+    const firstChange = toolNames.findIndex((name) => SIDE_EFFECT_TOOLS.has(name));
+    const firstPlan = toolNames.indexOf('propose_plan');
+    const plannedFirst = firstPlan >= 0 && (firstChange < 0 || firstPlan < firstChange);
+    const planMiss =
+      task.planExpected === true && !plannedFirst
+        ? planCalls > 0
+          ? 'planned after changing things'
+          : 'did not propose a plan'
+        : task.planExpected === false && planCalls > 0
+          ? 'proposed a plan it should not have'
+          : null;
     const verdict =
       errors.length > 0
         ? { ok: false, why: `chat error: ${errors[0]!.kind === 'error' ? errors[0]!.text.slice(0, 100) : ''}` }
         : missingTools.length > 0
           ? { ok: false, why: `did not use ${missingTools.join(', ')}` }
-          : task.check(project, answer, before);
+          : planMiss
+            ? { ok: false, why: planMiss }
+            : task.check(project, answer, before);
     return {
       task: task.id,
       suite: task.suite,
@@ -430,6 +495,8 @@ async function runTask(task: Task, rep: number): Promise<Result> {
       toolsByName,
       editedWithoutEditTools:
         !(toolsByName.edit_file || toolsByName.write_file) && changedFiles(project, before).length > 0,
+      planCalls,
+      plannedFirst,
       inputTokens: chat.usage.inputTokens,
       outputTokens: chat.usage.outputTokens,
       cacheReadTokens: chat.usage.cacheReadTokens,
@@ -452,6 +519,8 @@ async function runTask(task: Task, rep: number): Promise<Result> {
       failedTools: [],
       toolsByName: {},
       editedWithoutEditTools: false,
+      planCalls: 0,
+      plannedFirst: false,
       inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,
@@ -474,11 +543,7 @@ describe.skipIf(!PROFILE || SELFTEST)('agent task benchmark (real API)', () => {
       (result.phases ?? []).map((row) => ({ task: result.task, rep: result.rep, ...row })),
     );
     if (phased.length > 0) console.table(phased);
-    mkdirSync(join(__dirname, '../../out'), { recursive: true });
-    writeFileSync(
-      join(__dirname, `../../out/bench-agent-tasks-${SUITE}.json`),
-      JSON.stringify({ model: MODEL, reps: REPS, suite: SUITE, date: new Date().toISOString(), results }, null, 2),
-    );
+    saveResults();
     cleanupLargeBase();
   });
 
@@ -491,7 +556,11 @@ describe.skipIf(!PROFILE || SELFTEST)('agent task benchmark (real API)', () => {
   for (const task of TASKS) {
     for (let rep = 1; rep <= REPS; rep++) {
       it(`${task.id} #${rep}: ${task.description}`, async () => {
-        results.push(await runTask(task, rep));
+        const result = await runTask(task, rep);
+        results.push(result);
+        // Saved after every run, so a benchmark that is interrupted keeps what it measured.
+        saveResults();
+        console.log(`${result.task} #${result.rep}: ${result.solved ? 'solved' : 'not solved'} (${result.why})`);
       });
     }
   }

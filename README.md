@@ -21,7 +21,7 @@ The application and installer are named Patch (`Patch.exe` and `Patch-Installer.
 - File replacements on supported Claude models use strict tool inputs to prevent omitted required fields in batched edits; every edit still validates locally and follows the approval rules
 - Every file change and command is shown first (diffs, command text) and waits for **Approve** or **Decline** — or switch to **Auto** mode
 - Decline with a note ("use pnpm instead") and the assistant adjusts
-- Optional **Plan mode**: before multi-step changes, the assistant shows its plan as an approval card, also in Auto mode
+- Optional **Plan mode**: before multi-step changes, the assistant shows its plan as an approval card, also in Auto mode; the latest app mode note stays in effect across tool results and screenshots until another mode note changes it
 - **Undo** on the card of any approved file edit puts the file back (or deletes a file the assistant created), as long as the file is still as the edit left it; the assistant is told and has to read the file again
 - Semantic code search over the project (needs an OpenRouter key: files are embedded with Voyage `voyage-code-4` and results reranked with Voyage `rerank-3`, both through OpenRouter; the key can be added mid-chat); Settings shows whether the project is indexed (with progress while it builds) and can reindex it
 - Built-in browser the assistant uses to check web apps: console output and screenshots
@@ -65,7 +65,7 @@ Recent projects are ordered by the latest open, including folders opened within 
 
 To build an installer: `npm run dist` (on Windows, `dist/Patch-Installer.exe`; the unpacked app is `dist/win-unpacked/Patch.exe`; a DMG on macOS; an AppImage and deb on Linux, where the deb installs the command `patch-app`). Local `pack` and `dist` commands never publish; releases are published by the tag-triggered release workflow. The Windows installer is the supported download. Linux and macOS packages are built by CI so they can be tried, but they are experimental. CI starts the installed Linux deb, the AppImage and the macOS app from its DMG and checks they open a project and run a terminal command, but nobody has used them on a real desktop yet, and a downloaded copy of the unsigned macOS app has not been tried.
 
-For development in Amp orbs, the repository includes setup and resume scripts to prepare and reuse dependencies. See [orb setup](docs/DEVELOPMENT.md#amp-orbs) for requirements and headless test commands.
+For development in Amp orbs, the repository includes setup and resume scripts to prepare and reuse dependencies. See [orb setup](docs/DEVELOPMENT.md#amp-orbs) for requirements and headless test commands, and [sandbox test prerequisites](docs/DEVELOPMENT.md#real-sandbox-tests) for native helper and Ubuntu AppArmor setup. Restart tests use platform-specific encryption persistence checks and deterministic unreadable-key fixtures.
 
 To verify a download, compare its hash with `SHA256SUMS.txt` from the same release (`sha256sum -c SHA256SUMS.txt`, or `Get-FileHash .\Patch-Installer.exe` on Windows). Signed Windows releases also show a valid publisher under the file's Properties, Digital Signatures tab. Patch has no update check, so reinstall from the latest release to get security fixes.
 

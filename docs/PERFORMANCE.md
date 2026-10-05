@@ -215,7 +215,7 @@ Same machine as above. The numbers were stable across three runs.
 
 ### Crash-resume checkpoints (2026-09-30)
 
-A crash-resume checkpoint writes the whole chat synchronously after every tool-result batch: pretty-printed JSON, including base64 screenshots. Until #17 it also rewrote the chat index and sent a `history:changed` broadcast; checkpoints now skip both (see "Checkpoints skip the index" below). Quick read-only batches, and batches that return browser screenshots, block the main process once per batch, and the stall grows with the chat. Checkpointing only batches that need approval or change state, or skipping the index rewrite and the broadcast until the run finishes, is tracked in [#17](https://github.com/PierrunoYT/patch/issues/17). Measured in [The agent loop](#the-agent-loop-2026-10-01) below.
+A crash-resume checkpoint wrote the whole chat synchronously after every tool-result batch: pretty-printed JSON, including base64 screenshots. Until #17 it also rewrote the chat index and sent a `history:changed` broadcast; checkpoints now skip both (see "Checkpoints skip the index" below), and since #55 the file is written in the background (see "Checkpoints are written in the background" below). Quick read-only batches, and batches that return browser screenshots, block the main process once per batch, and the stall grows with the chat. Checkpointing only batches that need approval or change state, or skipping the index rewrite and the broadcast until the run finishes, is tracked in [#17](https://github.com/PierrunoYT/patch/issues/17). Measured in [The agent loop](#the-agent-loop-2026-10-01) below.
 
 ## The agent loop (2026-10-01)
 
@@ -261,7 +261,27 @@ Serialization grows linearly with the chat. The write does not: the same 6.4 MB 
 
 ### Checkpoints skip the index ([#17](https://github.com/PierrunoYT/patch/issues/17))
 
-A checkpoint now writes only the chat file. The chat index is rewritten and `history:changed` is sent only by the regular saves (debounced changes and the end of a run), or when the chat is not in the index yet. That removes the index write and the broadcast from every tool batch. The chat file is still written synchronously, which crash-resume needs, so the per-batch cost in a very long chat is reduced but not gone; moving that write off the main thread is the remaining step ([#55](https://github.com/PierrunoYT/patch/issues/55)). The numbers above are from before this change and have not been re-measured: re-run `npm run perf`.
+A checkpoint now writes only the chat file. The chat index is rewritten and `history:changed` is sent only by the regular saves (debounced changes and the end of a run), or when the chat is not in the index yet. That removes the index write and the broadcast from every tool batch. The numbers in the tables above are from before this change.
+
+### Checkpoints are written in the background ([#55](https://github.com/PierrunoYT/patch/issues/55))
+
+A checkpoint of a chat that is already in the index now only serializes the chat in the call (`ChatStore.save` with `checkpoint`). The file is written in the background and moved into place when it is complete (`writeJsonLater` in `src/main/storage/json_file.ts`), still through a temporary file and a rename. One write per chat runs at a time; a checkpoint made while one is running replaces the content that is waiting, so checkpoints land in order. Every other save stays synchronous and replaces a checkpoint that has not landed. A chat that is not in the index yet is saved and indexed synchronously, as before.
+
+Measured with `tests/perf/agent_loop.perf.ts` on a different machine from the tables above (AMD Ryzen 9 9900X, 62 GB RAM, Windows 11, Node 26), so compare the columns with each other, not with the earlier tables. Range over three runs:
+
+| Chat                           | Synchronous save (before) | The checkpoint call | Main thread busy until on disk | Until on disk |
+| ------------------------------ | ------------------------- | ------------------- | ------------------------------ | ------------- |
+| 1,250 items (1.6 MB)           | 3.5–6.7 ms                | 1.6–3.6 ms          | 2.6–6.1 ms                     | 3.6–8.4 ms    |
+| 5,000 items (6.4 MB)           | 11–22 ms                  | 7.1–12 ms           | 9.6–18 ms                      | 12–24 ms      |
+| 20,000 items (25.9 MB)         | 39–43 ms                  | 23–26 ms            | 29–33 ms                       | 37–41 ms      |
+| 5,000 items and 10 screenshots | 11–12 ms                  | 6.3–6.4 ms          | 8.9–9.0 ms                     | 12 ms         |
+
+"Synchronous save" is a full save (the chat file and a one-entry index), which is what a checkpoint cost before, plus the small index write. "Main thread busy" is the event loop's own utilization counter from the call until the file is in place: the call, then encoding the text to bytes and the rename in later turns.
+
+- **The longest block is now the serialization.** The checkpoint call takes as long as `JSON.stringify` alone, about 55–60% of the synchronous save on this machine, and the rest of the main-thread work (1–7 ms) runs in later turns, so other events are handled in between.
+- **The gain depends on how slow the write is.** On this machine the write is fast (a few milliseconds), so the total main-thread work only drops by 15–25%. On the machine of the earlier tables the write was the larger part (13–77 ms for a 6.4 MB chat, 2–8 ms of it serialization); that part no longer blocks. It has not been re-measured there: re-run `npm run perf`.
+- **What is left is `JSON.stringify`**, which grows linearly with the chat (about 1 ms per MB here). Removing it would need a different format (appending to the chat file instead of rewriting it) or serializing in a worker, which first has to copy the chat there.
+- **What a kill can lose:** a checkpoint that is still being written when the process is killed is lost, and the chat resumes from the checkpoint before it. That window is the "until on disk" column. The end-to-end kill tests (`tests/e2e/crash_kill.test.ts`) pass unchanged.
 
 ### Re-run of the renderer and main-process benchmarks (2026-10-01)
 
@@ -290,6 +310,7 @@ The runs of each task were consistent, and every failed tool call was recovered 
 PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run bench:agent
 # only one suite:            PATCH_BENCH_SUITE=small   or   PATCH_BENCH_SUITE=large
 # prompt cache suite:        PATCH_BENCH_SUITE=cache   (not part of all; PATCH_BENCH_PAUSE_SECONDS, default 360)
+# plan mode suite:           PATCH_BENCH_SUITE=plan    (not part of all)
 # check the tasks, no API:   PATCH_BENCH_SELFTEST=1 npx vitest run --project bench
 ```
 
@@ -298,6 +319,7 @@ PATCH_BENCH_PROFILE=<a Patch profile folder with a saved Anthropic key> npm run 
 - **Scoring:** afterwards an objective check decides whether the task was solved, from the project files and the answer, often with a test the model never saw. `PATCH_BENCH_REPS` (default 2), `PATCH_BENCH_SUITE` and `PATCH_BENCH_TASKS` (comma-separated ids) choose what runs.
 - **Self-test:** `PATCH_BENCH_SELFTEST=1` runs every check without the API. It must reject the untouched project, and for the large suite accept a reference solution, so no task can be passed by doing nothing, and none is impossible.
 - **Cache suite** (`tests/bench/cache_tasks.ts`, `PATCH_BENCH_SUITE=cache`): prompt caching on a copy of this repository, so the chat is big enough for cache writes to matter. It is not part of `all`, because each pause run waits several minutes. `subagent-question` tells the model to delegate a question to the `task` subagent; a run that does not call `task` does not count as solved. `pause-followup` asks a question, leaves the app idle for `PATCH_BENCH_PAUSE_SECONDS` (default 360, past the 5-minute cache), then asks a follow-up; `pause-followup-warm` is the same with Settings → Prompt cache on. Runs with a follow-up report usage per phase (`phases`: first turn, pause, follow-up), so the follow-up's cache writes and the keep-alives' own cost show separately.
+- **Plan suite** (`PATCH_BENCH_SUITE=plan`): small tasks with Settings → Plan mode on or off. Plan cards are approved as soon as they appear. With plan mode on, `add-feature` and `rename` count as solved only if `propose_plan` came before the first edit or command (`plannedFirst`), and `question` only if no plan was proposed; with plan mode off, any `propose_plan` call fails the run. Not part of `all`. Results are saved after every run, so an interrupted benchmark keeps what it measured.
 
 **Small suite:** five tiny projects using Node's built-in test runner, so no `npm install` is needed:
 
@@ -418,3 +440,22 @@ Every task cost less, from −2% (`export-bug`) to −50% (`cli-fix`); the small
 | After (`26cbfe4`)  | 20,965, 14,844 | 51,627, 41,444 | $0.097, $0.079 |
 
 About 23% fewer cache writes and 14% lower cost per delegated question, as the subagent's first request now reads the chat's tools and system prompt. Two runs each and the subagent's own exploration varies, so read this as a direction rather than an exact figure.
+
+### Plan mode as a message note (#44, 2026-10-05)
+
+**Question:** with `propose_plan` always in the tool list and plan mode told by a note on the user message (#44), does the model still propose plans as reliably as when the tool only existed in plan mode?
+
+**Answer:** more reliably, on these tasks. Before, the model never proposed a plan for the two small multi-step tasks; with the note it planned first in 4 of 6 runs. Neither version proposed a plan where it should not (the question, or plan mode off). Requests, time and cost did not change beyond noise. Claude Sonnet 5.5, `PATCH_BENCH_SUITE=plan`, 3 runs per task, Windows 11 with the AppContainer sandbox on both builds:
+
+| Task (plan mode)    | Before (`37f8bb6`): planned first, solved | After (PR #92): planned first, solved | Avg. cost before / after |
+| ------------------- | ----------------------------------------- | ------------------------------------- | ------------------------ |
+| `add-feature` (on)  | 0/3, 0/3                                  | 1/3, 1/3                              | $0.039 / $0.046          |
+| `rename` (on)       | 0/3, 0/3                                  | 3/3, 3/3                              | $0.037 / $0.038          |
+| `question` (on)     | none, as wanted; 3/3                      | none, as wanted; 3/3                  | $0.013 / $0.013          |
+| `add-feature` (off) | no plan; 3/3                              | no plan; 3/3                          | $0.037 / $0.033          |
+| `rename` (off)      | no plan; 3/3                              | no plan; 3/3                          | $0.039 / $0.043          |
+
+- An earlier baseline run without the sandbox helper (commands refused at once) also planned 0 of 6 times, so the baseline result does not depend on how commands behaved.
+- "Solved" with plan mode on requires the plan; every run solved the task itself (the hidden tests pass).
+- The tasks are small, and the tool description says a one-step change needs no plan, so the model is right to hesitate on `add-feature`. Larger multi-step tasks are not covered. Three runs per task: read the numbers as a direction.
+- Runs of 150–200 s on both builds come from the sandbox, not plan mode: inside the Windows AppContainer, `npm test` exited with code 1 and `node --test` timed out in every run that tried them, and the model retried variations ([#101](https://github.com/PierrunoYT/patch/issues/101)).

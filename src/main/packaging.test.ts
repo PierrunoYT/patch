@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DOMParser } from 'linkedom';
 import { describe, expect, it } from 'vitest';
-import { build } from '../../package.json';
+import { build, dependencies, devDependencies } from '../../package.json';
 
 describe('macOS packaging security', () => {
   it('keeps hardened runtime enabled with only the JIT entitlement for the app and its helpers', () => {
@@ -14,5 +14,14 @@ describe('macOS packaging security', () => {
         ['true', ''],
       ]);
     }
+  });
+});
+
+describe('packaged dependencies', () => {
+  // Production dependencies are packaged with their whole dependency tree; dev dependencies are bundled, so only the
+  // code Patch imports ships. As a production dependency the SDK brought express, hono and jose along (#40).
+  it('bundles the MCP SDK instead of packaging it', () => {
+    expect(dependencies).not.toHaveProperty('@modelcontextprotocol/sdk');
+    expect(devDependencies).toHaveProperty('@modelcontextprotocol/sdk');
   });
 });

@@ -92,6 +92,7 @@ export interface InvokeApi {
   'history:delete': (id: string) => ChatSummary[];
   'history:clear': () => ChatSummary[];
   // Chats whose title, project or messages contain every word of the query, with an excerpt for message matches.
+  // The main process answers over several turns of its event loop when it has chat files to read.
   'history:search': (query: string) => ChatSummary[];
 
   'files:pick-images': () => ImageAttachment[];

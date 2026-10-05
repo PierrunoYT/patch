@@ -92,6 +92,7 @@ Even in Auto mode, a fetch or browser redirect to another host is blocked; the a
 - **Decline** with the box left empty stops the task.
 - The card still appears in **Auto** mode. Turning plan mode on never skips the plan.
 - If the assistant tries to edit or run a command in the same step as the plan, those calls wait: they are not run until you have decided, and the assistant calls them again afterwards.
+- Turning plan mode on or off does not cost a prompt cache miss: the assistant is told in a note, and its tool list stays the same. While the assistant is working, the note goes with its next tool results; otherwise it goes with your next message. The assistant is instructed to follow the most recent app plan-mode note until a newer one changes it; intervening messages and tool screenshots do not reset the mode.
 - A very long plan is shown only in part (the first 20,000 characters), with a note that approving covers the rest too. Decline and ask for a shorter plan if you want to read all of it.
 
 ## Allow-lists
