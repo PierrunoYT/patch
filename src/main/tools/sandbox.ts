@@ -1,8 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
+import { posix } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
 import { findHelper } from './sandbox_windows';
+import { validateSandboxGit } from './sandbox_git';
 
 // Runs agent commands (run_command, background ones included) with limited rights. The planning code below is pure
 // so it can be tested on any platform; only detectSandboxSupport() looks at the machine.
@@ -162,9 +164,10 @@ export function bwrapArgs(env: LaunchEnv, network: boolean): string[] {
     if (exists(path)) args.push('--ro-bind', path, path);
   }
   args.push('--bind', cwd, cwd);
-  // Hooks run later with the user's full rights, outside the sandbox.
-  const hooks = `${cwd}/.git/hooks`;
-  if (exists(hooks)) args.push('--ro-bind', hooks, hooks);
+  // Mount the directory itself: protecting leaves would allow absent control files and directory replacement.
+  if (!exists(`${cwd}/.git`))
+    throw new Error('Sandbox requires an existing .git directory. Request unsandboxed access.');
+  args.push('--ro-bind', `${cwd}/.git`, `${cwd}/.git`);
   args.push('--setenv', 'HOME', home, '--setenv', 'TMPDIR', '/tmp', '--chdir', cwd, '--', shell.file, ...shell.args);
   return args;
 }
@@ -196,7 +199,11 @@ export function seatbeltProfile(env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'e
   lines.push(
     `(allow file-write* ${[...writable].map(subpath).join(' ')} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
   );
-  lines.push(`(deny file-write* ${subpath(`${env.cwd}/.git/hooks`)})`);
+  lines.push(`(deny file-write* ${subpath(`${env.cwd}/.git`)})`);
+  // A project in a writable temp tree must not move out from under the pathname-based deny rule.
+  for (let path = env.cwd; path !== '/'; path = posix.dirname(path)) {
+    lines.push(`(deny file-write-unlink (literal ${sbplString(path)}))`);
+  }
   if (network) lines.push('(allow network*)');
   return lines.join('\n');
 }
@@ -206,6 +213,10 @@ export function containerArgs(
   env: LaunchEnv,
   network: boolean,
 ): { args: string[]; stop: Launch['stop'] } {
+  if (env.cwd.includes(','))
+    throw new Error(
+      'Container sandbox cannot protect Git metadata in a path containing commas. Request unsandboxed access.',
+    );
   const args = [
     'run',
     '--rm',
@@ -222,8 +233,10 @@ export function containerArgs(
     args.push(engine === 'podman' ? '--userns=keep-id' : `--user=${env.uid}:${env.gid}`);
   }
   args.push('-v', `${env.cwd}:/workspace`);
-  const hooks = `${env.cwd}/.git/hooks`;
-  if (env.exists(hooks)) args.push('-v', `${hooks}:/workspace/.git/hooks:ro`);
+  if (!env.exists(`${env.cwd}/.git`))
+    throw new Error('Sandbox requires an existing .git directory. Request unsandboxed access.');
+  // --mount fails if the source disappears, instead of creating a host directory as -v would.
+  args.push('--mount', `type=bind,src=${env.cwd}/.git,dst=/workspace/.git,readonly`);
   args.push(
     '-w',
     '/workspace',
@@ -283,7 +296,7 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
       ? 'unrestricted network allowed for this command'
       : 'unrestricted network on (not filtered by hostname)'
     : 'no network';
-  return `${where}: only the project folder is writable, the rest of your home folder is hidden, ${net}.`;
+  return `${where}: project files are writable but Git metadata is read-only; use the Git panel or explicitly approved unsandboxed access for Git writes. The rest of your home folder is hidden, ${net}.`;
 }
 
 let cached: { at: number; support: SandboxSupport } | null = null;
@@ -321,6 +334,7 @@ export function resetSandboxSupportCache(): void {
 export function systemLaunchEnv(
   base: Omit<LaunchEnv, 'exists' | 'uid' | 'gid' | 'home' | 'tmp'> & { home: string; tmp: string },
 ): LaunchEnv {
+  validateSandboxGit(base.cwd);
   const real = (path: string) => {
     try {
       return realpathSync(path);

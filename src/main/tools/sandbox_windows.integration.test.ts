@@ -13,7 +13,8 @@ import {
 import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setTimeout as delay } from 'node:timers/promises';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildHelperRequest, exceedsEntryLimit, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
 import { ShellRunner } from './shell';
 import { scrubEnv } from './env';
@@ -226,7 +227,8 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
     const result = await shell.run(`Set-Content -Path '${hook}' -Value 'echo pwned'`);
     expect(existsSync(hook), result.output).toBe(false);
     const other = await shell.run(`Set-Content -Path '${join(root, '.git', 'config-test')}' -Value ok`);
-    expect(other.exitCode).toBe(0);
+    expect(other.exitCode).not.toBe(0);
+    expect(existsSync(join(root, '.git', 'config-test'))).toBe(false);
   }, 60_000);
 
   it('blocks the network by default', async ({ skip }) => {
@@ -260,18 +262,51 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
       script,
       `const { spawn } = require('child_process');
 // Reuse the sandbox's handles: ignored stdio makes libuv open NUL, which can be denied inside an AppContainer.
-spawn(process.execPath, ['-e', "setInterval(() => require('fs').appendFileSync('beat.txt', 'x'), 100)"], { stdio: 'inherit' });
+spawn(process.execPath, ['-e', "const beat = () => require('fs').appendFileSync('beat.txt', 'x'); beat(); console.log('CHILD-READY'); setInterval(beat, 100)"], { stdio: 'inherit' });
 setInterval(() => {}, 1000);`,
     );
-    const started = Date.now();
+    const controller = new AbortController();
+    // Start this watchdog before faking the parent's timer; child processes always keep their real clocks.
+    const deadline = delay(20_000, undefined, { signal: controller.signal }).then(() => {
+      throw new Error('The sandbox child did not become ready or stop within the test deadline');
+    });
+    let ready!: () => void;
+    const heartbeat = new Promise<void>((resolve) => (ready = resolve));
+    let output = '';
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     // The helper maps the project to a drive root. Exercise that supported cwd rather than depending on access
     // through the host's absolute temp path (which can also contain an 8.3 alias such as RUNNER~1 on CI).
-    const result = await shell.run('.\\node.exe spawner.js', { timeoutSeconds: 3 });
-    expect(result.timedOut, result.output).toBe(true);
-    expect(Date.now() - started).toBeLessThan(15_000);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const pending = shell.run('.\\node.exe spawner.js', {
+      timeoutSeconds: 3,
+      signal: controller.signal,
+      onOutput: (text) => {
+        output += text;
+        if (output.includes('CHILD-READY')) ready();
+      },
+    });
+    let finished = false;
+    void pending.then(() => (finished = true));
+    try {
+      await Promise.race([
+        heartbeat,
+        deadline,
+        pending.then((result) => {
+          throw new Error(`Command exited before its child was ready: ${result.output}`);
+        }),
+      ]);
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(finished).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await Promise.race([pending, deadline]);
+      expect(result.timedOut, result.output).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      controller.abort();
+      await pending;
+    }
+    await delay(500);
     const size = existsSync(beat) ? readFileSync(beat, 'utf8').length : 0;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await delay(1000);
     const after = existsSync(beat) ? readFileSync(beat, 'utf8').length : 0;
     expect(size).toBeGreaterThan(0);
     expect(after).toBe(size);
@@ -352,12 +387,24 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   let env: NodeJS.ProcessEnv;
   let shell: ShellRunner;
   const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
+  // Whether the DACL has an ALL APPLICATION PACKAGES entry. icacls prints names in the system language, so read
+  // the SDDL that `icacls /save` writes (UTF-16), where the group is always the alias AC.
+  const allPackages = (path: string) => {
+    const saved = join(fixture, `acl-${Date.now()}.txt`);
+    execFileSync('icacls', [path, '/save', saved], { windowsHide: true });
+    try {
+      return /;AC\)/.test(readFileSync(saved, 'utf16le'));
+    } finally {
+      rmSync(saved, { force: true });
+    }
+  };
   beforeAll(() => {
     fixture = mkdtempSync(join(tmpdir(), 'patch-toolchain-'));
     project = join(fixture, 'project');
     programs = join(fixture, 'Program Files');
     tools = join(programs, 'nodejs');
-    mkdirSync(project);
+    // Sandboxed commands need the project's own regular .git directory (#98).
+    mkdirSync(join(project, '.git', 'hooks'), { recursive: true });
     mkdirSync(tools, { recursive: true });
     copyFileSync(process.execPath, join(tools, 'node.exe'));
     writeFileSync(join(tools, 'marker.txt'), 'READ-ONLY-TOOL');
@@ -377,7 +424,7 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
     execFileSync('icacls', [tools, '/inheritance:r']);
     const user = execFileSync(join(process.env.SystemRoot!, 'System32', 'whoami.exe'), [], { encoding: 'utf8' }).trim();
     execFileSync('icacls', [tools, '/grant:r', `${user}:(OI)(CI)(F)`]);
-    expect(acl(tools)).not.toMatch(/APPLICATION PACKAGES|S-1-15-2-1/);
+    expect(allPackages(tools)).toBe(false);
     shell = new ShellRunner(
       () => project,
       () => config,
@@ -468,7 +515,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     const grantTools = join(programs, 'grant-node');
     mkdirSync(grantTools);
     copyFileSync(process.execPath, join(grantTools, 'node.exe'));
-    expect(acl(grantTools)).not.toMatch(/APPLICATION PACKAGES|S-1-15-2-1/);
+    expect(allPackages(grantTools)).toBe(false);
     const original = acl(grantTools);
     const drive = ['T:', 'U:', 'V:', 'W:'].find(
       (value) => !execFileSync('subst', { encoding: 'utf8' }).includes(`${value}\\`),
@@ -508,21 +555,27 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     }
   }, 60_000);
 
-  it('fails closed for escaping junctions without executing the command', async () => {
+  it('leaves out a toolchain with an escaping junction, says why, and still runs the command', async () => {
     const linked = join(programs, 'linked');
     mkdirSync(linked);
     const { symlinkSync } = await import('node:fs');
     symlinkSync(project, join(linked, 'escape'), 'junction');
+    const original = acl(linked);
     const runner = new ShellRunner(
       () => project,
       () => config,
       undefined,
-      () => ({ ...env, pAtH: linked }),
+      () => ({ ...env, pAtH: `${linked};${process.env.SystemRoot}\\System32` }),
     );
-    const result = await runner.run('Set-Content should-not-run.txt planted');
-    expect(result.exitCode).not.toBe(0);
-    expect(result.output).toMatch(/reparse point|escaping path/);
-    expect(existsSync(join(project, 'should-not-run.txt'))).toBe(false);
+    // Skipping a toolchain only withholds access, so the command runs as it did before toolchain support.
+    const result = await runner.run(`Write-Output RAN; $env:PATH`);
+    expect(result.exitCode, result.output).toBe(0);
+    expect(result.output).toContain('RAN');
+    expect(result.output).toMatch(/not readable in this command: .*linked: .*(reparse point|escaping path)/i);
+    // Neither granted nor copied: PATH still names the original folder, and its ACL is unchanged.
+    expect(result.output).toContain(linked);
+    expect(result.output).not.toMatch(/[P-Z]:\\0/i);
+    expect(acl(linked)).toBe(original);
   }, 60_000);
 
   it('stops a staged background command and cleans its read-only copy', async () => {
@@ -622,7 +675,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     if (!available.length) skip('No host Program Files Git/Python installs available.');
     for (const value of available) {
       const original = acl(value.tool);
-      expect(original).toMatch(/APPLICATION PACKAGES|S-1-15-2-1/);
+      expect(allPackages(value.tool)).toBe(true);
       const runner = new ShellRunner(
         () => project,
         () => config,
@@ -660,94 +713,131 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
 });
 
 describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
-  it('recovers a forcibly killed helper without revoking a live helper grant', async () => {
-    const fixture = mkdtempSync(join(tmpdir(), 'patch-sbx-recovery-'));
-    const project = join(fixture, 'project');
-    const tools = join(fixture, 'tools');
-    const hooks = join(project, '.git', 'hooks');
-    const local = join(fixture, 'local');
-    const journal = join(local, 'Patch', 'sandbox-recovery');
-    mkdirSync(hooks, { recursive: true });
-    // Normalize this disposable fixture to Windows' automatic inheritance model before taking the baseline.
-    // CI's temp tree can have legacy ACEs that Windows legitimately reclassifies as inherited on the first edit.
-    // Include a distinct explicit grant so recovery must preserve more than just recomputed parent permissions.
-    execFileSync('icacls', [hooks, '/inheritance:e', '/grant', '*S-1-1-0:(R)']);
-    mkdirSync(tools);
-    writeFileSync(join(tools, 'nested.txt'), 'tool');
-    const request = buildHelperRequest({
-      id: 1,
-      shell: {
-        file: 'powershell.exe',
-        args: ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 120'],
-      },
-      cwd: project,
-      env: scrubEnv(process.env),
-      home: local,
-      network: false,
-      exists: () => false,
-    });
-    request.readOnly = [tools];
-    const env = { ...process.env, LOCALAPPDATA: local };
-    const recover = async () => {
+  it.each(['normal exit', 'forced termination'])(
+    'keeps metadata protected through an overlapping helper %s',
+    async (exit) => {
+      const fixture = mkdtempSync(join(tmpdir(), 'patch-sbx-recovery-'));
+      const project = join(fixture, 'project');
+      const tools = join(fixture, 'tools');
+      const hooks = join(project, '.git', 'hooks');
+      const local = join(fixture, 'local');
+      const journal = join(local, 'Patch', 'sandbox-recovery');
+      mkdirSync(hooks, { recursive: true });
+      // Normalize this disposable fixture to Windows' automatic inheritance model before taking the baseline.
+      // CI's temp tree can have legacy ACEs that Windows legitimately reclassifies as inherited on the first edit.
+      // Include a distinct explicit grant so recovery must preserve more than just recomputed parent permissions.
+      execFileSync('icacls', [hooks, '/inheritance:e', '/grant', '*S-1-1-0:(R)']);
+      mkdirSync(tools);
+      writeFileSync(join(tools, 'nested.txt'), 'tool');
+      const request = buildHelperRequest({
+        id: 1,
+        shell: {
+          file: 'powershell.exe',
+          args: ['-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 120'],
+        },
+        cwd: project,
+        env: scrubEnv(process.env),
+        home: local,
+        network: false,
+        exists: () => false,
+      });
+      request.readOnly = [tools];
+      const env = { ...process.env, LOCALAPPDATA: local };
+      const recover = async () => {
+        const child = spawn(helper!, [], { env, windowsHide: true });
+        const closed = once(child, 'close');
+        let output = '';
+        child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+        child.stdin.end();
+        await closed;
+        expect(output).toBe('');
+        expect(child.exitCode).toBe(0);
+      };
+      const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
+      const originalHooksAcl = acl(hooks);
+      expect(originalHooksAcl).toContain('(I)');
+      expect(originalHooksAcl).toContain(':(R)');
       const child = spawn(helper!, [], { env, windowsHide: true });
       const closed = once(child, 'close');
-      let output = '';
-      child.stdout.on('data', (chunk: Buffer) => (output += chunk));
-      child.stdin.end();
-      await closed;
-      expect(output).toBe('');
-      expect(child.exitCode).toBe(0);
-    };
-    const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
-    const originalHooksAcl = acl(hooks);
-    expect(originalHooksAcl).toContain('(I)');
-    expect(originalHooksAcl).toContain(':(R)');
-    const child = spawn(helper!, [], { env, windowsHide: true });
-    const closed = once(child, 'close');
-    try {
-      const started = new Promise<void>((resolve, reject) => {
-        let output = '';
-        child.stdout.on('data', (chunk: Buffer) => {
-          output += chunk;
-          if (output.includes('"type":"started"')) resolve();
-          if (output.includes('"type":"error"')) reject(new Error(output));
+      let writer: ReturnType<typeof spawn> | undefined;
+      let writerClosed: Promise<unknown> | undefined;
+      let writerOutput = '';
+      try {
+        const started = new Promise<void>((resolve, reject) => {
+          let output = '';
+          child.stdout.on('data', (chunk: Buffer) => {
+            output += chunk;
+            if (output.includes('"type":"started"')) resolve();
+            if (output.includes('"type":"error"')) reject(new Error(output));
+          });
+          child.on('error', reject);
+          child.on('close', () => reject(new Error('helper closed before starting')));
         });
-        child.on('error', reject);
-        child.on('close', () => reject(new Error('helper closed before starting')));
-      });
-      child.stdin.write(`${JSON.stringify(request)}\n`);
-      await started;
-      const liveAcl = acl(tools);
-      expect(liveAcl).toMatch(/patch\.sbx\.|S-1-15-2-/);
-      expect(readdirSync(journal)).toHaveLength(1);
-      await recover();
-      expect(acl(tools)).toBe(liveAcl);
-      expect(readdirSync(journal)).toHaveLength(1);
+        child.stdin.write(`${JSON.stringify(request)}\n`);
+        await started;
+        const liveAcl = acl(tools);
+        expect(liveAcl).toMatch(/patch\.sbx\.|S-1-15-2-/);
+        expect(readdirSync(journal)).toHaveLength(1);
+        await recover();
+        expect(acl(tools)).toBe(liveAcl);
+        expect(readdirSync(journal)).toHaveLength(1);
 
-      // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
-      child.kill();
-      await closed;
-      expect(acl(tools)).toBe(liveAcl);
-      await recover();
-      for (const path of [project, tools, join(tools, 'nested.txt'), hooks])
-        expect(acl(path)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
-      expect(readdirSync(journal)).toEqual([]);
-      // Windows recomputes inherited entries from the parent. Explicit entries must stay unchanged,
-      // rather than accumulating the copies produced when inheritance was temporarily protected.
-      const explicit = (text: string) => text.split(/\r?\n/).filter((line) => !line.includes('(I)'));
-      expect(explicit(acl(hooks))).toEqual(explicit(originalHooksAcl));
-      expect(acl(hooks)).toContain('(I)');
-    } finally {
-      if (child.exitCode === null) child.kill();
-      await closed;
-      await recover();
-      // Forced termination also bypasses ProjectDrive's destructor. Permission recovery does not yet reclaim
-      // drive mappings: remove only this fixture's mapping so repeated test runs do not consume P: through Z:.
-      for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
-        const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
-        if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
+        writer = spawn(helper!, [], { env, windowsHide: true });
+        writerClosed = once(writer, 'close');
+        writer.stdout!.on('data', (chunk: Buffer) => (writerOutput += chunk));
+        writer.stdin!.write(
+          `${JSON.stringify({
+            ...request,
+            id: 2,
+            readOnly: [join(project, '.git')],
+            args: [
+              '-NoProfile',
+              '-NonInteractive',
+              '-Command',
+              "while ($true) { try { Set-Content -LiteralPath '.git/config.worktree' -Value bad -ErrorAction Stop; Write-Output WRITABLE } catch { Write-Output BLOCKED }; Start-Sleep -Milliseconds 100 }",
+            ],
+          })}\n`,
+        );
+        await expect.poll(() => writerOutput).toContain('BLOCKED');
+        expect(readdirSync(journal)).toHaveLength(2);
+
+        // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
+        if (exit === 'forced termination') child.kill();
+        else child.stdin.end(`${JSON.stringify({ id: 1, kill: true })}\n`);
+        await closed;
+        if (exit === 'forced termination') expect(acl(tools)).toBe(liveAcl);
+        else expect(acl(tools)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
+        await recover();
+        const attempts = (writerOutput.match(/BLOCKED/g) ?? []).length;
+        await expect.poll(() => (writerOutput.match(/BLOCKED/g) ?? []).length).toBeGreaterThan(attempts + 2);
+        expect(writerOutput).not.toContain('WRITABLE');
+        expect(existsSync(join(project, '.git', 'config.worktree'))).toBe(false);
+        expect(readdirSync(journal)).toHaveLength(1);
+        writer.stdin!.end(`${JSON.stringify({ id: 2, kill: true })}\n`);
+        await writerClosed;
+        for (const path of [project, tools, join(tools, 'nested.txt'), hooks])
+          expect(acl(path)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
+        expect(readdirSync(journal)).toEqual([]);
+        // Windows recomputes inherited entries from the parent. Explicit entries must stay unchanged,
+        // rather than accumulating the copies produced when inheritance was temporarily protected.
+        const explicit = (text: string) => text.split(/\r?\n/).filter((line) => !line.includes('(I)'));
+        expect(explicit(acl(hooks))).toEqual(explicit(originalHooksAcl));
+        expect(acl(hooks)).toContain('(I)');
+      } finally {
+        if (writer?.exitCode === null) writer.kill();
+        if (writerClosed) await writerClosed;
+        if (child.exitCode === null) child.kill();
+        await closed;
+        await recover();
+        // Forced termination also bypasses ProjectDrive's destructor. Permission recovery does not yet reclaim
+        // drive mappings: remove only this fixture's mapping so repeated test runs do not consume P: through Z:.
+        for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
+          const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
+          if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
+        }
+        rmSync(fixture, { recursive: true, force: true });
       }
-      rmSync(fixture, { recursive: true, force: true });
-    }
-  }, 60_000);
+    },
+    60_000,
+  );
 });

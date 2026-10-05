@@ -480,7 +480,7 @@ struct RecoveryRecord {
     staged: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct ProtectedPath {
     path: String,
     dacl: String,
@@ -598,6 +598,29 @@ fn package_readable(path: &Path, package: PSID) -> Result<bool> {
     package_access(path, package).map(|(readable, _)| readable)
 }
 
+// Whether the folder and every entry directly inside it are package-readable.
+fn directly_readable(root: &Path, package: PSID, check: &impl Fn() -> Result<()>) -> Result<bool> {
+    if !package_access(root, package)?.0 {
+        return Ok(false);
+    }
+    for (count, entry) in fs::read_dir(root)
+        .map_err(|e| format!("cannot list toolchain: {e}"))?
+        .enumerate()
+    {
+        check()?;
+        if count >= INSPECTION_ENTRIES {
+            return Err("toolchain inspection exceeds its entry limit".to_string());
+        }
+        let path = entry
+            .map_err(|e| format!("cannot list toolchain entry: {e}"))?
+            .path();
+        if !package_access(&path, package)?.0 {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 struct ToolchainPlan {
     source: String,
     files: Vec<PathBuf>,
@@ -611,6 +634,12 @@ fn inspect_toolchain(
     check: impl Fn() -> Result<()>,
 ) -> Result<Option<ToolchainPlan>> {
     let root = Path::new(source);
+    // PATH finds commands directly in this folder. When the folder and its direct entries are already readable, no
+    // grant is needed, and a large install (Python, .NET) is not walked on every command. Granting nothing cannot
+    // widen access, so this fast path needs none of the link checks below.
+    if directly_readable(root, package, &check)? {
+        return Ok(None);
+    }
     let canonical = fs::canonicalize(root).map_err(|e| format!("cannot resolve toolchain: {e}"))?;
     // Canonical spelling can differ because CI uses an 8.3 TEMP alias; that is not a link. Inspect actual
     // ancestor attributes instead of treating every canonical-name difference as a reparse point.
@@ -695,12 +724,67 @@ fn recovery_dir() -> Result<PathBuf> {
     Ok(PathBuf::from(local).join("Patch").join("sandbox-recovery"))
 }
 
+// Serialize only ACL setup/cleanup, never command execution. Every overlapping run carries the original
+// inheritance snapshot; the last remaining record restores it, including after forced termination.
+struct PermissionLock(Handle);
+
+impl PermissionLock {
+    fn acquire() -> Result<Self> {
+        let handle = Handle(
+            unsafe {
+                CreateMutexW(
+                    None,
+                    false,
+                    windows::core::w!("Local\\PatchSandboxPermissions"),
+                )
+            }
+            .map_err(|e| describe("create sandbox permission lock", e))?,
+        );
+        match unsafe { WaitForSingleObject(handle.0, 60_000) } {
+            WAIT_OBJECT_0 | WAIT_ABANDONED => Ok(Self(handle)),
+            _ => Err("cannot acquire sandbox permission lock".into()),
+        }
+    }
+}
+
+impl Drop for PermissionLock {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = ReleaseMutex(self.0 .0);
+        }
+    }
+}
+
+fn recovery_records() -> Result<Vec<RecoveryRecord>> {
+    let dir = recovery_dir()?;
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut records = Vec::new();
+    for entry in
+        fs::read_dir(dir).map_err(|e| format!("cannot read sandbox recovery folder: {e}"))?
+    {
+        let path = entry
+            .map_err(|e| format!("cannot read recovery entry: {e}"))?
+            .path();
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let bytes = fs::read(&path)
+                .map_err(|e| format!("cannot read sandbox protection owner: {e}"))?;
+            records.push(
+                serde_json::from_slice(&bytes)
+                    .map_err(|e| format!("invalid sandbox protection owner: {e}"))?,
+            );
+        }
+    }
+    Ok(records)
+}
+
 fn lock_record(path: &Path, create: bool) -> std::io::Result<File> {
     OpenOptions::new()
         .read(true)
         .write(true)
         .create_new(create)
-        .share_mode(FILE_SHARE_DELETE.0)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
         .open(path)
 }
 
@@ -713,6 +797,7 @@ fn record_sid(name: &str) -> Result<Sid> {
 
 impl RecoveryRecord {
     fn undo(&self, sid: PSID) -> Result<()> {
+        let others = recovery_records()?;
         // Try every path even if one is unavailable. Keep the record for a later retry on any error.
         let mut result = Ok(());
         for path in self.granted.iter().rev() {
@@ -723,7 +808,14 @@ impl RecoveryRecord {
             }
         }
         for path in self.protected.iter().rev() {
-            if Path::new(&path.path).exists() {
+            let shared = others.iter().any(|record| {
+                record.name != self.name
+                    && record
+                        .protected
+                        .iter()
+                        .any(|other| other.path.eq_ignore_ascii_case(&path.path))
+            });
+            if !shared && Path::new(&path.path).exists() {
                 if let Err(error) = path.restore() {
                     result = Err(error);
                 }
@@ -770,6 +862,7 @@ impl RecoveryRecord {
 }
 
 fn recover_abandoned_runs() -> Result<()> {
+    let _lock = PermissionLock::acquire()?;
     let dir = recovery_dir()?;
     fs::create_dir_all(&dir).map_err(|e| format!("cannot create sandbox recovery folder: {e}"))?;
     for entry in
@@ -870,8 +963,13 @@ struct Cleanup {
 
 impl Drop for Cleanup {
     fn drop(&mut self) {
-        if !self.finished && self.record.undo(self.sid.0).is_ok() {
-            let _ = fs::remove_file(&self.path);
+        if self.finished {
+            return;
+        }
+        if let Ok(_lock) = PermissionLock::acquire() {
+            if self.record.undo(self.sid.0).is_ok() {
+                let _ = fs::remove_file(&self.path);
+            }
         }
     }
 }
@@ -985,22 +1083,38 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     if request.toolchains.len() > 32 {
         return Err("too many Program Files toolchain candidates (maximum 32)".to_string());
     }
+    // Toolchains are optional: one that cannot be inspected, granted or copied stays unreadable, as it was before
+    // toolchain support, and the command still runs. Skipping one never widens access; the command's output says
+    // which folders were left out and why. Inspection only reads, so it runs before the permission lock.
+    let mut warnings = Vec::new();
     let mut toolchains = Vec::new();
     let mut entries = 0usize;
     let preparation = Instant::now();
     for source in &request.toolchains {
-        if let Some(plan) = inspect_toolchain(source, package, || {
+        let inspected = inspect_toolchain(source, package, || {
             ensure_active(jobs, id)?;
             if preparation.elapsed() > Duration::from_secs(30) {
                 return Err("toolchain preparation exceeds 30 seconds".to_string());
             }
             Ok(())
-        })? {
-            entries += plan.files.len().saturating_sub(1);
-            if entries > TOOLCHAIN_ENTRIES {
-                return Err("inaccessible toolchains exceed 5000 entries per command".to_string());
+        });
+        match inspected {
+            Ok(Some(plan)) => {
+                let count = plan.files.len().saturating_sub(1);
+                if entries + count > TOOLCHAIN_ENTRIES {
+                    warnings.push(format!(
+                        "{source}: inaccessible toolchains exceed 5000 entries per command"
+                    ));
+                    continue;
+                }
+                entries += count;
+                toolchains.push(plan);
             }
-            toolchains.push(plan);
+            Ok(None) => {}
+            Err(message) => {
+                ensure_active(jobs, id)?;
+                warnings.push(format!("{source}: {message}"));
+            }
         }
     }
     let profile = profile_name();
@@ -1014,6 +1128,21 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 .to_string(),
         )
     };
+    let permission_lock = PermissionLock::acquire()?;
+    let owners = recovery_records()?;
+    let git = Path::new(&request.cwd).join(".git");
+    let git = git.to_string_lossy().into_owned();
+    let readonly_git = request
+        .deny_write
+        .iter()
+        .any(|path| path.eq_ignore_ascii_case(&git));
+    if readonly_git {
+        let metadata =
+            fs::symlink_metadata(&git).map_err(|e| format!("Git metadata is required: {e}"))?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err("Git metadata must be a regular directory".into());
+        }
+    }
     let mut record = RecoveryRecord {
         name: profile,
         granted: request
@@ -1027,7 +1156,17 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             .deny_write
             .iter()
             .filter(|path| Path::new(path).exists())
-            .map(|path| original_inheritance(path))
+            .map(|path| {
+                let shared = owners
+                    .iter()
+                    .flat_map(|owner| &owner.protected)
+                    .find(|other| other.path.eq_ignore_ascii_case(path))
+                    .cloned();
+                match shared {
+                    Some(snapshot) => Ok(Some(snapshot)),
+                    None => original_inheritance(path),
+                }
+            })
             .collect::<Result<Vec<_>>>()?
             .into_iter()
             .flatten()
@@ -1088,46 +1227,61 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 continue;
             }
             if let Err(message) = edit_acl(path, sid, access, Change::Grant) {
-                if required {
+                if required || (readonly_git && path.eq_ignore_ascii_case(&git)) {
                     return Err(message);
                 }
             }
         }
     }
-    let mut mappings = Vec::new();
-    let mut staging_drive = None;
-    let started = Instant::now();
-    let mut copied = 0u64;
-    for (index, plan) in toolchains.iter_mut().enumerate() {
+    // Program Files folders are shared with other runs, so they are granted under the permission lock.
+    for plan in toolchains.iter_mut() {
         if !plan.stage {
             // WRITE_DAC was checked before journaling. A concurrent permissions change can still deny the grant.
             plan.stage = edit_acl(&plan.source, sid, FILE_READ_EXECUTE, Change::Grant).is_err();
         }
-        if plan.stage {
-            let staged = cleanup
-                .record
-                .staged
-                .as_ref()
-                .ok_or("missing staged toolchain root")?;
-            let root = Path::new(staged);
-            if staging_drive.is_none() {
-                fs::create_dir_all(root.parent().ok_or("missing staging parent")?)
-                    .map_err(|e| format!("cannot create staging parent: {e}"))?;
-                fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
-                staging_drive = Some(ProjectDrive::create(staged)?);
-            }
-            let target = root.join(index.to_string());
-            copy_toolchain(plan, &target, started, &mut copied, || {
-                ensure_active(jobs, id)
-            })?;
-            let drive = staging_drive.as_ref().ok_or("missing staging drive")?;
-            let prefix = String::from_utf16_lossy(&drive.cwd[..drive.cwd.len() - 1]);
-            mappings.push((plan.source.clone(), format!("{prefix}{index}")));
+    }
+    drop(permission_lock);
+
+    // Private copies belong to this run alone and can take seconds, so they are made without the lock.
+    let mut mappings = Vec::new();
+    let mut staging_drive = None;
+    let started = Instant::now();
+    let mut copied = 0u64;
+    for (index, plan) in toolchains.iter().enumerate() {
+        if !plan.stage {
+            continue;
         }
+        let staged = cleanup
+            .record
+            .staged
+            .as_ref()
+            .ok_or("missing staged toolchain root")?;
+        let root = Path::new(staged);
+        if staging_drive.is_none() {
+            fs::create_dir_all(root.parent().ok_or("missing staging parent")?)
+                .map_err(|e| format!("cannot create staging parent: {e}"))?;
+            fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
+            staging_drive = Some(ProjectDrive::create(staged)?);
+        }
+        let target = root.join(index.to_string());
+        if let Err(message) = copy_toolchain(plan, &target, started, &mut copied, || {
+            ensure_active(jobs, id)
+        }) {
+            ensure_active(jobs, id)?;
+            warnings.push(format!("{}: {message}", plan.source));
+            continue;
+        }
+        let drive = staging_drive.as_ref().ok_or("missing staging drive")?;
+        let prefix = String::from_utf16_lossy(&drive.cwd[..drive.cwd.len() - 1]);
+        mappings.push((plan.source.clone(), format!("{prefix}{index}")));
     }
     if let Some(staged) = &cleanup.record.staged {
         if Path::new(staged).exists() {
-            edit_acl(staged, sid, FILE_READ_EXECUTE, Change::Grant)?;
+            if let Err(message) = edit_acl(staged, sid, FILE_READ_EXECUTE, Change::Grant) {
+                for (source, _) in mappings.drain(..) {
+                    warnings.push(format!("{source}: {message}"));
+                }
+            }
         }
     }
     let mut capability_sid = PSID::default();
@@ -1308,6 +1462,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         id,
         pid: info.dwProcessId,
     });
+    for warning in &warnings {
+        emitter.send(&Event::Stderr {
+            id,
+            data: &format!("Patch sandbox: not readable in this command: {warning}\n"),
+        });
+    }
 
     let timeout = if request.limits.timeout_ms > 0 {
         request.limits.timeout_ms.min(u32::MAX as u64 - 1) as u32
@@ -1331,12 +1491,23 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     jobs.lock().unwrap().remove(&id);
     drop(job);
     drop(staging_drive);
-    // Report cleanup failures rather than claiming success; the journal remains for the next startup to retry.
-    cleanup.record.undo(cleanup.sid.0)?;
-    fs::remove_file(&cleanup.path)
-        .map_err(|e| format!("cannot remove sandbox recovery record: {e}"))?;
+    // Cleanup runs under the permission lock, like setup. A failure is reported with the command's output, not
+    // instead of its exit code: the journal stays, and the next helper start retries it.
+    let cleaned = PermissionLock::acquire().and_then(|_lock| {
+        cleanup.record.undo(cleanup.sid.0)?;
+        fs::remove_file(&cleanup.path)
+            .map_err(|e| format!("cannot remove sandbox recovery record: {e}"))
+    });
     cleanup.finished = true;
     drop(cleanup);
+    if let Err(message) = cleaned {
+        emitter.send(&Event::Stderr {
+            id,
+            data: &format!(
+                "\nPatch sandbox: cleanup failed ({message}); it is retried when the next command starts.\n"
+            ),
+        });
+    }
     emitter.send(&Event::Exit {
         id,
         exit_code: code as i64,
@@ -1431,6 +1602,36 @@ mod tests {
         assert!(inspect_toolchain(path, package, || Ok(()))
             .unwrap()
             .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_readable_folder_is_not_walked_so_a_nested_link_does_not_fail_it() {
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        let path = root.to_str().unwrap();
+        let mut package = PSID::default();
+        unsafe {
+            ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package).unwrap();
+        }
+        let _package = LocalMem(package.0);
+        // Created after the grant, so every entry inherits read/execute, as in an install that keeps package access.
+        edit_acl(path, package, FILE_READ_EXECUTE, Change::Grant).unwrap();
+        fs::create_dir(root.join("lib")).unwrap();
+        fs::write(root.join("tool.exe"), "binary").unwrap();
+        let junction = root.join("lib").join("link");
+        let made = std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(&junction)
+            .arg(std::env::temp_dir())
+            .output()
+            .unwrap();
+        assert!(made.status.success());
+        // The full walk refuses links; a folder whose own entries are readable needs no grant and is not walked.
+        assert!(inspect_toolchain(path, package, || Ok(()))
+            .unwrap()
+            .is_none());
+        fs::remove_dir(&junction).unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

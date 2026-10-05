@@ -29,10 +29,11 @@ describe('windowsPolicy', () => {
     pathEntries: [],
   };
 
-  it('makes only the project writable and refuses writes to git hooks', () => {
+  it('makes only project files writable and protects the entire Git directory', () => {
     const policy = windowsPolicy({ ...base, exists: () => false });
     expect(policy.readWrite).toEqual([cwd]);
-    expect(policy.denyWrite).toEqual([`${cwd}\\.git\\hooks`]);
+    expect(policy.denyWrite).toEqual([`${cwd}\\.git`]);
+    expect(policy.readOnly).toEqual([`${cwd}\\.git`]);
   });
 
   it('opens toolchain folders under the home folder read-only, and never credentials', () => {
@@ -40,7 +41,7 @@ describe('windowsPolicy', () => {
       ...base,
       exists: present(`${home}\\.cargo\\bin`, `${home}\\.ssh`, `${home}\\.gitconfig`, `${home}\\AppData\\Roaming\\npm`),
     });
-    expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`, `${home}\\AppData\\Roaming\\npm`]);
+    expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`, `${home}\\AppData\\Roaming\\npm`, `${cwd}\\.git`]);
   });
 
   it('does not reopen credential-bearing paths through PATH, even if the credentials do not exist yet', () => {
@@ -58,7 +59,7 @@ describe('windowsPolicy', () => {
       pathEntries: privatePaths.map((rel) => `${home}\\${rel}`.toUpperCase()),
       exists: present(...[...privatePaths, ...safePaths].map((rel) => `${home}\\${rel}`)),
     });
-    expect(policy.readOnly).toEqual(safePaths.map((rel) => `${home}\\${rel}`));
+    expect(policy.readOnly).toEqual([...safePaths.map((rel) => `${home}\\${rel}`), `${cwd}\\.git`]);
   });
 
   it('selects narrow Program Files candidates while skipping system folders', () => {
@@ -73,7 +74,7 @@ describe('windowsPolicy', () => {
       ],
       exists: present('C:\\WINDOWS\\system32', 'C:\\Program Files\\nodejs', 'C:\\nvm4w\\nodejs'),
     });
-    expect(policy.readOnly).toEqual(['C:\\nvm4w\\nodejs']);
+    expect(policy.readOnly).toEqual(['C:\\nvm4w\\nodejs', `${cwd}\\.git`]);
     expect(policy.toolchains).toEqual(['C:\\Program Files\\nodejs']);
   });
 
@@ -106,7 +107,7 @@ describe('windowsPolicy', () => {
       ),
       tooLarge: (path) => big.has(path.toLowerCase()) || path.toLowerCase() === `${home}\\.cargo`.toLowerCase(),
     });
-    expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`]);
+    expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`, `${cwd}\\.git`]);
   });
 
   it('never selects install roots, their ancestors or similarly named sibling folders as toolchains', () => {
@@ -186,7 +187,13 @@ describe('buildHelperRequest', () => {
     const request = buildHelperRequest(input);
     expect(request.command).toBe('C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
     expect(request.args).toEqual(['-NoLogo', '-Command', 'dir']);
-    expect(request).toMatchObject({ id: 4, cwd, network: false, readWrite: [cwd], readOnly: ['D:\\tools'] });
+    expect(request).toMatchObject({
+      id: 4,
+      cwd,
+      network: false,
+      readWrite: [cwd],
+      readOnly: ['D:\\tools', `${cwd}\\.git`],
+    });
     expect(request.env.CI).toBe('1');
     expect(request.limits.memoryMb).toBeGreaterThan(0);
     expect(request.limits.processes).toBeGreaterThan(0);

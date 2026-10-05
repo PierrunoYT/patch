@@ -12,6 +12,9 @@ export default defineConfig({
           name: 'unit',
           include: ['src/**/*.test.ts'],
           environment: 'node',
+          // Real PowerShell/helper processes contend during cold Windows startup. Explicit concurrency tests
+          // still overlap their commands; only unrelated test files are serialized.
+          fileParallelism: process.platform !== 'win32',
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

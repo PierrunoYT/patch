@@ -70,7 +70,17 @@ jobs:
       # The Windows command sandbox: the unit tests also run real commands through it when the helper exists.
       - name: Build the Windows sandbox helper
         if: runner.os == 'Windows'
-        run: cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml
+        run: cargo build --release --locked --bins --examples --manifest-path native/sandbox-helper/Cargo.toml
+
+      - name: Test the Windows sandbox helper and CI preparation
+        if: runner.os == 'Windows'
+        run: cargo test --locked --all-targets --manifest-path native/sandbox-helper/Cargo.toml
+
+      # Older Server images lack the null-device package ACE that newer Windows installs at boot.
+      # This preserves existing ACLs and grants only NUL access on this disposable hosted runner.
+      - name: Prepare the Windows CI null device for AppContainers
+        if: runner.os == 'Windows'
+        run: .\native\sandbox-helper\target\release\examples\prepare_ci_null.exe --apply-ci
 
       - name: Install Linux command sandbox test backends
         if: runner.os == 'Linux'
