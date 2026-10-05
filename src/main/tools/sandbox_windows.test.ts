@@ -62,7 +62,7 @@ describe('windowsPolicy', () => {
     expect(policy.readOnly).toEqual([...safePaths.map((rel) => `${home}\\${rel}`), `${cwd}\\.git`]);
   });
 
-  it('adds PATH folders that exist, skipping system folders every container can already read', () => {
+  it('selects narrow Program Files candidates while skipping system folders', () => {
     const policy = windowsPolicy({
       ...base,
       pathEntries: [
@@ -75,6 +75,7 @@ describe('windowsPolicy', () => {
       exists: present('C:\\WINDOWS\\system32', 'C:\\Program Files\\nodejs', 'C:\\nvm4w\\nodejs'),
     });
     expect(policy.readOnly).toEqual(['C:\\nvm4w\\nodejs', `${cwd}\\.git`]);
+    expect(policy.toolchains).toEqual(['C:\\Program Files\\nodejs']);
   });
 
   it('never opens a drive root, the home folder, or a folder that contains the project or the home folder', () => {
@@ -107,6 +108,36 @@ describe('windowsPolicy', () => {
       tooLarge: (path) => big.has(path.toLowerCase()) || path.toLowerCase() === `${home}\\.cargo`.toLowerCase(),
     });
     expect(policy.readOnly).toEqual([`${home}\\.cargo\\bin`, `${cwd}\\.git`]);
+  });
+
+  it('never selects install roots, their ancestors or similarly named sibling folders as toolchains', () => {
+    const policy = windowsPolicy({
+      ...base,
+      pathEntries: [
+        'C:\\',
+        'C:\\Program Files',
+        'C:\\Program Files (x86)',
+        'C:\\Program Files\\..',
+        'C:\\Program Files\\nodejs',
+        'c:\\PROGRAM FILES\\NODEJS\\',
+        'C:\\Program Files-extra\\tools',
+      ],
+      exists: () => true,
+    });
+    expect(policy.toolchains).toEqual(['C:\\Program Files\\nodejs']);
+    expect(policy.readOnly).toContain('C:\\Program Files-extra\\tools');
+    expect(policy.readOnly).not.toContain('C:\\Program Files');
+  });
+
+  it('leaves Program Files resource checks to the native helper rather than granting a broad or bin fallback', () => {
+    const policy = windowsPolicy({
+      ...base,
+      pathEntries: ['C:\\Program Files\\nodejs'],
+      exists: () => true,
+      tooLarge: () => true,
+    });
+    expect(policy.toolchains).toEqual(['C:\\Program Files\\nodejs']);
+    expect(policy.readOnly).not.toContain('C:\\Program Files\\nodejs');
   });
 
   it('does not list a folder twice', () => {
@@ -166,6 +197,18 @@ describe('buildHelperRequest', () => {
     expect(request.env.CI).toBe('1');
     expect(request.limits.memoryMb).toBeGreaterThan(0);
     expect(request.limits.processes).toBeGreaterThan(0);
+  });
+
+  it('selects toolchains from case-insensitive Windows environment keys without changing PATH order', () => {
+    const path = 'C:\\Program Files\\nodejs;C:\\WINDOWS\\system32;C:\\Program Files (x86)\\Python';
+    const request = buildHelperRequest({
+      ...input,
+      env: { pAtH: path, PROGRAMFILES: 'C:\\Program Files', 'programfiles(x86)': 'C:\\Program Files (x86)' },
+      exists: () => true,
+    });
+    expect(request.toolchains).toEqual(['C:\\Program Files\\nodejs', 'C:\\Program Files (x86)\\Python']);
+    expect(request.env.pAtH).toBe(path);
+    expect(request.readWrite).toEqual([cwd]);
   });
 
   it('passes the network decision through', () => {

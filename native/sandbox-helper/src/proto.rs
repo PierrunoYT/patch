@@ -25,6 +25,9 @@ pub struct Request {
     pub read_write: Vec<String>,
     #[serde(default)]
     pub read_only: Vec<String>,
+    // Narrow Program Files PATH entries: inspect package permissions, grant or stage read-only.
+    #[serde(default)]
+    pub toolchains: Vec<String>,
     // Paths inside a writable folder where writing is refused again (git hooks).
     #[serde(default)]
     pub deny_write: Vec<String>,
@@ -86,7 +89,7 @@ mod tests {
 
     #[test]
     fn parses_a_full_request() {
-        let line = r#"{"id":3,"command":"C:\\a.exe","args":["x"],"cwd":"C:\\p","env":{"A":"1"},"network":true,"readWrite":["C:\\p"],"readOnly":["C:\\Windows"],"limits":{"memoryMb":512,"processes":8,"timeoutMs":1000}}"#;
+        let line = r#"{"id":3,"command":"C:\\a.exe","args":["x"],"cwd":"C:\\p","env":{"A":"1"},"network":true,"readWrite":["C:\\p"],"readOnly":["C:\\Windows"],"toolchains":["C:\\Program Files\\nodejs"],"limits":{"memoryMb":512,"processes":8,"timeoutMs":1000}}"#;
         let Message::Run(req) = parse_message(line).unwrap() else {
             panic!("not a run")
         };
@@ -94,6 +97,7 @@ mod tests {
         assert_eq!(req.args, vec!["x"]);
         assert!(req.network);
         assert_eq!(req.read_write, vec!["C:\\p"]);
+        assert_eq!(req.toolchains, vec!["C:\\Program Files\\nodejs"]);
         assert_eq!(
             req.limits,
             Limits {
@@ -112,6 +116,7 @@ mod tests {
         };
         assert!(!req.network);
         assert!(req.read_write.is_empty() && req.read_only.is_empty() && req.deny_write.is_empty());
+        assert!(req.toolchains.is_empty());
         assert_eq!(req.limits, Limits::default());
     }
 

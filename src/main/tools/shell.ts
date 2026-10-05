@@ -282,6 +282,7 @@ export class ShellRunner {
       detached: process.platform !== 'win32',
     });
     if (launch.stop) stoppers.set(child, launch.stop);
+    child.once('spawn', () => spawned.add(child));
     return child;
   }
 
@@ -314,6 +315,7 @@ export class ShellRunner {
 
 // A container keeps running when its client process is killed, so it is removed by name as well.
 const stoppers = new WeakMap<CommandProcess, NonNullable<Launch['stop']>>();
+const spawned = new WeakSet<CommandProcess>();
 
 function killTree(child: CommandProcess): void {
   if (child instanceof HelperProcess) return child.stopTree();
@@ -328,7 +330,16 @@ function killTree(child: CommandProcess): void {
   if (!child.pid || child.exitCode !== null) return;
   try {
     if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+      // Before the spawn event, synchronously spawning taskkill gives the just-created shell time to launch a
+      // child after taskkill's snapshot. Terminate our native process handle immediately instead.
+      if (!spawned.has(child)) {
+        child.kill('SIGKILL');
+        return;
+      }
+      const killed = spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+      // taskkill can lose a startup race before Windows exposes the new process to its process-tree query.
+      // spawnSync returns a nonzero status rather than throwing; still terminate the process we own.
+      if (killed.status !== 0) child.kill('SIGKILL');
     } else {
       process.kill(-child.pid, 'SIGKILL');
     }
