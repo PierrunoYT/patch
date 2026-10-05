@@ -2735,7 +2735,7 @@
           ],
           [
             'Finish making CI trustworthy: #50',
-            'Windows, Linux and macOS run tests and packaged-app smoke checks. Isolating command lifecycle tests fixed #54, leaving one known Windows timeout.',
+            'Windows, Linux and macOS run tests and packaged-app smoke checks. Windows unit files run serially while explicit overlap tests remain concurrent. CI-only host preparation grants AppContainers access to NUL on disposable Windows runners; Patch never changes device permissions.',
             [
               '#50: the shell cancellation test times out and can leave its temporary folder locked',
               '#54 is closed after command tests received isolated app profiles and shell runners',

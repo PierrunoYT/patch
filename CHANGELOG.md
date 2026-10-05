@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows CI provisions AppContainer access to the null device on disposable hosted runners, preserving other permissions; the preparation tool is not shipped with Patch. Windows unit files run serially to reduce PowerShell startup contention while retaining explicit concurrency tests and their assertions.
 - Cross-platform CI: restart tests no longer require Windows encryption-key storage on macOS/Linux or assume an immediate crash always loses a key (fixes #93). Ubuntu grants bubblewrap scoped AppArmor user-namespace permission; Windows sandbox tests use the mapped project cwd, inherited child stdio instead of reopening `NUL`, and a normalized ACL fixture with an explicit permission to preserve.
 - Plan-mode instructions now follow the latest app mode note in either a user message or a tool result until superseded, avoiding contradictory guidance after mid-run toggles and tool screenshots (PR #92).
 - The first history search over many long chats no longer freezes the window. The search still reads each chat file once, but gives the window a turn after each file instead of reading them all in one go (fixes #69).
