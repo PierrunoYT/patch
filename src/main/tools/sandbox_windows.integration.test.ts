@@ -13,7 +13,8 @@ import {
 import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setTimeout as delay } from 'node:timers/promises';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildHelperRequest, exceedsEntryLimit, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
 import { ShellRunner } from './shell';
 import { scrubEnv } from './env';
@@ -261,18 +262,51 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
       script,
       `const { spawn } = require('child_process');
 // Reuse the sandbox's handles: ignored stdio makes libuv open NUL, which can be denied inside an AppContainer.
-spawn(process.execPath, ['-e', "setInterval(() => require('fs').appendFileSync('beat.txt', 'x'), 100)"], { stdio: 'inherit' });
+spawn(process.execPath, ['-e', "const beat = () => require('fs').appendFileSync('beat.txt', 'x'); beat(); console.log('CHILD-READY'); setInterval(beat, 100)"], { stdio: 'inherit' });
 setInterval(() => {}, 1000);`,
     );
-    const started = Date.now();
+    const controller = new AbortController();
+    // Start this watchdog before faking the parent's timer; child processes always keep their real clocks.
+    const deadline = delay(20_000, undefined, { signal: controller.signal }).then(() => {
+      throw new Error('The sandbox child did not become ready or stop within the test deadline');
+    });
+    let ready!: () => void;
+    const heartbeat = new Promise<void>((resolve) => (ready = resolve));
+    let output = '';
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     // The helper maps the project to a drive root. Exercise that supported cwd rather than depending on access
     // through the host's absolute temp path (which can also contain an 8.3 alias such as RUNNER~1 on CI).
-    const result = await shell.run('.\\node.exe spawner.js', { timeoutSeconds: 3 });
-    expect(result.timedOut, result.output).toBe(true);
-    expect(Date.now() - started).toBeLessThan(15_000);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const pending = shell.run('.\\node.exe spawner.js', {
+      timeoutSeconds: 3,
+      signal: controller.signal,
+      onOutput: (text) => {
+        output += text;
+        if (output.includes('CHILD-READY')) ready();
+      },
+    });
+    let finished = false;
+    void pending.then(() => (finished = true));
+    try {
+      await Promise.race([
+        heartbeat,
+        deadline,
+        pending.then((result) => {
+          throw new Error(`Command exited before its child was ready: ${result.output}`);
+        }),
+      ]);
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(finished).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const result = await Promise.race([pending, deadline]);
+      expect(result.timedOut, result.output).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      controller.abort();
+      await pending;
+    }
+    await delay(500);
     const size = existsSync(beat) ? readFileSync(beat, 'utf8').length : 0;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await delay(1000);
     const after = existsSync(beat) ? readFileSync(beat, 'utf8').length : 0;
     expect(size).toBeGreaterThan(0);
     expect(after).toBe(size);

@@ -184,9 +184,11 @@ console.log(JSON.stringify(result));
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 fs.writeFileSync('source.txt', 'changed\\n');
+fs.writeFileSync('empty-git-config', '');
+const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: require('node:path').resolve('empty-git-config'), GIT_TRACE: '1' };
 const run = (args) => {
   const fd = fs.openSync('git-output', 'w');
-  const result = spawnSync(${JSON.stringify(kind === 'container' ? 'git' : hostGit)}, ['-c', 'safe.directory=*', ...args], { env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }, stdio: ['inherit', fd, fd] });
+  const result = spawnSync(${JSON.stringify(kind === 'container' ? 'git' : hostGit)}, ['-c', 'safe.directory=*', ...args], { env, stdio: ['inherit', fd, fd] });
   fs.closeSync(fd);
   return { code: result.status, error: result.error?.message, output: fs.readFileSync('git-output', 'utf8') };
 };
