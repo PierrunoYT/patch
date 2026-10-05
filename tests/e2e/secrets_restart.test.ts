@@ -19,7 +19,9 @@ describe('saved keys across an abrupt exit', () => {
       await running.page.getByText(/Your saved Anthropic API key could not be read/).waitFor({ timeout: 15_000 });
       expect(running.errors).toEqual([]);
     } finally {
-      await running.kill({ keepSecrets: false });
+      // This case verifies a corrupt payload, not crash recovery. Graceful shutdown releases the profile's
+      // safeStorage/crash-handler resources; the separate abrupt-exit case below still exercises a real kill.
+      await running.close();
       rmSync(userData, { recursive: true, force: true });
     }
   });

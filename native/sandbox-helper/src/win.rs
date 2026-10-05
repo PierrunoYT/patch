@@ -392,28 +392,6 @@ fn make_pipe() -> Result<Pipe> {
     })
 }
 
-fn open_nul() -> Result<Handle> {
-    let attributes = SECURITY_ATTRIBUTES {
-        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-        bInheritHandle: true.into(),
-        lpSecurityDescriptor: std::ptr::null_mut(),
-    };
-    let name = wide("NUL");
-    unsafe {
-        CreateFileW(
-            PCWSTR(name.as_ptr()),
-            GENERIC_READ.0,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            Some(&attributes),
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            None,
-        )
-        .map(Handle)
-        .map_err(|e| describe("open NUL", e))
-    }
-}
-
 fn pump(id: u64, pipe: Handle, emitter: Emitter, stderr: bool) {
     let mut chunker = Utf8Chunker::default();
     let mut buffer = [0u8; 16 * 1024];
@@ -634,18 +612,14 @@ fn inspect_toolchain(
 ) -> Result<Option<ToolchainPlan>> {
     let root = Path::new(source);
     let canonical = fs::canonicalize(root).map_err(|e| format!("cannot resolve toolchain: {e}"))?;
-    let resolved = canonical
-        .to_str()
-        .ok_or("non-Unicode resolved toolchain")?
-        .strip_prefix(r"\\?\")
-        .unwrap_or(canonical.to_str().ok_or("non-Unicode resolved toolchain")?);
-    if !resolved.eq_ignore_ascii_case(
-        source
-            .trim_end_matches(['\\', '/'])
-            .replace('/', "\\")
-            .as_str(),
-    ) {
-        return Err("toolchain resolves through an ancestor reparse point".to_string());
+    // Canonical spelling can differ because CI uses an 8.3 TEMP alias; that is not a link. Inspect actual
+    // ancestor attributes instead of treating every canonical-name difference as a reparse point.
+    for ancestor in root.ancestors() {
+        let meta = fs::symlink_metadata(ancestor)
+            .map_err(|e| format!("cannot inspect toolchain ancestor: {e}"))?;
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+            return Err("toolchain resolves through an ancestor reparse point".to_string());
+        }
     }
     let started = Instant::now();
     let mut pending = vec![root.to_path_buf()];
@@ -1181,8 +1155,19 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 
     let stdout = make_pipe()?;
     let stderr = make_pipe()?;
-    let nul = open_nul()?;
-    let mut inherited = [nul.0, stdout.write.0, stderr.write.0];
+    // EOF pipe rather than a NUL device handle: Git for Windows reopens NUL on hosts that deny device access
+    // to AppContainers. A closed input pipe preserves non-interactive stdin without granting device permissions.
+    let stdin = make_pipe()?;
+    unsafe {
+        SetHandleInformation(stdin.read.0, HANDLE_FLAG_INHERIT.0, HANDLE_FLAG_INHERIT)
+            .map_err(|e| describe("inherit stdin pipe", e))?;
+    }
+    let Pipe {
+        read: input,
+        write: input_write,
+    } = stdin;
+    drop(input_write);
+    let mut inherited = [input.0, stdout.write.0, stderr.write.0];
 
     let mut list_size = 0usize;
     unsafe {
@@ -1218,7 +1203,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     let mut startup = STARTUPINFOEXW::default();
     startup.StartupInfo.cb = std::mem::size_of::<STARTUPINFOEXW>() as u32;
     startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-    startup.StartupInfo.hStdInput = nul.0;
+    startup.StartupInfo.hStdInput = input.0;
     startup.StartupInfo.hStdOutput = stdout.write.0;
     startup.StartupInfo.hStdError = stderr.write.0;
     startup.lpAttributeList = list;
@@ -1306,7 +1291,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         read: err_read,
         write: err_write,
     } = stderr;
-    drop((out_write, err_write, nul));
+    drop((out_write, err_write, input));
     let readers = [
         {
             let emitter = emitter.clone();
@@ -1363,6 +1348,25 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_names_are_not_treated_as_reparse_points() {
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        let path = wide(root.to_str().unwrap());
+        let mut short = vec![0u16; 32768];
+        let length = unsafe { GetShortPathNameW(PCWSTR(path.as_ptr()), Some(&mut short)) } as usize;
+        assert!(length > 0 && length < short.len());
+        let short = String::from_utf16(&short[..length]).unwrap();
+        let mut package = PSID::default();
+        unsafe {
+            ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package).unwrap();
+        }
+        let _package = LocalMem(package.0);
+        let result = inspect_toolchain(&short, package, || Ok(()));
+        assert!(result.is_ok());
+        fs::remove_dir(root).unwrap();
+    }
 
     #[test]
     fn cancelled_preparation_never_registers_a_running_command() {
