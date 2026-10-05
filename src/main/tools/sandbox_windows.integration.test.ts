@@ -263,8 +263,10 @@ spawn(process.execPath, ['-e', "setInterval(() => require('fs').appendFileSync('
 setInterval(() => {}, 1000);`,
     );
     const started = Date.now();
-    const result = await shell.run(`& '${sandboxNode.replace(/\\/g, '/')}' spawner.js`, { timeoutSeconds: 3 });
-    expect(result.timedOut).toBe(true);
+    // The helper maps the project to a drive root. Exercise that supported cwd rather than depending on access
+    // through the host's absolute temp path (which can also contain an 8.3 alias such as RUNNER~1 on CI).
+    const result = await shell.run('.\\node.exe spawner.js', { timeoutSeconds: 3 });
+    expect(result.timedOut, result.output).toBe(true);
     expect(Date.now() - started).toBeLessThan(15_000);
     await new Promise((resolve) => setTimeout(resolve, 500));
     const size = existsSync(beat) ? readFileSync(beat, 'utf8').length : 0;
@@ -349,6 +351,10 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
     const local = join(fixture, 'local');
     const journal = join(local, 'Patch', 'sandbox-recovery');
     mkdirSync(hooks, { recursive: true });
+    // Normalize this disposable fixture to Windows' automatic inheritance model before taking the baseline.
+    // CI's temp tree can have legacy ACEs that Windows legitimately reclassifies as inherited on the first edit.
+    // Include a distinct explicit grant so recovery must preserve more than just recomputed parent permissions.
+    execFileSync('icacls', [hooks, '/inheritance:e', '/grant', '*S-1-1-0:(R)']);
     mkdirSync(tools);
     writeFileSync(join(tools, 'nested.txt'), 'tool');
     const request = buildHelperRequest({
@@ -377,6 +383,8 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
     };
     const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
     const originalHooksAcl = acl(hooks);
+    expect(originalHooksAcl).toContain('(I)');
+    expect(originalHooksAcl).toContain(':(R)');
     const child = spawn(helper!, [], { env, windowsHide: true });
     const closed = once(child, 'close');
     try {

@@ -1,48 +1,57 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { launchApp, waitForDurableSecrets } from './app';
+import { MockClaude } from './mock_claude';
 
-// Saved keys are encrypted with safeStorage, whose own key reaches the profile's `Local State` only about 10 s after it
-// is created, or when the app quits. A crash before that loses it, and the saved key can never be decrypted (#54).
 describe('saved keys across an abrupt exit', () => {
-  let userData: string;
-
-  beforeAll(() => {
-    userData = mkdtempSync(join(tmpdir(), 'patch-e2e-secrets-'));
-  });
-
-  afterAll(() => rmSync(userData, { recursive: true, force: true }));
-
-  it('says so when a key saved right before a crash can no longer be read', async () => {
-    const first = await launchApp({}, { userData });
-    await first.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-crash'));
-    // Killed at once, before Chromium writes the encryption key, as a crash or power loss right after saving would.
-    await first.kill({ keepSecrets: false });
-
-    const second = await launchApp({}, { userData });
+  it('warns when a stored encrypted key is unreadable', async () => {
+    const userData = mkdtempSync(join(tmpdir(), 'patch-e2e-secrets-corrupt-'));
+    // An invalid safeStorage payload models a profile whose ciphertext and OS-protected key no longer match without
+    // depending on the platform-specific timing of Chromium persisting its encryption state.
+    writeFileSync(
+      join(userData, 'settings.json'),
+      JSON.stringify({ settings: {}, secrets: { anthropicApiKey: 'AA==' } }),
+    );
+    const running = await launchApp({}, { userData });
     try {
-      await second.page.getByText(/Your saved Anthropic API key could not be read/).waitFor({ timeout: 15_000 });
-      expect(second.errors).toEqual([]);
+      await running.page.getByText(/Your saved Anthropic API key could not be read/).waitFor({ timeout: 15_000 });
+      expect(running.errors).toEqual([]);
     } finally {
-      await second.kill({ keepSecrets: false });
+      await running.kill({ keepSecrets: false });
+      rmSync(userData, { recursive: true, force: true });
     }
   });
 
   it('keeps a saved key usable once it has been written, even after an abrupt exit', async () => {
-    const first = await launchApp({}, { userData });
-    await first.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-kept'));
-    await waitForDurableSecrets(userData);
-    await first.kill();
-
-    const second = await launchApp({}, { userData });
+    const userData = mkdtempSync(join(tmpdir(), 'patch-e2e-secrets-restart-'));
+    const project = mkdtempSync(join(tmpdir(), 'patch-e2e-secrets-project-'));
+    const claude = new MockClaude();
+    const url = await claude.start();
+    const first = await launchApp({ PATCH_TEST_ANTHROPIC_URL: url }, { userData });
     try {
-      // No notice: the key decrypts. Give a notice the time it would need to appear.
-      await second.page.waitForTimeout(1500);
-      expect(await second.page.getByText(/could not be read/).count()).toBe(0);
+      await first.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-kept'));
+      await waitForDurableSecrets(userData);
+      await first.kill();
+
+      const second = await launchApp({ PATCH_TEST_ANTHROPIC_URL: url }, { userData });
+      try {
+        await second.page.evaluate((path) => window.api.invoke('project:open', path), project);
+        claude.script({ blocks: [{ type: 'text', text: 'Secret works.' }], stopReason: 'end_turn' });
+        await second.page.evaluate(() => window.api.invoke('chat:send', { text: 'Test the saved key.' }));
+        await expect
+          .poll(async () => (await second.page.evaluate(() => window.api.invoke('chat:snapshot'))).transcript.at(-1))
+          .toMatchObject({ kind: 'assistant', text: 'Secret works.' });
+        expect(claude.agentRequests).toHaveLength(1);
+        expect(second.errors).toEqual([]);
+      } finally {
+        await second.close();
+      }
     } finally {
-      await second.close();
+      await claude.stop();
+      rmSync(project, { recursive: true, force: true });
+      rmSync(userData, { recursive: true, force: true });
     }
   });
 });

@@ -2484,7 +2484,7 @@
               h(
                 'p',
                 { class: 'small', style: 'margin:8px 0 0;color:var(--warn)' },
-                'All three platforms run the tests (#14 fixed). The command-lifecycle e2e isolation fixed #54; the Windows shell cancellation unit test in #50 can still time out.',
+                'All three platforms run the tests. Ubuntu gives bwrap scoped AppArmor userns permission; restart tests wait for Local State only on Windows and use deterministic unreadable-key fixtures (#93). Windows sandbox tests use a mapped cwd and normalized ACL fixtures without relaxing isolation assertions.',
               ),
             ),
           ),

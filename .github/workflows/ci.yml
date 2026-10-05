@@ -76,7 +76,26 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y bubblewrap
+          sudo apt-get install -y apparmor bubblewrap
+
+          # Ubuntu restricts unprivileged user namespaces through AppArmor. Grant only bwrap the userns permission
+          # it needs rather than disabling that system-wide protection.
+          sudo tee /etc/apparmor.d/bwrap > /dev/null <<'EOF'
+          abi <abi/4.0>,
+          include <tunables/global>
+
+          profile bwrap /usr/bin/bwrap flags=(unconfined) {
+            userns,
+
+            include if exists <local/bwrap>
+          }
+          EOF
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap
+
+          echo "AppArmor userns restriction: $(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo unavailable)"
+          sudo apparmor_status | grep -E 'apparmor module|bwrap' || true
+          bwrap --version
+          bwrap --unshare-all --ro-bind / / true
           docker pull node:lts
 
       - run: npm run typecheck
