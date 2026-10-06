@@ -39,6 +39,18 @@ After every change, fix or feature:
 
 Don't leave a finished change uncommitted or its docs stale.
 
+### Keeping `patch-overview.html` current
+
+The project map is a single HTML page whose data lives in the `const D = { … }` block near the top of its script. It goes stale quietly, so update it in the same commit as the change that affects it:
+
+- **Issues:** opening or closing an issue (including through `Fixes #n`) means editing `D.issues` (`[number, title, theme, severity, estimated, 'MM-DD']`) and `closedCount`. Remove closed issues; don't leave them listed as open.
+- **Code:** adding, removing or renaming a source file, tool, IPC channel, setting or chat event means editing the matching data: `D.areas` (file lists, counts, line numbers), `D.tools`, `D.ipc`, `D.chatEvents`, and the descriptions that name them.
+- **Tests:** a new test file or end-to-end test goes into `D.testsByArea` / `D.e2e`. Take counts from a real Vitest run, not by counting `it(`.
+- **Focus and summaries:** the Focus tab and the summary callouts name issue numbers and priorities. Rewrite them when the work they describe is done.
+- **History and sizes:** commit history (`D.commitsByDay`, `D.recent`, `D.types`, `D.authors`, `D.churn`) and line counts drift with every commit. Refresh them when you touch the page anyway, and at least whenever they visibly disagree with `git log` or the source tree. Update the commit named in the footer.
+
+Totals and counts in the page's text are computed from `D` (for example `D.issues.length`). Keep it that way: never type a number into a sentence that the data already holds. After editing, open the page in a browser, click through every tab, and check that none shows "Could not draw this view" and the console has no errors.
+
 ## Rules
 
 - Renderer code builds DOM with `h()`; use `trustedHtml` only for output of `renderMarkdown`/`renderDiff`. Never send API keys or unsanitized model output to the renderer.

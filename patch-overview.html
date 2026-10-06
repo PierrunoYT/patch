@@ -1099,6 +1099,7 @@
           ['9e6a2bc', 'fix: preserve plan-mode instructions across tool messages'],
         ],
         issues: [
+          [125, 'e2e: transcript_view approval-card and Undo tests fail intermittently', 'tests', 'low', 0, '10-06'],
           [
             124,
             'Atomic JSON writes use predictable temp names, leave .tmp after a crash',
@@ -1131,7 +1132,6 @@
           [114, 'Removing an ask or reject permission rule is not confirmed', 'security', 'low', 0, '10-05'],
           [113, 'Plaintext MCP env/header secrets are never migrated or flagged', 'mcp', 'low', 0, '10-05'],
           [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
-          [111, "Git panel Discard on a symlink deletes the link's target", 'other', 'medium', 0, '10-05'],
           [
             109,
             "Sandboxed commands don't run in a folder without Git (worktrees, Husky)",
@@ -1226,7 +1226,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 46,
+        closedCount: 47,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1345,9 +1345,17 @@
             k(fmt(totalSrc), 'source lines', '87 TS files + renderer CSS'),
             k(fmt(14651), 'unit-test lines', '67 files, 913 cases'),
             k(String(D.e2e.reduce((a, [, n]) => a + n, 0)), 'end-to-end cases', `${D.e2e.length} Playwright files`),
-            k('20', 'built-in tools', '+ MCP tools, 3 subagents among them'),
-            k('47 / 10', 'IPC invoke / event channels', '17 chat event types'),
-            k('6', 'models, 2 providers', 'Anthropic + OpenAI'),
+            k(String(D.tools.length), 'built-in tools', '+ MCP tools, 3 subagents among them'),
+            k(
+              `${D.ipc.invoke.reduce((sum, [, n]) => sum + n, 0)} / ${D.ipc.events.length}`,
+              'IPC invoke / event channels',
+              `${Object.values(D.chatEvents).flat().length} chat event types`,
+            ),
+            k(
+              String(Object.values(D.models).flat().length),
+              `models, ${Object.keys(D.models).length} providers`,
+              'Anthropic + OpenAI',
+            ),
             k(
               String(D.issues.length),
               'open issues',
@@ -1377,13 +1385,13 @@
                   'preload',
                   procColor('preload'),
                   procLines('preload'),
-                  'Exposes only invoke/on for allow-listed channels. 47 invoke + 10 event channels.',
+                  `Exposes only invoke/on for allow-listed channels. ${D.ipc.invoke.reduce((sum, [, n]) => sum + n, 0)} invoke + ${D.ipc.events.length} event channels.`,
                 ),
                 proc(
                   'main',
                   procColor('main'),
                   procLines('main'),
-                  'Agent loop, provider clients, 20 tools, command sandboxes, MCP, panel back ends, storage and IPC handlers.',
+                  `Agent loop, provider clients, ${D.tools.length} tools, command sandboxes, MCP, panel back ends, storage and IPC handlers.`,
                 ),
                 proc(
                   'shared',
@@ -1432,7 +1440,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #95), then the remaining review findings, starting with #111. See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #95), then the remaining review findings (#112–#116). See ',
                 h(
                   'a',
                   {
@@ -1943,7 +1951,7 @@
                 layer(
                   'IPC allow-list',
                   'var(--c-preload)',
-                  "Only 47 invoke + 10 event channels; a missing channel is a compile error. Only the app page's top frame is answered.",
+                  `Only ${D.ipc.invoke.reduce((sum, [, n]) => sum + n, 0)} invoke + ${D.ipc.events.length} event channels; a missing channel is a compile error. Only the app page's top frame is answered.`,
                   'preload/index.ts, shared/ipc.ts, main/ipc.ts',
                 ),
                 layer(
@@ -2809,14 +2817,14 @@
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',
-            'The audits found no critical issue. Three of the high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), and saved MCP headers cannot silently go to a new URL (#110).',
+            'The audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
             [
-              '#111: Git panel Discard on a symlink deletes the target instead of the link',
               '#112, #118: synchronous sandbox checks and chat saves still block the main process',
               '#113, #114, #115, #116: MCP secret migration, rule removal, SVG images in Markdown, error text in logs',
               '#73: web_search still sends queries without approval',
+              '#125: two transcript_view e2e tests fail intermittently in full runs',
             ],
-            'Small, contained fixes with tests; #111 is data loss and goes first.',
+            'Small, contained fixes with tests; #113 and #114 close gaps in the settings confirmations.',
           ],
           [
             'Add unit tests to the renderer',
