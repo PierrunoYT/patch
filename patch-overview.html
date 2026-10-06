@@ -604,7 +604,7 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through 6584acd, plus the nested-project HEAD reservation (#132), 2026-10-06</span>
+        <span class="sub">Snapshot through ac19bf6, with the nested-project HEAD reservation (#132), 2026-10-06</span>
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -612,10 +612,9 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through 6584acd and the #132 fix (2026-10-06). Line counts exclude tests unless
-      they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a
-      real Vitest run on Linux, skipped tests included. Issue severities without a severity label are estimates and are
-      marked "est.".
+      This page reflects git history through ac19bf6 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
+      Linux, skipped tests included. Issue severities without a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -1046,10 +1045,10 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 30],
+          ['2026-10-06', 31],
         ],
         types: [
-          ['fix', 97],
+          ['fix', 98],
           ['feat', 60],
           ['docs', 60],
           ['test', 38],
@@ -1062,23 +1061,23 @@
           ['other', 8],
         ],
         authors: [
-          ['PierrunoYT', 263],
+          ['PierrunoYT', 264],
           ['Amp', 24],
           ['StepUpGaming', 23],
           ['Claude', 7],
           ['Steven Isaac', 3],
         ],
         churn: [
-          ['CHANGELOG.md', 188],
-          ['docs/ARCHITECTURE.md', 116],
-          ['docs/DEVELOPMENT.md', 110],
-          ['README.md', 96],
+          ['CHANGELOG.md', 189],
+          ['docs/ARCHITECTURE.md', 117],
+          ['docs/DEVELOPMENT.md', 111],
+          ['README.md', 97],
           ['TASKS.md (no longer tracked)', 83],
-          ['docs/USAGE.md', 48],
+          ['docs/USAGE.md', 49],
           ['package.json', 45],
           ['src/main/chat_manager.ts', 38],
           ['src/main/index.ts', 36],
-          ['patch-overview.html', 34],
+          ['patch-overview.html', 35],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
           ['package-lock.json', 27],
@@ -1091,6 +1090,7 @@
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['ac19bf6', 'fix: reserve HEAD in projects inside another repository'],
           ['6584acd', 'docs: refresh the project map through f58e2e1'],
           ['f58e2e1', 'docs: close #99 after macOS CI confirms the Seatbelt probes'],
           ['3a2bd4a', 'test: check macOS network-off daemon fetches and Seatbelt hard links'],
@@ -1105,9 +1105,16 @@
           ['7ad9650', 'fix: restrict macOS sandbox Mach lookup to named CLI services'],
           ['8eb8d3e', 'docs: track sandbox Git review findings in the project map'],
           ['640297c', 'fix: support ordinary projects without widening sandbox access'],
-          ['7b20cb9', 'docs: track researched sandbox adoption issues'],
         ],
         issues: [
+          [
+            135,
+            'Agent benchmark: a current baseline, more runs per task and regression checks',
+            'tests',
+            'low',
+            0,
+            '10-06',
+          ],
           [
             133,
             'Windows toolchain tests leak subst drives after the temp Node fixture is deleted',
