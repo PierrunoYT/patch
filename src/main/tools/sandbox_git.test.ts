@@ -84,8 +84,11 @@ describe('sandbox Git layout validation', () => {
     plainGit(root, 'init', '--quiet');
     const nested = join(root, 'package');
     mkdirSync(nested);
-    expect(validateSandboxGit(nested)).toEqual([join(nested, '.git')]);
+    expect(validateSandboxGit(nested)).toEqual([join(nested, '.git'), join(nested, 'HEAD')]);
     expect(readdirSync(join(nested, '.git'))).toEqual([]);
+    expect(readdirSync(join(nested, 'HEAD'))).toEqual([]);
+    // Git ignores the empty HEAD folder, so the enclosing repository does not list it.
+    expect(plainGit(root, 'status', '--porcelain', '--untracked-files=all', '--', 'package')).toBe('');
     // Compare with Git's own answer for the parent: on Windows CI the temp path is an 8.3 short name Git expands.
     expect(plainGit(nested, 'rev-parse', '--show-toplevel')).toBe(plainGit(root, 'rev-parse', '--show-toplevel'));
 
@@ -94,6 +97,45 @@ describe('sandbox Git layout validation', () => {
     writeFileSync(join(nested, '.git'), GIT_RESERVATION);
     validateSandboxGit(nested);
     expect(readdirSync(join(nested, '.git'))).toEqual([]);
+  });
+
+  it('keeps Git from accepting a bare repository planted in a project inside another repository (#132)', () => {
+    plainGit(root, 'init', '--quiet');
+    // Control: next to an empty .git folder, Git accepts the project folder as a planted bare repository.
+    const control = join(root, 'control');
+    mkdirSync(join(control, '.git'), { recursive: true });
+    plantBare(control);
+    expect(plainGit(control, 'rev-parse', '--is-bare-repository').trim()).toBe('true');
+
+    const nested = join(root, 'package');
+    mkdirSync(nested);
+    validateSandboxGit(nested);
+    // What a command can still plant. HEAD is a folder that the sandbox keeps in place (sandbox_git.integration.test.ts).
+    mkdirSync(join(nested, 'objects'));
+    mkdirSync(join(nested, 'refs'));
+    writeFileSync(join(nested, 'config'), '[core]\n\trepositoryformatversion = 0\n\tbare = true\n');
+    expect(() => writeFileSync(join(nested, 'HEAD'), 'ref: refs/heads/main\n')).toThrow();
+    expect(plainGit(nested, 'rev-parse', '--show-toplevel')).toBe(plainGit(root, 'rev-parse', '--show-toplevel'));
+    expect(plainGit(nested, 'rev-parse', '--is-bare-repository').trim()).toBe('false');
+  });
+
+  it('protects an existing HEAD in a project inside another repository, but refuses one Git would accept', () => {
+    plainGit(root, 'init', '--quiet');
+    const nested = join(root, 'package');
+    mkdirSync(nested);
+    writeFileSync(join(nested, 'HEAD'), 'notes\n');
+    expect(validateSandboxGit(nested)).toEqual([join(nested, '.git'), join(nested, 'HEAD')]);
+    writeFileSync(join(nested, 'HEAD'), 'ref: refs/heads/main\n');
+    expect(() => validateSandboxGit(nested)).toThrow(/Git HEAD file/);
+    writeFileSync(join(nested, 'HEAD'), '0123456789abcdef0123456789abcdef01234567\n');
+    expect(() => validateSandboxGit(nested)).toThrow(/Git HEAD file/);
+
+    // A nested project with its own repository needs no HEAD reservation.
+    rmSync(join(nested, 'HEAD'));
+    rmSync(join(nested, '.git'), { recursive: true });
+    plainGit(nested, 'init', '--quiet');
+    expect(validateSandboxGit(nested)[0]).toBe(join(nested, '.git'));
+    expect(existsSync(join(nested, 'HEAD'))).toBe(false);
   });
 
   it('replaces the empty reservation folder of earlier versions, but not a folder with contents', () => {

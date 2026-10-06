@@ -48,6 +48,27 @@ function insideRepository(root: string): boolean {
   return false;
 }
 
+// Git accepts a folder as a bare repository only with a readable HEAD file in it. Inside another repository, where the
+// project keeps an empty .git folder, a protected empty HEAD folder stops Git from accepting the project folder as a
+// bare repository a sandboxed command planted there (#132). Git ignores empty folders, so the enclosing repository
+// does not list it. Returns the path to protect.
+function reserveHead(root: string, refuse: (reason: string) => never): string {
+  const head = join(root, 'HEAD');
+  try {
+    mkdirSync(head);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  }
+  const stat = lstatSync(head);
+  if (stat.isSymbolicLink()) refuse('a link named HEAD in the project folder is not supported');
+  if (stat.isFile()) {
+    if (stat.nlink !== 1) refuse('a linked HEAD file in the project folder is not supported');
+    if (/^(ref:|[0-9a-f]{40})/i.test(readFileSync(head, 'utf8')))
+      refuse('the project folder has a Git HEAD file, so Git may treat it as a bare repository');
+  } else if (!stat.isDirectory()) refuse('a special file named HEAD in the project folder is not supported');
+  return head;
+}
+
 // Reserve missing metadata without initializing Git. Keep the reservation across command lifetimes:
 // deleting it on exit could let an overlapping sandbox plant a gitfile or a new repository.
 // Return top-level entries to protect, so metadata redirects cannot be replaced by renaming a writable ancestor.
@@ -61,15 +82,19 @@ export function validateSandboxGit(cwd: string): string[] {
     const workspace = new Workspace(cwd);
     const git = join(workspace.root, '.git');
     workspace.resolve('.git');
+    let head: string | null = null;
     if (insideRepository(workspace.root)) {
       // The file would stop Git from finding the enclosing repository, so reserve an empty folder there instead.
-      // That keeps the #129 gap for such projects: Git may accept a bare repository planted in the project folder.
+      // Next to that folder Git checks whether the project folder is a bare repository; a protected HEAD prevents it.
       if (isReservation(git)) releaseGitReservation(workspace.root);
       try {
         mkdirSync(git);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       }
+      const existing = lstatSync(git);
+      if (existing.isDirectory() && !existing.isSymbolicLink() && readdirSync(git).length === 0)
+        head = reserveHead(workspace.root, refuse);
     } else {
       // Earlier versions reserved an empty folder; replace it. A link is never removed: it is refused below.
       const existing = lstatSync(git, { throwIfNoEntry: false });
@@ -119,7 +144,7 @@ export function validateSandboxGit(cwd: string): string[] {
     const directories = [metadata];
     const common = workspace.resolve(join(metadata, 'commondir'));
     if (existsSync(common)) directories.push(pointer(metadata, readFileSync(common, 'utf8').trim()));
-    const protectedPaths = new Set([git]);
+    const protectedPaths = new Set(head ? [git, head] : [git]);
     for (const directory of directories) {
       if (!lstatSync(directory).isDirectory()) refuse('Git directory pointers must name existing directories');
       const top =

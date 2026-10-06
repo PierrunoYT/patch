@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
@@ -147,6 +148,31 @@ console.log(JSON.stringify({
       expect((await panel.status()).isRepo).toBe(false);
       // Later host initialization remains available; sandbox setup has not initialized a repository.
       expect((await panel.init()).isRepo).toBe(true);
+    });
+
+    it('keeps the HEAD reservation of a project inside another repository in place (#132)', async () => {
+      rmSync(join(root, '.git'), { recursive: true });
+      execFileSync('git', ['init', '--quiet'], { cwd: fixture, env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' } });
+      const result = await run(`
+const fs = require('node:fs');
+const attempt = (fn) => { try { fn(); return 'allowed'; } catch (e) { return e.code; } };
+fs.mkdirSync('objects');
+fs.mkdirSync('refs');
+fs.writeFileSync('config', '[core]\\n\\trepositoryformatversion = 0\\n\\tbare = true\\n');
+console.log(JSON.stringify({
+  remove: attempt(() => fs.rmdirSync('HEAD')),
+  rename: attempt(() => fs.renameSync('HEAD', 'old-head')),
+  write: attempt(() => fs.writeFileSync('HEAD/planted', 'ref: refs/heads/main')),
+}));
+`);
+      for (const operation of ['remove', 'rename', 'write'])
+        expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
+      expect(readdirSync(join(root, 'HEAD'))).toEqual([]);
+      // Host Git still finds the enclosing repository instead of the planted bare repository.
+      expect(git('rev-parse', '--is-bare-repository').trim()).toBe('false');
+      expect(git('rev-parse', '--show-toplevel')).toBe(
+        execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: fixture, encoding: 'utf8' }),
+      );
     });
 
     it('runs with Husky and active hooks while keeping existing and absent control metadata read-only', async () => {
