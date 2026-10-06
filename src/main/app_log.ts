@@ -4,6 +4,7 @@ import { JsonlLog } from './storage/jsonl_log';
 
 const MAX_MESSAGE = 2000;
 const MAX_STACK = 4000;
+const CHAT_FAILURE_MESSAGE = 'Chat request failed; see the conversation for details.';
 
 // Keys and tokens that could end up in an error message, e.g. a provider echoing a request header.
 const SECRET_PATTERNS: Array<[RegExp, string]> = [
@@ -24,8 +25,9 @@ function clip(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}… (${text.length - limit} more characters)` : text;
 }
 
-// Local log of crashes and other problems (`logs/app.log.jsonl` in the user data folder). Entries hold what went wrong
-// and where, never chat history or API keys (messages can still mention a path), and the file is never sent anywhere. Until a file is set
+// Local log of crashes and other problems (`logs/app.log.jsonl` in the user data folder). Chat failure messages can
+// contain provider response bodies, so chat errors use a generic message and omit their stack and context. The file is
+// never sent anywhere. Until a file is set
 // (the user data folder is only known once the app starts) entries are dropped.
 export class AppLog {
   private readonly log = new JsonlLog(null);
@@ -47,18 +49,21 @@ export class AppLog {
   }
 
   private write(level: LogLevel, source: string, problem: unknown, context?: Record<string, unknown>): void {
+    const chatFailure = level === 'error' && source === 'chat';
     const error = problem instanceof Error ? problem : null;
-    const message = error
-      ? `${error.name}: ${error.message}`
-      : typeof problem === 'string'
-        ? problem
-        : safeString(problem);
+    const message = chatFailure
+      ? CHAT_FAILURE_MESSAGE
+      : error
+        ? `${error.name}: ${error.message}`
+        : typeof problem === 'string'
+          ? problem
+          : safeString(problem);
     this.log.append({
       level,
       source,
       message: clip(redact(message), MAX_MESSAGE),
-      ...(error?.stack ? { stack: clip(redact(error.stack), MAX_STACK) } : {}),
-      ...(context ? { context } : {}),
+      ...(!chatFailure && error?.stack ? { stack: clip(redact(error.stack), MAX_STACK) } : {}),
+      ...(!chatFailure && context ? { context } : {}),
     });
   }
 }

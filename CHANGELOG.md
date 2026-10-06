@@ -59,6 +59,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- Chat/provider failure text, stacks and context are no longer copied into the local app log, where a provider could echo prompt or file content; the full error remains visible in the chat (#116).
 - Switch Patch and its Windows sandbox helper to Apache License 2.0 (`Apache-2.0`). Include the license and README in packaged builds, retain the historical MIT notice, and document contribution and redistribution terms. Earlier MIT permissions and third-party dependency licenses remain unchanged.
 - Crash-resume checkpoints no longer hold up the app for the file write. A checkpoint of a chat that is already listed serializes the chat and writes its file in the background, still through a temporary file and a rename, and in order; regular saves stay synchronous and replace a checkpoint that has not landed. If the app is killed in the few milliseconds before a checkpoint is on disk, the chat resumes from the save before it (fixes #55).
 - The packaged app no longer ships the MCP SDK's unused server side. The SDK's client is bundled into the main build instead of being packaged with its whole dependency tree (`express`, `hono`, `jose` and others): `app.asar` went from 48.3 MB with 123 packages to 41.2 MB with 35 on Windows (fixes #40). `scripts/smoke-packaged.mjs` now connects a stdio and an HTTP MCP server in the packaged app, so CI checks the bundled client on the Linux and macOS packages.
