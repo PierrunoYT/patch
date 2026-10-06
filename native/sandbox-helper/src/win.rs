@@ -478,6 +478,9 @@ struct RecoveryRecord {
     // Deterministic private staging root; exact-target drive removal never touches another run's mapping.
     #[serde(default)]
     staged: Option<String>,
+    // Writable runtime files and npm cache belong to this command, never the host temp/cache.
+    #[serde(default)]
+    temporary: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -534,6 +537,14 @@ fn staging_path(name: &str) -> Result<PathBuf> {
         .parent()
         .ok_or("missing recovery parent")?
         .join("sandbox-toolchains")
+        .join(name))
+}
+
+fn temporary_path(name: &str) -> Result<PathBuf> {
+    Ok(recovery_dir()?
+        .parent()
+        .ok_or("missing recovery parent")?
+        .join("sandbox-temp")
         .join(name))
 }
 
@@ -821,14 +832,17 @@ impl RecoveryRecord {
                 }
             }
         }
-        if let Some(staged) = &self.staged {
-            let expected = staging_path(&self.name)?;
-            if Path::new(staged) != expected {
-                return Err("invalid sandbox staging path".to_string());
+        for (directory, expected, kind) in [
+            (&self.staged, staging_path(&self.name)?, "staging"),
+            (&self.temporary, temporary_path(&self.name)?, "temporary"),
+        ] {
+            let Some(directory) = directory else { continue };
+            if Path::new(directory) != expected {
+                return Err(format!("invalid sandbox {kind} path"));
             }
             for letter in b'P'..=b'Z' {
                 let name = wide(&format!("{}:", letter as char));
-                let target = wide(&format!(r"\??\{staged}"));
+                let target = wide(&format!(r"\??\{directory}"));
                 unsafe {
                     // EXACT_MATCH prevents removing a drive now owned by another run.
                     let _ = DefineDosDeviceW(
@@ -843,7 +857,7 @@ impl RecoveryRecord {
             }
             if expected.exists() {
                 if let Err(error) = fs::remove_dir_all(&expected) {
-                    result = Err(format!("cannot remove staged toolchain: {error}"));
+                    result = Err(format!("cannot remove sandbox {kind} files: {error}"));
                 }
             }
         }
@@ -1149,7 +1163,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         }
     }
     let mut record = RecoveryRecord {
-        name: profile,
+        name: profile.clone(),
         granted: request
             .read_only
             .iter()
@@ -1177,6 +1191,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             .flatten()
             .collect(),
         staged,
+        temporary: Some(
+            temporary_path(&profile)?
+                .to_str()
+                .ok_or("non-Unicode temporary path")?
+                .to_string(),
+        ),
     };
     // Journal candidate grants before attempting them. A failed grant is safe to revoke idempotently.
     for plan in &toolchains {
@@ -1373,14 +1393,60 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     startup.StartupInfo.hStdError = stderr.write.0;
     startup.lpAttributeList = list;
 
-    let command = mapped_path(&request.command, &mappings);
-    let mut cmdline = wide(&command_line(&command, &request.args));
-    let application = wide(&command);
     // An ordinary AppContainer cannot traverse a Windows 11 volume root, even when its project
     // itself is granted. A temporary drive makes that project the root without exposing its parents.
     let project_drive = ProjectDrive::create(&request.cwd)?;
+    let project_prefix =
+        String::from_utf16_lossy(&project_drive.cwd[..project_drive.cwd.len() - 1]);
+    mappings.push((request.cwd.clone(), project_prefix));
+    // This path is journaled before creation. A unique drive avoids granting or traversing host temp ancestors.
+    let temporary = cleanup
+        .record
+        .temporary
+        .as_ref()
+        .ok_or("missing temporary root")?;
+    let temporary_root = Path::new(temporary);
+    fs::create_dir_all(temporary_root.parent().ok_or("missing temporary parent")?)
+        .map_err(|e| format!("cannot create temporary parent: {e}"))?;
+    fs::create_dir(temporary_root).map_err(|e| format!("cannot create temporary root: {e}"))?;
+    for name in ["tmp", "npm-cache"] {
+        fs::create_dir(temporary_root.join(name))
+            .map_err(|e| format!("cannot create temporary subdirectory: {e}"))?;
+    }
+    fs::write(temporary_root.join("npmrc"), "")
+        .map_err(|e| format!("cannot create empty npm user config: {e}"))?;
+    edit_acl(temporary, sid, FILE_MODIFY, Change::Grant)?;
+    let temporary_drive = ProjectDrive::create(temporary)?;
+    let temporary_prefix =
+        String::from_utf16_lossy(&temporary_drive.cwd[..temporary_drive.cwd.len() - 1]);
+    let command = mapped_path(&request.command, &mappings);
+    let mut cmdline = wide(&command_line(&command, &request.args));
+    let application = wide(&command);
     // Process creation in a container fails (ERROR_ENVVAR_NOT_FOUND) without LOCALAPPDATA, which Windows rewrites.
     let mut vars = request.env.clone();
+    let private_names = [
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "NPM_CONFIG_CACHE",
+        "NPM_CONFIG_USERCONFIG",
+    ];
+    vars.retain(|key, _| {
+        !private_names
+            .iter()
+            .any(|name| key.eq_ignore_ascii_case(name))
+    });
+    for name in ["TEMP", "TMP", "TMPDIR"] {
+        vars.insert(name.to_string(), format!("{temporary_prefix}tmp"));
+    }
+    vars.insert(
+        "NPM_CONFIG_CACHE".to_string(),
+        format!("{temporary_prefix}npm-cache"),
+    );
+    vars.insert(
+        "NPM_CONFIG_USERCONFIG".to_string(),
+        format!("{temporary_prefix}npmrc"),
+    );
     for (key, value) in &mut vars {
         if key.eq_ignore_ascii_case("PATH") {
             *value = value
@@ -1567,6 +1633,7 @@ mod tests {
             serde_json::from_str(r#"{"name":"patch.sbx.test","granted":[],"protected":[]}"#)
                 .unwrap();
         assert!(record.staged.is_none());
+        assert!(record.temporary.is_none());
     }
 
     #[test]
@@ -1658,6 +1725,7 @@ mod tests {
             granted: vec![],
             protected: vec![],
             staged: Some(staged.to_str().unwrap().to_string()),
+            temporary: None,
         };
         let sid = record_sid(&record.name).unwrap();
         record.undo(sid.0).unwrap();
@@ -1669,6 +1737,46 @@ mod tests {
             .undo(sid.0)
             .unwrap_err()
             .contains("invalid sandbox staging path"));
+    }
+
+    #[test]
+    fn temporary_recovery_removes_only_its_exact_mapping_and_directory() {
+        let name = profile_name();
+        let temporary = temporary_path(&name).unwrap();
+        let other = temporary_path(&profile_name()).unwrap();
+        fs::create_dir_all(&temporary).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        fs::write(temporary.join("cache"), "private").unwrap();
+        fs::write(other.join("cache"), "other run").unwrap();
+        let drive = ProjectDrive::create(temporary.to_str().unwrap()).unwrap();
+        let other_drive = ProjectDrive::create(other.to_str().unwrap()).unwrap();
+        let mut record = RecoveryRecord {
+            name,
+            granted: vec![],
+            protected: vec![],
+            staged: None,
+            temporary: Some(temporary.to_str().unwrap().to_string()),
+        };
+        let sid = record_sid(&record.name).unwrap();
+        record.undo(sid.0).unwrap();
+        assert!(!temporary.exists());
+        assert_eq!(
+            fs::read_to_string(other.join("cache")).unwrap(),
+            "other run"
+        );
+        assert!(
+            unsafe { GetFileAttributesW(PCWSTR(other_drive.cwd.as_ptr())) }
+                != INVALID_FILE_ATTRIBUTES
+        );
+        record.undo(sid.0).unwrap();
+        drop(drive);
+        drop(other_drive);
+        fs::remove_dir_all(other).unwrap();
+        record.temporary = Some(std::env::temp_dir().to_str().unwrap().to_string());
+        assert!(record
+            .undo(sid.0)
+            .unwrap_err()
+            .contains("invalid sandbox temporary path"));
     }
 
     #[test]
@@ -1739,6 +1847,7 @@ mod tests {
             granted: vec![path.clone()],
             protected: vec![],
             staged: None,
+            temporary: None,
         };
         let other_name = wide(&profile_name());
         let other = Sid(unsafe {

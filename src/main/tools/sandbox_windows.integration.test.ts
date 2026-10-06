@@ -2,6 +2,7 @@ import { once } from 'node:events';
 import { execFileSync, spawn } from 'node:child_process';
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -24,6 +25,12 @@ import { scrubEnv } from './env';
 // (npm run build:sandbox).
 const helper = process.platform === 'win32' ? findHelper() : null;
 const config = { mode: 'auto' as const, network: 'off' as const, image: '', allowedHosts: '' };
+// libuv < 1.53 generates child-process pipe names outside AppContainer's required LOCAL namespace (#101).
+const [uvMajor = 0, uvMinor = 0] = process.versions.uv.split('.').map(Number);
+const appContainerPipes = uvMajor > 1 || (uvMajor === 1 && uvMinor >= 53);
+const noTestIsolation = process.allowedNodeEnvironmentFlags.has('--test-isolation')
+  ? '--test-isolation=none'
+  : '--experimental-test-isolation=none';
 // Hosts the machine can reach, so the "network on" check does not fail only because it is offline.
 const NET_PROBE = `node -e "const s=require('net').connect({host:'1.1.1.1',port:443,timeout:4000});s.on('connect',()=>{console.log('CONNECTED');process.exit(0)});s.on('error',e=>{console.log('NOCONNECT '+e.code);process.exit(0)});s.on('timeout',()=>{console.log('NOCONNECT timeout');process.exit(0)})"`;
 
@@ -141,13 +148,46 @@ console.log(JSON.stringify(result));`,
     expect(result.exitCode).toBe(0);
   }, 60_000);
 
+  describe('dependency-free Node test commands', () => {
+    beforeAll(() => {
+      const install = dirname(process.execPath);
+      cpSync(join(install, 'node_modules', 'npm'), join(root, 'node_modules', 'npm'), { recursive: true });
+      for (const name of ['npm.cmd', 'npm.ps1']) copyFileSync(join(install, name), join(root, name));
+      mkdirSync(join(root, 'test'));
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'node --test' } }));
+      writeFileSync(
+        join(root, 'test', 'fixture.test.cjs'),
+        "const { test } = require('node:test'); const assert = require('node:assert/strict'); test('sandbox test fixture', () => assert.equal(6 * 7, 42));",
+      );
+    });
+
+    it.for([
+      { command: 'node --test', needsPipes: true },
+      { command: 'npm test', needsPipes: true },
+      { command: 'npm.cmd test', needsPipes: true },
+      { command: `node --test ${noTestIsolation} test/fixture.test.cjs`, needsPipes: false },
+      { command: `npm test -- ${noTestIsolation}`, needsPipes: false },
+      { command: `npm.cmd test -- ${noTestIsolation}`, needsPipes: false },
+    ])('runs $command inside the AppContainer', { timeout: 60_000 }, async ({ command, needsPipes }, { skip }) => {
+      if (needsPipes && !appContainerPipes)
+        skip(`Node's libuv ${process.versions.uv} lacks the AppContainer pipe fix (libuv #5181; Patch #101).`);
+      const result = await shell.run(command, { timeoutSeconds: 30 });
+      expect(result.timedOut, result.output).toBe(false);
+      expect(result.exitCode, result.output).toBe(0);
+      expect(result.output).toContain('sandbox test fixture');
+    });
+  });
+
   it('filters the host environment while retaining runtime paths', async () => {
     const script = join(root, 'environment-probe.cjs');
     writeFileSync(
       script,
       `const os = require('node:os');
-const names = ['DATABASE_URL', 'PATCH_PRIVATE_VALUE', 'NODE_OPTIONS', 'SSH_AUTH_SOCK', 'CC', 'PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP'];
-console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, process.env[name] ?? null])), tmpdir: os.tmpdir() }));`,
+const fs = require('node:fs'), path = require('node:path');
+const names = ['DATABASE_URL', 'PATCH_PRIVATE_VALUE', 'NODE_OPTIONS', 'SSH_AUTH_SOCK', 'CC', 'PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'NPM_CONFIG_CACHE', 'NPM_CONFIG_USERCONFIG'];
+fs.writeFileSync(path.join(os.tmpdir(), 'temp-probe'), 'PRIVATE-TEMP');
+fs.writeFileSync(path.join(process.env.NPM_CONFIG_CACHE, 'cache-probe'), 'PRIVATE-CACHE');
+console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, process.env[name] ?? null])), tmpdir: os.tmpdir(), cwd: process.cwd(), userconfig: fs.readFileSync(process.env.NPM_CONFIG_USERCONFIG, 'utf8') }));`,
     );
     const hostEnv = {
       ...sandboxEnv,
@@ -156,10 +196,12 @@ console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, pr
       NODE_OPTIONS: '--trace-warnings',
       SSH_AUTH_SOCK: join(root, 'fixture-agent.sock'),
       CC: 'fixture-compiler',
+      NPM_CONFIG_CACHE: outside,
+      npm_config_userconfig: join(outside, 'secret.txt'),
     };
     const runner = new ShellRunner(
       () => root,
-      () => ({ ...config, envAllowList: 'CC\nNODE_OPTIONS', path: root }),
+      () => ({ ...config, envAllowList: 'CC\nNODE_OPTIONS\nNPM_CONFIG_CACHE\nnpm_config_userconfig', path: root }),
       undefined,
       () => hostEnv,
     );
@@ -173,11 +215,16 @@ console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, pr
         NODE_OPTIONS: null,
         SSH_AUTH_SOCK: null,
         CC: 'fixture-compiler',
-        PATH: root,
+        PATH: expect.stringMatching(/^[P-Z]:\\$/i),
+        userconfig: '',
       });
       // The launcher expands 8.3 aliases (RUNNER~1 on CI); compare filesystem identity, not spelling.
       expect(realpathSync.native(environment.HOME!)).toBe(realpathSync.native(homedir()));
-      expect(realpathSync.native(environment.TMPDIR!)).toBe(realpathSync.native(tmpdir()));
+      expect(environment.TMPDIR).toMatch(/^[P-Z]:\\tmp$/i);
+      expect(environment.NPM_CONFIG_CACHE).toBe(environment.TMPDIR!.replace(/tmp$/, 'npm-cache'));
+      expect(environment.NPM_CONFIG_USERCONFIG).toBe(environment.TMPDIR!.replace(/tmp$/, 'npmrc'));
+      expect(environment.TMPDIR!.slice(0, 2)).not.toBe(environment.cwd!.slice(0, 2));
+      expect(readdirSync(join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-temp'))).toEqual([]);
       expect(environment.TEMP).toBe(environment.TMP);
       expect(environment.tmpdir).toBe(environment.TEMP);
       expect(isAbsolute(environment.tmpdir!)).toBe(true);
@@ -650,6 +697,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
   it('recovers a forcibly killed staging helper while preserving a live staged command', async () => {
     const local = join(fixture, 'recovery-local');
     const stagedRoot = join(local, 'Patch', 'sandbox-toolchains');
+    const temporaryRoot = join(local, 'Patch', 'sandbox-temp');
     execFileSync('icacls', [tools, '/remove:g', '*S-1-15-2-1']);
     const request = buildHelperRequest({
       id: 1,
@@ -690,18 +738,27 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       child.stdin.write(`${JSON.stringify(request)}\n`);
       await started;
       expect(readdirSync(stagedRoot)).toHaveLength(1);
+      expect(readdirSync(temporaryRoot)).toHaveLength(1);
       const liveMapping = execFileSync('subst', { encoding: 'utf8' })
         .split(/\r?\n/)
         .find((line) => line.includes(stagedRoot));
       expect(liveMapping).toBeDefined();
+      const temporaryMapping = execFileSync('subst', { encoding: 'utf8' })
+        .split(/\r?\n/)
+        .find((line) => line.includes(temporaryRoot));
+      expect(temporaryMapping).toBeDefined();
       await recover();
       expect(readdirSync(stagedRoot)).toHaveLength(1);
+      expect(readdirSync(temporaryRoot)).toHaveLength(1);
       expect(execFileSync('subst', { encoding: 'utf8' })).toContain(liveMapping!);
+      expect(execFileSync('subst', { encoding: 'utf8' })).toContain(temporaryMapping!);
       child.kill();
       await closed;
       await recover();
       expect(readdirSync(stagedRoot)).toEqual([]);
+      expect(readdirSync(temporaryRoot)).toEqual([]);
       expect(execFileSync('subst', { encoding: 'utf8' })).not.toContain(liveMapping!);
+      expect(execFileSync('subst', { encoding: 'utf8' })).not.toContain(temporaryMapping!);
       expect(readdirSync(join(local, 'Patch', 'sandbox-recovery'))).toEqual([]);
     } finally {
       if (child.exitCode === null) child.kill();

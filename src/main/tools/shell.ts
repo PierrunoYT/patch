@@ -86,7 +86,16 @@ function shellCommand(command: string, sandboxed = false): { file: string; args:
         .join('');
     return {
       file: 'powershell.exe',
-      args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', prelude + command],
+      args: [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        // Sandboxed script authorization can fail on inaccessible host ancestors (e.g. npm.ps1).
+        // This applies only to this shell process; AppContainer still controls all file/network access.
+        ...(sandboxed ? ['-ExecutionPolicy', 'Bypass'] : []),
+        '-Command',
+        prelude + command,
+      ],
     };
   }
   // Native sandbox commands must not load login profiles that can restore host environment values.

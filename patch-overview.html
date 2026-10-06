@@ -604,7 +604,9 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through ac19bf6, with the nested-project HEAD reservation (#132), 2026-10-06</span>
+        <span class="sub"
+          >Snapshot through 0048f52, with Windows npm startup and private temp/cache handling (#101), 2026-10-06</span
+        >
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -612,9 +614,9 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through ac19bf6 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      This page reflects git history through 0048f52 (2026-10-06). Line counts exclude tests unless they say otherwise;
       renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
-      Linux, skipped tests included. Issue severities without a severity label are estimates and are marked "est.".
+      Windows, skipped tests included. Issue severities without a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -745,17 +747,17 @@
             proc: 'main',
             files: 23,
             tests: 22,
-            lines: 3865,
-            testLines: 5427,
-            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering.',
+            lines: 3874,
+            testLines: 5484,
+            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101).',
             list: [
               'registry.ts',
-              'shell.ts (468; explicit built-in PowerShell Management and Utility imports in AppContainer)',
+              'shell.ts (477; sandbox-only PowerShell imports and script policy)',
               'sandbox_windows.ts (358, Program Files candidates, protected Git paths and helper protocol)',
               'sandbox.ts (445; exact-name Seatbelt Mach, sysctl and IPC grants)',
               'files.ts (334)',
               'web.ts (226, no own test)',
-              'sandbox_windows.integration.test.ts (real AppContainer environment isolation, toolchain grants, staging and recovery)',
+              'sandbox_windows.integration.test.ts (real AppContainer temp/cache writes, Node/npm tests and explicit upstream pipe skips, toolchain grants, staging and recovery)',
               'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
               'sandbox_git.ts (210; a .git reservation file Git refuses (an empty folder plus a protected HEAD folder inside another repository), confined metadata pointers, trusted system links above the project and protected includes)',
               'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees, metadata write and hard-link denial)',
@@ -958,7 +960,7 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 22, c: 391, src: 3865, tl: 5427 },
+          { a: 'main/tools', f: 22, c: 397, src: 3874, tl: 5484 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -1015,8 +1017,8 @@
           [514, 'main/agent/agent.ts'],
           [490, 'main/agent/session.ts'],
           [477, 'main/llm/codex_auth.ts'],
+          [477, 'main/tools/shell.ts'],
           [476, 'main/chat_manager.ts'],
-          [468, 'main/tools/shell.ts'],
           [445, 'main/tools/sandbox.ts'],
           [428, 'main/settings.ts'],
           [423, 'main/index.ts'],
@@ -1026,11 +1028,11 @@
         ],
         docs: [
           ['docs/PERFORMANCE.md', 461],
-          ['docs/USAGE.md', 289],
-          ['docs/ARCHITECTURE.md', 248],
-          ['docs/DEVELOPMENT.md', 197],
-          ['CHANGELOG.md', 174],
-          ['README.md', 137],
+          ['docs/USAGE.md', 291],
+          ['docs/ARCHITECTURE.md', 250],
+          ['docs/DEVELOPMENT.md', 201],
+          ['CHANGELOG.md', 180],
+          ['README.md', 138],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
           ['LICENSE (Apache-2.0)', 202],
@@ -1045,51 +1047,54 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 31],
+          ['2026-10-06', 33],
         ],
         types: [
           ['fix', 98],
+          ['docs', 61],
           ['feat', 60],
-          ['docs', 60],
-          ['test', 38],
+          ['test', 39],
           ['chore', 27],
           ['perf', 12],
           ['ci', 9],
+          ['other', 8],
           ['refactor', 5],
           ['build', 3],
           ['security', 1],
-          ['other', 8],
         ],
         authors: [
-          ['PierrunoYT', 264],
+          ['PierrunoYT', 265],
           ['Amp', 24],
           ['StepUpGaming', 23],
           ['Claude', 7],
           ['Steven Isaac', 3],
+          ['patchmote[bot]', 1],
         ],
         churn: [
-          ['CHANGELOG.md', 189],
+          ['CHANGELOG.md', 190],
           ['docs/ARCHITECTURE.md', 117],
-          ['docs/DEVELOPMENT.md', 111],
+          ['docs/DEVELOPMENT.md', 112],
           ['README.md', 97],
           ['TASKS.md (no longer tracked)', 83],
           ['docs/USAGE.md', 49],
           ['package.json', 45],
           ['src/main/chat_manager.ts', 38],
+          ['patch-overview.html', 36],
           ['src/main/index.ts', 36],
-          ['patch-overview.html', 35],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
           ['package-lock.json', 27],
           ['src/renderer/src/views/dialogs.ts', 26],
           ['src/main/tools/tools.test.ts', 24],
-          ['src/main/agent/session.ts', 24],
           ['docs/PERFORMANCE.md', 24],
+          ['src/main/agent/session.ts', 24],
           ['src/main/agent/agent.test.ts', 22],
           ['src/main/tools/shell.ts', 20],
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['0048f52', 'test: isolate Windows sandbox approval CI fixtures'],
+          ['1eb4841', 'docs: track the agent benchmark baseline issue in the project map'],
           ['ac19bf6', 'fix: reserve HEAD in projects inside another repository'],
           ['6584acd', 'docs: refresh the project map through f58e2e1'],
           ['f58e2e1', 'docs: close #99 after macOS CI confirms the Seatbelt probes'],
@@ -1103,8 +1108,6 @@
           ['ba34094', 'fix: accept Git pointers that reach the project through a system link'],
           ['2d0e26a', 'test: fix sandbox Git tests on macOS and Windows CI'],
           ['7ad9650', 'fix: restrict macOS sandbox Mach lookup to named CLI services'],
-          ['8eb8d3e', 'docs: track sandbox Git review findings in the project map'],
-          ['640297c', 'fix: support ordinary projects without widening sandbox access'],
         ],
         issues: [
           [
@@ -2834,7 +2837,7 @@
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
               '#129 and #132 are fixed: non-Git folders get a .git reservation file Git refuses, and projects inside another repository get a protected empty HEAD folder, so a planted bare repository is never used. The Git panel refuses push/commit when repository config runs a project file (#130)',
               '#100: on Windows, concurrent commands can make .git/hooks writable',
-              '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s); the toolchain tests also leave subst drive letters behind (#133)',
+              '#101: npm startup and private temp/cache handling are fixed; default node --test still needs the upstream libuv pipe fix. The explicit test-isolation=none workaround passes real Windows tests. #108: official Node is copied for every command (~14 s); toolchain tests leave subst drives behind (#133)',
             ],
             'Prioritize #100, then #101 and #108; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
