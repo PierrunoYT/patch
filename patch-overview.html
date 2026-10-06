@@ -612,7 +612,7 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through 3ac2d97 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      This page reflects git history through cd57506 (2026-10-06). Line counts exclude tests unless they say otherwise;
       renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
       Windows, skipped tests included. Issue severities without a severity label are estimates and are marked "est.".
     </footer>
@@ -676,7 +676,7 @@
             files: 13,
             tests: 9,
             lines: 2267,
-            testLines: 2117,
+            testLines: 2136,
             desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings, projects, window, menu, local error and native-crash logging.',
             list: [
               'chat_manager.ts (476)',
@@ -961,7 +961,7 @@
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
           { a: 'main/tools', f: 22, c: 397, src: 3874, tl: 5496 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
-          { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
+          { a: 'main/other', f: 11, c: 155, src: 2815, tl: 2537 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -1029,9 +1029,9 @@
           ['docs/PERFORMANCE.md', 461],
           ['docs/USAGE.md', 291],
           ['docs/ARCHITECTURE.md', 250],
-          ['docs/DEVELOPMENT.md', 201],
-          ['CHANGELOG.md', 182],
-          ['README.md', 138],
+          ['docs/DEVELOPMENT.md', 203],
+          ['CHANGELOG.md', 184],
+          ['README.md', 140],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
           ['LICENSE (Apache-2.0)', 202],
@@ -1040,16 +1040,16 @@
         commitsByDay: [
           ['2024-07-29', 3],
           ['2026-09-29', 67],
-          ['2026-09-30', 97],
-          ['2026-10-01', 35],
+          ['2026-09-30', 99],
+          ['2026-10-01', 33],
           ['2026-10-02', 15],
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 34],
+          ['2026-10-06', 35],
         ],
         types: [
-          ['fix', 99],
+          ['fix', 100],
           ['docs', 61],
           ['feat', 60],
           ['test', 39],
@@ -1062,7 +1062,7 @@
           ['security', 1],
         ],
         authors: [
-          ['PierrunoYT', 266],
+          ['PierrunoYT', 267],
           ['Amp', 24],
           ['StepUpGaming', 23],
           ['Claude', 7],
@@ -1070,15 +1070,15 @@
           ['patchmote[bot]', 1],
         ],
         churn: [
-          ['CHANGELOG.md', 191],
-          ['docs/ARCHITECTURE.md', 118],
-          ['docs/DEVELOPMENT.md', 113],
-          ['README.md', 98],
+          ['CHANGELOG.md', 192],
+          ['docs/ARCHITECTURE.md', 119],
+          ['docs/DEVELOPMENT.md', 114],
+          ['README.md', 99],
           ['TASKS.md (no longer tracked)', 83],
-          ['docs/USAGE.md', 50],
+          ['docs/USAGE.md', 51],
           ['package.json', 45],
           ['src/main/chat_manager.ts', 38],
-          ['patch-overview.html', 37],
+          ['patch-overview.html', 38],
           ['src/main/index.ts', 36],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
@@ -1092,6 +1092,7 @@
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['cd57506', 'fix: recover abandoned Windows sandbox project drives'],
           ['3ac2d97', 'fix: isolate Windows sandbox npm runtime paths'],
           ['0048f52', 'test: isolate Windows sandbox approval CI fixtures'],
           ['1eb4841', 'docs: track the agent benchmark baseline issue in the project map'],
@@ -2010,7 +2011,7 @@
                 layer(
                   'Packaging',
                   'var(--c-ext)',
-                  'Electron fuses: RUN_AS_NODE, NODE_OPTIONS and --inspect disabled; asar integrity. Git panel uses a hardened config.',
+                  'Only out/main, out/preload and out/renderer ship; mutable logs and scratch files are excluded. Electron fuses: RUN_AS_NODE, NODE_OPTIONS and --inspect disabled; asar integrity. Git panel uses a hardened config.',
                   'package.json, panels/git.ts',
                 ),
               ),

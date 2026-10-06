@@ -35,7 +35,9 @@
     "publish": null,
     "productName": "Patch",
     "files": [
-      "out/**",
+      "out/main/**",
+      "out/preload/**",
+      "out/renderer/**",
       "package.json",
       "README.md",
       "LICENSE",

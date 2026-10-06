@@ -93,6 +93,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows packages no longer include test logs and scratch files beside the application output. A log growing during packaging could corrupt archive offsets and make Patch exit before opening a window with an ASAR integrity violation. Only `out/main`, `out/preload` and `out/renderer` are packaged; integrity validation remains enabled.
+
 - Windows sandbox helpers journal each project drive's exact letter and target before creating it. After a forced helper exit, the next startup reclaims that mapping without deleting project files or removing a live run's mapping, even when runs share a project. Drive selection is serialized across helpers; repeated recovery preserves letters reused for a different target. Older records without mapping ownership are left alone (fixes #94).
 
 - Windows sandbox npm startup no longer depends on access to project ancestors: project PATH entries use the mapped drive, and PowerShell's script execution policy is set only for the sandboxed shell process. Commands receive a private per-command temp folder, npm cache and empty npm user config, with cleanup/recovery that preserves other runs. Ordinary `node --test` remains blocked on Node versions with libuv older than 1.53; the explicit `--test-isolation=none` workaround is covered by real Windows tests, while default isolation checks skip with the upstream reason (refs #101, not closed).
