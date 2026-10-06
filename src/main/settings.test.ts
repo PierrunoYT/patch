@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '@shared/settings';
+import { DEFAULT_SETTINGS, type McpServerConfig } from '@shared/settings';
 import { SettingsStore, type SecretCipher } from './settings';
 
 const reversingCipher: SecretCipher = {
@@ -149,6 +149,54 @@ describe('SettingsStore', () => {
       mcpServers: [{ name: 'docs', transport: 'stdio', command: 'server', env: { TOKEN: '' } }],
     });
     expect(store.mcpServers()[0]!.env).toEqual({ TOKEN: 'abc' });
+  });
+
+  describe('renaming an MCP server (#23)', () => {
+    const docs = { name: 'docs', transport: 'http', url: 'https://example.com/mcp' } as const;
+
+    it('keeps the secrets of a server whose name changed and whose endpoint did not', () => {
+      const store = new SettingsStore(file, reversingCipher);
+      store.update({ mcpServers: [{ ...docs, headers: { Authorization: 'Bearer secret' } }] });
+      store.update({ mcpServers: [{ ...docs, name: 'docs-prod', headers: { Authorization: '' } }] });
+      expect(store.mcpServers()).toMatchObject([{ name: 'docs-prod', headers: { Authorization: 'Bearer secret' } }]);
+      expect(store.mcpHeaderNames()).toEqual({ 'docs-prod': ['Authorization'] });
+    });
+
+    it('keeps stdio env secrets across a rename', () => {
+      const store = new SettingsStore(file, reversingCipher);
+      const server: McpServerConfig = { name: 'local', transport: 'stdio', command: 'node', args: ['server.js'] };
+      store.update({ mcpServers: [{ ...server, env: { TOKEN: 'abc' } }] });
+      store.update({ mcpServers: [{ ...server, name: 'renamed', env: { TOKEN: '' } }] });
+      expect(store.mcpServers()).toMatchObject([{ name: 'renamed', env: { TOKEN: 'abc' } }]);
+    });
+
+    it('does not carry secrets to a server with a different URL', () => {
+      const store = new SettingsStore(file, reversingCipher);
+      store.update({ mcpServers: [{ ...docs, headers: { Authorization: 'Bearer secret' } }] });
+      store.update({
+        mcpServers: [{ ...docs, name: 'other', url: 'https://attacker.example/mcp', headers: { Authorization: '' } }],
+      });
+      expect(store.mcpServers()[0]!.headers).toBeUndefined();
+    });
+
+    it('does not guess when several new servers share the old endpoint', () => {
+      const store = new SettingsStore(file, reversingCipher);
+      store.update({ mcpServers: [{ ...docs, headers: { Authorization: 'Bearer secret' } }] });
+      store.update({
+        mcpServers: [
+          { ...docs, name: 'a', headers: { Authorization: '' } },
+          { ...docs, name: 'b', headers: { Authorization: '' } },
+        ],
+      });
+      expect(store.mcpServers().map((server) => server.headers)).toEqual([undefined, undefined]);
+    });
+
+    it('moves the secrets instead of copying them, so the old name no longer holds them', () => {
+      const store = new SettingsStore(file, reversingCipher);
+      store.update({ mcpServers: [{ ...docs, headers: { Authorization: 'Bearer secret' } }] });
+      store.update({ mcpServers: [{ ...docs, name: 'docs-prod', headers: { Authorization: '' } }] });
+      expect(store.mcpHeaderNames()).not.toHaveProperty('docs');
+    });
   });
 
   it('clears a secret when set to an empty string', () => {

@@ -313,8 +313,9 @@ export class SettingsStore extends EventEmitter {
 
   private storeMcpSecrets(servers: McpServerConfig[]): void {
     const next: typeof this.mcpSecrets = {};
+    const renamed = this.renamedServers(servers);
     for (const server of servers) {
-      const previous = this.mcpSecrets[server.name];
+      const previous = this.mcpSecrets[server.name] ?? this.mcpSecrets[renamed.get(server.name) ?? ''];
       next[server.name] = {
         // A missing map means the caller did not edit it, so the stored secrets stay. An empty value for a key that
         // is present keeps that one secret, so the dialog can show the key without the user retyping it.
@@ -323,6 +324,28 @@ export class SettingsStore extends EventEmitter {
       };
     }
     this.mcpSecrets = next;
+  }
+
+  // Maps the new name of each renamed server to its old one (#23). A server counts as renamed when its old name is gone
+  // from the list and exactly one new, unmatched name has the same transport and endpoint (URL, or command and args).
+  // The endpoint is unchanged, so carrying its secrets over sends them nowhere new; anything ambiguous keeps no secrets.
+  private renamedServers(servers: McpServerConfig[]): Map<string, string> {
+    const identity = (server: McpServerConfig) =>
+      JSON.stringify(
+        server.transport === 'http'
+          ? ['http', (server.url ?? '').trim()]
+          : ['stdio', server.command ?? '', server.args ?? []],
+      );
+    const names = new Set(servers.map((server) => server.name));
+    const gone = this.settings.mcpServers.filter((server) => !names.has(server.name));
+    const added = servers.filter((server) => !this.settings.mcpServers.some((old) => old.name === server.name));
+    const renamed = new Map<string, string>();
+    for (const server of added) {
+      const sameOld = gone.filter((old) => identity(old) === identity(server));
+      const sameNew = added.filter((candidate) => identity(candidate) === identity(server));
+      if (sameOld.length === 1 && sameNew.length === 1) renamed.set(server.name, sameOld[0]!.name);
+    }
+    return renamed;
   }
 
   // An empty value keeps the stored secret, so saving the dialog without retyping a key does not clear it.

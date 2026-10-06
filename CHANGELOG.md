@@ -93,6 +93,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Renaming an MCP server in Settings keeps its stored `env` and header secrets when its endpoint (URL, or command and arguments) is unchanged and exactly one old and one new name match. A renamed server whose endpoint also changed, or an ambiguous match, keeps nothing, so a saved header is never sent to another host ([#23](https://github.com/PierrunoYT/patch/issues/23)).
 - Windows packages no longer include test logs and scratch files beside the application output. A log growing during packaging could corrupt archive offsets and make Patch exit before opening a window with an ASAR integrity violation. Only `out/main`, `out/preload` and `out/renderer` are packaged; integrity validation remains enabled.
 
 - Windows sandbox helpers journal each project drive's exact letter and target before creating it. After a forced helper exit, the next startup reclaims that mapping without deleting project files or removing a live run's mapping, even when runs share a project. Drive selection is serialized across helpers; repeated recovery preserves letters reused for a different target. Older records without mapping ownership are left alone (fixes #94).
