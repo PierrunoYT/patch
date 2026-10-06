@@ -1,9 +1,12 @@
 import { statSync } from 'node:fs';
 import { z } from 'zod';
+import { RegexWorker } from './regex_worker';
 import { defineTool, ToolError } from './types';
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
+// Matching every project path takes milliseconds; longer means the pattern backtracks catastrophically.
+const GLOB_TIMEOUT_MS = 5000;
 
 // Turns a glob into a regular expression over project-relative paths with forward slashes: `*` is any text inside one
 // folder name, `**` any number of folders, `?` one character, `{a,b}` alternatives. A pattern without a `/` matches the
@@ -62,9 +65,25 @@ export const globTool = defineTool({
     const baseRel = context.workspace.relative(base);
     const regex = globToRegExp(pattern);
 
-    const matches = (await context.workspace.listFiles(base))
-      .map((file) => context.workspace.relative(file))
-      .filter((rel) => regex.test(baseRel === '.' ? rel : rel.slice(baseRel.length + 1)));
+    const files = (await context.workspace.listFiles(base)).map((file) => context.workspace.relative(file));
+    // Many wildcards (**a**a**a…) backtrack badly; the match runs in a worker so it cannot freeze the app (#122).
+    const worker = new RegexWorker(regex.source, regex.flags);
+    let result;
+    try {
+      result = await worker.match(
+        { items: files.map((rel) => (baseRel === '.' ? rel : rel.slice(baseRel.length + 1))) },
+        { timeoutMs: GLOB_TIMEOUT_MS, signal: context.signal },
+      );
+    } finally {
+      worker.close();
+    }
+    if (result.status === 'timeout') {
+      throw new ToolError(
+        `The pattern took more than ${GLOB_TIMEOUT_MS / 1000} s to match the project's paths. Use fewer wildcards.`,
+      );
+    }
+    if (result.status === 'aborted') throw new ToolError('The search was stopped.');
+    const matches = result.found.map((index) => files[index]!);
 
     const page = matches.slice(offset, offset + limit);
     const end = offset + page.length;

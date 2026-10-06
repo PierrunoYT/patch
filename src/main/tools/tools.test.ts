@@ -651,6 +651,41 @@ describe('grep limits', () => {
     expect(text.split('\n').filter((line) => line.includes(':'))).toHaveLength(100);
     expect(text).toContain('Stopped at 100 matches');
   });
+
+  // A prompt-injected pattern must not freeze the app (#122): it runs in a worker with a time limit.
+  it('stops a catastrophically backtracking pattern instead of blocking the main process', async () => {
+    writeFileSync(join(root, 'aaa.txt'), `${'a'.repeat(10_000)}!`);
+    let ticks = 0;
+    const timer = setInterval(() => ticks++, 50);
+    const started = Date.now();
+    try {
+      const text = (await call(grepTool, { pattern: '(a+)+b', path: 'aaa.txt' })).content as string;
+      expect(text).toContain('catastrophic backtracking');
+      expect(text).toContain('aaa.txt');
+    } finally {
+      clearInterval(timer);
+    }
+    expect(Date.now() - started).toBeLessThan(10_000);
+    // The event loop kept running while the pattern was being tested.
+    expect(ticks).toBeGreaterThan(20);
+  }, 20_000);
+
+  it('ends a running search at once when the task is stopped', async () => {
+    writeFileSync(join(root, 'aaa.txt'), `${'a'.repeat(10_000)}!`);
+    const controller = new AbortController();
+    const started = Date.now();
+    setTimeout(() => controller.abort(), 100);
+    const text = (
+      await call(grepTool, { pattern: '(a+)+b', path: 'aaa.txt' }, { ...context, signal: controller.signal })
+    ).content as string;
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(text).toContain('No matches.');
+  });
+
+  it('times out a glob with too many wildcards', async () => {
+    writeFileSync(join(root, 'src', `${'a'.repeat(40)}.ts`), '');
+    await expect(call(globTool, { pattern: `${'**a'.repeat(14)}b` })).rejects.toThrow(/Use fewer wildcards/);
+  }, 20_000);
 });
 
 describe('fetch_url paging, cache and size cap', () => {

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { detectEol, fileSize, isBinaryFile, MAX_READ_BYTES, sha256, withLineNumbers } from './text_files';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
+import { RegexWorker } from './regex_worker';
 import { defineTool, MAX_OUTPUT_CHARS, ToolError, type ToolContext } from './types';
 
 const DEFAULT_READ_LINES = 2000;
@@ -13,6 +14,8 @@ const DEFAULT_READ_LINES = 2000;
 const GREP_MAX_MATCHES = 100;
 const GREP_MAX_PER_FILE = 10;
 const GREP_MAX_LINE_CHARS = 200;
+// A pattern that needs longer than this for one file is backtracking catastrophically; the search stops there.
+const GREP_FILE_TIMEOUT_MS = 3000;
 
 export const readFileTool = defineTool({
   name: 'read_file',
@@ -134,26 +137,38 @@ export const grepTool = defineTool({
 
     const matches: string[] = [];
     const crowded: string[] = [];
-    for (const file of files) {
-      if (context.signal.aborted || matches.length >= GREP_MAX_MATCHES) break;
-      if ((await fileSize(file)) > MAX_READ_BYTES || (await isBinaryFile(file))) continue;
-      const lines = (await readFile(file, 'utf8')).split(/\r?\n/);
-      let inFile = 0;
-      let skipped = 0;
-      lines.forEach((line, index) => {
-        if (matches.length >= GREP_MAX_MATCHES || !regex.test(line)) return;
-        if (inFile >= GREP_MAX_PER_FILE) {
-          skipped++;
-          return;
+    let slow: string | null = null;
+    // The pattern runs in a worker, so a catastrophic one cannot freeze the app and Stop ends it at once.
+    const worker = new RegexWorker(regex.source, regex.flags);
+    try {
+      for (const file of files) {
+        if (context.signal.aborted || matches.length >= GREP_MAX_MATCHES) break;
+        if ((await fileSize(file)) > MAX_READ_BYTES || (await isBinaryFile(file))) continue;
+        const text = await readFile(file, 'utf8');
+        const take = Math.min(GREP_MAX_PER_FILE, GREP_MAX_MATCHES - matches.length);
+        const result = await worker.match({ text }, { take, timeoutMs: GREP_FILE_TIMEOUT_MS, signal: context.signal });
+        if (result.status === 'aborted') break;
+        if (result.status === 'timeout') {
+          slow = context.workspace.relative(file);
+          break;
         }
-        inFile++;
-        const text = line.trim();
-        const clipped = text.length > GREP_MAX_LINE_CHARS ? `${text.slice(0, GREP_MAX_LINE_CHARS)}…` : text;
-        matches.push(`${context.workspace.relative(file)}:${index + 1}: ${clipped}`);
-      });
-      if (skipped > 0) crowded.push(context.workspace.relative(file));
+        const lines = text.split(/\r?\n/);
+        for (const index of result.found) {
+          const line = lines[index]!.trim();
+          const clipped = line.length > GREP_MAX_LINE_CHARS ? `${line.slice(0, GREP_MAX_LINE_CHARS)}…` : line;
+          matches.push(`${context.workspace.relative(file)}:${index + 1}: ${clipped}`);
+        }
+        if (result.more && take === GREP_MAX_PER_FILE) crowded.push(context.workspace.relative(file));
+      }
+    } finally {
+      worker.close();
     }
     const notes: string[] = [];
+    if (slow) {
+      notes.push(
+        `Stopped: the pattern took more than ${GREP_FILE_TIMEOUT_MS / 1000} s on ${slow}, which usually means catastrophic backtracking (nested quantifiers such as (a+)+). Simplify the pattern.`,
+      );
+    }
     if (matches.length >= GREP_MAX_MATCHES) {
       notes.push(`Stopped at ${GREP_MAX_MATCHES} matches; narrow the pattern or path.`);
     }
