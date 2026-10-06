@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { detectSandboxSupport } from '../../src/main/tools/sandbox';
 import { GIT_RESERVATION } from '../../src/main/tools/sandbox_git';
 import { launchApp, type RunningApp } from './app';
@@ -21,17 +21,31 @@ describe('sandbox escalation approvals', () => {
     running = await launchApp({ PATCH_TEST_ANTHROPIC_URL: await claude.start() });
     await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
     await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-e2e'));
-    await running.page.evaluate(() =>
-      window.api.invoke('settings:update', {
-        approvalMode: 'auto',
-        sandboxMode: 'auto',
-        sandboxNetwork: 'allow-list',
-        allowedNetworkHosts: 'allowed.test',
-        allowedCommands: 'echo',
-        permissionRules: [{ tool: 'run_command', action: 'allow' }],
-      }),
+    await running.page.evaluate(
+      (sandboxPath) =>
+        window.api.invoke('settings:update', {
+          approvalMode: 'auto',
+          sandboxMode: 'auto',
+          sandboxNetwork: 'allow-list',
+          allowedNetworkHosts: 'allowed.test',
+          allowedCommands: 'echo',
+          permissionRules: [{ tool: 'run_command', action: 'allow' }],
+          // These commands use PowerShell built-ins, not the runner's installed toolchains.
+          sandboxPath,
+        }),
+      process.platform === 'win32' ? project : '',
     );
     if (captureDir) mkdirSync(resolve(captureDir), { recursive: true });
+  });
+
+  afterEach(async () => {
+    // A timed-out command must not leave the shared chat busy and invalidate later approval checks.
+    if (running && (await running.page.evaluate(() => window.api.invoke('chat:snapshot'))).busy) {
+      await running.page.evaluate(() => window.api.invoke('chat:stop'));
+      await expect
+        .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy))
+        .toBe(false);
+    }
   });
 
   afterAll(async () => {
@@ -67,7 +81,7 @@ describe('sandbox escalation approvals', () => {
         window.api.invoke('chat:send', { text: 'Run a sandboxed command without Git' }),
       );
       await expect
-        // Windows CI prepares the AppContainer toolchains first, which can take well over 20 s (#108).
+        // Allow cold AppContainer startup, but do not prepare unrelated runner PATH toolchains.
         .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy), {
           timeout: 75_000,
         })

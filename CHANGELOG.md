@@ -8,6 +8,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Test maintenance
+
+- Windows sandbox approval end-to-end tests use an isolated project PATH for their PowerShell built-in commands, avoiding unrelated runner toolchain preparation. Unfinished chats are stopped after each test so a timeout does not cascade into later approval checks.
+
 ### Added
 
 - `npm run test:sandbox`: real bubblewrap, Seatbelt and Docker/Podman isolation tests with disposable fake-home credentials, hook/symlink protection and local TCP network controls. The Windows integration suite also checks credential isolation. Linux bubblewrap and Docker probes pass in an orb; native macOS/Windows checks require their hosts. Missing backends/images skip explicitly, and the CI matrix requires its native backend instead of silently accepting an unavailable sandbox (refs #76).
