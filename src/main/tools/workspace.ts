@@ -4,8 +4,9 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import ignore, { type Ignore } from 'ignore';
 import { ToolError } from './types';
 
-// Always skipped when listing, searching or indexing, in addition to .gitignore.
-const ALWAYS_IGNORED = ['.git/', 'node_modules/', '.DS_Store', 'Thumbs.db'];
+// Always skipped when listing, searching or indexing, in addition to .gitignore. `.git` without a slash also covers
+// gitfiles and the sandbox's reservation file.
+const ALWAYS_IGNORED = ['.git', 'node_modules/', '.DS_Store', 'Thumbs.db'];
 
 // The real path of `target`: its deepest part that exists (a file, a folder or a link) is resolved through any links,
 // and the missing rest is appended. Null for a link that leads nowhere, whose destination cannot be checked.

@@ -5,7 +5,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
@@ -17,6 +16,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildLaunch, detectSandboxSupport, systemLaunchEnv } from './sandbox';
+import { GIT_RESERVATION } from './sandbox_git';
 import { GitService } from '../panels/git';
 import { ShellRunner } from './shell';
 
@@ -124,7 +124,7 @@ for (const [kind, available] of [
       }
     };
 
-    it('runs without Git while denying metadata creation, gitfile replacement and directory renaming', async () => {
+    it('runs without Git while denying changes to the reservation file', async () => {
       rmSync(join(root, '.git'), { recursive: true });
       const result = await run(`
 const fs = require('node:fs');
@@ -133,16 +133,16 @@ fs.writeFileSync('ordinary.txt', 'sandbox ran');
 fs.writeFileSync('replacement', 'gitdir: metadata');
 console.log(JSON.stringify({
   created: fs.readFileSync('ordinary.txt', 'utf8'),
-  config: attempt(() => fs.writeFileSync('.git/config', '[alias]\\npwn = !echo planted')),
-  hooks: attempt(() => fs.mkdirSync('.git/hooks')),
+  overwrite: attempt(() => fs.writeFileSync('.git', 'gitdir: metadata')),
+  unlink: attempt(() => fs.unlinkSync('.git')),
   replace: attempt(() => fs.renameSync('replacement', '.git')),
   rename: attempt(() => fs.renameSync('.git', 'old-git')),
 }));
 `);
       expect(result.created).toBe('sandbox ran');
-      for (const operation of ['config', 'hooks', 'replace', 'rename'])
-        expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV|EISDIR)$/);
-      expect(readdirSync(join(root, '.git'))).toEqual([]);
+      for (const operation of ['overwrite', 'unlink', 'replace', 'rename'])
+        expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
+      expect(readFileSync(join(root, '.git'), 'utf8')).toBe(GIT_RESERVATION);
       const panel = new GitService(root);
       expect((await panel.status()).isRepo).toBe(false);
       // Later host initialization remains available; sandbox setup has not initialized a repository.

@@ -14,9 +14,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { validateSandboxGit } from './sandbox_git';
+import { GIT_RESERVATION, releaseGitReservation, validateSandboxGit } from './sandbox_git';
 import { ShellRunner } from './shell';
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -46,14 +46,79 @@ describe('sandbox Git layout validation', () => {
     expect(existsSync(join(root, '.git', 'commondir'))).toBe(false);
   });
 
-  it('reserves missing metadata without initializing a repository, including repeated preparation', () => {
+  // Git without the user's or system configuration, which might set safe.bareRepository.
+  const plainGit = (cwd: string, ...args: string[]) => {
+    writeFileSync(join(root, 'empty-config'), '');
+    const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(root, 'empty-config') };
+    return execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: 'pipe' });
+  };
+  const plantBare = (folder: string) => {
+    mkdirSync(join(folder, 'objects'));
+    mkdirSync(join(folder, 'refs'));
+    writeFileSync(join(folder, 'HEAD'), 'ref: refs/heads/main\n');
+    writeFileSync(join(folder, 'config'), '[core]\n\trepositoryformatversion = 0\n\tbare = true\n');
+  };
+
+  it('reserves missing metadata with a file Git refuses, including repeated preparation', () => {
     rmSync(join(root, '.git'), { recursive: true });
     expect(validateSandboxGit(root)).toEqual([join(root, '.git')]);
     expect(validateSandboxGit(root)).toEqual([join(root, '.git')]);
+    expect(readFileSync(join(root, '.git'), 'utf8')).toBe(GIT_RESERVATION);
+    expect(() => plainGit(root, 'rev-parse', '--git-dir')).toThrow(/invalid gitfile format/);
+  });
+
+  it('keeps Git from discovering a bare repository planted beside the reservation (#129)', () => {
+    // Control: next to an empty .git folder, the reservation of earlier versions, Git accepts a planted bare repository.
+    const control = join(root, 'control');
+    mkdirSync(join(control, '.git'), { recursive: true });
+    plantBare(control);
+    expect(plainGit(control, 'rev-parse', '--is-bare-repository').trim()).toBe('true');
+
+    rmSync(join(root, '.git'), { recursive: true });
+    validateSandboxGit(root);
+    plantBare(root);
+    expect(() => plainGit(root, 'rev-parse', '--git-dir')).toThrow(/invalid gitfile format/);
+  });
+
+  it('keeps an empty folder inside another repository, so Git still finds that repository', () => {
+    plainGit(root, 'init', '--quiet');
+    const nested = join(root, 'package');
+    mkdirSync(nested);
+    expect(validateSandboxGit(nested)).toEqual([join(nested, '.git')]);
+    expect(readdirSync(join(nested, '.git'))).toEqual([]);
+    expect(resolve(plainGit(nested, 'rev-parse', '--show-toplevel').trim())).toBe(root);
+
+    // A reservation file written before the enclosing repository existed is turned back into the folder.
+    rmSync(join(nested, '.git'), { recursive: true });
+    writeFileSync(join(nested, '.git'), GIT_RESERVATION);
+    validateSandboxGit(nested);
+    expect(readdirSync(join(nested, '.git'))).toEqual([]);
+  });
+
+  it('replaces the empty reservation folder of earlier versions, but not a folder with contents', () => {
+    rmSync(join(root, '.git'), { recursive: true });
+    mkdirSync(join(root, '.git'));
+    validateSandboxGit(root);
+    expect(readFileSync(join(root, '.git'), 'utf8')).toBe(GIT_RESERVATION);
+
+    rmSync(join(root, '.git'));
+    mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
+    validateSandboxGit(root);
+    expect(readdirSync(join(root, '.git'))).toEqual(['hooks']);
+  });
+
+  it('turns only the reservation back into an empty folder for git init', () => {
+    releaseGitReservation(root);
+    expect(readdirSync(join(root, '.git')).sort()).toEqual(['config', 'hooks']);
+    rmSync(join(root, '.git'), { recursive: true });
+    writeFileSync(join(root, '.git'), 'gitdir: metadata/repo\n');
+    releaseGitReservation(root);
+    expect(readFileSync(join(root, '.git'), 'utf8')).toBe('gitdir: metadata/repo\n');
+
+    writeFileSync(join(root, '.git'), GIT_RESERVATION);
+    releaseGitReservation(root);
     expect(readdirSync(join(root, '.git'))).toEqual([]);
-    expect(() =>
-      execFileSync('git', ['--git-dir', join(root, '.git'), 'rev-parse', '--git-dir'], { stdio: 'pipe' }),
-    ).toThrow();
+    expect(plainGit(root, 'init', '--quiet')).toBe('');
   });
 
   it('protects an in-project gitfile and the metadata ancestor against replacement', () => {

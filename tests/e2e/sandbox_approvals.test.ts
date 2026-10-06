@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { detectSandboxSupport } from '../../src/main/tools/sandbox';
+import { GIT_RESERVATION } from '../../src/main/tools/sandbox_git';
 import { launchApp, type RunningApp } from './app';
 import { MockClaude } from './mock_claude';
 
@@ -77,7 +78,7 @@ describe('sandbox escalation approvals', () => {
       expect(tools[0]).toMatchObject({ status: 'done', output: expect.stringContaining('Exit code: 0') });
       expect(tools[0]?.output).toContain('sandboxed');
       expect(tools[0]?.preview?.note).toContain('Sandboxed');
-      expect(readdirSync(join(project, '.git'))).toEqual([]);
+      expect(readFileSync(join(project, '.git'), 'utf8')).toBe(GIT_RESERVATION);
       expect(await running.page.evaluate(async () => (await window.api.invoke('git:status')).isRepo)).toBe(false);
     },
   );

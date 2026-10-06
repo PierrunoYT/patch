@@ -746,8 +746,8 @@
             proc: 'main',
             files: 23,
             tests: 22,
-            lines: 3775,
-            testLines: 5184,
+            lines: 3836,
+            testLines: 5249,
             desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
@@ -758,7 +758,7 @@
               'web.ts (226, no own test)',
               'sandbox_windows.integration.test.ts (real AppContainer environment isolation, toolchain grants, staging and recovery)',
               'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
-              'sandbox_git.ts (125; empty reservations, confined metadata pointers, trusted system links above the project and protected includes)',
+              'sandbox_git.ts (185; a .git reservation file Git refuses (an empty folder inside another repository), confined metadata pointers, trusted system links above the project and protected includes)',
               'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees and metadata write denial)',
               'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, shared-memory, semaphore and sysctl probes; skipped off macOS)',
               'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
@@ -785,8 +785,8 @@
             proc: 'main',
             files: 4,
             tests: 4,
-            lines: 553,
-            testLines: 819,
+            lines: 556,
+            testLines: 821,
             desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
             list: [
               'terminal.ts',
@@ -959,8 +959,8 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 22, c: 380, src: 3775, tl: 5184 },
-          { a: 'main/panels', f: 4, c: 56, src: 553, tl: 819 },
+          { a: 'main/tools', f: 22, c: 384, src: 3836, tl: 5249 },
+          { a: 'main/panels', f: 4, c: 56, src: 556, tl: 821 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
@@ -1109,18 +1109,18 @@
         ],
         issues: [
           [
-            130,
-            'Sandboxed commands can rewrite scripts that existing Git hooks run on the host',
+            132,
+            'Projects inside another repository still allow a planted bare repository',
             'sandbox',
             'medium',
             0,
             '10-06',
           ],
           [
-            129,
-            'Empty .git reservation lets sandboxed commands plant a bare repository',
+            130,
+            'Sandboxed commands can rewrite scripts that existing Git hooks run on the host',
             'sandbox',
-            'high',
+            'medium',
             0,
             '10-06',
           ],
@@ -1244,7 +1244,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 51,
+        closedCount: 52,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1458,7 +1458,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #129), then the remaining review findings (#130, #112, #114–#116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, confirm the macOS service restrictions on CI and close #99, then the remaining review findings (#130, #132, #112, #114–#116). See ',
                 h(
                   'a',
                   {
@@ -2093,7 +2093,7 @@
                 h(
                   'div',
                   { class: 'small' },
-                  `${D.issues.filter((i) => i[2] === 'security' || i[2] === 'sandbox').length} open issues are about security or the command sandbox, ${D.issues.filter((i) => (i[2] === 'security' || i[2] === 'sandbox') && i[3] === 'high').length} of them high severity (#99, #129). Agent commands are sandboxed; macOS and Windows follow-ups are open. See the Issues board.`,
+                  `${D.issues.filter((i) => i[2] === 'security' || i[2] === 'sandbox').length} open issues are about security or the command sandbox, ${D.issues.filter((i) => (i[2] === 'security' || i[2] === 'sandbox') && i[3] === 'high').length} of them high severity (#99). Agent commands are sandboxed; macOS and Windows follow-ups are open. See the Issues board.`,
                 ),
               ),
             ),
@@ -2830,15 +2830,15 @@
       builders.focus = () => {
         const items = [
           [
-            'Close the two high-severity sandbox gaps: #99 and #129',
+            'Close the remaining high-severity sandbox gap: #99',
             'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106).',
             [
-              '#99: the macOS Seatbelt profile allows every Mach service lookup (likely a LaunchServices escape); a possible hard-link bypass of the read-only .git is noted there too',
+              '#99: Mach lookup, shared memory and sysctl reads are now limited to named entries and LaunchServices is blocked; close it once macOS CI confirms every real-Seatbelt probe',
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
-              '#109 is fixed, but its review found that the empty .git reservation in non-Git folders lets a command plant a bare repository that host Git runs (#129), and that existing hooks and overrides can run project scripts the sandbox rewrote (#130)',
+              '#129 is fixed: non-Git folders get a .git reservation file Git refuses, so a planted bare repository is never used; projects inside another repository keep an empty folder and the gap (#132). Existing hooks and overrides can still run project scripts the sandbox rewrote (#130)',
               '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
             ],
-            'Prioritize #99 and #129; retain the metadata boundary while making narrower per-command path grants possible (#126).',
+            'Prioritize #99, then #130 and #132; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',

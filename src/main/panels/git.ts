@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { simpleGit, type SimpleGit, type StatusResult } from 'simple-git';
 import { parseNumstat, type GitFile, type GitStatus } from '@shared/panels';
+import { releaseGitReservation } from '../tools/sandbox_git';
 import { Workspace } from '../tools/workspace';
 
 // Git reads the repository's own .git/config, which can name commands to run: core.fsmonitor on status, clean and
@@ -283,6 +284,8 @@ export class GitService {
   }
 
   async init(): Promise<GitStatus> {
+    // Git refuses the folder while the sandbox reservation file exists.
+    releaseGitReservation(this.workspace.root);
     await (await this.repo()).init();
     return this.status();
   }

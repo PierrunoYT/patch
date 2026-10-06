@@ -1,9 +1,54 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Workspace } from './workspace';
 
-// Reserve missing metadata without initializing Git. Keep the empty directory across command lifetimes:
+// The protected .git file that stands in for missing metadata. It is not a gitfile ("gitdir: ..."), so every Git
+// stops at the project with "invalid gitfile format". An empty .git folder would not stop it: Git then checks
+// whether the project folder itself is a bare repository, which a sandboxed command could plant there (#129).
+export const GIT_RESERVATION =
+  'Patch reserved this .git file so that sandboxed commands cannot create a Git repository in this folder.\n' +
+  'Git refuses the folder while the file exists. To create a repository, use Initialize in the Git panel, or\n' +
+  'delete this file and run git init.\n';
+
+const isReservation = (git: string) => {
+  const stat = lstatSync(git, { throwIfNoEntry: false });
+  return Boolean(stat?.isFile() && stat.nlink === 1 && readFileSync(git, 'utf8') === GIT_RESERVATION);
+};
+
+// Turns the reservation back into an empty .git folder for git init. The folder is created right after the file is
+// removed, so a running sandboxed command has no time to plant its own .git first.
+export function releaseGitReservation(root: string): void {
+  const git = join(new Workspace(root).root, '.git');
+  if (!isReservation(git)) return;
+  unlinkSync(git);
+  mkdirSync(git);
+}
+
+// Whether a folder above the project has Git metadata, which Git finds from the project when it has none of its own.
+// Like the Git panel, a repository at or above the home folder does not count (often an accidental `git init`).
+function insideRepository(root: string): boolean {
+  const home = homedir();
+  for (let path = dirname(root); dirname(path) !== path; path = dirname(path)) {
+    const rel = relative(path, home);
+    if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) return false;
+    if (existsSync(join(path, '.git'))) return true;
+  }
+  return false;
+}
+
+// Reserve missing metadata without initializing Git. Keep the reservation across command lifetimes:
 // deleting it on exit could let an overlapping sandbox plant a gitfile or a new repository.
 // Return top-level entries to protect, so metadata redirects cannot be replaced by renaming a writable ancestor.
 export function validateSandboxGit(cwd: string): string[] {
@@ -15,16 +60,31 @@ export function validateSandboxGit(cwd: string): string[] {
   try {
     const workspace = new Workspace(cwd);
     const git = join(workspace.root, '.git');
-    try {
-      mkdirSync(workspace.resolve('.git'));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    workspace.resolve('.git');
+    if (insideRepository(workspace.root)) {
+      // The file would stop Git from finding the enclosing repository, so reserve an empty folder there instead.
+      // That keeps the #129 gap for such projects: Git may accept a bare repository planted in the project folder.
+      if (isReservation(git)) releaseGitReservation(workspace.root);
+      try {
+        mkdirSync(git);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      }
+    } else {
+      // Earlier versions reserved an empty folder; replace it. A link is never removed: it is refused below.
+      const existing = lstatSync(git, { throwIfNoEntry: false });
+      if (existing?.isDirectory() && !existing.isSymbolicLink() && readdirSync(git).length === 0) rmdirSync(git);
+      try {
+        writeFileSync(git, GIT_RESERVATION, { flag: 'wx' });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      }
     }
     const root = lstatSync(git);
     if (root.isSymbolicLink() || (!root.isDirectory() && !root.isFile()))
       refuse('the project .git must be a regular directory or gitfile');
     if (root.isFile() && root.nlink !== 1) refuse('linked Git metadata is not supported');
-    workspace.resolve('.git');
+    if (isReservation(git)) return [git];
     // A pointer may name the project through a link above it (macOS /tmp -> /private/tmp) only when no command can
     // retarget that link: it must sit in a root-owned directory that group and others cannot write. Every link inside
     // the project is refused, because a sandboxed command could point it at writable metadata.

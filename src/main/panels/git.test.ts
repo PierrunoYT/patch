@@ -81,11 +81,13 @@ describe('GitService', () => {
     validateSandboxGit(root);
     expect(spawnSync('git', ['init', '--bare', '--template='], { cwd: root }).status).toBe(0);
     writeFileSync(join(root, 'config'), '[core]\nbare = true\n[include]\npath = nonexistent\n');
-    // Control: Git recognizes the writable root as a bare repository despite its empty .git directory.
-    expect(await simpleGit({ baseDir: root }).raw(['rev-parse', '--is-bare-repository'])).toBe('true\n');
+    // Git stops at the reservation file instead of accepting the planted bare repository (#129).
+    await expect(simpleGit({ baseDir: root }).raw(['rev-parse', '--is-bare-repository'])).rejects.toThrow(
+      /invalid gitfile format/,
+    );
     expect((await service.status()).isRepo).toBe(false);
     expect(await service.diff(null)).toBe('');
-    await expect(service.commit('must not trust writable metadata')).rejects.toThrow(/safe\.bareRepository/);
+    await expect(service.commit('must not trust writable metadata')).rejects.toThrow(/invalid gitfile format/);
   });
 
   it('lists modified and untracked files, sorted by path', async () => {
