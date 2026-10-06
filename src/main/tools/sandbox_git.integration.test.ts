@@ -195,6 +195,8 @@ console.log(JSON.stringify({
           mkdirSync(join(root, 'metadata'));
           git('init', '--quiet', `--separate-git-dir=${join(root, 'metadata', 'repo')}`);
         }
+        // Git for Windows marks the gitfile it wrote hidden, and Node cannot overwrite a hidden file (EPERM).
+        rmSync(join(root, '.git'));
         writeFileSync(join(root, '.git'), `gitdir: ${pointer}\n`);
         const original = readFileSync(join(root, 'metadata', 'repo', 'config'), 'utf8');
         const result = await run(`
