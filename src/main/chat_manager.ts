@@ -415,6 +415,8 @@ export class ChatManager {
           network: settings.sandboxNetwork,
           image: settings.sandboxImage,
           allowedHosts: mergeAllowLists(settings.allowedNetworkHosts, own?.allowedNetworkHosts),
+          envAllowList: settings.sandboxEnvAllowList,
+          path: settings.sandboxPath,
         };
       },
     );

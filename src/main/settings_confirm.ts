@@ -29,6 +29,20 @@ export function changesToConfirm(
   if (typeof patch.sandboxImage === 'string' && patch.sandboxImage.trim() !== current.sandboxImage.trim()) {
     changes.push(`Run container-sandboxed commands in the image "${patch.sandboxImage.trim()}".`);
   }
+  if (typeof patch.sandboxEnvAllowList === 'string') {
+    const added = addedEntries(current.sandboxEnvAllowList, patch.sandboxEnvAllowList);
+    if (added.length > 0) {
+      changes.push(
+        `Expose these host environment variables to native sandbox commands; their values may contain secrets and appear in model output: ${list(added)}`,
+      );
+    }
+  }
+  if (typeof patch.sandboxPath === 'string') {
+    const next = patch.sandboxPath.trim();
+    if (next && next !== current.sandboxPath.trim()) {
+      changes.push(`Use "${next}" as PATH for native sandbox commands.`);
+    }
+  }
 
   if (typeof patch.editorCommand === 'string' && editor(patch.editorCommand) !== editor(current.editorCommand)) {
     changes.push(`Open files with the editor command "${editor(patch.editorCommand)}".`);

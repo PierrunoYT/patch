@@ -28,6 +28,30 @@ describe('changesToConfirm', () => {
     expect(changesToConfirm(lists, { ...lists }, false)).toEqual([]);
   });
 
+  it('asks only for new native sandbox environment grants', () => {
+    const configured = { ...current, sandboxEnvAllowList: 'CC\nJAVA_TOOL_OPTIONS' };
+    expect(
+      changesToConfirm(configured, { sandboxEnvAllowList: ' JAVA_TOOL_OPTIONS \nCC\nPRIVATE_BUILD_VALUE' }, false),
+    ).toEqual([
+      'Expose these host environment variables to native sandbox commands; their values may contain secrets and appear in model output: "PRIVATE_BUILD_VALUE".',
+    ]);
+    expect(changesToConfirm(configured, { sandboxEnvAllowList: ' CC \nJAVA_TOOL_OPTIONS\n' }, false)).toEqual([]);
+    expect(changesToConfirm(configured, { sandboxEnvAllowList: 'CC' }, false)).toEqual([]);
+    expect(changesToConfirm(configured, { sandboxEnvAllowList: '' }, false)).toEqual([]);
+  });
+
+  it('asks for a changed nonempty native sandbox PATH, not removal, no-op or whitespace', () => {
+    const configured = { ...current, sandboxPath: '/trusted/bin' };
+    expect(changesToConfirm(current, { sandboxPath: '/trusted/bin' }, false)).toEqual([
+      'Use "/trusted/bin" as PATH for native sandbox commands.',
+    ]);
+    expect(changesToConfirm(configured, { sandboxPath: '/other/bin' }, false)).toEqual([
+      'Use "/other/bin" as PATH for native sandbox commands.',
+    ]);
+    expect(changesToConfirm(configured, { sandboxPath: ' /trusted/bin ' }, false)).toEqual([]);
+    expect(changesToConfirm(configured, { sandboxPath: '' }, false)).toEqual([]);
+  });
+
   it("asks about a project's own new allow-list entries, naming the project", () => {
     const project: ProjectInfo = {
       path: '/p',

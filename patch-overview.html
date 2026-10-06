@@ -612,10 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      Every number on this page comes from the source tree, git history or GitHub issues as of commit 8882705
-      (2026-10-06). Line counts exclude tests unless they say otherwise; renderer CSS lines (2766) are counted in
-      src/renderer/src/styles.css. Test counts come from a real Vitest run on Windows, skipped tests included. Issue
-      severities without a severity label are estimates and are marked "est.".
+      This page reflects git history through d2aaed9 and the issue #95 fix (2026-10-06). Line counts exclude tests
+      unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come
+      from a real Vitest run on Windows, skipped tests included. Issue severities without a severity label are estimates
+      and are marked "est.".
     </footer>
 
     <script>
@@ -647,11 +647,11 @@
             proc: 'renderer',
             files: 5,
             tests: 2,
-            lines: 2534,
+            lines: 2557,
             testLines: null,
             desc: 'Screens: transcript, composer with @-mentions, sidebar, terminal/browser/git panels, settings and history dialogs.',
             list: [
-              'dialogs.ts (719, untested)',
+              'dialogs.ts (742, untested)',
               'panels.ts (648, untested)',
               'transcript.ts (572, untested)',
               'composer.ts (395)',
@@ -675,13 +675,13 @@
             proc: 'main',
             files: 13,
             tests: 9,
-            lines: 2225,
-            testLines: 2046,
+            lines: 2267,
+            testLines: 2117,
             desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings, projects, window, menu, local error and native-crash logging.',
             list: [
-              'chat_manager.ts (474)',
+              'chat_manager.ts (476)',
               'index.ts (423, IPC handlers, untested)',
-              'settings.ts (402)',
+              'settings.ts (428)',
               'chat_store.ts (182)',
               'app_log.ts (error + crash logging)',
               'settings_confirm.ts',
@@ -745,21 +745,21 @@
             proc: 'main',
             files: 23,
             tests: 21,
-            lines: 3541,
-            testLines: 4371,
-            desc: 'Every model tool, plus fail-closed command sandboxes, credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
+            lines: 3609,
+            testLines: 4619,
+            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
-              'shell.ts (445)',
+              'shell.ts (458)',
               'sandbox_windows.ts (355, Program Files candidates and helper protocol)',
-              'sandbox.ts (354)',
+              'sandbox.ts (357)',
               'files.ts (334)',
               'web.ts (226, no own test)',
-              'sandbox_windows.integration.test.ts (real AppContainer toolchain grants, staging and recovery)',
-              'sandbox.integration.test.ts',
+              'sandbox_windows.integration.test.ts (real AppContainer environment isolation, toolchain grants, staging and recovery)',
+              'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
               'sandbox_git.ts',
               'sandbox_git.integration.test.ts',
-              'env.ts',
+              'env.ts (minimal native allow-list; startup/agent handles blocked even with explicit grants)',
               'apply_patch.ts',
               'glob.ts',
               'regex_worker.ts (grep/glob patterns off the main process)',
@@ -816,14 +816,14 @@
             proc: 'shared',
             files: 9,
             tests: 8,
-            lines: 1237,
+            lines: 1243,
             testLines: 852,
             desc: 'Types and logic used by both sides: IPC contract, chat events, models, settings, panels, export.',
             list: [
               'chat.ts (335)',
               'ipc.ts (201)',
               'models.ts',
-              'settings.ts',
+              'settings.ts (sandboxEnvAllowList and sandboxPath default empty; global native-confirmed grants)',
               'project.ts',
               'panels.ts',
               'export.ts',
@@ -952,11 +952,11 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 21, c: 316, src: 3541, tl: 4371 },
+          { a: 'main/tools', f: 21, c: 329, src: 3609, tl: 4619 },
           { a: 'main/panels', f: 4, c: 51, src: 492, tl: 736 },
-          { a: 'main/other', f: 11, c: 150, src: 2773, tl: 2447 },
-          { a: 'shared', f: 8, c: 73, src: 1237, tl: 852 },
-          { a: 'renderer', f: 4, c: 14, src: 6343, tl: 138 },
+          { a: 'main/other', f: 11, c: 157, src: 2815, tl: 2518 },
+          { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
+          { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
         ],
         e2e: [
@@ -969,7 +969,7 @@
           ['compact', 4],
           ['project_settings', 4],
           ['project_switching', 4],
-          ['settings', 4],
+          ['settings', 5],
           ['undo', 4],
           ['images', 3],
           ['projects', 3],
@@ -993,7 +993,7 @@
         ],
         untested: [
           [826, 'renderer/src/app.ts'],
-          [719, 'renderer/src/views/dialogs.ts'],
+          [742, 'renderer/src/views/dialogs.ts'],
           [648, 'renderer/src/views/panels.ts'],
           [572, 'renderer/src/views/transcript.ts'],
           [423, 'main/index.ts'],
@@ -1003,29 +1003,29 @@
         ],
         largest: [
           [826, 'renderer/src/app.ts'],
-          [719, 'renderer/src/views/dialogs.ts'],
+          [742, 'renderer/src/views/dialogs.ts'],
           [648, 'renderer/src/views/panels.ts'],
           [572, 'renderer/src/views/transcript.ts'],
           [514, 'main/agent/agent.ts'],
           [490, 'main/agent/session.ts'],
           [477, 'main/llm/codex_auth.ts'],
-          [474, 'main/chat_manager.ts'],
-          [445, 'main/tools/shell.ts'],
+          [476, 'main/chat_manager.ts'],
+          [458, 'main/tools/shell.ts'],
+          [428, 'main/settings.ts'],
           [423, 'main/index.ts'],
           [422, 'main/llm/anthropic.ts'],
           [407, 'main/search/code_index.ts'],
-          [402, 'main/settings.ts'],
           [395, 'renderer/src/views/composer.ts'],
           [355, 'main/tools/sandbox_windows.ts'],
         ],
         docs: [
           ['docs/PERFORMANCE.md', 461],
-          ['docs/USAGE.md', 281],
-          ['docs/ARCHITECTURE.md', 230],
-          ['docs/DEVELOPMENT.md', 179],
-          ['CHANGELOG.md', 166],
-          ['README.md', 128],
-          ['AGENTS.md', 65],
+          ['docs/USAGE.md', 283],
+          ['docs/ARCHITECTURE.md', 240],
+          ['docs/DEVELOPMENT.md', 184],
+          ['CHANGELOG.md', 163],
+          ['README.md', 129],
+          ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
         ],
         commitsByDay: [
@@ -1037,12 +1037,12 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 3],
+          ['2026-10-06', 9],
         ],
         types: [
-          ['fix', 84],
+          ['fix', 86],
           ['feat', 60],
-          ['docs', 52],
+          ['docs', 56],
           ['test', 33],
           ['chore', 26],
           ['perf', 12],
@@ -1053,20 +1053,20 @@
           ['other', 8],
         ],
         authors: [
-          ['PierrunoYT', 244],
+          ['PierrunoYT', 250],
           ['StepUpGaming', 23],
           ['Amp', 16],
           ['Claude', 7],
           ['Steven Isaac', 3],
         ],
         churn: [
-          ['CHANGELOG.md', 171],
-          ['docs/ARCHITECTURE.md', 105],
-          ['docs/DEVELOPMENT.md', 96],
+          ['CHANGELOG.md', 174],
+          ['docs/ARCHITECTURE.md', 107],
+          ['docs/DEVELOPMENT.md', 98],
           ['README.md', 85],
           ['TASKS.md (no longer tracked)', 83],
           ['package.json', 42],
-          ['docs/USAGE.md', 41],
+          ['docs/USAGE.md', 42],
           ['src/main/chat_manager.ts', 37],
           ['src/main/index.ts', 36],
           ['src/main/agent/agent.ts', 32],
@@ -1082,6 +1082,12 @@
           ['src/renderer/src/styles.css', 17],
         ],
         recent: [
+          ['d2aaed9', 'docs: consolidate duplicate changelog categories'],
+          ['df69948', 'fix: migrate plaintext MCP secrets and count them in the encryption status'],
+          ['ac5c5b9', 'docs: tell agents what to keep current in patch-overview.html'],
+          ['827aae6', 'fix: discard links in the Git panel without deleting their targets'],
+          ['8b77d7c', "docs: refresh the overview's size and health numbers"],
+          ['8882705', 'docs: refresh the project overview after the Oct 5-6 reviews'],
           ['10ece35', 'fix: confirm before saved MCP headers go to a changed URL'],
           ['8b8ea5b', 'fix: redact passwords in connection-string URLs'],
           ['8a3130a', 'fix: run grep and glob patterns in a worker so they cannot freeze the app'],
@@ -1091,12 +1097,6 @@
           ['cbc03ce', 'test: diagnose Windows sandbox null-device startup failure'],
           ['ec1e88d', 'test: isolate sandbox probes from runner configuration and startup timing'],
           ['19b7023', 'fix: preserve sandbox confinement across Windows path aliases and stdin handles'],
-          ['bb27ba4', 'test: accept macOS Git sandbox permission denials'],
-          ['522445d', 'fix: make Program Files toolchains usable without weakening AppContainer confinement'],
-          ['e22bc03', 'fix: make sandbox Git metadata read-only'],
-          ['bb8f20b', 'test: inherit sandbox child handles in timeout probe'],
-          ['a4bf0e7', 'fix: stabilize cross-platform CI fixtures'],
-          ['9e6a2bc', 'fix: preserve plan-mode instructions across tool messages'],
         ],
         issues: [
           [125, 'e2e: transcript_view approval-card and Undo tests fail intermittently', 'tests', 'low', 0, '10-06'],
@@ -1163,7 +1163,6 @@
           [99, 'macOS Seatbelt allows every Mach service lookup (likely escape)', 'sandbox', 'high', 0, '10-04'],
           [97, 'Enforce hostname restrictions for sandbox command networking', 'sandbox', 'low', 0, '10-04'],
           [96, 'Narrow macOS sandbox file access, isolate command temp directories', 'sandbox', 'medium', 0, '10-04'],
-          [95, 'Use a minimal allow-listed environment for sandboxed commands', 'sandbox', 'high', 0, '10-04'],
           [94, 'Windows sandbox: recover drive mappings after a forced helper exit', 'sandbox', 'medium', 0, '10-04'],
           [87, 'Sandbox MCP stdio servers like agent commands', 'mcp', 'low', 0, '10-04'],
           [85, 'Smarter context: tell the agent what changed since its last turn', 'tools', 'low', 0, '10-03'],
@@ -1225,7 +1224,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 48,
+        closedCount: 49,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -2804,15 +2803,15 @@
       builders.focus = () => {
         const items = [
           [
-            'Close the high-severity sandbox gaps: #99, #95',
-            'The command sandbox is the main control against a prompt-injected model, and both high-severity issues are in it. Root .git is read-only on every backend (#98), the Windows permission lock serializes ACL setup (#100), and Program Files toolchains such as the official Node now work in the AppContainer (#106).',
+            'Close the remaining high-severity sandbox gap: #99',
+            'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106).',
             [
               '#99: the macOS Seatbelt profile allows every Mach service lookup (likely a LaunchServices escape); a possible hard-link bypass of the read-only .git is noted there too',
-              '#95: sandboxed commands still get most of the host environment, including DATABASE_URL-style values',
+              'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
               '#109: folders without their own .git (no Git, worktrees, Husky) refuse sandboxed commands, which pushes users to unsandboxed runs',
               '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
             ],
-            'Fix #99 and #95 first; #109 matters because every refusal turns into an unsandboxed approval.',
+            'Prioritize #99; #109 matters because every refusal turns into an unsandboxed approval.',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',
@@ -2827,9 +2826,12 @@
           ],
           [
             'Add unit tests to the renderer',
-            '3,577 renderer TypeScript lines have 138 unit-test lines (ratio 0.04), against 0.7 to 2.1 for the main-process areas.',
+            `${D.areas
+              .filter((area) => area.proc === 'renderer')
+              .reduce((sum, area) => sum + area.lines, 0)
+              .toLocaleString()} renderer TypeScript lines have 138 unit-test lines (ratio 0.04), against 0.7 to 2.1 for the main-process areas.`,
             [
-              'app.ts (826), dialogs.ts (719), panels.ts (648), transcript.ts (572) have no test file',
+              'app.ts (826), dialogs.ts (742), panels.ts (648), transcript.ts (572) have no test file',
               'app.ts is also among the most-changed source files (29 changes in 60 days)',
               '#62 asks for e2e tests of the chat list, model picker and status-bar branch',
               '#47 (failed tool cards should say why) is a UI change that would land in this untested code',

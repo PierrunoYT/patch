@@ -7,7 +7,7 @@ import type { Readable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { appLog } from '../app_log';
-import { scrubEnv } from './env';
+import { sandboxEnv, scrubEnv } from './env';
 import {
   buildLaunch,
   decideSandbox,
@@ -71,7 +71,7 @@ export function shellName(containerMode = false): string {
   return process.platform === 'win32' ? 'PowerShell' : process.env.SHELL?.split('/').pop() || 'bash';
 }
 
-function shellCommand(command: string): { file: string; args: string[] } {
+function shellCommand(command: string, sandboxed = false): { file: string; args: string[] } {
   if (process.platform === 'win32') {
     // UTF-8 output so non-ASCII text survives.
     const prelude = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;';
@@ -80,7 +80,8 @@ function shellCommand(command: string): { file: string; args: string[] } {
       args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', prelude + command],
     };
   }
-  return { file: process.env.SHELL || '/bin/bash', args: ['-lc', command] };
+  // Native sandbox commands must not load login profiles that can restore host environment values.
+  return { file: process.env.SHELL || '/bin/bash', args: [sandboxed ? '-c' : '-lc', command] };
 }
 
 // Runs agent commands in the project directory. Each command gets a fresh shell, so `cd` does not persist.
@@ -251,7 +252,7 @@ export class ShellRunner {
       throw new Error(decision.reason);
     }
     const config = this.sandbox();
-    const inner = shellCommand(command);
+    const inner = shellCommand(command, decision.kind !== 'none');
     if (decision.kind === 'appcontainer') return this.spawnInAppContainer(inner, decision.network);
     const launch: Launch =
       decision.kind === 'none'
@@ -275,7 +276,14 @@ export class ShellRunner {
     });
     const child = spawn(launch.file, launch.args, {
       cwd: this.cwd(),
-      env: { ...scrubEnv(this.env()), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+      env: {
+        ...(decision.kind === 'bwrap' || decision.kind === 'seatbelt'
+          ? sandboxEnv(this.env(), process.platform, homedir(), decision.kind === 'bwrap' ? '/tmp' : tmpdir(), config)
+          : scrubEnv(this.env())),
+        CI: '1',
+        FORCE_COLOR: '0',
+        NO_COLOR: '1',
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // Own process group on POSIX so the whole tree can be killed.
@@ -302,7 +310,12 @@ export class ShellRunner {
       id: this.nextId,
       shell: inner,
       cwd: real(this.cwd()),
-      env: { ...scrubEnv(this.env()), CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+      env: {
+        ...sandboxEnv(this.env(), 'win32', real(homedir()), real(tmpdir()), this.sandbox()),
+        CI: '1',
+        FORCE_COLOR: '0',
+        NO_COLOR: '1',
+      },
       network,
       home: real(homedir()),
       exists: (path) => existsSync(path),

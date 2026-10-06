@@ -93,6 +93,10 @@ export interface Settings {
   sandboxNetwork: SandboxNetwork;
   // Image for the container sandbox; it must provide the tools the project's commands need.
   sandboxImage: string;
+  // Host environment variable names explicitly exposed to native sandbox commands, one per line.
+  sandboxEnvAllowList: string;
+  // PATH used by native sandbox commands. Empty keeps the app's PATH.
+  sandboxPath: string;
   theme: Theme;
   // Base URL for an OpenAI-compatible API. Empty means api.openai.com.
   openaiBaseUrl: string;
@@ -122,6 +126,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sandboxMode: 'auto',
   sandboxNetwork: 'off',
   sandboxImage: 'node:lts',
+  sandboxEnvAllowList: '',
+  sandboxPath: '',
   theme: 'dark',
   openaiBaseUrl: '',
   anthropicBaseUrl: '',

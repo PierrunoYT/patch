@@ -16,6 +16,9 @@ export interface SandboxConfig {
   image: string;
   // Newline-separated hostnames (global plus project list) for the "allow-list" network setting.
   allowedHosts: string;
+  // Native-confirmed global settings only; never supplied by a command or project.
+  envAllowList?: string;
+  path?: string;
 }
 
 export interface SandboxSupport {

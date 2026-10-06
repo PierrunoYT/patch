@@ -17,6 +17,8 @@ import { homedir, networkInterfaces, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { sandboxEnv } from './env';
+import { ShellRunner } from './shell';
 import { buildLaunch, detectSandboxSupport, systemLaunchEnv } from './sandbox';
 
 // Exercise the production launch builders, never Automatic mode's unsandboxed fallback.
@@ -52,6 +54,18 @@ if (action === 'connect') {
   socket.once('connect', () => { report({ connected: true }); socket.destroy(); });
   socket.once('error', (error) => { report({ error: error.code }); socket.destroy(); });
   socket.once('timeout', () => { report({ error: 'ETIMEDOUT' }); socket.destroy(); });
+} else if (action === 'environment') {
+  report({
+    DATABASE_URL: process.env.DATABASE_URL ?? null,
+    PATCH_PRIVATE_VALUE: process.env.PATCH_PRIVATE_VALUE ?? null,
+    NODE_OPTIONS: process.env.NODE_OPTIONS ?? null,
+    SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK ?? null,
+    CC: process.env.CC ?? null,
+    PATH: process.env.PATH ?? null,
+    HOME: process.env.HOME ?? null,
+    TMPDIR: process.env.TMPDIR ?? null,
+    tmpdir: require('node:os').tmpdir(),
+  });
 } else {
   try {
     if (action === 'read') report({ content: fs.readFileSync(target, 'utf8') });
@@ -76,6 +90,7 @@ for (const [kind, available] of [
       let temp: string;
       let server: Server;
       let port: number;
+      let hostEnv: NodeJS.ProcessEnv;
 
       const run = async (action: string, target: string, value = '', network = false) => {
         const command = `${kind === 'container' ? 'node' : './node'} probe.cjs ${[action, target, value].map(quote).join(' ')}`;
@@ -95,13 +110,21 @@ for (const [kind, available] of [
             timeout: 15_000,
             killSignal: 'SIGKILL',
             // The host engine needs its normal connection config; containerArgs passes no host variables inside.
-            env: kind === 'container' ? process.env : { PATH: process.env.PATH, HOME: home },
+            env: kind === 'container' ? hostEnv : sandboxEnv(hostEnv, process.platform, home, temp),
           });
           return JSON.parse(stdout.trim()) as {
             content?: string;
             written?: boolean;
             connected?: boolean;
             error?: string;
+            DATABASE_URL?: string | null;
+            PATCH_PRIVATE_VALUE?: string | null;
+            NODE_OPTIONS?: string | null;
+            SSH_AUTH_SOCK?: string | null;
+            PATH?: string | null;
+            HOME?: string | null;
+            TMPDIR?: string | null;
+            tmpdir?: string;
           };
         } finally {
           if (launch.stop) await execute(launch.stop.file, launch.stop.args, { timeout: 10_000 }).catch(() => {});
@@ -113,6 +136,13 @@ for (const [kind, available] of [
         home = realpathSync(mkdtempSync(join(homedir(), '.patch-sandbox-test-')));
         project = join(home, 'project');
         temp = realpathSync(mkdtempSync(join(tmpdir(), 'patch-sandbox-temp-')));
+        hostEnv = {
+          ...process.env,
+          DATABASE_URL: 'postgres://fixture-user:fixture-password@fixture.invalid/private',
+          PATCH_PRIVATE_VALUE: 'patch-private-fixture',
+          NODE_OPTIONS: '--trace-warnings',
+          SSH_AUTH_SOCK: join(home, 'fixture-agent.sock'),
+        };
         mkdirSync(join(project, '.git', 'hooks'), { recursive: true });
         if (kind !== 'container') copyFileSync(process.execPath, join(project, 'node'));
         writeFileSync(join(project, 'probe.cjs'), probe);
@@ -146,6 +176,52 @@ for (const [kind, available] of [
         expect(readFileSync(join(project, 'created.txt'), 'utf8')).toBe('PROJECT-WRITTEN');
         const scratch = kind === 'seatbelt' ? join(temp, 'fixture') : '/tmp/patch-sandbox-fixture';
         expect(await run('write', scratch, 'TEMP-WRITTEN')).toEqual({ written: true });
+      });
+
+      it.skipIf(kind === 'container')('applies environment settings through the production shell runner', async () => {
+        const runner = new ShellRunner(
+          () => project,
+          () => ({
+            mode: 'auto',
+            network: 'off',
+            image: '',
+            allowedHosts: '',
+            envAllowList: 'CC\nNODE_OPTIONS',
+            path: '/usr/bin:/bin',
+          }),
+          () => support,
+          () => ({ ...hostEnv, CC: 'fixture-compiler' }),
+        );
+        try {
+          const result = await runner.run("./node probe.cjs environment '' ''");
+          expect(result.exitCode, result.output).toBe(0);
+          expect(JSON.parse(result.output.trim())).toMatchObject({
+            DATABASE_URL: null,
+            PATCH_PRIVATE_VALUE: null,
+            NODE_OPTIONS: null,
+            SSH_AUTH_SOCK: null,
+            CC: 'fixture-compiler',
+            PATH: '/usr/bin:/bin',
+            HOME: homedir(),
+          });
+        } finally {
+          runner.stopAll();
+        }
+      });
+
+      it('does not expose the host environment while retaining runtime paths', async () => {
+        const result = await run('environment', '');
+        expect(result).toMatchObject({
+          DATABASE_URL: null,
+          PATCH_PRIVATE_VALUE: null,
+          NODE_OPTIONS: null,
+          SSH_AUTH_SOCK: null,
+          PATH: expect.any(String),
+          HOME: kind === 'container' ? '/tmp' : home,
+          tmpdir: kind === 'seatbelt' ? temp : '/tmp',
+        });
+        expect(result.PATH).not.toBe('');
+        if (kind !== 'container') expect(result.TMPDIR).toBe(kind === 'seatbelt' ? temp : '/tmp');
       });
 
       it('cannot read or modify private files outside the project', async () => {

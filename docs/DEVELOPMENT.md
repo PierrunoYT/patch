@@ -31,6 +31,8 @@ Both lifecycle scripts must be executable. They become available to future proje
 
 Run `npm run test:sandbox` for policy tests and real sandbox probes. These also run in `npm run test:unit`.
 
+Environment isolation (#95) is covered by `env.test.ts` and real child-process probes in the Unix/container and Windows suites, including production `ShellRunner` routing. Fixtures include dummy `DATABASE_URL` and arbitrary private values plus runtime-startup/agent handles; a successfully launched child must report them absent while retaining runtime paths. Native commands use the production `sandboxEnv` allow-list, while container probes keep the host engine's environment separate from the explicit container environment. Do not treat a failed Node/shell launch or output redaction as evidence of environment isolation. Extra build variables and PATH overrides come only from native-confirmed global settings (`sandboxEnvAllowList`, `sandboxPath`), never repository/model environment grants. Tests cover explicit compiler-variable grants while startup variables remain blocked.
+
 - **Linux:** install `bubblewrap`; the host must allow its namespaces. Amp orb setup installs it. Ubuntu CI installs a scoped AppArmor profile granting `/usr/bin/bwrap` user-namespace access and runs the native-detection probe before tests; it does not disable the system-wide user-namespace restriction.
 - **macOS:** uses the system `/usr/bin/sandbox-exec` (Seatbelt).
 - **Windows:** run `npm run build:sandbox` first to enable the existing AppContainer integration suite, including dummy toolchain credential checks.

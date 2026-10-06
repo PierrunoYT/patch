@@ -140,6 +140,50 @@ console.log(JSON.stringify(result));`,
     expect(result.exitCode).toBe(0);
   }, 60_000);
 
+  it('filters the host environment while retaining runtime paths', async () => {
+    const script = join(root, 'environment-probe.cjs');
+    writeFileSync(
+      script,
+      `const os = require('node:os');
+const names = ['DATABASE_URL', 'PATCH_PRIVATE_VALUE', 'NODE_OPTIONS', 'SSH_AUTH_SOCK', 'CC', 'PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP'];
+console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, process.env[name] ?? null])), tmpdir: os.tmpdir() }));`,
+    );
+    const hostEnv = {
+      ...sandboxEnv,
+      DATABASE_URL: 'postgres://fixture-user:fixture-password@fixture.invalid/private',
+      PATCH_PRIVATE_VALUE: 'patch-private-fixture',
+      NODE_OPTIONS: '--trace-warnings',
+      SSH_AUTH_SOCK: join(root, 'fixture-agent.sock'),
+      CC: 'fixture-compiler',
+    };
+    const runner = new ShellRunner(
+      () => root,
+      () => ({ ...config, envAllowList: 'CC\nNODE_OPTIONS', path: root }),
+      undefined,
+      () => hostEnv,
+    );
+    try {
+      const result = await runner.run('node environment-probe.cjs');
+      expect(result.exitCode, result.output).toBe(0);
+      const environment = JSON.parse(result.output.trim()) as Record<string, string | null>;
+      expect(environment).toMatchObject({
+        DATABASE_URL: null,
+        PATCH_PRIVATE_VALUE: null,
+        NODE_OPTIONS: null,
+        SSH_AUTH_SOCK: null,
+        CC: 'fixture-compiler',
+        PATH: root,
+        HOME: homedir(),
+        TMPDIR: tmpdir(),
+      });
+      expect(environment.TEMP).toBe(environment.TMP);
+      expect(environment.tmpdir).toBe(environment.TEMP);
+      expect(isAbsolute(environment.tmpdir!)).toBe(true);
+    } finally {
+      runner.stopAll();
+    }
+  }, 60_000);
+
   it('does not grant the AppContainer access to the shared checkout', () => {
     const request = buildHelperRequest({
       id: 1,

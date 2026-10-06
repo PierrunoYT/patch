@@ -194,6 +194,17 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     value: settings.sandboxImage,
     placeholder: 'node:lts',
   });
+  const sandboxEnvAllowList = h('textarea', {
+    class: 'form-control font-monospace',
+    rows: 4,
+    value: settings.sandboxEnvAllowList,
+    placeholder: 'CC\nCXX\nCUSTOM_TOOL_HOME',
+  });
+  const sandboxPath = h('input', {
+    class: 'form-control font-monospace',
+    value: settings.sandboxPath,
+    placeholder: 'Leave empty to use the app PATH',
+  });
   const theme = h(
     'select',
     { class: 'form-select' },
@@ -423,6 +434,16 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
       sandboxImage,
       'Used by the container option. It must contain the tools your commands need.',
     ),
+    field(
+      'Extra native sandbox environment variables',
+      sandboxEnvAllowList,
+      'Native sandboxes only. Enter host environment variable names, one per line, never values. Their values become visible to commands and may appear in model output, so new names require confirmation. Login/session, startup, and runtime-injection options are not allowed.',
+    ),
+    field(
+      'Native sandbox PATH',
+      sandboxPath,
+      'Native sandboxes only. Overrides the PATH inherited from the app; leave empty to keep it. This does not load shell login or startup files.',
+    ),
     h('h3', { class: 'h6 text-body-secondary mt-4' }, 'Other'),
     field('Theme', theme),
     field('Editor command', editor, 'Opens files from the chat, e.g. code, cursor, subl.'),
@@ -475,6 +496,8 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
         sandboxMode: sandboxMode.value as Settings['sandboxMode'],
         sandboxNetwork: sandboxNetwork.value as Settings['sandboxNetwork'],
         sandboxImage: sandboxImage.value.trim(),
+        sandboxEnvAllowList: sandboxEnvAllowList.value.trim(),
+        sandboxPath: sandboxPath.value.trim(),
         theme: theme.value as Settings['theme'],
         openaiBaseUrl: baseUrl.value.trim(),
         anthropicBaseUrl: anthropicBaseUrl.value.trim(),
