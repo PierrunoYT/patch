@@ -612,10 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through ac612b2 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      This page reflects git history through a6c9929 (2026-10-06). Line counts exclude tests unless they say otherwise;
       renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
-      Windows, with the OpenAI end-to-end coverage refreshed on Linux; skipped tests included. Issue severities without
-      a severity label are estimates and are marked "est.".
+      Windows, with the OpenAI and UI end-to-end coverage refreshed on Linux; skipped tests included. Issue severities
+      without a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -630,14 +630,14 @@
             proc: 'renderer',
             files: 6,
             tests: 2,
-            lines: 1043,
+            lines: 1044,
             testLines: null,
-            desc: 'UI entry point and shell: App, the h() DOM builder, markdown rendering (DOMPurify), formatting, error reporting.',
+            desc: 'UI entry point and shell: App, the h() DOM builder, HTML-only Markdown rendering (DOMPurify; no SVG/MathML), formatting, error reporting.',
             list: [
               'app.ts (826, untested)',
               'main.ts',
               'dom.ts (h(), trustedHtml)',
-              'markdown.ts',
+              'markdown.ts (48, HTML-only model output)',
               'format.ts',
               'error_reporting.ts',
             ],
@@ -964,13 +964,13 @@
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
           { a: 'main/other', f: 11, c: 162, src: 2840, tl: 2617 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
-          { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
+          { a: 'renderer', f: 4, c: 14, src: 6367, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
         ],
         e2e: [
           ['security', 12],
           ['chat', 11],
-          ['ui', 11],
+          ['ui', 12],
           ['panels', 7],
           ['sandbox_approvals', 8],
           ['logging', 5],
@@ -1031,7 +1031,7 @@
           ['docs/USAGE.md', 291],
           ['docs/ARCHITECTURE.md', 252],
           ['docs/DEVELOPMENT.md', 203],
-          ['CHANGELOG.md', 188],
+          ['CHANGELOG.md', 189],
           ['README.md', 142],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
@@ -1047,10 +1047,10 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 39],
+          ['2026-10-06', 40],
         ],
         types: [
-          ['fix', 104],
+          ['fix', 105],
           ['docs', 61],
           ['feat', 60],
           ['test', 39],
@@ -1063,7 +1063,7 @@
           ['security', 1],
         ],
         authors: [
-          ['PierrunoYT', 271],
+          ['PierrunoYT', 272],
           ['Amp', 24],
           ['StepUpGaming', 23],
           ['Claude', 7],
@@ -1071,14 +1071,14 @@
           ['patchmote[bot]', 1],
         ],
         churn: [
-          ['CHANGELOG.md', 196],
-          ['docs/ARCHITECTURE.md', 120],
+          ['CHANGELOG.md', 197],
+          ['docs/ARCHITECTURE.md', 121],
           ['docs/DEVELOPMENT.md', 115],
-          ['README.md', 100],
+          ['README.md', 101],
           ['TASKS.md (no longer tracked)', 83],
           ['docs/USAGE.md', 51],
           ['package.json', 46],
-          ['patch-overview.html', 42],
+          ['patch-overview.html', 43],
           ['src/main/chat_manager.ts', 39],
           ['src/main/index.ts', 37],
           ['src/main/agent/agent.ts', 32],
@@ -1093,6 +1093,7 @@
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['a6c9929', 'fix: omit unsupported truncation from ChatGPT subscription requests'],
           ['ac612b2', 'fix: reset mainWindow when a reopened macOS window closes'],
           ['ae070f1', 'fix: close the active project when it is named through a link'],
           ['873a2bb', 'fix: keep MCP server secrets when a server is renamed'],
@@ -1108,7 +1109,6 @@
           ['46c2eca', "test: compare Git's own top level in the nested-repository reservation test"],
           ['d26e17f', 'fix: refuse Git panel push and commit that would run project files'],
           ['dc872cb', 'test: give the Windows non-Git e2e command time to prepare'],
-          ['ca72977', 'fix: keep sandboxed git working on macOS with a global Git config'],
         ],
         issues: [
           [
@@ -1159,7 +1159,6 @@
             0,
             '10-05',
           ],
-          [115, 'Markdown sanitizer keeps SVG <image> and <feImage> in model output', 'security', 'low', 0, '10-05'],
           [114, 'Removing an ask or reject permission rule is not confirmed', 'security', 'low', 0, '10-05'],
           [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
           [108, 'Windows sandbox copies the official Node for every command (~14 s)', 'sandbox', 'medium', 0, '10-05'],
@@ -1233,7 +1232,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 61,
+        closedCount: 62,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -2834,7 +2833,7 @@
             'The audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
             [
               '#112, #118: synchronous sandbox checks and chat saves still block the main process',
-              '#114, #115, #116: rule removal, SVG images in Markdown, error text in logs (#113, MCP secret migration, is fixed)',
+              '#114, #116: rule removal and error text in logs remain open. #115 is fixed: HTML-only Markdown rejects SVG images and MathML; #113 MCP secret migration is also fixed',
               '#73: web_search still sends queries without approval',
               '#125: two transcript_view e2e tests fail intermittently in full runs',
             ],

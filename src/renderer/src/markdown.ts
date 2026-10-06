@@ -30,6 +30,7 @@ function sanitize(html: string, config: Parameters<typeof DOMPurify.sanitize>[1]
 // removed too, because an image URL written by a prompt-injected model is a way to leak data.
 export function renderMarkdown(text: string): SanitizedHtml {
   return sanitize(marked.parse(text, { async: false }) as string, {
+    USE_PROFILES: { html: true },
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['img', 'picture', 'video', 'audio', 'source', 'iframe', 'object', 'embed', 'form', 'input', 'style'],
     FORBID_ATTR: ['style'],

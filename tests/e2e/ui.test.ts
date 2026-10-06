@@ -157,6 +157,46 @@ describe('user interface', () => {
     expect(result.html).not.toMatch(/onerror|<script|javascript:/i);
   });
 
+  it('removes SVG images and MathML while preserving HTML markdown and literal code', async () => {
+    claude.script({
+      blocks: [
+        {
+          type: 'text',
+          text: [
+            '**HTML-only formatting** and [safe link](https://example.com/).',
+            '',
+            '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==" width="1" height="1" /></svg>',
+            '',
+            '<svg><filter id="model-filter"><feImage href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E" /></filter></svg>',
+            '',
+            '<math><mrow><mi>x</mi><mo>=</mo><mn>7</mn></mrow></math>',
+            '',
+            '```html',
+            '<svg><image href="example.png" /></svg>',
+            '```',
+            '',
+            'Namespace payload complete.',
+          ].join('\n'),
+        },
+      ],
+      stopReason: 'end_turn',
+    });
+    const input = running.page.getByLabel('Message', { exact: true });
+    await input.fill('Show HTML-only markdown');
+    await input.press('Enter');
+    const markdown = running.page.locator('.message.assistant .markdown', { hasText: 'Namespace payload complete.' });
+    await markdown.waitFor();
+
+    expect(await markdown.locator('svg, image, feImage, filter, math, mrow, mi, img').count()).toBe(0);
+    expect(await markdown.locator('strong').textContent()).toBe('HTML-only formatting');
+    expect(await markdown.locator('a', { hasText: 'safe link' }).getAttribute('href')).toBe('https://example.com/');
+    expect(await markdown.locator('pre code.hljs.language-html').textContent()).toBe(
+      '<svg><image href="example.png" /></svg>\n',
+    );
+    expect(await markdown.locator('pre code .hljs-tag').count()).toBeGreaterThan(0);
+    if (screenshotDir) await markdown.screenshot({ path: join(screenshotDir, 'markdown-html-only.png') });
+  });
+
   it('strips model CSS overlays while preserving markdown and syntax highlighting', async () => {
     claude.script({
       blocks: [

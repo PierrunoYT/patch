@@ -165,6 +165,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- Model Markdown now uses DOMPurify's HTML-only profile, removing SVG images and filter images and MathML that previously survived the sanitizer. The renderer CSP already blocked remote image fetches; sanitization now enforces the documented restriction too. Normal Markdown and highlighted code remain available (fixes #115).
 - Command sandboxes protect the selected root's entire `.git` directory, including absent control-file names, against changes that could make host Git execute a planted command (#98). Project edits and Git reads remain available; Git writes now require the Git panel or explicit unsandboxed approval. Unsupported metadata layouts and selected config redirects/commands fail closed. Windows overlapping commands retain protection until the last owner exits, including after forced-termination recovery.
 - More settings changes are confirmed in a native dialog before they apply, so a compromised UI cannot make them silently ([#65](https://github.com/PierrunoYT/patch/issues/65)): a changed OpenAI-compatible base URL (it receives the OpenAI key), and new entries in the command and network allow-lists, in Settings and in a project's settings. Removing entries and clearing a base URL don't ask.
 - The app page enforces Trusted Types ([#65](https://github.com/PierrunoYT/patch/issues/65)): only HTML that DOMPurify produced can be written into the page, so a sanitizer bypass or a stray `innerHTML` cannot inject markup.
