@@ -263,7 +263,9 @@ export class GitService {
     const parent = dirname(own);
     let realParent: string;
     try {
-      realParent = realpathSync.native(parent);
+      // Match Workspace's resolver: native() expands Windows 8.3 names, which would make an ordinary
+      // RUNNER~1 temp path look like a linked folder when compared with Workspace.root.
+      realParent = realpathSync(parent);
     } catch {
       return own;
     }

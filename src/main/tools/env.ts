@@ -1,3 +1,5 @@
+import { win32 } from 'node:path';
+
 // Names that look like credentials. Agent commands run with the user's rights, so a prompt-injected command
 // could read these from the environment and send them out.
 const SECRET_NAME =
@@ -64,6 +66,9 @@ export function sandboxEnv(
     out.USERPROFILE = home;
     out.TEMP = tmp;
     out.TMP = tmp;
+    // AppContainer cannot discover user-profile module folders. Supply Windows PowerShell's built-in
+    // modules explicitly; never restore the host's PSModulePath (which may include user/startup code).
+    out.PSMODULEPATH = win32.join(out.SYSTEMROOT || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'Modules');
   }
   return out;
 }

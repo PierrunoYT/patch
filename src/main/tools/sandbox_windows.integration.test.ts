@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -173,9 +174,10 @@ console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, pr
         SSH_AUTH_SOCK: null,
         CC: 'fixture-compiler',
         PATH: root,
-        HOME: homedir(),
-        TMPDIR: tmpdir(),
       });
+      // The launcher expands 8.3 aliases (RUNNER~1 on CI); compare filesystem identity, not spelling.
+      expect(realpathSync.native(environment.HOME!)).toBe(realpathSync.native(homedir()));
+      expect(realpathSync.native(environment.TMPDIR!)).toBe(realpathSync.native(tmpdir()));
       expect(environment.TEMP).toBe(environment.TMP);
       expect(environment.tmpdir).toBe(environment.TEMP);
       expect(isAbsolute(environment.tmpdir!)).toBe(true);

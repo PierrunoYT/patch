@@ -89,7 +89,23 @@ describe('sandboxEnv', () => {
       TMPDIR: 'C:\\tmp',
       TEMP: 'C:\\tmp',
       TMP: 'C:\\tmp',
+      PSMODULEPATH: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
     });
+  });
+
+  it('supplies only built-in Windows PowerShell modules, even when host module paths are explicitly requested', () => {
+    const out = sandboxEnv(
+      { systemroot: 'D:\\Windows', PSModulePath: 'C:\\private-modules', PSMODULEPATH: 'C:\\other-modules' },
+      'win32',
+      'C:\\home',
+      'C:\\tmp',
+      { envAllowList: 'PSModulePath' },
+    );
+    expect(out.PSMODULEPATH).toBe('D:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules');
+    expect(out).not.toHaveProperty('PSModulePath');
+    expect(sandboxEnv({}, 'win32', 'C:\\home', 'C:\\tmp').PSMODULEPATH).toBe(
+      'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+    );
   });
 
   it('does not accept Unix case aliases or mutate the host environment', () => {

@@ -56,6 +56,8 @@ Older Windows Server images deny AppContainers access to `NUL`, preventing Git f
 
 Windows unit test files run serially to avoid cold PowerShell and helper startup contention on hosted runners. Assertions and deadlines remain unchanged; the explicit overlapping-command, process-tree and ACL-recovery tests still run their child processes concurrently.
 
+Windows CI uses short paths such as `RUNNER~1` for temporary folders. The Git discard guard uses the same `realpathSync` resolver as `Workspace`, so native 8.3 expansion cannot masquerade as a linked parent. The AppContainer launcher deliberately expands home/temp paths; its environment probe compares their filesystem identity. The real PowerShell probe must load `Get-Location`, `Set-Content` and `Get-Content` with the minimal environment: Patch supplies only the built-in `System32\WindowsPowerShell\v1.0\Modules` path, never the host's `PSModulePath`.
+
 The unreadable-key end-to-end test retries only deletion of its disposable profile after a forced exit: Windows may briefly retain Chromium database handles after `taskkill` returns. Cleanup uses ten retries with 100 ms linear backoff and still fails on a persistent lock; the application assertions and launches are never retried.
 
 ## Scripts

@@ -612,9 +612,9 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through d2aaed9 and the issue #95 fix (2026-10-06). Line counts exclude tests
+      This page reflects git history through a737a69 and the Windows CI fixes (2026-10-06). Line counts exclude tests
       unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come
-      from a real Vitest run on Windows, skipped tests included. Issue severities without a severity label are estimates
+      from a real Vitest run on Linux, skipped tests included. Issue severities without a severity label are estimates
       and are marked "est.".
     </footer>
 
@@ -745,8 +745,8 @@
             proc: 'main',
             files: 23,
             tests: 21,
-            lines: 3609,
-            testLines: 4619,
+            lines: 3614,
+            testLines: 4637,
             desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
@@ -759,7 +759,7 @@
               'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
               'sandbox_git.ts',
               'sandbox_git.integration.test.ts',
-              'env.ts (minimal native allow-list; startup/agent handles blocked even with explicit grants)',
+              'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
               'apply_patch.ts',
               'glob.ts',
               'regex_worker.ts (grep/glob patterns off the main process)',
@@ -783,10 +783,15 @@
             proc: 'main',
             files: 4,
             tests: 4,
-            lines: 492,
-            testLines: 736,
+            lines: 550,
+            testLines: 800,
             desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
-            list: ['terminal.ts', 'browser.ts', 'git.ts', 'commit_message.ts'],
+            list: [
+              'terminal.ts',
+              'browser.ts',
+              'git.ts (link-safe discard with consistent Windows short-path handling)',
+              'commit_message.ts',
+            ],
           },
           {
             id: 'search',
@@ -952,9 +957,9 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 21, c: 329, src: 3609, tl: 4619 },
-          { a: 'main/panels', f: 4, c: 51, src: 492, tl: 736 },
-          { a: 'main/other', f: 11, c: 157, src: 2815, tl: 2518 },
+          { a: 'main/tools', f: 21, c: 330, src: 3614, tl: 4637 },
+          { a: 'main/panels', f: 4, c: 54, src: 550, tl: 800 },
+          { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -1022,9 +1027,9 @@
           ['docs/PERFORMANCE.md', 461],
           ['docs/USAGE.md', 283],
           ['docs/ARCHITECTURE.md', 240],
-          ['docs/DEVELOPMENT.md', 184],
-          ['CHANGELOG.md', 163],
-          ['README.md', 129],
+          ['docs/DEVELOPMENT.md', 186],
+          ['CHANGELOG.md', 165],
+          ['README.md', 130],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
         ],
@@ -1037,10 +1042,10 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 9],
+          ['2026-10-06', 10],
         ],
         types: [
-          ['fix', 86],
+          ['fix', 87],
           ['feat', 60],
           ['docs', 56],
           ['test', 33],
@@ -1055,33 +1060,34 @@
         authors: [
           ['PierrunoYT', 250],
           ['StepUpGaming', 23],
-          ['Amp', 16],
+          ['Amp', 17],
           ['Claude', 7],
           ['Steven Isaac', 3],
         ],
         churn: [
-          ['CHANGELOG.md', 174],
-          ['docs/ARCHITECTURE.md', 107],
-          ['docs/DEVELOPMENT.md', 98],
-          ['README.md', 85],
+          ['CHANGELOG.md', 175],
+          ['docs/ARCHITECTURE.md', 108],
+          ['docs/DEVELOPMENT.md', 99],
+          ['README.md', 87],
           ['TASKS.md (no longer tracked)', 83],
-          ['package.json', 42],
-          ['docs/USAGE.md', 42],
-          ['src/main/chat_manager.ts', 37],
+          ['package.json', 44],
+          ['docs/USAGE.md', 43],
+          ['src/main/chat_manager.ts', 38],
           ['src/main/index.ts', 36],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
-          ['src/renderer/src/views/dialogs.ts', 25],
+          ['src/renderer/src/views/dialogs.ts', 26],
+          ['package-lock.json', 26],
           ['src/main/tools/tools.test.ts', 24],
           ['src/main/agent/session.ts', 24],
-          ['package-lock.json', 24],
           ['docs/PERFORMANCE.md', 24],
           ['src/main/agent/agent.test.ts', 22],
           ['src/shared/ipc.ts', 19],
+          ['patch-overview.html', 19],
           ['src/shared/chat.ts', 18],
-          ['src/renderer/src/styles.css', 17],
         ],
         recent: [
+          ['a737a69', 'fix: allow-list native sandbox command environments'],
           ['d2aaed9', 'docs: consolidate duplicate changelog categories'],
           ['df69948', 'fix: migrate plaintext MCP secrets and count them in the encryption status'],
           ['ac5c5b9', 'docs: tell agents what to keep current in patch-overview.html'],
