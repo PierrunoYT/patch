@@ -62,6 +62,10 @@ export function sandboxEnv(
   if (options.path?.trim()) out.PATH = options.path.trim();
   out.HOME = home;
   out.TMPDIR = tmp;
+  // The global Git configuration is hidden. Seatbelt denies reading ~/.gitconfig rather than hiding it, and Git
+  // aborts on a configuration file it may not read, so every git command failed on macOS. Read none instead.
+  // (GIT_* names cannot be granted, so this never replaces a user's choice.)
+  if (platform !== 'win32') out.GIT_CONFIG_GLOBAL = '/dev/null';
   if (platform === 'win32') {
     out.USERPROFILE = home;
     out.TEMP = tmp;

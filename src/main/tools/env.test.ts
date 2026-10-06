@@ -68,6 +68,7 @@ describe('sandboxEnv', () => {
       TZ: 'UTC',
       HOME: '/sandbox-home',
       TMPDIR: '/sandbox-temp',
+      GIT_CONFIG_GLOBAL: '/dev/null',
     });
   });
 
@@ -110,7 +111,11 @@ describe('sandboxEnv', () => {
 
   it('does not accept Unix case aliases or mutate the host environment', () => {
     const env = { Path: '/not-path', lang: 'private', PATH: undefined, HOME: '/host' };
-    expect(sandboxEnv(env, 'linux', '/home', '/tmp')).toEqual({ HOME: '/home', TMPDIR: '/tmp' });
+    expect(sandboxEnv(env, 'linux', '/home', '/tmp')).toEqual({
+      HOME: '/home',
+      TMPDIR: '/tmp',
+      GIT_CONFIG_GLOBAL: '/dev/null',
+    });
     expect(env).toEqual({ Path: '/not-path', lang: 'private', PATH: undefined, HOME: '/host' });
   });
 
@@ -160,6 +165,6 @@ describe('sandboxEnv', () => {
       sandboxEnv(Object.fromEntries(names.map((name) => [name, 'blocked'])), 'linux', '/home', '/tmp', {
         envAllowList: names.join('\n'),
       }),
-    ).toEqual({ HOME: '/home', TMPDIR: '/tmp' });
+    ).toEqual({ HOME: '/home', TMPDIR: '/tmp', GIT_CONFIG_GLOBAL: '/dev/null' });
   });
 });
