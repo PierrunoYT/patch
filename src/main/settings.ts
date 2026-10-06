@@ -223,9 +223,11 @@ export class SettingsStore extends EventEmitter {
         if (value?.startsWith('plain:')) secrets[name] = this.cipher.encrypt(value.slice('plain:'.length));
       }
       const chatgpt = this.chatgpt ? this.reencryptChatGpt(this.chatgpt) : null;
-      this.writeStored(this.settings, secrets, chatgpt);
+      const mcpSecrets = this.reencryptMcpSecrets(this.mcpSecrets);
+      this.writeStored(this.settings, secrets, chatgpt, mcpSecrets);
       this.secrets = secrets;
       this.chatgpt = chatgpt;
+      this.mcpSecrets = mcpSecrets;
     } catch {
       // Retain the original storage representation; a later access can retry when encryption/storage recovers.
     }
@@ -247,16 +249,40 @@ export class SettingsStore extends EventEmitter {
     settings: Settings,
     secrets: Partial<Record<SecretName, string>>,
     chatgpt: StoredChatGpt | null,
+    mcpSecrets = this.mcpSecrets,
   ): void {
-    const stored: StoredSettings = { settings, secrets, mcpSecrets: this.mcpSecrets };
+    const stored: StoredSettings = { settings, secrets, mcpSecrets };
     if (chatgpt) stored.chatgpt = chatgpt;
     writeJson(this.path, stored);
   }
 
+  // Every stored secret: API keys, the ChatGPT tokens and MCP servers' env and header values (#113). The plaintext
+  // check and the "encrypted" status in Settings both read this list.
   private sealedSecretValues(): string[] {
     const values = Object.values(this.secrets).filter((value): value is string => Boolean(value));
     if (this.chatgpt) values.push(this.chatgpt.accessToken, this.chatgpt.refreshToken);
+    for (const secrets of Object.values(this.mcpSecrets)) {
+      values.push(...Object.values(secrets.env ?? {}), ...Object.values(secrets.headers ?? {}));
+    }
     return values;
+  }
+
+  // A copy with every `plain:` MCP env and header value encrypted; it throws, changing nothing, if the cipher fails.
+  private reencryptMcpSecrets(all: typeof this.mcpSecrets): typeof this.mcpSecrets {
+    const reseal = (map: Record<string, string> | undefined) =>
+      map &&
+      Object.fromEntries(
+        Object.entries(map).map(([key, value]) => [
+          key,
+          value.startsWith('plain:') ? this.cipher.encrypt(value.slice('plain:'.length)) : value,
+        ]),
+      );
+    return Object.fromEntries(
+      Object.entries(all).map(([name, secrets]) => [
+        name,
+        { env: reseal(secrets.env), headers: reseal(secrets.headers) },
+      ]),
+    );
   }
 
   private seal(value: string): string {

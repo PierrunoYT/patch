@@ -1130,7 +1130,6 @@
           ],
           [115, 'Markdown sanitizer keeps SVG <image> and <feImage> in model output', 'security', 'low', 0, '10-05'],
           [114, 'Removing an ask or reject permission rule is not confirmed', 'security', 'low', 0, '10-05'],
-          [113, 'Plaintext MCP env/header secrets are never migrated or flagged', 'mcp', 'low', 0, '10-05'],
           [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
           [
             109,
@@ -1226,7 +1225,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 47,
+        closedCount: 48,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1440,7 +1439,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #95), then the remaining review findings (#112–#116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #95), then the remaining review findings (#112, #114–#116). See ',
                 h(
                   'a',
                   {
@@ -2820,11 +2819,11 @@
             'The audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
             [
               '#112, #118: synchronous sandbox checks and chat saves still block the main process',
-              '#113, #114, #115, #116: MCP secret migration, rule removal, SVG images in Markdown, error text in logs',
+              '#114, #115, #116: rule removal, SVG images in Markdown, error text in logs (#113, MCP secret migration, is fixed)',
               '#73: web_search still sends queries without approval',
               '#125: two transcript_view e2e tests fail intermittently in full runs',
             ],
-            'Small, contained fixes with tests; #113 and #114 close gaps in the settings confirmations.',
+            'Small, contained fixes with tests; #114 closes the last known gap in the settings confirmations.',
           ],
           [
             'Add unit tests to the renderer',

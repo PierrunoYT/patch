@@ -178,6 +178,53 @@ describe('SettingsStore', () => {
     expect(new SettingsStore(file, reversingCipher).getSecret('googleApiKey')).toBe('g-key');
   });
 
+  // #113: MCP env and header secrets were left out of migration and of the encryption status.
+  it('migrates plaintext MCP env and header secrets and reports them until then', () => {
+    let available = false;
+    const store = new SettingsStore(file, { ...reversingCipher, isAvailable: () => available });
+    store.update({
+      mcpServers: [
+        {
+          name: 'api',
+          transport: 'http',
+          url: 'https://mcp.example/v1',
+          headers: { Authorization: 'Bearer h-secret' },
+        },
+        { name: 'local', transport: 'stdio', command: 'node', env: { TOKEN: 'e-secret' } },
+      ],
+    });
+    // Only MCP secrets are stored, and they are plaintext: Settings must not call them encrypted.
+    expect(readFileSync(file, 'utf8')).toContain('plain:Bearer h-secret');
+    expect(store.view().secretsEncrypted).toBe(false);
+
+    available = true;
+    expect(store.view().secretsEncrypted).toBe(true);
+    const disk = readFileSync(file, 'utf8');
+    expect(disk).not.toContain('h-secret');
+    expect(disk).not.toContain('e-secret');
+    const reopened = new SettingsStore(file, reversingCipher).mcpServers();
+    expect(reopened.find((server) => server.name === 'api')!.headers).toEqual({ Authorization: 'Bearer h-secret' });
+    expect(reopened.find((server) => server.name === 'local')!.env).toEqual({ TOKEN: 'e-secret' });
+  });
+
+  it('keeps plaintext MCP secrets usable if their encryption fails during migration', () => {
+    const plain = new SettingsStore(file, noCipher);
+    plain.update({ mcpServers: [{ name: 'local', transport: 'stdio', command: 'node', env: { TOKEN: 'e-secret' } }] });
+    plain.setSecret('googleApiKey', 'g-key');
+    const original = readFileSync(file, 'utf8');
+    const store = new SettingsStore(file, {
+      ...reversingCipher,
+      encrypt(value) {
+        if (value === 'e-secret') throw new Error('keychain failed');
+        return reversingCipher.encrypt(value);
+      },
+    });
+    expect(store.view().secretsEncrypted).toBe(false);
+    expect(store.mcpServers()[0]!.env).toEqual({ TOKEN: 'e-secret' });
+    expect(store.getSecret('googleApiKey')).toBe('g-key');
+    expect(readFileSync(file, 'utf8')).toBe(original);
+  });
+
   it('migrates when the cipher becomes available in the current process', () => {
     let available = false;
     const store = new SettingsStore(file, { ...reversingCipher, isAvailable: () => available });
