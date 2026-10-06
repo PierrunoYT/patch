@@ -237,7 +237,8 @@ result.unlink = attempt(() => fs.unlinkSync('.git/config'));
 fs.writeFileSync('replacement', 'bad');
 result.replace = attempt(() => fs.renameSync('replacement', '.git/config'));
 result.renameDirectory = attempt(() => fs.renameSync('.git', 'old-git'));
-result.alias = attempt(() => { fs.linkSync('.git/config', 'config-alias'); fs.appendFileSync('config-alias', 'bad'); });
+result.aliasLink = attempt(() => fs.linkSync('.git/config', 'config-alias'));
+result.aliasWrite = result.aliasLink === 'allowed' ? attempt(() => fs.appendFileSync('config-alias', 'bad')) : 'not-attempted';
 if (process.platform === 'darwin') {
   const parent = require('node:path').dirname(process.cwd());
   result.renameAncestor = attempt(() => { fs.renameSync(parent, parent + '-moved'); fs.renameSync(parent + '-moved', parent); });
@@ -247,17 +248,15 @@ console.log(JSON.stringify(result));
       expect(result.source).toBe('original-edited');
       expect(result.created).toBe('new');
       expect(result.config).toBe(original);
-      for (const operation of [
-        'overwrite',
-        'absent',
-        'redirect',
-        'attributes',
-        'unlink',
-        'replace',
-        'renameDirectory',
-        'alias',
-      ])
+      for (const operation of ['overwrite', 'absent', 'redirect', 'attributes', 'unlink', 'replace', 'renameDirectory'])
         expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
+      if (result.aliasLink === 'allowed') {
+        expect(result.aliasWrite).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
+      } else {
+        // Seatbelt may grow an explicit (file-link) denial; either boundary is safe if the alias is never writable.
+        expect(result.aliasLink).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
+        expect(result.aliasWrite).toBe('not-attempted');
+      }
       if (kind === 'seatbelt') expect(result.renameAncestor).toMatch(/^(EACCES|EPERM)$/);
       expect(readFileSync(join(root, '.git', 'config'), 'utf8')).toBe(original);
       expect(existsSync(join(root, '.git', 'config.worktree'))).toBe(false);

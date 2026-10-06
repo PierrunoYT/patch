@@ -189,15 +189,86 @@ export function seatbeltProfile(
   network: boolean,
 ): string {
   const subpath = (path: string) => `(subpath ${sbplString(path)})`;
+  // CLI user/group lookup only. Network grants never admit application-launch or URL-session daemons.
+  const services = ['com.apple.system.opendirectoryd.libinfo'];
+  if (network) {
+    services.push(
+      'com.apple.SystemConfiguration.DNSConfiguration',
+      'com.apple.SystemConfiguration.configd',
+      'com.apple.networkd',
+      'com.apple.ocspd',
+      'com.apple.trustd.agent',
+      'com.apple.TrustEvaluationAgent',
+    );
+  }
+  // The CLI runtime baseline from Codex 79cae5f7 (seatbelt_base_policy.sbpl), plus kern.boottime (Node's os.uptime),
+  // Rosetta and OS-compat version checks, and every hw.optional CPU feature flag (Intel included). Codex's
+  // kern.proc.pid./kern.proc.pgrp. prefixes are left out: they let a command read any host process's name and owner.
+  const sysctls = [
+    'hw.activecpu',
+    'hw.busfrequency_compat',
+    'hw.byteorder',
+    'hw.cacheconfig',
+    'hw.cachelinesize_compat',
+    'hw.cpufamily',
+    'hw.cpufrequency_compat',
+    'hw.cputype',
+    'hw.l1dcachesize_compat',
+    'hw.l1icachesize_compat',
+    'hw.l2cachesize_compat',
+    'hw.l3cachesize_compat',
+    'hw.logicalcpu_max',
+    'hw.machine',
+    'hw.model',
+    'hw.memsize',
+    'hw.ncpu',
+    'hw.nperflevels',
+    'hw.packages',
+    'hw.pagesize_compat',
+    'hw.pagesize',
+    'hw.physicalcpu',
+    'hw.physicalcpu_max',
+    'hw.logicalcpu',
+    'hw.cpufrequency',
+    'hw.tbfrequency_compat',
+    'hw.vectorunit',
+    'machdep.cpu.brand_string',
+    'kern.argmax',
+    'kern.boottime',
+    'kern.hostname',
+    'kern.maxfilesperproc',
+    'kern.maxproc',
+    'kern.osproductversion',
+    'kern.osproductversioncompat',
+    'kern.osrelease',
+    'kern.ostype',
+    'kern.osvariant_status',
+    'kern.osversion',
+    'kern.secure_kernel',
+    'kern.sysv.semmns',
+    'kern.usrstack64',
+    'kern.version',
+    'sysctl.proc_cputype',
+    'sysctl.proc_translated',
+    'vm.loadavg',
+  ];
+  const sysctlPrefixes = ['hw.optional.', 'hw.perflevel', 'net.routetable.'];
   const lines = [
     '(version 1)',
     '(deny default)',
     '(allow process-fork)',
+    // Directly executed toolchain processes inherit the profile; service-mediated launches do not.
     '(allow process-exec)',
     '(allow signal (target self))',
-    '(allow sysctl-read)',
-    '(allow mach-lookup)',
-    '(allow ipc-posix-shm)',
+    `(allow sysctl-read ${[
+      ...sysctls.map((name) => `(sysctl-name ${sbplString(name)})`),
+      ...sysctlPrefixes.map((name) => `(sysctl-name-prefix ${sbplString(name)})`),
+    ].join(' ')})`,
+    `(allow mach-lookup ${services.map((name) => `(global-name ${sbplString(name)})`).join(' ')})`,
+    // Python multiprocessing locks need named semaphores. Shared memory stays denied except libomp's registration
+    // names (PyTorch); a broader grant would let a command open host processes' segments by name.
+    '(allow ipc-posix-sem)',
+    '(allow ipc-posix-shm-read-data ipc-posix-shm-write-create ipc-posix-shm-write-unlink (ipc-posix-name-regex #"^/__KMP_REGISTERED_LIB_[0-9]+$"))',
     '(allow pseudo-tty)',
     // Later rules win: read everything, hide the home folder, then open the folders builds need.
     '(allow file-read*)',
@@ -216,6 +287,11 @@ export function seatbeltProfile(
     lines.push(`(deny file-write-unlink (literal ${sbplString(path)}))`);
   }
   if (network) lines.push('(allow network*)');
+  // Keep service-mediated launches and arbitrary XPC lookups denied even if a later grant is broadened.
+  lines.push(
+    '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd") (global-name "com.apple.lsd.mapdb"))',
+    '(deny mach-lookup (xpc-service-name-prefix ""))',
+  );
   return lines.join('\n');
 }
 

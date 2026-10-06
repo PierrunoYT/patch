@@ -165,6 +165,67 @@ describe('seatbeltProfile', () => {
     expect(seatbeltProfile(env(), true)).toContain('(allow network*)');
     expect(seatbeltProfile({ ...env(), cwd: '/a"b' }, false)).toContain('(subpath "/a\\"b")');
   });
+
+  it.each([false, true])(
+    'allows only named CLI services, never application-launch or URL-session daemons (network=%s)',
+    (network) => {
+      const profile = seatbeltProfile(env(), network);
+      const allowed = profile.split('\n').find((line) => line.startsWith('(allow mach-lookup '))!;
+      const names = [...allowed.matchAll(/\(global-name "([^"]+)"\)/g)].map((match) => match[1]);
+      expect(names).toEqual([
+        'com.apple.system.opendirectoryd.libinfo',
+        ...(network
+          ? [
+              'com.apple.SystemConfiguration.DNSConfiguration',
+              'com.apple.SystemConfiguration.configd',
+              'com.apple.networkd',
+              'com.apple.ocspd',
+              'com.apple.trustd.agent',
+              'com.apple.TrustEvaluationAgent',
+            ]
+          : []),
+      ]);
+      expect(profile).not.toContain('(allow mach-lookup)');
+      expect(profile).not.toContain('global-name-prefix');
+      expect(allowed).not.toMatch(/launchservices|lsd\.|nsurlsession|appleevent|runningboard|SecurityServer|cfprefsd/i);
+      expect(profile).toContain(
+        '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd") (global-name "com.apple.lsd.mapdb"))',
+      );
+      expect(profile.trim().endsWith('(deny mach-lookup (xpc-service-name-prefix ""))')).toBe(true);
+    },
+  );
+
+  it('denies host POSIX shared memory while retaining inherited CLI process execution', () => {
+    const profile = seatbeltProfile(env(), false);
+    expect(profile).not.toContain('(allow ipc-posix-shm)');
+    expect(profile).not.toMatch(/\(allow ipc-posix-shm[^\n]*ipc-posix-name-prefix/);
+    expect(profile).toContain('(ipc-posix-name-regex #"^/__KMP_REGISTERED_LIB_[0-9]+$")');
+    expect(profile).toContain('(allow ipc-posix-sem)');
+    expect(profile).toContain('(allow process-exec)');
+    expect(profile).toContain('(allow process-fork)');
+    expect(profile).not.toContain('(allow sysctl-write)');
+  });
+
+  it('limits sysctl reads to runtime discovery, never other processes, their arguments or environment', () => {
+    const profile = seatbeltProfile(env(), false);
+    expect(profile).not.toContain('(allow sysctl-read)');
+    for (const name of [
+      'hw.ncpu',
+      'hw.memsize',
+      'machdep.cpu.brand_string',
+      'kern.ostype',
+      'kern.sysv.semmns',
+      'vm.loadavg',
+      'kern.boottime',
+      'kern.osproductversioncompat',
+      'sysctl.proc_translated',
+    ]) {
+      expect(profile).toContain(`(sysctl-name "${name}")`);
+    }
+    expect(profile).toContain('(sysctl-name-prefix "hw.optional.")');
+    expect(profile).not.toContain('kern.procargs');
+    expect(profile).not.toContain('kern.proc.');
+  });
 });
 
 describe('containerArgs', () => {
