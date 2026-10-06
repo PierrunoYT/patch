@@ -362,7 +362,13 @@ function start(): void {
     );
   });
 
-  const openWindow = () => createMainWindow((guest) => browser.attach(guest));
+  const openWindow = () => {
+    const window = createMainWindow((guest) => browser.attach(guest));
+    window.on('closed', () => {
+      if (mainWindow === window) mainWindow = null;
+    });
+    return window;
+  };
   buildMenu(() => mainWindow, join(userData, 'logs'));
   mainWindow = openWindow();
   // Tell the user once the page can show it, instead of only asking for the key as if it was never entered.
@@ -383,7 +389,6 @@ function start(): void {
       ),
     );
   }
-  mainWindow.on('closed', () => (mainWindow = null));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
