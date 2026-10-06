@@ -109,6 +109,9 @@ jobs:
           docker pull node:lts
 
       - run: npm run typecheck
+      - name: Check Windows sandbox startup and recovery
+        if: runner.os == 'Windows'
+        run: npx vitest run --project unit src/main/tools/sandbox_windows.integration.test.ts -t "starts PowerShell|keeps metadata protected"
       - run: npm run test:unit
         env:
           PATCH_REQUIRE_NATIVE_SANDBOX: '1'

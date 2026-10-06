@@ -129,7 +129,20 @@ console.log(JSON.stringify(result));`,
     const result = await shell.run(
       'Write-Output (Get-Location).Path; Set-Content -Path inside.txt -Value written; Get-Content inside.txt',
     );
-    expect(result.exitCode, result.output).toBe(0);
+    let diagnostic = '';
+    if (result.exitCode !== 0) {
+      // Autoloading hides the underlying import exception. Probe only known runtime paths, never the host env.
+      const probe = await shell.run(`
+[Console]::WriteLine('PSHOME=' + $PSHOME);
+[Console]::WriteLine('PSModulePath=' + $env:PSModulePath);
+$manifest = "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1";
+[Console]::WriteLine('Management manifest readable=' + [IO.File]::Exists($manifest));
+try { Import-Module $manifest -ErrorAction Stop; [Console]::WriteLine('Management import OK') }
+catch { [Console]::WriteLine($_.Exception.ToString()) }
+`);
+      diagnostic = probe.output;
+    }
+    expect(result.exitCode, `${result.output}\n${diagnostic}`).toBe(0);
     expect(result.output).toMatch(/[P-Z]:\\/i);
     expect(result.output).toContain('written');
     expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toContain('written');
@@ -844,11 +857,12 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
               '-NoProfile',
               '-NonInteractive',
               '-Command',
-              "while ($true) { try { Set-Content -LiteralPath '.git/config.worktree' -Value bad -ErrorAction Stop; Write-Output WRITABLE } catch { Write-Output BLOCKED }; Start-Sleep -Milliseconds 100 }",
+              "while ($true) { try { [IO.File]::WriteAllText([IO.Path]::Combine([Environment]::CurrentDirectory, '.git/config.worktree'), 'bad'); [Console]::WriteLine('WRITABLE') } catch [UnauthorizedAccessException] { [Console]::WriteLine('BLOCKED') } catch { [Console]::WriteLine($_.Exception.ToString()); exit 1 }; [Threading.Thread]::Sleep(100) }",
             ],
           })}\n`,
         );
-        await expect.poll(() => writerOutput).toContain('BLOCKED');
+        // The first attempt includes process/runtime startup, not just the loop's 100 ms interval.
+        await expect.poll(() => writerOutput, { timeout: 10_000 }).toContain('BLOCKED');
         expect(readdirSync(journal)).toHaveLength(2);
 
         // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
