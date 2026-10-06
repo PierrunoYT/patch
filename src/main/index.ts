@@ -224,7 +224,7 @@ function start(): void {
   };
 
   handle('settings:update', async (patch) => {
-    await confirmChanges(changesToConfirm(settings.get(), patch, autoConfirmed));
+    await confirmChanges(changesToConfirm(settings.get(), patch, autoConfirmed, settings.mcpHeaderNames()));
     const view = settings.update(patch);
     if (patch.approvalMode === 'auto') autoConfirmed = true;
     return view;

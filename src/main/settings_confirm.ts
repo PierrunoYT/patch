@@ -6,8 +6,14 @@ import type { McpServerConfig, Settings } from '@shared/settings';
 // apply them silently. (It could still type into the terminal panel, a real shell, so keeping the renderer itself
 // safe - DOMPurify, the CSP and Trusted Types - is the main control; this keeps a settings-only exploit from being
 // enough.)
-// Returns one line per change, or nothing when the patch needs no confirmation.
-export function changesToConfirm(current: Settings, patch: Partial<Settings>, autoConfirmed: boolean): string[] {
+// Returns one line per change, or nothing when the patch needs no confirmation. `storedHeaders` names the encrypted
+// HTTP headers kept per MCP server (SettingsStore.mcpHeaderNames), which a changed URL would send to another host.
+export function changesToConfirm(
+  current: Settings,
+  patch: Partial<Settings>,
+  autoConfirmed: boolean,
+  storedHeaders: Record<string, string[]> = {},
+): string[] {
   const changes: string[] = [];
 
   if (patch.approvalMode === 'auto' && current.approvalMode !== 'auto' && !autoConfirmed) {
@@ -30,8 +36,17 @@ export function changesToConfirm(current: Settings, patch: Partial<Settings>, au
 
   if (Array.isArray(patch.mcpServers)) {
     for (const server of patch.mcpServers) {
-      if (server.transport !== 'stdio') continue;
       const before = current.mcpServers.find((candidate) => candidate.name === server.name);
+      if (server.transport !== 'stdio') {
+        // Headers are stored by server name and kept when the dialog leaves them out or empty, so a new URL under an
+        // existing name would send a saved Authorization header to that host (#110).
+        const kept = keptHeaders(storedHeaders[server.name] ?? [], server.headers);
+        const sameHost = before?.transport === 'http' && (before.url ?? '').trim() === (server.url ?? '').trim();
+        if (kept.length > 0 && !sameHost) {
+          changes.push(`Send the saved headers ${kept.join(', ')} of MCP server "${server.name}" to ${server.url}.`);
+        }
+        continue;
+      }
       const what = stdioChange(before, server);
       if (what) changes.push(`${what} MCP server "${server.name}": ${commandLine(server)}`);
     }
@@ -127,6 +142,13 @@ function stdioChange(before: McpServerConfig | undefined, server: McpServerConfi
   const newEnv = Object.entries(server.env ?? {}).filter(([, value]) => value);
   if (newEnv.length > 0) return `Set ${newEnv.map(([key]) => key).join(', ')} for the`;
   return null;
+}
+
+// Stored header names that survive the save: all of them when the patch leaves headers out, otherwise those it lists
+// with an empty value (a typed value replaces the stored one, and the renderer already knows what it typed).
+function keptHeaders(stored: string[], incoming: Record<string, string> | undefined): string[] {
+  if (!incoming) return stored;
+  return stored.filter((name) => name in incoming && !incoming[name]);
 }
 
 function commandLine(server: McpServerConfig): string {

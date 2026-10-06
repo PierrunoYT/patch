@@ -79,7 +79,7 @@ Every approved file edit keeps a copy of the file as it was. The edit's card in 
 - **Ask before edits and commands** (default): as above.
 - **Run edits and commands without asking** (Auto): nothing waits for you. Commands run in your shell with your permissions, so use it only for work you would let anyone on your keyboard do. The first switch to Auto after starting the app shows a confirmation dialog.
 
-Changing the **Editor command**, adding or changing an MCP server that runs a program (its command, arguments, folder or a new `env` value), adding entries to the commands or network hosts allowed without asking (in Settings or in a project's settings), or setting the Claude or OpenAI-compatible base URL also asks for confirmation before it is saved. Removing entries and clearing a base URL don't ask. Cancel leaves the settings as they were.
+Changing the **Editor command**, adding or changing an MCP server that runs a program (its command, arguments, folder or a new `env` value), changing the URL of an HTTP MCP server that keeps saved headers (they would go to the new host), adding entries to the commands or network hosts allowed without asking (in Settings or in a project's settings), or setting the Claude or OpenAI-compatible base URL also asks for confirmation before it is saved. Removing entries and clearing a base URL don't ask. Cancel leaves the settings as they were.
 
 Even in Auto mode, a fetch or browser redirect to another host is blocked; the assistant has to ask for the new address as a separate step.
 

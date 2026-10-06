@@ -135,6 +135,9 @@ describe('SettingsStore', () => {
 
     store.update({ theme: 'light' });
     expect(store.mcpServers()[0]!.headers).toEqual({ Authorization: 'Bearer secret' });
+    // The confirmation check gets header names only, never values (#110).
+    expect(store.mcpHeaderNames()).toEqual({ docs: ['Authorization'] });
+    expect(JSON.stringify(store.mcpHeaderNames())).not.toContain('Bearer');
   });
 
   it('keeps an MCP secret the dialog sends back as an empty value, and drops one the user removed', () => {

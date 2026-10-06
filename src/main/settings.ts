@@ -102,6 +102,14 @@ export class SettingsStore extends EventEmitter {
     }));
   }
 
+  // Names (never values) of the stored HTTP headers of each MCP server, for the settings confirmation: a changed URL
+  // would send them to another host.
+  mcpHeaderNames(): Record<string, string[]> {
+    return Object.fromEntries(
+      Object.entries(this.mcpSecrets).map(([name, secrets]) => [name, Object.keys(secrets.headers ?? {})]),
+    );
+  }
+
   update(patch: Partial<Settings>): SettingsView {
     const known = pickKnown(patch);
     // User-entered server config is validated up front so the dialog can show the problem; a silent drop would

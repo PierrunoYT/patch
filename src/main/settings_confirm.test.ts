@@ -78,6 +78,43 @@ describe('changesToConfirm', () => {
     expect(changesToConfirm(current, { ...current, mcpServers: [{ ...docs, env: { TOKEN: '' } }] }, false)).toEqual([]);
   });
 
+  // #110: headers are stored by server name and kept when a save leaves them out or empty.
+  describe('saved MCP HTTP headers', () => {
+    const api: McpServerConfig = { name: 'api', transport: 'http', url: 'https://mcp.example/v1' };
+    const withApi: Settings = { ...current, mcpServers: [docs, api] };
+    const stored = { api: ['Authorization'] };
+
+    it('asks before a changed URL sends the saved headers to another host', () => {
+      const moved = { ...api, url: 'https://evil.example/mcp' };
+      expect(changesToConfirm(withApi, { mcpServers: [docs, moved] }, false, stored)).toEqual([
+        'Send the saved headers Authorization of MCP server "api" to https://evil.example/mcp.',
+      ]);
+      // An empty value in the dialog keeps the stored header too.
+      expect(
+        changesToConfirm(withApi, { mcpServers: [docs, { ...moved, headers: { Authorization: '' } }] }, false, stored),
+      ).toHaveLength(1);
+    });
+
+    it('asks when a stdio server under the same name becomes an HTTP server that keeps stored headers', () => {
+      const stdioApi: McpServerConfig = { name: 'api', transport: 'stdio', command: 'node' };
+      expect(
+        changesToConfirm({ ...current, mcpServers: [stdioApi] }, { mcpServers: [api] }, false, stored),
+      ).toHaveLength(1);
+    });
+
+    it('does not ask for the same URL, a typed replacement, or a server without stored headers', () => {
+      expect(
+        changesToConfirm(withApi, { mcpServers: [docs, { ...api, url: ' https://mcp.example/v1 ' }] }, false, stored),
+      ).toEqual([]);
+      const typed = { ...api, url: 'https://new.example/mcp', headers: { Authorization: 'Bearer typed-now' } };
+      expect(changesToConfirm(withApi, { mcpServers: [docs, typed] }, false, stored)).toEqual([]);
+      expect(
+        changesToConfirm(withApi, { mcpServers: [docs, { ...api, url: 'https://new.example' }] }, false, {}),
+      ).toEqual([]);
+      expect(changesToConfirm(current, { mcpServers: [docs, api] }, false, {})).toEqual([]);
+    });
+  });
+
   it('asks before switching to Auto mode, once per session, and never when switching back', () => {
     expect(changesToConfirm(current, { approvalMode: 'auto' }, false)).toEqual([
       'Switch to Auto mode: file edits and commands run without asking.',
