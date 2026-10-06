@@ -26,6 +26,58 @@ describe('redactSecrets', () => {
     expect(redactSecrets('export STRIPE_SECRET_KEY="sk_live_abcdefgh"')).toContain(REDACTION_MARK);
   });
 
+  // #123: connection strings in config files reach the model through read_file, which needs no approval.
+  it.each([
+    [
+      'DATABASE_URL=postgres://admin:hunter2secret@db.example.com/prod',
+      `DATABASE_URL=postgres://admin:${REDACTION_MARK}@db.example.com/prod`,
+    ],
+    [
+      'const mongoUri = "mongodb+srv://user:P@ssw0rd123@cluster0.mongodb.net/db"',
+      `const mongoUri = "mongodb+srv://user:${REDACTION_MARK}@cluster0.mongodb.net/db"`,
+    ],
+    ['redis://:mypassword123@redis.internal:6379/0', `redis://:${REDACTION_MARK}@redis.internal:6379/0`],
+    ['amqp://guest:p%40ss%3Aword@rabbit:5672', `amqp://guest:${REDACTION_MARK}@rabbit:5672`],
+    [
+      'origin  https://deploy:abcd1234efgh@git.example.com/team/repo.git (fetch)',
+      `origin  https://deploy:${REDACTION_MARK}@git.example.com/team/repo.git (fetch)`,
+    ],
+    ["url: 'mysql://root:pa:ss@localhost/app'", `url: 'mysql://root:${REDACTION_MARK}@localhost/app'`],
+  ])('redacts the password in %s', (text, expected) => {
+    expect(redactSecrets(text)).toBe(expected);
+  });
+
+  it('leaves URLs without a password alone', () => {
+    const text = [
+      'ssh://git@github.com:22/team/repo.git',
+      'https://example.com/a:b@c',
+      'see https://user@example.com/path',
+      'postgres://localhost:5432/app',
+      'mailto:someone@example.com',
+      'http://[::1]:8080/health',
+    ].join('\n');
+    expect(redactSecrets(text)).toBe(text);
+  });
+
+  it('is unchanged by a second pass', () => {
+    const once = redactSecrets('postgres://admin:hunter2secret@db/prod');
+    expect(redactSecrets(once)).toBe(once);
+  });
+
+  it('stays fast on long lines that look partly like URLs', () => {
+    const lines = [
+      'a'.repeat(512 * 1024),
+      `x://${'a'.repeat(512 * 1024)}`,
+      `x://u:${'p'.repeat(512 * 1024)}`,
+      'x://u:p'.repeat(70_000),
+    ];
+    for (const line of lines) {
+      const started = Date.now();
+      redactSecrets(line);
+      expect(Date.now() - started).toBeLessThan(500);
+    }
+  });
+
   it('leaves ordinary code alone', () => {
     const code = [
       'const token = getAccessToken();',
