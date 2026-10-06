@@ -785,13 +785,13 @@
             proc: 'main',
             files: 4,
             tests: 4,
-            lines: 556,
-            testLines: 821,
+            lines: 607,
+            testLines: 914,
             desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
             list: [
               'terminal.ts',
               'browser.ts',
-              'git.ts (331; link-safe discard, hook/filter hardening and implicit bare-repository discovery refusal)',
+              'git.ts (385; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
               'commit_message.ts',
             ],
           },
@@ -960,7 +960,7 @@
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
           { a: 'main/tools', f: 22, c: 384, src: 3836, tl: 5249 },
-          { a: 'main/panels', f: 4, c: 56, src: 556, tl: 821 },
+          { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
@@ -1116,14 +1116,6 @@
             0,
             '10-06',
           ],
-          [
-            130,
-            'Sandboxed commands can rewrite scripts that existing Git hooks run on the host',
-            'sandbox',
-            'medium',
-            0,
-            '10-06',
-          ],
           [128, 'Isolate built-in file tools behind an OS-restricted executor', 'sandbox', 'low', 1, '10-06'],
           [127, 'Protect agent, IDE and shell configuration from command writes', 'sandbox', 'low', 1, '10-06'],
           [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 1, '10-06'],
@@ -1244,7 +1236,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 52,
+        closedCount: 53,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1458,7 +1450,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, confirm the macOS service restrictions on CI and close #99, then the remaining review findings (#130, #132, #112, #114–#116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, confirm the macOS service restrictions on CI and close #99, then the remaining review findings (#132, #112, #114–#116). See ',
                 h(
                   'a',
                   {
@@ -2835,10 +2827,10 @@
             [
               '#99: Mach lookup, shared memory and sysctl reads are now limited to named entries and LaunchServices is blocked; close it once macOS CI confirms every real-Seatbelt probe',
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
-              '#129 is fixed: non-Git folders get a .git reservation file Git refuses, so a planted bare repository is never used; projects inside another repository keep an empty folder and the gap (#132). Existing hooks and overrides can still run project scripts the sandbox rewrote (#130)',
+              '#129 is fixed: non-Git folders get a .git reservation file Git refuses, so a planted bare repository is never used; projects inside another repository keep an empty folder and the gap (#132). The Git panel refuses push/commit when repository config runs a project file (#130)',
               '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
             ],
-            'Prioritize #99, then #130 and #132; retain the metadata boundary while making narrower per-command path grants possible (#126).',
+            'Prioritize #99, then #132; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',

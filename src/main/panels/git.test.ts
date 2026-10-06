@@ -15,7 +15,7 @@ import { simpleGit } from 'simple-git';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GitFile } from '@shared/panels';
 import { validateSandboxGit } from '../tools/sandbox_git';
-import { filterNames, GitService, hardenedConfig, isRepoAboveHome, removeEntry } from './git';
+import { filterNames, GitService, hardenedConfig, isRepoAboveHome, projectCommands, removeEntry } from './git';
 
 const tempFolderInsideRepo = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: tmpdir() }).status === 0;
 
@@ -388,6 +388,53 @@ describe('GitService with a hostile repository config', () => {
     }
   });
 
+  it.each([
+    ['credential.helper', '!./cred.sh'],
+    ['core.sshCommand', 'sh cred.sh'],
+    ['remote.origin.receivepack', './cred.sh'],
+  ])('does not push when the repository %s runs a project file (#130)', async (key, value) => {
+    await initRepo();
+    const remote = mkdtempSync(join(tmpdir(), 'cc-git-commands-remote-'));
+    try {
+      await simpleGit({ baseDir: remote }).init(true);
+      await simpleGit({ baseDir: root }).addRemote('origin', remote);
+      writeFileSync(join(root, 'cred.sh'), `#!/bin/sh\ntouch "${marker('cred').replaceAll('\\', '/')}"\n`, {
+        mode: 0o755,
+      });
+      config(key, value);
+      await expect(service.push()).rejects.toThrow(/runs a file inside the project/);
+      expect(existsSync(marker('cred'))).toBe(false);
+    } finally {
+      rmSync(remote, { recursive: true, force: true });
+    }
+  });
+
+  it('still pushes with helpers outside the project', async () => {
+    await initRepo();
+    const remote = mkdtempSync(join(tmpdir(), 'cc-git-commands-remote-'));
+    try {
+      await simpleGit({ baseDir: remote }).init(true);
+      await simpleGit({ baseDir: root }).addRemote('origin', remote);
+      config('credential.helper', 'store');
+      config('core.sshCommand', 'ssh -i ~/.ssh/work');
+      expect((await service.push()).ahead).toBe(0);
+    } finally {
+      rmSync(remote, { recursive: true, force: true });
+    }
+  });
+
+  it('does not commit when the repository signing program is a project file (#130)', async () => {
+    await initRepo();
+    writeFileSync(join(root, 'sign.sh'), `#!/bin/sh\ntouch "${marker('sign').replaceAll('\\', '/')}"\n`, {
+      mode: 0o755,
+    });
+    config('commit.gpgSign', 'true');
+    config('gpg.program', './sign.sh');
+    writeFileSync(join(root, 'a.txt'), 'two\n');
+    await expect(service.commit('signed')).rejects.toThrow(/gpg\.program=\.\/sign\.sh/);
+    expect(existsSync(marker('sign'))).toBe(false);
+  });
+
   it('does not run core.fsmonitor when reading the status', async () => {
     await initRepo();
     writeFileSync(join(root, 'a.txt'), 'two\n');
@@ -424,6 +471,52 @@ describe('GitService with a hostile repository config', () => {
     expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('one\n');
     expect(existsSync(marker('clean'))).toBe(false);
     expect(existsSync(marker('smudge'))).toBe(false);
+  });
+});
+
+describe('projectCommands', () => {
+  let project: string;
+  beforeEach(() => {
+    project = mkdtempSync(join(tmpdir(), 'cc-git-project-commands-'));
+    writeFileSync(join(project, 'helper.sh'), '');
+  });
+  afterEach(() => rmSync(project, { recursive: true, force: true }));
+  const listing = (entries: Record<string, string>) =>
+    Object.entries(entries)
+      .map(([key, value]) => `${key}\n${value}\0`)
+      .join('');
+
+  it('names settings that run a project file, by relative path, bare name, absolute path or substitution', () => {
+    expect(
+      projectCommands(
+        listing({
+          'credential.helper': '!./helper.sh get',
+          'core.sshcommand': 'sh helper.sh',
+          'gpg.program': join(project, 'bin', 'gpg'),
+          'core.askpass': 'echo $(cat x)',
+        }),
+        project,
+      ),
+    ).toEqual([
+      'credential.helper=!./helper.sh get',
+      'core.sshcommand=sh helper.sh',
+      `gpg.program=${join(project, 'bin', 'gpg')}`,
+      'core.askpass=echo $(cat x)',
+    ]);
+  });
+
+  it('accepts helpers outside the project', () => {
+    expect(
+      projectCommands(
+        listing({
+          'credential.helper': 'osxkeychain',
+          'credential.https://example.com.helper': '!/usr/local/bin/helper --flag',
+          'core.sshcommand': 'ssh -i ~/.ssh/work -o IdentitiesOnly=yes',
+        }),
+        project,
+      ),
+    ).toEqual([]);
+    expect(projectCommands('', project)).toEqual([]);
   });
 });
 

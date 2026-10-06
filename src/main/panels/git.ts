@@ -1,7 +1,7 @@
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { lstat, readFile, rm, rmdir, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { simpleGit, type SimpleGit, type StatusResult } from 'simple-git';
 import { parseNumstat, type GitFile, type GitStatus } from '@shared/panels';
@@ -26,6 +26,40 @@ export function hardenedConfig(localFilterNames: string[]): string[] {
       `filter.${name}.required=false`,
     ]),
   ];
+}
+
+// Settings in the repository's own config that make push or commit run a program: credential helpers, SSH and
+// askpass commands, the receive/upload-pack programs of a local remote, and signing programs.
+const PUSH_COMMANDS =
+  /^(credential\..*helper|core\.sshcommand|core\.askpass|core\.gitproxy|remote\..*\.(receivepack|uploadpack))$/;
+const COMMIT_COMMANDS = /^(gpg\.program|gpg\..*\.program)$/;
+
+// The settings among `git config --local --null --get-regexp` output that run a file inside the project. A sandboxed
+// command can rewrite any project file, so the panel must not run one with the user's rights (#130). The check is
+// deliberately broad: any path-like word that leads into the project, a bare word naming a project file, or shell
+// substitution counts; `~` paths, options and bare program names (`store`, `osxkeychain`) do not.
+export function projectCommands(listing: string, root: string): string[] {
+  const inside = (path: string) => {
+    const rel = relative(root, resolve(root, path));
+    return !rel.startsWith('..') && !isAbsolute(rel);
+  };
+  const runsProjectFile = (value: string) =>
+    /[`$]/.test(value) ||
+    value
+      .replace(/^!/, '')
+      .split(/\s+/)
+      .map((word) => word.replace(/^['"]|['"]$/g, ''))
+      .filter((word) => word && !word.startsWith('-') && !word.startsWith('~'))
+      .some((word) => (/[\\/]/.test(word) || word === '.' ? inside(word) : existsSync(join(root, word))));
+  return listing
+    .split('\0')
+    .filter(Boolean)
+    .map((entry): [string, string] => {
+      const newline = entry.indexOf('\n');
+      return newline === -1 ? [entry, ''] : [entry.slice(0, newline), entry.slice(newline + 1)];
+    })
+    .filter(([, value]) => runsProjectFile(value))
+    .map(([key, value]) => `${key}=${value}`);
 }
 
 // Names of the filter drivers defined in the repository's local config (filter.<name>.<key>). Reading config runs
@@ -150,6 +184,7 @@ export class GitService {
     const repo = await this.repo();
     const status = await repo.status();
     if (!status.current) throw new Error('Check out a branch before pushing.');
+    await this.refuseProjectCommands(PUSH_COMMANDS);
     if (status.tracking) {
       await repo.push();
     } else {
@@ -226,6 +261,7 @@ export class GitService {
 
   async commit(message: string): Promise<GitStatus> {
     if (!message.trim()) throw new Error('Enter a commit message.');
+    await this.refuseProjectCommands(COMMIT_COMMANDS);
     await (await this.repo()).add(['-A']);
     await (await this.repo()).commit(message.trim());
     return this.status();
@@ -288,6 +324,21 @@ export class GitService {
     releaseGitReservation(this.workspace.root);
     await (await this.repo()).init();
     return this.status();
+  }
+
+  // Refuses before push or commit would run a project file named by the repository's own config (#130).
+  private async refuseProjectCommands(keys: RegExp): Promise<void> {
+    const listing = await (
+      await this.repo()
+    )
+      .raw(['config', '--local', '--includes', '--null', '--get-regexp', keys.source])
+      .catch(() => '');
+    const found = projectCommands(listing, this.workspace.root);
+    if (found.length > 0) {
+      throw new Error(
+        `This repository's own Git config runs a file inside the project (${found.join(', ')}). Commands the agent ran could have changed that file, so the Git panel does not run it. Check the file, then use your terminal.`,
+      );
+    }
   }
 
   private async isRepo(): Promise<boolean> {
