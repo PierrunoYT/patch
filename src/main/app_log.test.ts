@@ -49,6 +49,22 @@ describe('AppLog', () => {
     expect(failed.stack).toContain('app_log.test.ts');
   });
 
+  it('does not persist chat failure text, stacks or context', () => {
+    const error = new Error('Provider echoed private prompt content');
+    error.stack = `${error.message}\n    at request`;
+    log.error('chat', error, { detail: 'private context' });
+    const eventText = 'Provider echoed event string content';
+    log.error('chat', eventText);
+
+    const [entry, eventEntry] = entries();
+    expect(entry.message).toBe('Chat request failed; see the conversation for details.');
+    expect(entry.stack).toBeUndefined();
+    expect(entry.context).toBeUndefined();
+    expect(eventEntry.message).toBe('Chat request failed; see the conversation for details.');
+    expect(readFileSync(file, 'utf8')).not.toContain('private');
+    expect(readFileSync(file, 'utf8')).not.toContain(eventText);
+  });
+
   it('accepts problems that are not Error objects', () => {
     log.error('unhandled-rejection', 'plain text');
     log.error('unhandled-rejection', { code: 42 });
@@ -69,8 +85,8 @@ describe('AppLog', () => {
   it('keeps API keys and tokens out of messages and stacks', () => {
     const error = new Error('401 for key sk-ant-api03-abcdef123456 with header x-api-key: abcd1234efgh');
     error.stack = `${error.message}\n    at Bearer eyJhbGciOi.payload.sig`;
-    log.error('chat', error);
-    log.error('chat', 'search failed for AIzaSyA1234567890abcdefghijk');
+    log.error('provider', error);
+    log.error('provider', 'search failed for AIzaSyA1234567890abcdefghijk');
 
     const text = readFileSync(file, 'utf8');
     expect(text).not.toMatch(/abcdef123456|abcd1234efgh|eyJhbGciOi|AIzaSyA1234567890/);
@@ -84,8 +100,8 @@ describe('AppLog', () => {
     const key = `${prefix}synthetic_Test-123456789`;
     const error = new Error(`${'m'.repeat(1968)} rejected ${key}`);
     error.stack = `${'s'.repeat(3968)} rejected ${key}`;
-    log.error('chat', error);
-    log.error('chat', { detail: `Rejected ${key}` });
+    log.error('provider', error);
+    log.error('provider', { detail: `Rejected ${key}` });
 
     const [failed, serialized] = entries();
     expect(failed.message).toContain(`${prefix}[redacted]`);
@@ -97,7 +113,7 @@ describe('AppLog', () => {
   it('cuts very long messages and stacks', () => {
     const error = new Error('m'.repeat(5000));
     error.stack = 's'.repeat(9000);
-    log.error('chat', error);
+    log.error('provider', error);
 
     const [entry] = entries();
     expect(entry.message.length).toBeLessThan(2100);

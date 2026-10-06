@@ -676,8 +676,8 @@
             proc: 'main',
             files: 13,
             tests: 9,
-            lines: 2309,
-            testLines: 2268,
+            lines: 2314,
+            testLines: 2284,
             desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
             list: [
               'chat_manager.ts (478)',
@@ -962,7 +962,7 @@
           { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
           { a: 'main/tools', f: 22, c: 400, src: 3890, tl: 5529 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
-          { a: 'main/other', f: 11, c: 167, src: 2857, tl: 2669 },
+          { a: 'main/other', f: 11, c: 168, src: 2862, tl: 2685 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6367, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -1151,14 +1151,6 @@
           [119, 'ci: restrict GITHUB_TOKEN permissions in ci.yml and run npm audit', 'release', 'low', 0, '10-05'],
           [118, 'Full chat saves are synchronous and pretty-printed on the main process', 'perf', 'low', 0, '10-05'],
           [117, 'Stopping an MCP stdio server kills only its direct child on macOS/Linux', 'mcp', 'low', 0, '10-05'],
-          [
-            116,
-            'App log records raw provider error text, which may contain chat content',
-            'security',
-            'low',
-            0,
-            '10-05',
-          ],
           [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
           [108, 'Windows sandbox copies the official Node for every command (~14 s)', 'sandbox', 'medium', 0, '10-05'],
           [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
@@ -1231,7 +1223,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 63,
+        closedCount: 64,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1348,7 +1340,11 @@
             'div',
             { class: 'grid kpis' },
             k(fmt(totalSrc), 'source lines', '87 TS files + renderer CSS'),
-            k(fmt(14651), 'unit-test lines', '67 files, 913 cases'),
+            k(
+              fmt(D.testsByArea.reduce((sum, testArea) => sum + testArea.tl, 0)),
+              'unit-test lines',
+              `${D.testsByArea.reduce((sum, testArea) => sum + testArea.f, 0)} files, ${D.testsByArea.reduce((sum, testArea) => sum + testArea.c, 0)} cases`,
+            ),
             k(String(D.e2e.reduce((a, [, n]) => a + n, 0)), 'end-to-end cases', `${D.e2e.length} Playwright files`),
             k(String(D.tools.length), 'built-in tools', '+ MCP tools, 3 subagents among them'),
             k(
@@ -1427,7 +1423,7 @@
                   'li',
                   null,
                   h('b', null, 'Security is the largest issue theme: '),
-                  '11 of 40 open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.',
+                  `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.`,
                 ),
                 h(
                   'li',
@@ -1445,7 +1441,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114) and HTML-only Markdown (#115) are fixed. Next, the Windows sandbox gaps (#100, #101, #108) and the remaining review findings (#112, #116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Next, the Windows sandbox gaps (#100, #101, #108) and the remaining review finding (#112). See',
                 h(
                   'a',
                   {
@@ -2832,7 +2828,7 @@
             'The audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
             [
               '#112, #118: synchronous sandbox checks and chat saves still block the main process',
-              '#116: raw provider error text in logs remains open. #114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
+              '#114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #116 provider failure text kept out of local logs, #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
               '#73: web_search still sends queries without approval',
               '#125: two transcript_view e2e tests fail intermittently in full runs',
             ],
