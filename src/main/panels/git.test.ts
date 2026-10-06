@@ -1,11 +1,20 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GitFile } from '@shared/panels';
-import { filterNames, GitService, hardenedConfig, isRepoAboveHome } from './git';
+import { filterNames, GitService, hardenedConfig, isRepoAboveHome, removeEntry } from './git';
 
 const tempFolderInsideRepo = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: tmpdir() }).status === 0;
 
@@ -202,6 +211,61 @@ describe('GitService', () => {
     const status = await service.discard('dir/staged.txt');
     expect(existsSync(join(root, 'dir', 'staged.txt'))).toBe(false);
     expect(status.files).toEqual([]);
+  });
+
+  // #111: Workspace.resolve returns the real path, so discarding a link must not delete what it points to.
+  it('discards an untracked link to a project folder without deleting the folder', async () => {
+    await initRepo();
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(root, 'src', 'keep.txt'), 'keep\n');
+    const git = simpleGit({ baseDir: root });
+    await git.add('-A');
+    await git.commit('src');
+    symlinkSync(join(root, 'src'), join(root, 'link'), process.platform === 'win32' ? 'junction' : 'dir');
+
+    // Git lists a symlink as `link`; on Windows it looks through a junction and lists `link/keep.txt` instead.
+    const before = await service.status();
+    const entry = before.files.find((file) => file.path === 'link' || file.path.startsWith('link/'));
+    expect(entry, JSON.stringify(kinds(before.files))).toBeDefined();
+    if (entry!.path === 'link') {
+      await service.discard('link');
+      expect(() => lstatSync(join(root, 'link'))).toThrow();
+    } else {
+      // `link/keep.txt` is src/keep.txt itself, so discarding it is refused instead of deleting the real file.
+      await expect(service.discard(entry!.path)).rejects.toThrow(/inside a linked folder/);
+      expect(lstatSync(join(root, 'link')).isSymbolicLink()).toBe(true);
+    }
+    expect(readFileSync(join(root, 'src', 'keep.txt'), 'utf8')).toBe('keep\n');
+  });
+
+  it('discards everything else and names the entries inside a linked folder', async () => {
+    await initRepo();
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(root, 'src', 'keep.txt'), 'keep\n');
+    const git = simpleGit({ baseDir: root });
+    await git.add('-A');
+    await git.commit('src');
+    writeFileSync(join(root, 'a.txt'), 'changed\n');
+    symlinkSync(join(root, 'src'), join(root, 'link'), process.platform === 'win32' ? 'junction' : 'dir');
+    const linkedEntry = (await service.status()).files.some((file) => file.path.startsWith('link/'));
+
+    if (linkedEntry) await expect(service.discardAll()).rejects.toThrow(/inside a linked folder: link\/keep\.txt/);
+    else await service.discardAll();
+    expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('one\n');
+    expect(readFileSync(join(root, 'src', 'keep.txt'), 'utf8')).toBe('keep\n');
+  });
+
+  it('removes a link itself, never the folder it points to', async () => {
+    mkdirSync(join(root, 'target'));
+    writeFileSync(join(root, 'target', 'keep.txt'), 'keep\n');
+    symlinkSync(join(root, 'target'), join(root, 'link'), process.platform === 'win32' ? 'junction' : 'dir');
+    await removeEntry(join(root, 'link'));
+    expect(() => lstatSync(join(root, 'link'))).toThrow();
+    expect(readFileSync(join(root, 'target', 'keep.txt'), 'utf8')).toBe('keep\n');
+    // A real folder is still removed with its contents, and a missing entry is not an error.
+    await removeEntry(join(root, 'target'));
+    expect(existsSync(join(root, 'target'))).toBe(false);
+    await removeEntry(join(root, 'missing'));
   });
 
   it.each(['none', 'staged', 'unstaged', 'both'])(

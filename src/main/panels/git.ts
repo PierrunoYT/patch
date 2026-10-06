@@ -1,7 +1,7 @@
-import { existsSync } from 'node:fs';
-import { readFile, rm } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { lstat, readFile, rm, rmdir, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { simpleGit, type SimpleGit, type StatusResult } from 'simple-git';
 import { parseNumstat, type GitFile, type GitStatus } from '@shared/panels';
@@ -160,7 +160,21 @@ export class GitService {
   // Reverts every changed file (and deletes new ones), as Discard does for one file.
   async discardAll(): Promise<GitStatus> {
     const status = await this.status();
-    for (const file of status.files) await this.discard(file.path);
+    // An entry that cannot be discarded safely (inside a linked folder) is skipped, and the rest still go.
+    const refused: string[] = [];
+    for (const file of status.files) {
+      try {
+        await this.discard(file.path);
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes('inside a linked folder')) throw error;
+        refused.push(file.path);
+      }
+    }
+    if (refused.length > 0) {
+      throw new Error(
+        `Not discarded, because they are inside a linked folder: ${refused.join(', ')}. Remove the link itself instead.`,
+      );
+    }
     return this.status();
   }
 
@@ -219,23 +233,48 @@ export class GitService {
     const status = await (await this.repo()).status();
     const file = toFiles(status).find((candidate) => candidate.path === path);
     if (!file) return this.status();
-    const absolute = this.workspace.resolve(path);
     const literalPath = `:(literal)${path}`;
     const rename = status.renamed.find((candidate) => candidate.to === path);
     if (file.status === 'untracked') {
-      await rm(absolute, { force: true, recursive: true });
+      await removeEntry(this.ownPath(path));
     } else if (rename) {
       this.workspace.resolve(rename.from);
       await (
         await this.repo()
       ).raw(['--literal-pathspecs', 'restore', '--source=HEAD', '--staged', '--worktree', '--', rename.from, path]);
     } else if (file.status === 'added') {
+      const own = this.ownPath(path);
       await (await this.repo()).rm(['--cached', '--', literalPath]);
-      if (existsSync(absolute)) await rm(absolute, { force: true });
+      await removeEntry(own);
     } else {
+      this.workspace.resolve(path);
       await (await this.repo()).checkout(['HEAD', '--', literalPath]);
     }
     return this.status();
+  }
+
+  // The entry itself, as Git names it, not where links lead (#111). Workspace.resolve returns the real path, so
+  // deleting that would remove a link's target: a whole folder for `link -> src`. It still confines the path to the
+  // project. An entry reached through a linked folder (Git lists `link/file` for a Windows junction) is the target
+  // file itself, so discarding it is refused rather than deleting the real file.
+  private ownPath(path: string): string {
+    this.workspace.resolve(path);
+    const own = resolve(this.workspace.root, path);
+    const parent = dirname(own);
+    let realParent: string;
+    try {
+      realParent = realpathSync.native(parent);
+    } catch {
+      return own;
+    }
+    const same =
+      process.platform === 'win32' ? realParent.toLowerCase() === parent.toLowerCase() : realParent === parent;
+    if (!same) {
+      throw new Error(
+        `${path} is inside a linked folder, so discarding it would delete the real file. Remove the link itself instead.`,
+      );
+    }
+    return own;
   }
 
   async init(): Promise<GitStatus> {
@@ -250,6 +289,23 @@ export class GitService {
     } catch {
       return false;
     }
+  }
+}
+
+// Deletes one entry: a real folder with its contents, a file, or a link itself (never what it points to). On Windows
+// a directory link or junction is removed with rmdir, which unlink refuses.
+export async function removeEntry(path: string): Promise<void> {
+  const stat = await lstat(path).catch(() => null);
+  if (!stat) return;
+  if (!stat.isSymbolicLink()) {
+    await rm(path, { force: true, recursive: stat.isDirectory() });
+    return;
+  }
+  try {
+    await unlink(path);
+  } catch (error) {
+    if (process.platform !== 'win32') throw error;
+    await rmdir(path);
   }
 }
 
