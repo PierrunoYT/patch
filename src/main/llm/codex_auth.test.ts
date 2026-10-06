@@ -361,14 +361,24 @@ describe('ChatGPT Codex request', () => {
     expect(request.headers.authorization).toBe(`Bearer ${accessToken}`);
     expect(request.headers['chatgpt-account-id']).toBe(accountId);
     expect(request.headers.authorization).not.toContain('codex-session');
+    expect(request.body).not.toHaveProperty('truncation');
+    expect(request.body).toMatchObject({ store: false, include: ['reasoning.encrypted_content'] });
+
+    // Restore uses the current credential route, not a backend persisted with the history.
+    responses.queueSse(textEvents('Hello again from Codex'));
+    const restored = llm.restoreConversation(conversation.serialize());
+    restored.addUserMessage({ text: 'again' });
+    expect((await restored.runTurn(turn())).text).toBe('Hello again from Codex');
+    expect(responses.requests[1]!.body).not.toHaveProperty('truncation');
+    expect(responses.requests[1]!.headers.authorization).toBe(`Bearer ${accessToken}`);
 
     signOutChatGpt(settings);
     conversation.addUserMessage({ text: 'again' });
     await expect(conversation.runTurn(turn())).rejects.toThrow(/ChatGPT|API key/);
-    expect(responses.requests).toHaveLength(1);
+    expect(responses.requests).toHaveLength(2);
     // createConversation throws the missing-credential error before any request.
     expect(() => llm.createConversation('gpt-6-sol')).toThrow(/ChatGPT|API key/);
-    expect(responses.requests).toHaveLength(1);
+    expect(responses.requests).toHaveLength(2);
   });
 });
 

@@ -612,9 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through cd57506 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      This page reflects git history through ac612b2 (2026-10-06). Line counts exclude tests unless they say otherwise;
       renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
-      Windows, skipped tests included. Issue severities without a severity label are estimates and are marked "est.".
+      Windows, with the OpenAI end-to-end coverage refreshed on Linux; skipped tests included. Issue severities without
+      a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -722,14 +723,14 @@
             proc: 'main',
             files: 11,
             tests: 8,
-            lines: 2132,
-            testLines: 2759,
-            desc: 'Provider clients: Anthropic Messages with strict edit inputs, OpenAI Responses, OpenAI-compatible Chat Completions, plus compaction, ChatGPT sign-in and guarded endpoints.',
+            lines: 2134,
+            testLines: 2769,
+            desc: 'Provider clients: Anthropic Messages with strict edit inputs, OpenAI Responses with backend-specific truncation (omitted for ChatGPT subscriptions), OpenAI-compatible Chat Completions, plus compaction, ChatGPT sign-in and guarded endpoints.',
             list: [
               'codex_auth.ts (477, ChatGPT sign-in)',
               'anthropic.ts (422, prompt cache, keep-alive)',
               'openai.ts (295)',
-              'openai_responses.ts (292)',
+              'openai_responses.ts (294, platform/Codex requests)',
               'index.ts (LlmService)',
               'endpoints.ts (test hooks off in packaged builds)',
               'compaction.ts',
@@ -958,7 +959,7 @@
         },
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
-          { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
+          { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
           { a: 'main/tools', f: 22, c: 397, src: 3874, tl: 5496 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
           { a: 'main/other', f: 11, c: 162, src: 2840, tl: 2617 },
@@ -986,7 +987,7 @@
           ['documentation-visuals', 2],
           ['large_output', 2],
           ['long_run', 2],
-          ['openai_responses', 2],
+          ['openai_responses', 4],
           ['secrets_restart', 2],
           ['crash_resume', 1],
           ['grep_redos', 1],
@@ -1028,10 +1029,10 @@
         docs: [
           ['docs/PERFORMANCE.md', 461],
           ['docs/USAGE.md', 291],
-          ['docs/ARCHITECTURE.md', 250],
+          ['docs/ARCHITECTURE.md', 252],
           ['docs/DEVELOPMENT.md', 203],
-          ['CHANGELOG.md', 184],
-          ['README.md', 140],
+          ['CHANGELOG.md', 188],
+          ['README.md', 142],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
           ['LICENSE (Apache-2.0)', 202],
@@ -1046,10 +1047,10 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 35],
+          ['2026-10-06', 39],
         ],
         types: [
-          ['fix', 100],
+          ['fix', 104],
           ['docs', 61],
           ['feat', 60],
           ['test', 39],
@@ -1062,7 +1063,7 @@
           ['security', 1],
         ],
         authors: [
-          ['PierrunoYT', 267],
+          ['PierrunoYT', 271],
           ['Amp', 24],
           ['StepUpGaming', 23],
           ['Claude', 7],
@@ -1070,16 +1071,16 @@
           ['patchmote[bot]', 1],
         ],
         churn: [
-          ['CHANGELOG.md', 192],
-          ['docs/ARCHITECTURE.md', 119],
-          ['docs/DEVELOPMENT.md', 114],
-          ['README.md', 99],
+          ['CHANGELOG.md', 196],
+          ['docs/ARCHITECTURE.md', 120],
+          ['docs/DEVELOPMENT.md', 115],
+          ['README.md', 100],
           ['TASKS.md (no longer tracked)', 83],
           ['docs/USAGE.md', 51],
-          ['package.json', 45],
-          ['src/main/chat_manager.ts', 38],
-          ['patch-overview.html', 38],
-          ['src/main/index.ts', 36],
+          ['package.json', 46],
+          ['patch-overview.html', 42],
+          ['src/main/chat_manager.ts', 39],
+          ['src/main/index.ts', 37],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
           ['package-lock.json', 27],
@@ -1092,6 +1093,10 @@
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['ac612b2', 'fix: reset mainWindow when a reopened macOS window closes'],
+          ['ae070f1', 'fix: close the active project when it is named through a link'],
+          ['873a2bb', 'fix: keep MCP server secrets when a server is renamed'],
+          ['38279f3', 'fix: exclude mutable diagnostic output from application packages'],
           ['cd57506', 'fix: recover abandoned Windows sandbox project drives'],
           ['3ac2d97', 'fix: isolate Windows sandbox npm runtime paths'],
           ['0048f52', 'test: isolate Windows sandbox approval CI fixtures'],
@@ -1104,10 +1109,6 @@
           ['d26e17f', 'fix: refuse Git panel push and commit that would run project files'],
           ['dc872cb', 'test: give the Windows non-Git e2e command time to prepare'],
           ['ca72977', 'fix: keep sandboxed git working on macOS with a global Git config'],
-          ['c352970', 'fix: reserve non-Git projects with a .git file Git refuses'],
-          ['b1c72e4', 'fix: correct macOS sandbox probes from the first real Seatbelt run'],
-          ['ba34094', 'fix: accept Git pointers that reach the project through a system link'],
-          ['2d0e26a', 'test: fix sandbox Git tests on macOS and Windows CI'],
         ],
         issues: [
           [

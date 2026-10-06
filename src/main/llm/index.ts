@@ -129,7 +129,7 @@ export class LlmService {
         accessToken: () => tokens.accessToken,
         accountId: () => tokens.accountId,
       });
-      const inner = new OpenAIResponsesConversation(client, model, effort, messages as never, compaction);
+      const inner = new OpenAIResponsesConversation(client, model, effort, messages as never, compaction, 'codex');
       return new CodexAuthedConversation(inner, async () => {
         const fresh = await ensureFreshCodexSession(this.settings);
         tokens.accessToken = fresh.accessToken;

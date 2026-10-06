@@ -109,7 +109,8 @@ export function toInputItem(item: InputItem): InputItem {
 //
 // Nothing is stored on OpenAI's side (store: false). Reasoning items come back encrypted and are sent back
 // unchanged with the rest of the history, so the model keeps its reasoning across tool calls. When the history
-// outgrows the context window, truncation: 'auto' drops the oldest items.
+// outgrows the context window, truncation: 'auto' drops the oldest items on the platform API. The Codex backend
+// rejects that parameter, so subscription requests omit it.
 export class OpenAIResponsesConversation implements Conversation {
   readonly provider = 'openai' as const;
 
@@ -119,6 +120,7 @@ export class OpenAIResponsesConversation implements Conversation {
     private readonly effort: Effort,
     private readonly items: InputItem[] = [],
     private compaction: CompactionState | null = null,
+    private readonly backend: 'platform' | 'codex' = 'platform',
   ) {}
 
   planCompaction(): CompactionPlan | null {
@@ -218,7 +220,7 @@ export class OpenAIResponsesConversation implements Conversation {
         reasoning: { effort: this.effort, summary: 'auto' },
         include: ['reasoning.encrypted_content'],
         store: false,
-        truncation: 'auto',
+        ...(this.backend === 'codex' ? {} : { truncation: 'auto' as const }),
       },
       { signal: request.signal },
     );

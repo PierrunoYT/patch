@@ -6,22 +6,42 @@ import type { ChatSnapshot } from '../../src/shared/chat';
 import { launchApp, type RunningApp } from './app';
 import { MockOpenAI } from './mock_openai';
 
-describe('OpenAI Responses API end to end (mock OpenAI API)', () => {
+describe.each(['platform', 'codex'] as const)('OpenAI Responses API end to end (mock %s backend)', (backend) => {
   let running: RunningApp;
   let openai: MockOpenAI;
   let project: string;
+  let userData: string;
 
   beforeAll(async () => {
     project = mkdtempSync(join(tmpdir(), 'patch-e2e-openai-'));
     writeFileSync(join(project, 'notes.txt'), 'The secret word is pineapple.\n');
-    openai = new MockOpenAI();
-    running = await launchApp({ PATCH_TEST_OPENAI_URL: await openai.start() });
+    userData = mkdtempSync(join(tmpdir(), 'patch-e2e-openai-profile-'));
+    if (backend === 'codex') {
+      writeFileSync(
+        join(userData, 'settings.json'),
+        JSON.stringify({
+          chatgpt: {
+            accessToken: 'plain:codex-e2e-access',
+            refreshToken: 'plain:codex-e2e-refresh',
+            accountId: 'acct-e2e',
+            accountLabel: 'ada@example.com',
+            expiresAt: Date.now() + 60 * 60 * 1000,
+          },
+        }),
+      );
+    }
+    openai = new MockOpenAI(backend);
+    const url = await openai.start();
+    running = await launchApp(backend === 'codex' ? { PATCH_TEST_CODEX_URL: url } : { PATCH_TEST_OPENAI_URL: url }, {
+      userData,
+    });
   });
 
   afterAll(async () => {
     await running?.close();
     await openai?.stop();
     rmSync(project, { recursive: true, force: true });
+    rmSync(userData, { recursive: true, force: true });
   });
 
   const snapshot = (): Promise<ChatSnapshot> => running.page.evaluate(() => window.api.invoke('chat:snapshot'));
@@ -38,7 +58,9 @@ describe('OpenAI Responses API end to end (mock OpenAI API)', () => {
 
   it('runs a tool-using conversation through /responses and sends the encrypted reasoning back', async () => {
     await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
-    await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'openaiApiKey', 'sk-openai-e2e'));
+    if (backend === 'platform') {
+      await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'openaiApiKey', 'sk-openai-e2e'));
+    }
     await running.page.evaluate(() => window.api.invoke('settings:update', { model: 'gpt-6-sol' }));
 
     openai.script(
@@ -69,6 +91,14 @@ describe('OpenAI Responses API end to end (mock OpenAI API)', () => {
       include: ['reasoning.encrypted_content'],
       reasoning: { summary: 'auto' },
     });
+    if (backend === 'codex') {
+      expect(first.headers.authorization).toBe('Bearer codex-e2e-access');
+      expect(first.headers['chatgpt-account-id']).toBe('acct-e2e');
+      for (const request of openai.agentRequests) expect(request.body).not.toHaveProperty('truncation');
+    } else {
+      expect(first.headers.authorization).toBe('Bearer sk-openai-e2e');
+      expect(first.body.truncation).toBe('auto');
+    }
     expect(first.body.instructions).toContain(project.split(/[\\/]/).pop());
 
     // The second request carries the reasoning item unchanged and the tool result.

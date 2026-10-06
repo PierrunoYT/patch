@@ -93,6 +93,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- ChatGPT subscription chats no longer fail with `400 Unsupported parameter: truncation`. Codex requests omit that platform-only parameter, including when a saved chat is reopened; OpenAI API-key requests retain automatic truncation.
 - On macOS, the window reopened from the Dock now clears `mainWindow` when it is closed, as the first window does, so later code no longer holds a destroyed window ([#36](https://github.com/PierrunoYT/patch/issues/36)).
 - Closing or removing a project through a linked spelling of its folder (for example macOS `/var/...` for `/private/var/...`, or a junction) now stops the active session and shell instead of treating it as a parked project and leaving the chat running after its tab closed ([#41](https://github.com/PierrunoYT/patch/issues/41)).
 - Renaming an MCP server in Settings keeps its stored `env` and header secrets when its endpoint (URL, or command and arguments) is unchanged and exactly one old and one new name match. A renamed server whose endpoint also changed, or an ambiguous match, keeps nothing, so a saved header is never sent to another host ([#23](https://github.com/PierrunoYT/patch/issues/23)).

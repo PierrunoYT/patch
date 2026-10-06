@@ -152,7 +152,7 @@ export class MockOpenAI {
   private turns: ScriptedResponse[] = [];
   private server: Server;
 
-  constructor() {
+  constructor(backend: 'platform' | 'codex' = 'platform') {
     this.server = createServer((req, res) => {
       let raw = '';
       req.on('data', (chunk) => (raw += chunk));
@@ -178,7 +178,13 @@ export class MockOpenAI {
           );
           return;
         }
-        this.agentRequests.push({ path: req.url, body });
+        this.agentRequests.push({ path: req.url, headers: req.headers, body });
+        // The ChatGPT subscription backend rejects this platform-only request parameter.
+        if (backend === 'codex' && 'truncation' in body) {
+          res.writeHead(400, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ detail: 'Unsupported parameter: truncation' }));
+          return;
+        }
         // Like the real API: fields the SDK adds to responses are not valid input and are rejected.
         const invalid = (body.input ?? []).findIndex(
           (item: any) =>
