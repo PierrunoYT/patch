@@ -74,7 +74,12 @@ export function shellName(containerMode = false): string {
 function shellCommand(command: string, sandboxed = false): { file: string; args: string[] } {
   if (process.platform === 'win32') {
     // UTF-8 output so non-ASCII text survives.
-    const prelude = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;';
+    let prelude = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;';
+    // AppContainer module discovery can fail even when this built-in manifest is readable and imports directly.
+    // Use the installation path, never a module name that could resolve to a project or user-supplied module.
+    if (sandboxed)
+      prelude +=
+        'Import-Module "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1" -ErrorAction Stop;';
     return {
       file: 'powershell.exe',
       args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', prelude + command],

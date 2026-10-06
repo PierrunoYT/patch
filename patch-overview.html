@@ -604,7 +604,7 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through f8973eb, with the Apache-2.0 licensing update, 2026-10-06</span>
+        <span class="sub">Snapshot through b179e04, with the PowerShell startup fix, 2026-10-06</span>
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -612,10 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through f8973eb and the Apache-2.0 licensing update (2026-10-06). Line counts
-      exclude tests unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css.
-      Test counts come from a real Vitest run on Linux, skipped tests included. Issue severities without a severity
-      label are estimates and are marked "est.".
+      This page reflects git history through b179e04 and the PowerShell startup fix (2026-10-06). Line counts exclude
+      tests unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts
+      come from a real Vitest run on Linux, skipped tests included. Issue severities without a severity label are
+      estimates and are marked "est.".
     </footer>
 
     <script>
@@ -746,12 +746,12 @@
             proc: 'main',
             files: 23,
             tests: 21,
-            lines: 3614,
-            testLines: 4637,
+            lines: 3619,
+            testLines: 4638,
             desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
-              'shell.ts (458)',
+              'shell.ts (463; explicit built-in PowerShell Management import in AppContainer)',
               'sandbox_windows.ts (355, Program Files candidates and helper protocol)',
               'sandbox.ts (357)',
               'files.ts (334)',
@@ -958,7 +958,7 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 21, c: 330, src: 3614, tl: 4637 },
+          { a: 'main/tools', f: 21, c: 330, src: 3619, tl: 4638 },
           { a: 'main/panels', f: 4, c: 54, src: 550, tl: 800 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -1016,7 +1016,7 @@
           [490, 'main/agent/session.ts'],
           [477, 'main/llm/codex_auth.ts'],
           [476, 'main/chat_manager.ts'],
-          [458, 'main/tools/shell.ts'],
+          [463, 'main/tools/shell.ts'],
           [428, 'main/settings.ts'],
           [423, 'main/index.ts'],
           [422, 'main/llm/anthropic.ts'],
@@ -1028,7 +1028,7 @@
           ['docs/PERFORMANCE.md', 461],
           ['docs/USAGE.md', 283],
           ['docs/ARCHITECTURE.md', 240],
-          ['docs/DEVELOPMENT.md', 194],
+          ['docs/DEVELOPMENT.md', 196],
           ['CHANGELOG.md', 166],
           ['README.md', 136],
           ['AGENTS.md', 77],
@@ -1045,14 +1045,14 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 12],
+          ['2026-10-06', 13],
         ],
         types: [
           ['fix', 88],
           ['feat', 60],
           ['docs', 56],
           ['test', 34],
-          ['chore', 26],
+          ['chore', 27],
           ['perf', 12],
           ['ci', 9],
           ['refactor', 5],
@@ -1063,33 +1063,34 @@
         authors: [
           ['PierrunoYT', 250],
           ['StepUpGaming', 23],
-          ['Amp', 19],
+          ['Amp', 20],
           ['Claude', 7],
           ['Steven Isaac', 3],
         ],
         churn: [
-          ['CHANGELOG.md', 176],
+          ['CHANGELOG.md', 177],
           ['docs/ARCHITECTURE.md', 108],
-          ['docs/DEVELOPMENT.md', 100],
-          ['README.md', 88],
+          ['docs/DEVELOPMENT.md', 101],
+          ['README.md', 89],
           ['TASKS.md (no longer tracked)', 83],
-          ['package.json', 44],
+          ['package.json', 45],
           ['docs/USAGE.md', 43],
           ['src/main/chat_manager.ts', 38],
           ['src/main/index.ts', 36],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
+          ['package-lock.json', 27],
           ['src/renderer/src/views/dialogs.ts', 26],
-          ['package-lock.json', 26],
           ['src/main/tools/tools.test.ts', 24],
           ['src/main/agent/session.ts', 24],
           ['docs/PERFORMANCE.md', 24],
           ['src/main/agent/agent.test.ts', 22],
-          ['patch-overview.html', 20],
+          ['patch-overview.html', 21],
           ['src/shared/ipc.ts', 19],
           ['src/shared/chat.ts', 18],
         ],
         recent: [
+          ['b179e04', 'chore: license Patch under Apache-2.0'],
           ['f8973eb', 'test: diagnose Windows sandbox startup and require real write denial'],
           ['bf49517', 'fix: restore Windows CI path and PowerShell compatibility'],
           ['a737a69', 'fix: allow-list native sandbox command environments'],

@@ -129,20 +129,7 @@ console.log(JSON.stringify(result));`,
     const result = await shell.run(
       'Write-Output (Get-Location).Path; Set-Content -Path inside.txt -Value written; Get-Content inside.txt',
     );
-    let diagnostic = '';
-    if (result.exitCode !== 0) {
-      // Autoloading hides the underlying import exception. Probe only known runtime paths, never the host env.
-      const probe = await shell.run(`
-[Console]::WriteLine('PSHOME=' + $PSHOME);
-[Console]::WriteLine('PSModulePath=' + $env:PSModulePath);
-$manifest = "$PSHOME\\Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1";
-[Console]::WriteLine('Management manifest readable=' + [IO.File]::Exists($manifest));
-try { Import-Module $manifest -ErrorAction Stop; [Console]::WriteLine('Management import OK') }
-catch { [Console]::WriteLine($_.Exception.ToString()) }
-`);
-      diagnostic = probe.output;
-    }
-    expect(result.exitCode, `${result.output}\n${diagnostic}`).toBe(0);
+    expect(result.exitCode, result.output).toBe(0);
     expect(result.output).toMatch(/[P-Z]:\\/i);
     expect(result.output).toContain('written');
     expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toContain('written');
