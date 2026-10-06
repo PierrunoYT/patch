@@ -746,8 +746,8 @@
             proc: 'main',
             files: 23,
             tests: 22,
-            lines: 3755,
-            testLines: 5162,
+            lines: 3774,
+            testLines: 5202,
             desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
@@ -758,7 +758,7 @@
               'web.ts (226, no own test)',
               'sandbox_windows.integration.test.ts (real AppContainer environment isolation, toolchain grants, staging and recovery)',
               'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
-              'sandbox_git.ts (106; empty reservations, confined metadata pointers and protected includes)',
+              'sandbox_git.ts (125; empty reservations, confined metadata pointers, trusted system links above the project and protected includes)',
               'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees and metadata write denial)',
               'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, shared-memory, semaphore and sysctl probes; skipped off macOS)',
               'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
@@ -959,7 +959,7 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 22, c: 378, src: 3755, tl: 5162 },
+          { a: 'main/tools', f: 22, c: 381, src: 3774, tl: 5202 },
           { a: 'main/panels', f: 4, c: 56, src: 553, tl: 819 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -1109,14 +1109,6 @@
         ],
         issues: [
           [
-            131,
-            'Sandbox refuses in-project Git pointers written through a symlinked path',
-            'sandbox',
-            'low',
-            0,
-            '10-06',
-          ],
-          [
             130,
             'Sandboxed commands can rewrite scripts that existing Git hooks run on the host',
             'sandbox',
@@ -1252,7 +1244,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 50,
+        closedCount: 51,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -20,7 +21,7 @@ import { ShellRunner } from './shell';
 
 vi.mock('node:fs', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs')>();
-  return { ...fs, readdirSync: vi.fn(fs.readdirSync) };
+  return { ...fs, lstatSync: vi.fn(fs.lstatSync), readdirSync: vi.fn(fs.readdirSync) };
 });
 
 describe('sandbox Git layout validation', () => {
@@ -81,6 +82,45 @@ describe('sandbox Git layout validation', () => {
     symlinkSync(join(root, 'metadata'), join(root, 'link'), process.platform === 'win32' ? 'junction' : 'dir');
     writeFileSync(join(root, '.git'), 'gitdir: link\n');
     expect(() => validateSandboxGit(root)).toThrow(/linked Git metadata/);
+  });
+
+  describe.skipIf(process.platform === 'win32')('pointers that name the project through a link above it', () => {
+    // root/real/project is the workspace; root/alias -> root/real is how the pointer names it.
+    let project: string;
+    beforeEach(() => {
+      project = join(root, 'real', 'project');
+      mkdirSync(join(project, 'metadata'), { recursive: true });
+      renameSync(join(root, '.git'), join(project, 'metadata', 'repo'));
+      symlinkSync(join(root, 'real'), join(root, 'alias'), 'dir');
+      writeFileSync(join(project, '.git'), `gitdir: ${join(root, 'alias', 'project', 'metadata', 'repo')}\n`);
+    });
+    let actual: typeof lstatSync;
+    beforeEach(async () => {
+      actual = (await vi.importActual<typeof import('node:fs')>('node:fs')).lstatSync;
+    });
+    afterEach(() => vi.mocked(lstatSync).mockImplementation(actual));
+    // Tests cannot create a root-owned folder, so report the link's folder as one, like / on macOS.
+    const trustRoot = () =>
+      vi.mocked(lstatSync).mockImplementation(((path: string) => {
+        const stat = actual(path);
+        return path === root ? Object.assign(stat, { uid: 0, mode: 0o40755 }) : stat;
+      }) as typeof lstatSync);
+
+    it('accepts the link when it sits in a root-owned directory nobody else can write (macOS /tmp)', () => {
+      trustRoot();
+      expect(validateSandboxGit(project)).toEqual([join(project, '.git'), join(project, 'metadata')]);
+    });
+
+    it('refuses the link when its directory is writable by a user, such as a temp folder', () => {
+      expect(() => validateSandboxGit(project)).toThrow(/linked Git metadata/);
+    });
+
+    it('refuses a link inside the project even when the path above it is trusted', () => {
+      trustRoot();
+      symlinkSync(join(project, 'metadata'), join(project, 'inner'), 'dir');
+      writeFileSync(join(project, '.git'), `gitdir: ${join(project, 'inner', 'repo')}\n`);
+      expect(() => validateSandboxGit(project)).toThrow(/linked Git metadata/);
+    });
   });
 
   it('refuses a directory junction or symlink instead of following it', () => {

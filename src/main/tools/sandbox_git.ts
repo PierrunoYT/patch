@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { Workspace } from './workspace';
 
@@ -25,10 +25,29 @@ export function validateSandboxGit(cwd: string): string[] {
       refuse('the project .git must be a regular directory or gitfile');
     if (root.isFile() && root.nlink !== 1) refuse('linked Git metadata is not supported');
     workspace.resolve('.git');
+    // A pointer may name the project through a link above it (macOS /tmp -> /private/tmp) only when no command can
+    // retarget that link: it must sit in a root-owned directory that group and others cannot write. Every link inside
+    // the project is refused, because a sandboxed command could point it at writable metadata.
+    const systemAlias = (absolute: string, confined: string) => {
+      if (process.platform === 'win32') return false;
+      let top: string | null = null;
+      for (let path = absolute; ; path = dirname(path)) {
+        if (realpathSync(path) === workspace.root) top = path;
+        if (dirname(path) === path) break;
+      }
+      if (top === null || relative(top, absolute) !== relative(workspace.root, confined)) return false;
+      for (let path = top; dirname(path) !== path; path = dirname(path)) {
+        if (!lstatSync(path).isSymbolicLink()) continue;
+        const parent = lstatSync(dirname(path));
+        if (parent.uid !== 0 || (parent.mode & 0o022) !== 0) return false;
+      }
+      return true;
+    };
     const pointer = (base: string, value: string) => {
       const absolute = resolve(base, value);
       const confined = workspace.resolve(absolute);
-      if (relative(absolute, confined) !== '') refuse('linked Git metadata is not supported');
+      if (relative(absolute, confined) !== '' && !systemAlias(absolute, confined))
+        refuse('linked Git metadata is not supported');
       return confined;
     };
     const metadata = root.isDirectory()
