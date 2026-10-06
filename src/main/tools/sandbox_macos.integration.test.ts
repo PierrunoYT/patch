@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
@@ -92,6 +92,41 @@ int main(int argc, char **argv) {
 }
 `;
 
+// Fetches a URL with an ephemeral NSURLSession, the system networking stack Foundation tools use.
+const fetchSource = String.raw`
+#import <Foundation/Foundation.h>
+
+int main(int argc, char **argv) {
+  @autoreleasepool {
+    if (argc != 2) return 64;
+    NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:argv[1]]];
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    config.timeoutIntervalForRequest = 5;
+    config.connectionProxyDictionary = @{};
+    __block int status = 2;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+    [[session dataTaskWithURL:url
+            completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+              status = error == nil ? 0 : 1;
+              dispatch_semaphore_signal(done);
+            }] resume];
+    if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC)) != 0) return 3;
+    return status;
+  }
+}
+`;
+
+// Records each request path, one per line, in the file named by its argument and prints the port.
+const endpointSource = `
+const fs = require('node:fs');
+const server = require('node:http').createServer((req, res) => {
+  fs.appendFileSync(process.argv[1], req.url + '\\n');
+  res.end('ok');
+});
+server.listen(0, '127.0.0.1', () => console.log(server.address().port));
+`;
+
 const launchServicesName = 'com.apple.coreservices.launchservicesd';
 const optionalMachServices = ['com.apple.nsurlsessiond', 'com.apple.nsurlsessiond.agent'];
 
@@ -110,6 +145,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   let temp: string;
   let probe: string;
   let app: string;
+  let fetcher: string;
 
   const diagnostic = (result: ReturnType<typeof spawnSync>) =>
     `status=${String(result.status)} error=${String(result.error)} stdout=${String(result.stdout)} stderr=${String(result.stderr)}`;
@@ -189,6 +225,15 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     writeFileSync(appFile, appSource);
     const compiledApp = spawnSync('clang', [appFile, '-o', executable], { encoding: 'utf8', timeout: 30_000 });
     expect(compiledApp.status, diagnostic(compiledApp)).toBe(0);
+
+    const fetchFile = join(project, 'sandbox-fetch.m');
+    fetcher = join(project, 'sandbox-fetch');
+    writeFileSync(fetchFile, fetchSource);
+    const compiledFetch = spawnSync('clang', ['-fobjc-arc', '-framework', 'Foundation', fetchFile, '-o', fetcher], {
+      encoding: 'utf8',
+      timeout: 60_000,
+    });
+    expect(compiledFetch.status, diagnostic(compiledFetch)).toBe(0);
   });
 
   afterAll(() => {
@@ -246,6 +291,46 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     expect(denied.error, diagnostic(denied)).toBeUndefined();
     expect(denied.status, diagnostic(denied)).not.toBe(0);
     expect(existsSync(marker)).toBe(false);
+  });
+
+  it('keeps a local endpoint unreachable with the network off, directly and through the system networking stack', async () => {
+    const requests = join(fixture, 'endpoint-requests');
+    writeFileSync(requests, '');
+    const server = spawn(process.execPath, ['-e', endpointSource, requests], { stdio: ['ignore', 'pipe', 'inherit'] });
+    try {
+      const port = await new Promise<string>((resolve, reject) => {
+        server.stdout.once('data', (chunk: Buffer) => resolve(chunk.toString().trim()));
+        server.once('error', reject);
+        server.once('exit', (code) => reject(new Error(`endpoint exited with ${String(code)}`)));
+      });
+      const url = (path: string) => `http://127.0.0.1:${port}/${path}`;
+      const curl = (path: string) => ['--noproxy', '*', '-sS', '--max-time', '5', url(path)];
+      // Unsandboxed controls show both clients reach the endpoint, and a networked sandbox shows the launch does.
+      for (const [file, args] of [
+        ['/usr/bin/curl', curl('host-curl')],
+        [fetcher, [url('host-foundation')]],
+      ] satisfies [string, string[]][]) {
+        const control = spawnSync(file, args, { encoding: 'utf8', timeout: 15_000 });
+        expect(control.status, diagnostic(control)).toBe(0);
+      }
+      const networked = runSandboxed('/usr/bin/curl', curl('sandbox-network-on'), true);
+      expect(networked.status, diagnostic(networked)).toBe(0);
+      for (const [file, args] of [
+        ['/usr/bin/curl', curl('sandbox-curl')],
+        [fetcher, [url('sandbox-foundation')]],
+      ] satisfies [string, string[]][]) {
+        const denied = runSandboxed(file, args);
+        expect(denied.error, diagnostic(denied)).toBeUndefined();
+        expect(denied.status, diagnostic(denied)).not.toBe(0);
+      }
+      expect(readFileSync(requests, 'utf8').split('\n').filter(Boolean)).toEqual([
+        '/host-curl',
+        '/host-foundation',
+        '/sandbox-network-on',
+      ]);
+    } finally {
+      server.kill();
+    }
   });
 
   // A tool installed in the hidden part of the home folder (GitHub's hosted tool cache, for example) cannot run in

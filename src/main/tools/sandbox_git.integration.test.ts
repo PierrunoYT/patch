@@ -252,7 +252,11 @@ console.log(JSON.stringify(result));
       expect(result.config).toBe(original);
       for (const operation of ['overwrite', 'absent', 'redirect', 'attributes', 'unlink', 'replace', 'renameDirectory'])
         expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
-      if (result.aliasLink === 'allowed') {
+      if (kind === 'seatbelt') {
+        // #99: the deny rule is path-based, so a hard link must not be created at all. The profile grants no
+        // file-link operation, and `(deny default)` refuses it.
+        expect(result.aliasLink).toMatch(/^(EACCES|EPERM)$/);
+      } else if (result.aliasLink === 'allowed') {
         expect(result.aliasWrite).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
       } else {
         // Seatbelt may grow an explicit (file-link) denial; either boundary is safe if the alias is never writable.
