@@ -36,6 +36,14 @@ describe('windowsPolicy', () => {
     expect(policy.readOnly).toEqual([`${cwd}\\.git`]);
   });
 
+  it('protects a gitfile and its in-project metadata directory', () => {
+    const gitPaths = [`${cwd}\\.git`, `${cwd}\\metadata`];
+    const policy = windowsPolicy({ ...base, exists: () => false, gitPaths });
+    expect(policy.readWrite).toEqual([cwd]);
+    expect(policy.readOnly).toEqual(gitPaths);
+    expect(policy.denyWrite).toEqual(gitPaths);
+  });
+
   it('opens toolchain folders under the home folder read-only, and never credentials', () => {
     const policy = windowsPolicy({
       ...base,

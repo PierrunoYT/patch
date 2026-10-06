@@ -5,8 +5,10 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -15,6 +17,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildLaunch, detectSandboxSupport, systemLaunchEnv } from './sandbox';
+import { GitService } from '../panels/git';
 import { ShellRunner } from './shell';
 
 const support = detectSandboxSupport();
@@ -120,6 +123,102 @@ for (const [kind, available] of [
         if (launch.stop) await execute(launch.stop.file, launch.stop.args, { timeout: 10_000 }).catch(() => {});
       }
     };
+
+    it('runs without Git while denying metadata creation, gitfile replacement and directory renaming', async () => {
+      rmSync(join(root, '.git'), { recursive: true });
+      const result = await run(`
+const fs = require('node:fs');
+const attempt = (fn) => { try { fn(); return 'allowed'; } catch (e) { return e.code; } };
+fs.writeFileSync('ordinary.txt', 'sandbox ran');
+fs.writeFileSync('replacement', 'gitdir: metadata');
+console.log(JSON.stringify({
+  created: fs.readFileSync('ordinary.txt', 'utf8'),
+  config: attempt(() => fs.writeFileSync('.git/config', '[alias]\\npwn = !echo planted')),
+  hooks: attempt(() => fs.mkdirSync('.git/hooks')),
+  replace: attempt(() => fs.renameSync('replacement', '.git')),
+  rename: attempt(() => fs.renameSync('.git', 'old-git')),
+}));
+`);
+      expect(result.created).toBe('sandbox ran');
+      for (const operation of ['config', 'hooks', 'replace', 'rename'])
+        expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV|EISDIR)$/);
+      expect(readdirSync(join(root, '.git'))).toEqual([]);
+      const panel = new GitService(root);
+      expect((await panel.status()).isRepo).toBe(false);
+      // Later host initialization remains available; sandbox setup has not initialized a repository.
+      expect((await panel.init()).isRepo).toBe(true);
+    });
+
+    it('runs with Husky and active hooks while keeping existing and absent control metadata read-only', async () => {
+      git('config', 'core.hooksPath', '.husky');
+      mkdirSync(join(root, '.husky'));
+      mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
+      writeFileSync(join(root, '.husky', 'pre-commit'), '#!/bin/sh\necho SHOULD-NOT-RUN > hook-marker\n', {
+        mode: 0o755,
+      });
+      writeFileSync(join(root, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+      const original = readFileSync(join(root, '.git', 'config'), 'utf8');
+      const hook = readFileSync(join(root, '.git', 'hooks', 'pre-commit'), 'utf8');
+      const result = await run(`
+const fs = require('node:fs');
+const attempt = (fn) => { try { fn(); return 'allowed'; } catch (e) { return e.code; } };
+fs.appendFileSync('source.txt', '-husky');
+console.log(JSON.stringify({
+  source: fs.readFileSync('source.txt', 'utf8'),
+  config: attempt(() => fs.appendFileSync('.git/config', '\\n[alias]\\npwn = !echo planted\\n')),
+  hook: attempt(() => fs.writeFileSync('.git/hooks/pre-commit', 'planted')),
+  absent: attempt(() => fs.writeFileSync('.git/config.worktree', 'planted')),
+}));
+`);
+      expect(result.source).toBe('original-husky');
+      for (const operation of ['config', 'hook', 'absent'])
+        expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS)$/);
+      expect(readFileSync(join(root, '.git', 'config'), 'utf8')).toBe(original);
+      expect(readFileSync(join(root, '.git', 'hooks', 'pre-commit'), 'utf8')).toBe(hook);
+      expect(existsSync(join(root, 'hook-marker'))).toBe(false);
+    });
+
+    it.each(['gitfile', 'worktree'])(
+      'protects an in-project %s and the entire metadata ancestor against redirected replacement',
+      async (layout) => {
+        let pointer = 'metadata/repo';
+        if (layout === 'worktree') {
+          const linked = join(fixture, 'linked');
+          git('worktree', 'add', '--quiet', '--detach', linked);
+          mkdirSync(join(linked, 'metadata'));
+          renameSync(join(root, '.git'), join(linked, 'metadata', 'repo'));
+          root = linked;
+          pointer += '/worktrees/linked';
+          if (kind !== 'container')
+            copyFileSync(process.execPath, join(root, process.platform === 'win32' ? 'node.exe' : 'node'));
+        } else {
+          mkdirSync(join(root, 'metadata'));
+          git('init', '--quiet', `--separate-git-dir=${join(root, 'metadata', 'repo')}`);
+        }
+        writeFileSync(join(root, '.git'), `gitdir: ${pointer}\n`);
+        const original = readFileSync(join(root, 'metadata', 'repo', 'config'), 'utf8');
+        const result = await run(`
+const fs = require('node:fs');
+const attempt = (fn) => { try { fn(); return 'allowed'; } catch (e) { return e.code; } };
+fs.appendFileSync('source.txt', '-gitfile');
+console.log(JSON.stringify({
+  source: fs.readFileSync('source.txt', 'utf8'),
+  pointer: attempt(() => fs.writeFileSync('.git', 'gitdir: other')),
+  config: attempt(() => fs.appendFileSync('metadata/repo/config', 'planted')),
+  absent: attempt(() => fs.writeFileSync('metadata/repo/config.worktree', 'planted')),
+  ${layout === 'worktree' ? "common: attempt(() => fs.writeFileSync('metadata/repo/worktrees/linked/commondir', '../../../other'))," : ''}
+  ancestor: attempt(() => fs.renameSync('metadata', 'old-metadata')),
+}));
+`);
+        expect(result.source).toBe('original-gitfile');
+        for (const operation of ['pointer', 'config', 'absent', 'ancestor'])
+          expect(result[operation], operation).toMatch(/^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/);
+        if (layout === 'worktree') expect(result.common).toMatch(/^(EACCES|EPERM|EROFS)$/);
+        expect(readFileSync(join(root, '.git'), 'utf8')).toBe(`gitdir: ${pointer}\n`);
+        expect(readFileSync(join(root, 'metadata', 'repo', 'config'), 'utf8')).toBe(original);
+        expect(git('show', 'HEAD:source.txt').trim()).toBe('original');
+      },
+    );
 
     it('keeps project edits working while denying overwrite, absent names, unlink and metadata replacement', async () => {
       const original = readFileSync(join(root, '.git', 'config'), 'utf8');

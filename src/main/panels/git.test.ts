@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { GitFile } from '@shared/panels';
+import { validateSandboxGit } from '../tools/sandbox_git';
 import { filterNames, GitService, hardenedConfig, isRepoAboveHome, removeEntry } from './git';
 
 const tempFolderInsideRepo = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: tmpdir() }).status === 0;
@@ -68,6 +69,23 @@ describe('GitService', () => {
     const status = await service.init();
     expect(status.isRepo).toBe(true);
     expect(status.files).toEqual([]);
+  });
+
+  it('can initialize an empty sandbox reservation on the same service after checking status', async () => {
+    validateSandboxGit(root);
+    expect((await service.status()).isRepo).toBe(false);
+    expect((await service.init()).isRepo).toBe(true);
+  });
+
+  it('does not discover planted bare metadata outside the protected reservation', async () => {
+    validateSandboxGit(root);
+    expect(spawnSync('git', ['init', '--bare', '--template='], { cwd: root }).status).toBe(0);
+    writeFileSync(join(root, 'config'), '[core]\nbare = true\n[include]\npath = nonexistent\n');
+    // Control: Git recognizes the writable root as a bare repository despite its empty .git directory.
+    expect(await simpleGit({ baseDir: root }).raw(['rev-parse', '--is-bare-repository'])).toBe('true\n');
+    expect((await service.status()).isRepo).toBe(false);
+    expect(await service.diff(null)).toBe('');
+    await expect(service.commit('must not trust writable metadata')).rejects.toThrow(/safe\.bareRepository/);
   });
 
   it('lists modified and untracked files, sorted by path', async () => {
@@ -418,6 +436,7 @@ describe('filterNames and hardenedConfig', () => {
 
   it('disables fsmonitor and neutralizes each named filter', () => {
     expect(hardenedConfig(['evil'])).toEqual([
+      'safe.bareRepository=explicit',
       'core.fsmonitor=false',
       'core.hooksPath=/dev/null',
       'filter.evil.clean=',

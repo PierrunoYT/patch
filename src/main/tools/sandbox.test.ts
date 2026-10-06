@@ -22,6 +22,7 @@ const env = (existing: string[] = []): LaunchEnv => ({
   inner: { file: '/bin/bash', args: ['-lc', 'npm test'] },
   command: 'npm test',
   exists: (path) => path === '/home/u/proj/.git' || existing.includes(path),
+  gitPaths: ['/home/u/proj/.git'],
   uid: 1000,
   gid: 1000,
   containerName: 'patch-abc',
@@ -209,10 +210,23 @@ describe('containerArgs', () => {
 });
 
 describe('buildLaunch', () => {
-  it('refuses absent metadata instead of silently omitting the read-only mount', () => {
+  it('protects the validated reservation even if the mount source disappears after preparation', () => {
     const missing = { ...env(), exists: () => false };
-    expect(() => bwrapArgs(missing, false)).toThrow(/existing .git directory/);
-    expect(() => containerArgs('docker', missing, false)).toThrow(/existing .git directory/);
+    expect(bwrapArgs(missing, false).join(' ')).toContain('--ro-bind /home/u/proj/.git /home/u/proj/.git');
+    expect(containerArgs('docker', missing, false).args).toContain(
+      'type=bind,src=/home/u/proj/.git,dst=/workspace/.git,readonly',
+    );
+  });
+
+  it('protects both a gitfile and the top-level ancestor of its metadata on every backend', () => {
+    const input = { ...env(), gitPaths: ['/home/u/proj/.git', '/home/u/proj/metadata'] };
+    expect(bwrapArgs(input, false).join(' ')).toContain('--ro-bind /home/u/proj/metadata /home/u/proj/metadata');
+    expect(seatbeltProfile(input, false)).toContain(
+      '(deny file-write* (subpath "/home/u/proj/.git") (subpath "/home/u/proj/metadata"))',
+    );
+    expect(containerArgs('docker', input, false).args).toContain(
+      'type=bind,src=/home/u/proj/metadata,dst=/workspace/metadata,readonly',
+    );
   });
 
   it('wraps with the right program', () => {

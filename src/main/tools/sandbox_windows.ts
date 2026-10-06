@@ -102,6 +102,7 @@ export interface WindowsPolicyInput {
   programDirs: string[];
   pathEntries: string[];
   exists: (path: string) => boolean;
+  gitPaths?: string[];
   // Whether a folder is too big to grant whole; such a folder is replaced by its `bin` subfolder, or left closed.
   tooLarge?: (path: string) => boolean;
 }
@@ -163,8 +164,8 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   };
   for (const rel of HOME_READ_ONLY_WINDOWS) add(win32.join(home, rel));
   for (const entry of input.pathEntries) if (entry && win32.isAbsolute(entry)) add(entry);
-  const git = win32.join(cwd, '.git');
-  return { readWrite: [cwd], readOnly: [...readOnly, git], toolchains, denyWrite: [git] };
+  const gitPaths = input.gitPaths ?? [win32.join(cwd, '.git')];
+  return { readWrite: [cwd], readOnly: [...readOnly, ...gitPaths], toolchains, denyWrite: gitPaths };
 }
 
 export interface BuildRequestInput {
@@ -175,6 +176,7 @@ export interface BuildRequestInput {
   network: boolean;
   home: string;
   exists: (path: string) => boolean;
+  gitPaths?: string[];
   tooLarge?: (path: string) => boolean;
   limits?: Partial<HelperLimits>;
 }
@@ -191,6 +193,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     programDirs: [lookup('programfiles'), lookup('programfiles(x86)'), lookup('programw6432')].filter(Boolean),
     pathEntries: lookup('path').split(';'),
     exists: input.exists,
+    gitPaths: input.gitPaths,
     tooLarge: input.tooLarge,
   });
   const shell = win32.isAbsolute(input.shell.file)

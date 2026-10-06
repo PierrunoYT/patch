@@ -1137,10 +1137,15 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         .iter()
         .any(|path| path.eq_ignore_ascii_case(&git));
     if readonly_git {
-        let metadata =
-            fs::symlink_metadata(&git).map_err(|e| format!("Git metadata is required: {e}"))?;
-        if !metadata.is_dir() || metadata.file_type().is_symlink() {
-            return Err("Git metadata must be a regular directory".into());
+        // Validate every reservation/pointer/metadata root under the permission lock, before project grants.
+        for path in &request.deny_write {
+            let metadata = fs::symlink_metadata(path)
+                .map_err(|e| format!("Protected Git metadata is required: {e}"))?;
+            if (!metadata.is_dir() && !metadata.is_file())
+                || metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+            {
+                return Err("Git metadata must be a regular directory or gitfile".into());
+            }
         }
     }
     let mut record = RecoveryRecord {
@@ -1227,7 +1232,13 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 continue;
             }
             if let Err(message) = edit_acl(path, sid, access, Change::Grant) {
-                if required || (readonly_git && path.eq_ignore_ascii_case(&git)) {
+                if required
+                    || (readonly_git
+                        && request
+                            .deny_write
+                            .iter()
+                            .any(|protected| protected.eq_ignore_ascii_case(path)))
+                {
                     return Err(message);
                 }
             }

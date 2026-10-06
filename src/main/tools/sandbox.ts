@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { posix } from 'node:path';
+import { posix, relative } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
 import { findHelper } from './sandbox_windows';
@@ -100,7 +100,12 @@ export function decideSandbox(
   platform: NodeJS.Platform,
 ): SandboxDecision {
   const network = wantsNetwork(command, config, access);
-  if (access.unsandboxed) return { kind: 'none', network: true, note: 'Allowed to run without a sandbox.' };
+  if (access.unsandboxed)
+    return {
+      kind: 'none',
+      network: true,
+      note: 'Allowed to run without a sandbox: no filesystem confinement and unrestricted network access.',
+    };
   if (config.mode === 'off') return { kind: 'none', network: true, note: 'The sandbox is turned off in the settings.' };
   if (config.mode === 'container') {
     if (!support.container) {
@@ -135,6 +140,8 @@ export interface LaunchEnv {
   inner: { file: string; args: string[] };
   command: string;
   exists: (path: string) => boolean;
+  // Validated top-level Git pointers and metadata directories, or an empty reservation for non-Git projects.
+  gitPaths: string[];
   uid?: number;
   gid?: number;
   // Unique container name, so it can be removed when the command is stopped.
@@ -168,9 +175,7 @@ export function bwrapArgs(env: LaunchEnv, network: boolean): string[] {
   }
   args.push('--bind', cwd, cwd);
   // Mount the directory itself: protecting leaves would allow absent control files and directory replacement.
-  if (!exists(`${cwd}/.git`))
-    throw new Error('Sandbox requires an existing .git directory. Request unsandboxed access.');
-  args.push('--ro-bind', `${cwd}/.git`, `${cwd}/.git`);
+  for (const path of env.gitPaths) args.push('--ro-bind', path, path);
   args.push('--setenv', 'HOME', home, '--setenv', 'TMPDIR', '/tmp', '--chdir', cwd, '--', shell.file, ...shell.args);
   return args;
 }
@@ -179,7 +184,10 @@ function sbplString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-export function seatbeltProfile(env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'exists'>, network: boolean): string {
+export function seatbeltProfile(
+  env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'exists' | 'gitPaths'>,
+  network: boolean,
+): string {
   const subpath = (path: string) => `(subpath ${sbplString(path)})`;
   const lines = [
     '(version 1)',
@@ -202,7 +210,7 @@ export function seatbeltProfile(env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'e
   lines.push(
     `(allow file-write* ${[...writable].map(subpath).join(' ')} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
   );
-  lines.push(`(deny file-write* ${subpath(`${env.cwd}/.git`)})`);
+  lines.push(`(deny file-write* ${env.gitPaths.map(subpath).join(' ')})`);
   // A project in a writable temp tree must not move out from under the pathname-based deny rule.
   for (let path = env.cwd; path !== '/'; path = posix.dirname(path)) {
     lines.push(`(deny file-write-unlink (literal ${sbplString(path)}))`);
@@ -216,7 +224,7 @@ export function containerArgs(
   env: LaunchEnv,
   network: boolean,
 ): { args: string[]; stop: Launch['stop'] } {
-  if (env.cwd.includes(','))
+  if ([env.cwd, ...env.gitPaths].some((path) => path.includes(',')))
     throw new Error(
       'Container sandbox cannot protect Git metadata in a path containing commas. Request unsandboxed access.',
     );
@@ -236,10 +244,12 @@ export function containerArgs(
     args.push(engine === 'podman' ? '--userns=keep-id' : `--user=${env.uid}:${env.gid}`);
   }
   args.push('-v', `${env.cwd}:/workspace`);
-  if (!env.exists(`${env.cwd}/.git`))
-    throw new Error('Sandbox requires an existing .git directory. Request unsandboxed access.');
   // --mount fails if the source disappears, instead of creating a host directory as -v would.
-  args.push('--mount', `type=bind,src=${env.cwd}/.git,dst=/workspace/.git,readonly`);
+  for (const path of env.gitPaths)
+    args.push(
+      '--mount',
+      `type=bind,src=${path},dst=/workspace/${relative(env.cwd, path).replaceAll('\\', '/')},readonly`,
+    );
   args.push(
     '-w',
     '/workspace',
@@ -335,9 +345,9 @@ export function resetSandboxSupportCache(): void {
 }
 
 export function systemLaunchEnv(
-  base: Omit<LaunchEnv, 'exists' | 'uid' | 'gid' | 'home' | 'tmp'> & { home: string; tmp: string },
+  base: Omit<LaunchEnv, 'exists' | 'gitPaths' | 'uid' | 'gid' | 'home' | 'tmp'> & { home: string; tmp: string },
 ): LaunchEnv {
-  validateSandboxGit(base.cwd);
+  const gitPaths = validateSandboxGit(base.cwd);
   const real = (path: string) => {
     try {
       return realpathSync(path);
@@ -351,6 +361,7 @@ export function systemLaunchEnv(
     home: real(base.home),
     tmp: real(base.tmp),
     exists: (path) => existsSync(path),
+    gitPaths,
     uid: process.getuid?.(),
     gid: process.getgid?.(),
   };

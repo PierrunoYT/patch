@@ -15,6 +15,7 @@ import { Workspace } from '../tools/workspace';
 // textconv. Hooks are disabled too: sandboxed commands can redirect core.hooksPath to a writable project folder.
 export function hardenedConfig(localFilterNames: string[]): string[] {
   return [
+    'safe.bareRepository=explicit',
     'core.fsmonitor=false',
     'core.hooksPath=/dev/null',
     ...localFilterNames.flatMap((name) => [
@@ -68,7 +69,9 @@ export class GitService {
   // unless allowed, which protects against attacker-chosen values; here the values are fixed and only disable them.
   private repo(): Promise<SimpleGit> {
     this.hardened ??= (async () => {
-      const plain = simpleGit({ baseDir: this.workspace.root });
+      // An empty sandbox reservation is not a repository. Do not discover planted bare metadata in the
+      // writable project root instead; this guard must cover the config query as well as panel operations.
+      const plain = simpleGit({ baseDir: this.workspace.root, config: ['safe.bareRepository=explicit'] });
       const listing = await plain
         .raw(['config', '--local', '--includes', '--name-only', '--get-regexp', '^filter\\.'])
         .catch(() => '');

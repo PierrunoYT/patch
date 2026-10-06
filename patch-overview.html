@@ -604,7 +604,7 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through ff87b7d, with sandbox adoption issues, 2026-10-06</span>
+        <span class="sub">Snapshot through 7b20cb9, plus the sandbox compatibility fix (#109), 2026-10-06</span>
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -612,10 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through ff87b7d and the sandbox adoption issues (2026-10-06). Line counts exclude
-      tests unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts
-      come from a real Vitest run on Linux, skipped tests included. Issue severities without a severity label are
-      estimates and are marked "est.".
+      This page reflects git history through 7b20cb9 and the sandbox compatibility fix (#109, 2026-10-06). Line counts
+      exclude tests unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css.
+      Test counts come from a real Vitest run on Linux, skipped tests included. Issue severities without a severity
+      label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -746,20 +746,20 @@
             proc: 'main',
             files: 23,
             tests: 21,
-            lines: 3623,
-            testLines: 4638,
-            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
+            lines: 3679,
+            testLines: 4819,
+            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
-              'shell.ts (467; explicit built-in PowerShell Management and Utility imports in AppContainer)',
-              'sandbox_windows.ts (355, Program Files candidates and helper protocol)',
-              'sandbox.ts (357)',
+              'shell.ts (468; explicit built-in PowerShell Management and Utility imports in AppContainer)',
+              'sandbox_windows.ts (358, Program Files candidates, protected Git paths and helper protocol)',
+              'sandbox.ts (368)',
               'files.ts (334)',
               'web.ts (226, no own test)',
               'sandbox_windows.integration.test.ts (real AppContainer environment isolation, toolchain grants, staging and recovery)',
               'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
-              'sandbox_git.ts',
-              'sandbox_git.integration.test.ts',
+              'sandbox_git.ts (106; empty reservations, confined metadata pointers and protected includes)',
+              'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees and metadata write denial)',
               'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
               'apply_patch.ts',
               'glob.ts',
@@ -784,13 +784,13 @@
             proc: 'main',
             files: 4,
             tests: 4,
-            lines: 550,
-            testLines: 800,
+            lines: 553,
+            testLines: 819,
             desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
             list: [
               'terminal.ts',
               'browser.ts',
-              'git.ts (link-safe discard with consistent Windows short-path handling)',
+              'git.ts (331; link-safe discard, hook/filter hardening and implicit bare-repository discovery refusal)',
               'commit_message.ts',
             ],
           },
@@ -958,8 +958,8 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 21, c: 330, src: 3623, tl: 4638 },
-          { a: 'main/panels', f: 4, c: 54, src: 550, tl: 800 },
+          { a: 'main/tools', f: 21, c: 358, src: 3679, tl: 4819 },
+          { a: 'main/panels', f: 4, c: 56, src: 553, tl: 819 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
@@ -970,7 +970,7 @@
           ['chat', 11],
           ['ui', 11],
           ['panels', 7],
-          ['sandbox_approvals', 7],
+          ['sandbox_approvals', 8],
           ['logging', 5],
           ['compact', 4],
           ['project_settings', 4],
@@ -1016,20 +1016,20 @@
           [490, 'main/agent/session.ts'],
           [477, 'main/llm/codex_auth.ts'],
           [476, 'main/chat_manager.ts'],
-          [467, 'main/tools/shell.ts'],
+          [468, 'main/tools/shell.ts'],
           [428, 'main/settings.ts'],
           [423, 'main/index.ts'],
           [422, 'main/llm/anthropic.ts'],
           [407, 'main/search/code_index.ts'],
           [395, 'renderer/src/views/composer.ts'],
-          [355, 'main/tools/sandbox_windows.ts'],
+          [368, 'main/tools/sandbox.ts'],
         ],
         docs: [
           ['docs/PERFORMANCE.md', 461],
-          ['docs/USAGE.md', 283],
+          ['docs/USAGE.md', 287],
           ['docs/ARCHITECTURE.md', 240],
           ['docs/DEVELOPMENT.md', 196],
-          ['CHANGELOG.md', 166],
+          ['CHANGELOG.md', 167],
           ['README.md', 136],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
@@ -1039,18 +1039,18 @@
         commitsByDay: [
           ['2024-07-29', 3],
           ['2026-09-29', 67],
-          ['2026-09-30', 99],
-          ['2026-10-01', 33],
+          ['2026-09-30', 97],
+          ['2026-10-01', 35],
           ['2026-10-02', 15],
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 15],
+          ['2026-10-06', 16],
         ],
         types: [
           ['fix', 90],
           ['feat', 60],
-          ['docs', 56],
+          ['docs', 57],
           ['test', 34],
           ['chore', 27],
           ['perf', 12],
@@ -1063,7 +1063,7 @@
         authors: [
           ['PierrunoYT', 250],
           ['StepUpGaming', 23],
-          ['Amp', 22],
+          ['Amp', 23],
           ['Claude', 7],
           ['Steven Isaac', 3],
         ],
@@ -1083,13 +1083,14 @@
           ['src/renderer/src/views/dialogs.ts', 26],
           ['src/main/tools/tools.test.ts', 24],
           ['src/main/agent/session.ts', 24],
+          ['patch-overview.html', 24],
           ['docs/PERFORMANCE.md', 24],
-          ['patch-overview.html', 23],
           ['src/main/agent/agent.test.ts', 22],
           ['src/shared/ipc.ts', 19],
           ['src/main/tools/shell.ts', 19],
         ],
         recent: [
+          ['7b20cb9', 'docs: track researched sandbox adoption issues'],
           ['ff87b7d', 'fix: load PowerShell Utility cmdlets inside AppContainer'],
           ['4a43d91', 'fix: load built-in PowerShell file cmdlets inside AppContainer'],
           ['b179e04', 'chore: license Patch under Apache-2.0'],
@@ -1104,7 +1105,6 @@
           ['8882705', 'docs: refresh the project overview after the Oct 5-6 reviews'],
           ['10ece35', 'fix: confirm before saved MCP headers go to a changed URL'],
           ['8b8ea5b', 'fix: redact passwords in connection-string URLs'],
-          ['8a3130a', 'fix: run grep and glob patterns in a worker so they cannot freeze the app'],
         ],
         issues: [
           [128, 'Isolate built-in file tools behind an OS-restricted executor', 'sandbox', 'low', 1, '10-06'],
@@ -1142,14 +1142,6 @@
           [115, 'Markdown sanitizer keeps SVG <image> and <feImage> in model output', 'security', 'low', 0, '10-05'],
           [114, 'Removing an ask or reject permission rule is not confirmed', 'security', 'low', 0, '10-05'],
           [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
-          [
-            109,
-            "Sandboxed commands don't run in a folder without Git (worktrees, Husky)",
-            'sandbox',
-            'medium',
-            0,
-            '10-05',
-          ],
           [108, 'Windows sandbox copies the official Node for every command (~14 s)', 'sandbox', 'medium', 0, '10-05'],
           [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
           [104, 'No process or memory limits for sandboxed commands on Linux and macOS', 'sandbox', 'low', 0, '10-05'],
@@ -1235,7 +1227,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 49,
+        closedCount: 50,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -2826,10 +2818,10 @@
             [
               '#99: the macOS Seatbelt profile allows every Mach service lookup (likely a LaunchServices escape); a possible hard-link bypass of the read-only .git is noted there too',
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
-              '#109: folders without their own .git (no Git, worktrees, Husky) refuse sandboxed commands, which pushes users to unsandboxed runs',
+              '#109 is fixed: non-Git folders, Husky and in-project metadata pointers run sandboxed; external metadata and writable includes still fail closed',
               '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
             ],
-            'Prioritize #99; #109 matters because every refusal turns into an unsandboxed approval.',
+            'Prioritize #99; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',

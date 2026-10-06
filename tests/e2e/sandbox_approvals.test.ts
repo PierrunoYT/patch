@@ -1,9 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { detectSandboxSupport } from '../../src/main/tools/sandbox';
 import { launchApp, type RunningApp } from './app';
 import { MockClaude } from './mock_claude';
+
+const support = detectSandboxSupport();
 
 describe('sandbox escalation approvals', () => {
   let running: RunningApp;
@@ -46,6 +49,38 @@ describe('sandbox escalation approvals', () => {
     if (captureDir) await dialog.screenshot({ path: join(captureDir, 'sandbox-settings.png') });
     await running.page.getByRole('button', { name: 'Cancel' }).click();
   });
+
+  it.skipIf(!support.bwrap && !support.seatbelt && !support.appcontainer)(
+    'runs in a non-Git project without an unsandboxed approval and keeps Git uninitialized',
+    async () => {
+      expect(existsSync(join(project, '.git'))).toBe(false);
+      await running.page.evaluate(() => window.api.invoke('chat:new'));
+      claude.script(
+        {
+          blocks: [{ type: 'tool_use', id: 'sandboxed', name: 'run_command', input: { command: 'echo sandboxed' } }],
+          stopReason: 'tool_use',
+        },
+        { blocks: [{ type: 'text', text: 'The sandboxed command finished.' }], stopReason: 'end_turn' },
+      );
+      await running.page.evaluate(() =>
+        window.api.invoke('chat:send', { text: 'Run a sandboxed command without Git' }),
+      );
+      await expect
+        .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy), {
+          timeout: 20_000,
+        })
+        .toBe(false);
+      const tools = await running.page.evaluate(async () =>
+        (await window.api.invoke('chat:snapshot')).transcript.filter((item) => item.kind === 'tool'),
+      );
+      expect(tools).toHaveLength(1);
+      expect(tools[0]).toMatchObject({ status: 'done', output: expect.stringContaining('Exit code: 0') });
+      expect(tools[0]?.output).toContain('sandboxed');
+      expect(tools[0]?.preview?.note).toContain('Sandboxed');
+      expect(readdirSync(join(project, '.git'))).toEqual([]);
+      expect(await running.page.evaluate(async () => (await window.api.invoke('git:status')).isRepo)).toBe(false);
+    },
+  );
 
   it.each([
     { network: true },
@@ -90,6 +125,7 @@ describe('sandbox escalation approvals', () => {
     const card = running.page.locator('.tool-card.awaiting');
     await card.waitFor();
     expect(await card.textContent()).toContain('Allowed to run without a sandbox');
+    expect(await card.textContent()).toContain('no filesystem confinement and unrestricted network access');
     expect(existsSync(join(project, 'approved.txt'))).toBe(false);
     await card.getByRole('button', { name: 'Approve & Run', exact: true }).click();
     await expect.poll(() => running.page.locator('.tool-card').count()).toBe(2);

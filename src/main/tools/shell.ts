@@ -307,7 +307,7 @@ export class ShellRunner {
     const helper = this.detect().appcontainer;
     if (!helper)
       throw new Error('The Windows sandbox helper (sandbox-helper.exe) was not found. The command was not run.');
-    validateSandboxGit(this.cwd());
+    const gitPaths = validateSandboxGit(this.cwd());
     const real = (path: string) => {
       try {
         return realpathSync.native(path);
@@ -328,6 +328,7 @@ export class ShellRunner {
       network,
       home: real(homedir()),
       exists: (path) => existsSync(path),
+      gitPaths,
       tooLarge: (path) => exceedsEntryLimit(path),
     });
     appLog.info('sandbox', 'Command started.', { kind: 'appcontainer', network });
