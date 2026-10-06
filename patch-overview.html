@@ -1107,6 +1107,30 @@
           ['8b8ea5b', 'fix: redact passwords in connection-string URLs'],
         ],
         issues: [
+          [
+            131,
+            'Sandbox refuses in-project Git pointers written through a symlinked path',
+            'sandbox',
+            'low',
+            0,
+            '10-06',
+          ],
+          [
+            130,
+            'Sandboxed commands can rewrite scripts that existing Git hooks run on the host',
+            'sandbox',
+            'medium',
+            0,
+            '10-06',
+          ],
+          [
+            129,
+            'Empty .git reservation lets sandboxed commands plant a bare repository',
+            'sandbox',
+            'high',
+            0,
+            '10-06',
+          ],
           [128, 'Isolate built-in file tools behind an OS-restricted executor', 'sandbox', 'low', 1, '10-06'],
           [127, 'Protect agent, IDE and shell configuration from command writes', 'sandbox', 'low', 1, '10-06'],
           [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 1, '10-06'],
@@ -1441,7 +1465,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #95), then the remaining review findings (#112, #114–#116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, close the two high-severity sandbox gaps (#99, #129), then the remaining review findings (#130, #112, #114–#116). See ',
                 h(
                   'a',
                   {
@@ -2076,7 +2100,7 @@
                 h(
                   'div',
                   { class: 'small' },
-                  `${D.issues.filter((i) => i[2] === 'security' || i[2] === 'sandbox').length} open issues are about security or the command sandbox, ${D.issues.filter((i) => (i[2] === 'security' || i[2] === 'sandbox') && i[3] === 'high').length} of them high severity (#99, #95). Agent commands are sandboxed; macOS and Windows follow-ups are open. See the Issues board.`,
+                  `${D.issues.filter((i) => i[2] === 'security' || i[2] === 'sandbox').length} open issues are about security or the command sandbox, ${D.issues.filter((i) => (i[2] === 'security' || i[2] === 'sandbox') && i[3] === 'high').length} of them high severity (#99, #129). Agent commands are sandboxed; macOS and Windows follow-ups are open. See the Issues board.`,
                 ),
               ),
             ),
@@ -2813,15 +2837,15 @@
       builders.focus = () => {
         const items = [
           [
-            'Close the remaining high-severity sandbox gap: #99',
+            'Close the two high-severity sandbox gaps: #99 and #129',
             'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106).',
             [
               '#99: the macOS Seatbelt profile allows every Mach service lookup (likely a LaunchServices escape); a possible hard-link bypass of the read-only .git is noted there too',
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
-              '#109 is fixed: non-Git folders, Husky and in-project metadata pointers run sandboxed; external metadata and writable includes still fail closed',
+              '#109 is fixed, but its review found that the empty .git reservation in non-Git folders lets a command plant a bare repository that host Git runs (#129), and that existing hooks and overrides can run project scripts the sandbox rewrote (#130)',
               '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
             ],
-            'Prioritize #99; retain the metadata boundary while making narrower per-command path grants possible (#126).',
+            'Prioritize #99 and #129; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',
