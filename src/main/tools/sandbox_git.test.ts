@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GIT_RESERVATION, releaseGitReservation, validateSandboxGit } from './sandbox_git';
 import { ShellRunner } from './shell';
@@ -86,7 +86,8 @@ describe('sandbox Git layout validation', () => {
     mkdirSync(nested);
     expect(validateSandboxGit(nested)).toEqual([join(nested, '.git')]);
     expect(readdirSync(join(nested, '.git'))).toEqual([]);
-    expect(resolve(plainGit(nested, 'rev-parse', '--show-toplevel').trim())).toBe(root);
+    // Compare with Git's own answer for the parent: on Windows CI the temp path is an 8.3 short name Git expands.
+    expect(plainGit(nested, 'rev-parse', '--show-toplevel')).toBe(plainGit(root, 'rev-parse', '--show-toplevel'));
 
     // A reservation file written before the enclosing repository existed is turned back into the folder.
     rmSync(join(nested, '.git'), { recursive: true });
