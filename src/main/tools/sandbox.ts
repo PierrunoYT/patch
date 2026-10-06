@@ -202,8 +202,9 @@ export function seatbeltProfile(
     );
   }
   // The CLI runtime baseline from Codex 79cae5f7 (seatbelt_base_policy.sbpl), plus kern.boottime (Node's os.uptime),
-  // Rosetta and OS-compat version checks, and every hw.optional CPU feature flag (Intel included). Codex's
-  // kern.proc.pid./kern.proc.pgrp. prefixes are left out: they let a command read any host process's name and owner.
+  // Rosetta and OS-compat version checks, and every hw.optional CPU feature flag (Intel included). Seatbelt does not
+  // filter kern.proc reads by these names (macOS CI read a host process without them), so the sandbox cannot hide
+  // other processes; the prefixes stay for parity with Codex.
   const sysctls = [
     'hw.activecpu',
     'hw.busfrequency_compat',
@@ -252,7 +253,7 @@ export function seatbeltProfile(
     'sysctl.proc_translated',
     'vm.loadavg',
   ];
-  const sysctlPrefixes = ['hw.optional.', 'hw.perflevel', 'net.routetable.'];
+  const sysctlPrefixes = ['hw.optional.', 'hw.perflevel', 'kern.proc.pgrp.', 'kern.proc.pid.', 'net.routetable.'];
   const lines = [
     '(version 1)',
     '(deny default)',

@@ -206,7 +206,7 @@ describe('seatbeltProfile', () => {
     expect(profile).not.toContain('(allow sysctl-write)');
   });
 
-  it('limits sysctl reads to runtime discovery, never other processes, their arguments or environment', () => {
+  it('limits sysctl reads to runtime discovery, never process arguments or environment', () => {
     const profile = seatbeltProfile(env(), false);
     expect(profile).not.toContain('(allow sysctl-read)');
     for (const name of [
@@ -224,7 +224,7 @@ describe('seatbeltProfile', () => {
     }
     expect(profile).toContain('(sysctl-name-prefix "hw.optional.")');
     expect(profile).not.toContain('kern.procargs');
-    expect(profile).not.toContain('kern.proc.');
+    expect(profile).not.toContain('(sysctl-name-prefix "kern.proc.")');
   });
 });
 

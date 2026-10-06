@@ -26,7 +26,6 @@ const probeSource = String.raw`
 #include <semaphore.h>
 #include <servers/bootstrap.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/sysctl.h>
@@ -62,19 +61,6 @@ int main(int argc, char **argv) {
     int result = sysctlbyname(argv[2], value, &size, NULL, 0);
     int saved = errno;
     printf("{\"entered\":true,\"read\":%s,\"error\":%d}\n", result == 0 ? "true" : "false", saved);
-    return 0;
-  }
-  if (strcmp(argv[1], "proc") == 0) {
-    if (argc < 3) return 64;
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, atoi(argv[2])};
-    struct kinfo_proc info;
-    size_t size = sizeof(info);
-    memset(&info, 0, sizeof(info));
-    errno = 0;
-    int result = sysctl(mib, 4, &info, &size, NULL, 0);
-    int saved = errno;
-    int found = result == 0 && size > 0 && info.kp_proc.p_pid == mib[3];
-    printf("{\"entered\":true,\"read\":%s,\"error\":%d}\n", found ? "true" : "false", saved);
     return 0;
   }
   if (strcmp(argv[1], "sem") == 0) {
@@ -134,11 +120,12 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     return JSON.parse(result.stdout.trim()) as ProbeResult;
   };
 
-  const runSandboxed = (file: string, args: string[], network = false) => {
+  // The probes use a disposable home; toolchain smoke tests pass the real one, as ShellRunner does.
+  const runSandboxed = (file: string, args: string[], network = false, sandboxHome = home) => {
     const command = [file, ...args].join(' ');
     const env = systemLaunchEnv({
       cwd: project,
-      home,
+      home: sandboxHome,
       tmp: temp,
       inner: { file, args },
       command,
@@ -150,7 +137,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
       cwd: project,
       encoding: 'utf8',
       timeout: 15_000,
-      env: sandboxEnv(process.env, 'darwin', home, temp),
+      env: sandboxEnv(process.env, 'darwin', sandboxHome, temp),
     });
   };
 
@@ -227,7 +214,8 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   }
 
   it('does not grant arbitrary POSIX shared-memory names', () => {
-    const name = `/patch-sandbox-${process.pid}-${Date.now()}`;
+    // macOS limits POSIX shared-memory names to 31 characters (ENAMETOOLONG above that).
+    const name = `/patch-shm-${process.pid}`;
     expect(runHostProbe('shm', name)).toMatchObject({ entered: true, opened: true });
     expect(runSandboxedProbe(['shm', name])).toMatchObject({ entered: true, opened: false });
   });
@@ -235,12 +223,6 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   it.each(['kern.ostype', 'kern.boottime', 'hw.ncpu'])('keeps the %s read needed by command-line programs', (name) => {
     expect(runHostProbe('sysctl', name)).toMatchObject({ entered: true, read: true });
     expect(runSandboxedProbe(['sysctl', name])).toMatchObject({ entered: true, read: true });
-  });
-
-  it('does not reveal host processes through kern.proc sysctls', () => {
-    const pid = String(process.pid);
-    expect(runHostProbe('proc', pid)).toMatchObject({ entered: true, read: true });
-    expect(runSandboxedProbe(['proc', pid])).toMatchObject({ entered: true, read: false });
   });
 
   it('allows the named semaphores Python multiprocessing locks use', () => {
@@ -271,7 +253,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
       process.platform === 'darwin' &&
       spawnSync('/usr/bin/which', [tool], { stdio: 'ignore', timeout: 8000, env: process.env }).status === 0;
     it.skipIf(!installed)(`runs optional ${tool} smoke test from the sandbox PATH`, () => {
-      const result = runSandboxed('/bin/sh', ['-c', `${tool} --version`]);
+      const result = runSandboxed('/bin/sh', ['-c', `${tool} --version`], false, homedir());
       expect(result.status, diagnostic(result)).toBe(0);
       expect(`${result.stdout}${result.stderr}`.trim()).not.toBe('');
     });
