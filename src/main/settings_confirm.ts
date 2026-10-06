@@ -105,6 +105,18 @@ export function changesToConfirm(
           : `Let the program "${rule.to}" decide calls to ${tools} (permission rule).`,
       );
     }
+    // First match wins: changing any part of the prefix through an ask/reject rule can bypass its protection,
+    // including reordering existing allow rules while leaving the protective rule itself at the same index.
+    let prefixUnchanged = true;
+    for (const [index, rule] of current.permissionRules.entries()) {
+      prefixUnchanged &&= JSON.stringify(rule) === JSON.stringify(patch.permissionRules[index]);
+      if (prefixUnchanged || (rule.action !== 'ask' && rule.action !== 'reject')) continue;
+      const tools = [rule.tool].flat().join(', ');
+      const matches = rule.matches ? ` matching ${JSON.stringify(rule.matches)}` : '';
+      changes.push(
+        `Change the ${rule.action} protection for ${tools}${matches} or its preceding rules (permission rule).`,
+      );
+    }
   }
   return changes;
 }

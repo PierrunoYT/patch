@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, type McpServerConfig, type Settings } from '@shared/settings';
+import { DEFAULT_SETTINGS, type McpServerConfig, type PermissionRule, type Settings } from '@shared/settings';
 import type { ProjectInfo } from '@shared/project';
+import { decidePermission } from './agent/permissions';
 import { addedEntries, changesToConfirm, projectChangesToConfirm } from './settings_confirm';
 
 const docs: McpServerConfig = { name: 'docs', transport: 'stdio', command: 'node', args: ['docs.js'] };
@@ -200,6 +201,61 @@ describe('changesToConfirm', () => {
     ]);
     const withAllow: Settings = { ...current, permissionRules: [allow] };
     expect(changesToConfirm(withAllow, { permissionRules: [allow] }, false)).toEqual([]);
+  });
+
+  it.each(['ask', 'reject'] as const)(
+    'asks before removing an existing %s rule, even after Auto was confirmed',
+    (action) => {
+      const rule: PermissionRule = { tool: 'run_command', matches: { command: 'git push*' }, action };
+      const configured = { ...current, approvalMode: 'auto' as const, permissionRules: [rule] };
+      expect(changesToConfirm(configured, { permissionRules: [] }, true)).toEqual([
+        `Change the ${action} protection for run_command matching {"command":"git push*"} or its preceding rules (permission rule).`,
+      ]);
+    },
+  );
+
+  it('asks when a protective rule changes its matching fields, tool, context or action', () => {
+    const rule: PermissionRule = { tool: 'run_command', matches: { command: 'git push*' }, action: 'reject' };
+    const configured = { ...current, permissionRules: [rule] };
+    const replacements: PermissionRule[] = [
+      { ...rule, matches: { command: 'git push origin main' } },
+      { ...rule, tool: 'write_file' },
+      { ...rule, context: 'subagent' },
+      { ...rule, action: 'ask' },
+    ];
+    for (const replacement of replacements) {
+      expect(changesToConfirm(configured, { permissionRules: [replacement] }, false)).toEqual([
+        'Change the reject protection for run_command matching {"command":"git push*"} or its preceding rules (permission rule).',
+      ]);
+    }
+  });
+
+  it('asks when reordering known rules bypasses a protective rule without moving that rule', async () => {
+    const read: PermissionRule = { tool: 'read_file', action: 'allow' };
+    const ask: PermissionRule = { tool: 'run_command', matches: { command: 'git push*' }, action: 'ask' };
+    const allow: PermissionRule = { tool: 'run_command', action: 'allow' };
+    const before = [read, ask, allow];
+    const after = [allow, ask, read];
+    expect(await decidePermission(before, 'run_command', { command: 'git push origin main' }, 'thread')).toEqual({
+      action: 'ask',
+    });
+    expect(await decidePermission(after, 'run_command', { command: 'git push origin main' }, 'thread')).toEqual({
+      action: 'allow',
+    });
+    expect(changesToConfirm({ ...current, permissionRules: before }, { permissionRules: after }, false)).toEqual([
+      'Change the ask protection for run_command matching {"command":"git push*"} or its preceding rules (permission rule).',
+    ]);
+  });
+
+  it('keeps unchanged protective rules quiet and permits new protections or changes after them', () => {
+    const ask: PermissionRule = { tool: 'run_command', action: 'ask' };
+    const allow: PermissionRule = { tool: 'read_file', action: 'allow' };
+    const reject: PermissionRule = { tool: 'write_file', action: 'reject' };
+    const configured = { ...current, permissionRules: [ask, allow] };
+    expect(changesToConfirm(configured, { ...configured }, false)).toEqual([]);
+    expect(changesToConfirm(configured, { theme: 'light' }, false)).toEqual([]);
+    expect(changesToConfirm(configured, { permissionRules: [ask, reject] }, false)).toEqual([]);
+    expect(changesToConfirm({ ...current, permissionRules: [allow] }, { permissionRules: [] }, false)).toEqual([]);
   });
 
   it('lists every change in one confirmation', () => {

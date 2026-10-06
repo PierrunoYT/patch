@@ -612,10 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through a6c9929 (2026-10-06). Line counts exclude tests unless they say otherwise;
-      renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
-      Windows, with the OpenAI and UI end-to-end coverage refreshed on Linux; skipped tests included. Issue severities
-      without a severity label are estimates and are marked "est.".
+      This page reflects git history through fee9934 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from real Vitest runs, with
+      settings confirmation, OpenAI and UI coverage refreshed on Linux; skipped tests included. Issue severities without
+      a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -676,16 +676,16 @@
             proc: 'main',
             files: 13,
             tests: 9,
-            lines: 2267,
-            testLines: 2136,
-            desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings, projects, window, menu, local error and native-crash logging.',
+            lines: 2309,
+            testLines: 2268,
+            desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
             list: [
-              'chat_manager.ts (476)',
-              'index.ts (423, IPC handlers, untested)',
-              'settings.ts (428)',
+              'chat_manager.ts (478)',
+              'index.ts (428, IPC handlers, untested)',
+              'settings.ts (451)',
               'chat_store.ts (182)',
               'app_log.ts (error + crash logging)',
-              'settings_confirm.ts',
+              'settings_confirm.ts (182, ordered protective-rule confirmation)',
               'projects.ts',
               'files.ts',
               'ipc.ts',
@@ -962,7 +962,7 @@
           { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
           { a: 'main/tools', f: 22, c: 397, src: 3874, tl: 5496 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
-          { a: 'main/other', f: 11, c: 162, src: 2840, tl: 2617 },
+          { a: 'main/other', f: 11, c: 167, src: 2857, tl: 2669 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6367, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -977,7 +977,7 @@
           ['compact', 4],
           ['project_settings', 4],
           ['project_switching', 4],
-          ['settings', 5],
+          ['settings', 6],
           ['undo', 4],
           ['images', 3],
           ['projects', 3],
@@ -1016,10 +1016,10 @@
           [572, 'renderer/src/views/transcript.ts'],
           [514, 'main/agent/agent.ts'],
           [490, 'main/agent/session.ts'],
-          [479, 'main/chat_manager.ts'],
+          [478, 'main/chat_manager.ts'],
           [477, 'main/llm/codex_auth.ts'],
           [477, 'main/tools/shell.ts'],
-          [452, 'main/settings.ts'],
+          [451, 'main/settings.ts'],
           [445, 'main/tools/sandbox.ts'],
           [428, 'main/index.ts'],
           [422, 'main/llm/anthropic.ts'],
@@ -1028,10 +1028,10 @@
         ],
         docs: [
           ['docs/PERFORMANCE.md', 461],
-          ['docs/USAGE.md', 291],
+          ['docs/USAGE.md', 292],
           ['docs/ARCHITECTURE.md', 252],
           ['docs/DEVELOPMENT.md', 203],
-          ['CHANGELOG.md', 189],
+          ['CHANGELOG.md', 190],
           ['README.md', 142],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
@@ -1047,10 +1047,10 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 40],
+          ['2026-10-06', 41],
         ],
         types: [
-          ['fix', 105],
+          ['fix', 106],
           ['docs', 61],
           ['feat', 60],
           ['test', 39],
@@ -1063,22 +1063,22 @@
           ['security', 1],
         ],
         authors: [
-          ['PierrunoYT', 272],
-          ['Amp', 24],
+          ['PierrunoYT', 271],
+          ['Amp', 26],
           ['StepUpGaming', 23],
           ['Claude', 7],
           ['Steven Isaac', 3],
           ['patchmote[bot]', 1],
         ],
         churn: [
-          ['CHANGELOG.md', 197],
-          ['docs/ARCHITECTURE.md', 121],
+          ['CHANGELOG.md', 198],
+          ['docs/ARCHITECTURE.md', 122],
           ['docs/DEVELOPMENT.md', 115],
-          ['README.md', 101],
+          ['README.md', 102],
           ['TASKS.md (no longer tracked)', 83],
           ['docs/USAGE.md', 51],
           ['package.json', 46],
-          ['patch-overview.html', 43],
+          ['patch-overview.html', 44],
           ['src/main/chat_manager.ts', 39],
           ['src/main/index.ts', 37],
           ['src/main/agent/agent.ts', 32],
@@ -1093,6 +1093,7 @@
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['fee9934', 'fix: restrict model Markdown to HTML-only markup'],
           ['a6c9929', 'fix: omit unsupported truncation from ChatGPT subscription requests'],
           ['ac612b2', 'fix: reset mainWindow when a reopened macOS window closes'],
           ['ae070f1', 'fix: close the active project when it is named through a link'],
@@ -1108,7 +1109,6 @@
           ['3a2bd4a', 'test: check macOS network-off daemon fetches and Seatbelt hard links'],
           ['46c2eca', "test: compare Git's own top level in the nested-repository reservation test"],
           ['d26e17f', 'fix: refuse Git panel push and commit that would run project files'],
-          ['dc872cb', 'test: give the Windows non-Git e2e command time to prepare'],
         ],
         issues: [
           [
@@ -1159,7 +1159,6 @@
             0,
             '10-05',
           ],
-          [114, 'Removing an ask or reject permission rule is not confirmed', 'security', 'low', 0, '10-05'],
           [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
           [108, 'Windows sandbox copies the official Node for every command (~14 s)', 'sandbox', 'medium', 0, '10-05'],
           [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
@@ -1232,7 +1231,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 62,
+        closedCount: 63,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1446,7 +1445,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, the Windows sandbox gaps (#100, #101, #108) and the remaining review findings (#112, #114–#116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114) and HTML-only Markdown (#115) are fixed. Next, the Windows sandbox gaps (#100, #101, #108) and the remaining review findings (#112, #116). See ',
                 h(
                   'a',
                   {
@@ -2833,11 +2832,11 @@
             'The audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
             [
               '#112, #118: synchronous sandbox checks and chat saves still block the main process',
-              '#114, #116: rule removal and error text in logs remain open. #115 is fixed: HTML-only Markdown rejects SVG images and MathML; #113 MCP secret migration is also fixed',
+              '#116: raw provider error text in logs remains open. #114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
               '#73: web_search still sends queries without approval',
               '#125: two transcript_view e2e tests fail intermittently in full runs',
             ],
-            'Small, contained fixes with tests; #114 closes the last known gap in the settings confirmations.',
+            'The known protective-rule confirmation gap is closed (#114), including reorders that leave the protective rule at the same index. Continue with contained fixes and regression tests for the remaining findings.',
           ],
           [
             'Adopt narrower sandbox permissions and stronger file boundaries',

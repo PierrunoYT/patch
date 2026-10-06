@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { PermissionRule } from '../../src/shared/settings';
 import { launchApp, type RunningApp } from './app';
 
 describe('settings over IPC', () => {
@@ -53,6 +54,45 @@ describe('settings over IPC', () => {
       (window.api.invoke as any)('settings:set-secret', 'nope', 'x').catch((error: Error) => error.message),
     );
     expect(message).toContain('Unknown secret');
+  });
+
+  it('confirms removal of protective permission rules and leaves settings intact when cancelled', async () => {
+    const rules: PermissionRule[] = [
+      { tool: 'run_command', matches: { command: 'git push*' }, action: 'ask' },
+      { tool: 'write_file', action: 'reject' },
+    ];
+    await running.app.evaluate(() => {
+      (globalThis as any).__patchConfirmations = [];
+    });
+    await running.page.evaluate((permissionRules) => window.api.invoke('settings:update', { permissionRules }), rules);
+    expect(await running.app.evaluate(() => (globalThis as any).__patchConfirmations)).toEqual([]);
+    const before = await running.page.evaluate(() => window.api.invoke('settings:get'));
+    const onDisk = readFileSync(join(running.userData, 'settings.json'), 'utf8');
+
+    await running.app.evaluate(() => {
+      (globalThis as any).__patchConfirmResponse = 1;
+    });
+    const rejected = await running.page.evaluate(() =>
+      window.api
+        .invoke('settings:update', { permissionRules: [], theme: 'dark' })
+        .catch((error: Error) => error.message),
+    );
+    expect(rejected).toContain('cancelled');
+    expect(await running.page.evaluate(() => window.api.invoke('settings:get'))).toEqual(before);
+    expect(readFileSync(join(running.userData, 'settings.json'), 'utf8')).toBe(onDisk);
+    const confirmations = await running.app.evaluate(() => (globalThis as any).__patchConfirmations as string[]);
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0]).toContain('ask protection for run_command matching {"command":"git push*"}');
+    expect(confirmations[0]).toContain('reject protection for write_file');
+
+    await running.app.evaluate(() => {
+      (globalThis as any).__patchConfirmResponse = 0;
+    });
+    const updated = await running.page.evaluate(() => window.api.invoke('settings:update', { permissionRules: [] }));
+    expect(updated.permissionRules).toEqual([]);
+    expect(JSON.parse(readFileSync(join(running.userData, 'settings.json'), 'utf8')).settings.permissionRules).toEqual(
+      [],
+    );
   });
 
   it('saves native sandbox environment grants and PATH through Settings', async () => {

@@ -175,6 +175,7 @@ api.example.com
 - `allow` runs the call without asking. `reject` never runs it and tells the assistant your `message`. `ask` shows the approval card even in Auto mode. `delegate` starts the program in `to` (no shell), writes `{"tool", "input", "context"}` as JSON to its standard input and reads `allow`, `reject` or `ask` from its output; a program that fails, times out after 15 seconds or answers anything else rejects the call.
 - `"context": "subagent"` (or `"thread"`) limits a rule to calls made by subagents (or by the chat itself).
 - An `allow` rule beats the protected-files and MCP approval, so keep it narrow. Saving an `allow` or `delegate` rule asks for confirmation, as switching to Auto mode does.
+- Removing or changing an existing `ask` or `reject` rule also asks for native confirmation. Changing any preceding rule (including reordering rules) asks too, because an earlier match can bypass that protection. This conservative check can also confirm harmless changes. Cancelling keeps all settings unchanged; unchanged rules and adding protective rules at the end need no confirmation.
 - A command allowed with `allow` is not checked for shell operators: `git status*` also matches `git status; rm -rf .`. Prefer the "Commands allowed without asking" list for commands.
 
 ### Hidden secrets
