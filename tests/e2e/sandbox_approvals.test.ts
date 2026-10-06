@@ -67,8 +67,9 @@ describe('sandbox escalation approvals', () => {
         window.api.invoke('chat:send', { text: 'Run a sandboxed command without Git' }),
       );
       await expect
+        // Windows CI prepares the AppContainer toolchains first, which can take well over 20 s (#108).
         .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy), {
-          timeout: 20_000,
+          timeout: 75_000,
         })
         .toBe(false);
       const tools = await running.page.evaluate(async () =>
@@ -81,6 +82,7 @@ describe('sandbox escalation approvals', () => {
       expect(readFileSync(join(project, '.git'), 'utf8')).toBe(GIT_RESERVATION);
       expect(await running.page.evaluate(async () => (await window.api.invoke('git:status')).isRepo)).toBe(false);
     },
+    90_000,
   );
 
   it.each([

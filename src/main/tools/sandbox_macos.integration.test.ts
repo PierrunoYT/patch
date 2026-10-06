@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sandboxEnv } from './env';
-import { buildLaunch, detectSandboxSupport, systemLaunchEnv } from './sandbox';
+import { buildLaunch, detectSandboxSupport, HOME_READ_ONLY, systemLaunchEnv } from './sandbox';
 
 const support = detectSandboxSupport();
 const clangAvailable =
@@ -248,14 +248,29 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     expect(existsSync(marker)).toBe(false);
   });
 
+  // A tool installed in the hidden part of the home folder (GitHub's hosted tool cache, for example) cannot run in
+  // the sandbox by design, so it is skipped rather than failed.
+  const hiddenInHome = (path: string) => {
+    const real = realpathSync(path);
+    const inside = (folder: string) => {
+      const rel = relative(folder, real);
+      return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+    };
+    return inside(homedir()) && !HOME_READ_ONLY.some((entry) => inside(join(homedir(), entry)));
+  };
   for (const tool of ['node', 'npm', 'git', 'python3', 'cargo', 'clang']) {
-    const installed =
-      process.platform === 'darwin' &&
-      spawnSync('/usr/bin/which', [tool], { stdio: 'ignore', timeout: 8000, env: process.env }).status === 0;
-    it.skipIf(!installed)(`runs optional ${tool} smoke test from the sandbox PATH`, () => {
-      const result = runSandboxed('/bin/sh', ['-c', `${tool} --version`], false, homedir());
-      expect(result.status, diagnostic(result)).toBe(0);
-      expect(`${result.stdout}${result.stderr}`.trim()).not.toBe('');
-    });
+    const found =
+      process.platform === 'darwin'
+        ? spawnSync('/usr/bin/which', [tool], { encoding: 'utf8', timeout: 8000, env: process.env }).stdout.trim()
+        : '';
+    const hidden = found !== '' && hiddenInHome(found);
+    it.skipIf(!found || hidden)(
+      `runs optional ${tool} smoke test from the sandbox PATH${hidden ? ' (installed in the hidden home folder)' : ''}`,
+      () => {
+        const result = runSandboxed('/bin/sh', ['-c', `${tool} --version`], false, homedir());
+        expect(result.status, diagnostic(result)).toBe(0);
+        expect(`${result.stdout}${result.stderr}`.trim()).not.toBe('');
+      },
+    );
   }
 });
