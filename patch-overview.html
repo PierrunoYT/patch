@@ -612,10 +612,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      Every number on this page comes from the source tree, git history or GitHub issues as of commit b1939d2. Line
-      counts exclude tests unless they say otherwise. Renderer CSS lines (2766) are worked out from the renderer total
-      (6347) minus its TypeScript lines (3581). Issue severities without a sev: label are estimates and are marked
-      "est.".
+      Every number on this page comes from the source tree, git history or GitHub issues as of commit 8882705
+      (2026-10-06). Line counts exclude tests unless they say otherwise; renderer CSS lines (2766) are counted in
+      src/renderer/src/styles.css. Test counts come from a real Vitest run on Windows, skipped tests included. Issue
+      severities without a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -647,11 +647,11 @@
             proc: 'renderer',
             files: 5,
             tests: 2,
-            lines: 2538,
+            lines: 2534,
             testLines: null,
             desc: 'Screens: transcript, composer with @-mentions, sidebar, terminal/browser/git panels, settings and history dialogs.',
             list: [
-              'dialogs.ts (723, untested)',
+              'dialogs.ts (719, untested)',
               'panels.ts (648, untested)',
               'transcript.ts (572, untested)',
               'composer.ts (395)',
@@ -675,22 +675,21 @@
             proc: 'main',
             files: 13,
             tests: 9,
-            lines: 2139,
-            testLines: 1887,
+            lines: 2225,
+            testLines: 2046,
             desc: 'App wiring: IPC handlers, ChatManager, chat storage, settings, projects, window, menu, local error and native-crash logging.',
             list: [
-              'chat_manager.ts (472)',
-              'index.ts (422, IPC handlers, untested)',
-              'settings.ts (394)',
-              'app_log.ts (152, error + crash logging)',
-              'chat_store.ts',
+              'chat_manager.ts (474)',
+              'index.ts (423, IPC handlers, untested)',
+              'settings.ts (402)',
+              'chat_store.ts (182)',
+              'app_log.ts (error + crash logging)',
               'settings_confirm.ts',
               'projects.ts',
               'files.ts',
               'ipc.ts',
               'menu.ts',
               'window.ts',
-              'app_log.ts',
               'renderer_errors.ts',
               'renderer_url.ts',
             ],
@@ -701,12 +700,12 @@
             proc: 'main',
             files: 10,
             tests: 11,
-            lines: 1537,
-            testLines: 3236,
+            lines: 1593,
+            testLines: 3348,
             desc: 'The agent loop: turns, retries, permissions, allow-lists, system prompt, project map, session (approvals, events, prompt-cache keep-alive).',
             list: [
-              'agent.ts (489)',
-              'session.ts (459)',
+              'agent.ts (514)',
+              'session.ts (490)',
               'permissions.ts',
               'allowed_commands.ts',
               'allowed_network_hosts.ts',
@@ -729,7 +728,7 @@
             list: [
               'codex_auth.ts (477, ChatGPT sign-in)',
               'anthropic.ts (422, prompt cache, keep-alive)',
-              'openai.ts (293)',
+              'openai.ts (295)',
               'openai_responses.ts (292)',
               'index.ts (LlmService)',
               'endpoints.ts (test hooks off in packaged builds)',
@@ -744,18 +743,18 @@
             id: 'tools',
             label: 'main/tools',
             proc: 'main',
-            files: 21,
-            tests: 17,
-            lines: 3248,
-            testLines: 2860,
+            files: 23,
+            tests: 21,
+            lines: 3541,
+            testLines: 4371,
             desc: 'Every model tool, plus fail-closed command sandboxes, credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), read-only root Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Unsupported Git layouts are refused; Git writes need the Git panel or unsandboxed approval. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
-              'files.ts (318)',
+              'shell.ts (445)',
+              'sandbox_windows.ts (355, Program Files candidates and helper protocol)',
+              'sandbox.ts (354)',
+              'files.ts (334)',
               'web.ts (226, no own test)',
-              'shell.ts',
-              'sandbox.ts (335)',
-              'sandbox_windows.ts (Program Files candidates and helper protocol)',
               'sandbox_windows.integration.test.ts (real AppContainer toolchain grants, staging and recovery)',
               'sandbox.integration.test.ts',
               'sandbox_git.ts',
@@ -784,8 +783,8 @@
             proc: 'main',
             files: 4,
             tests: 4,
-            lines: 491,
-            testLines: 702,
+            lines: 492,
+            testLines: 736,
             desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
             list: ['terminal.ts', 'browser.ts', 'git.ts', 'commit_message.ts'],
           },
@@ -805,10 +804,10 @@
             label: 'main/storage',
             proc: 'main',
             files: 2,
-            tests: 0,
-            lines: 54,
-            testLines: null,
-            desc: 'Atomic JSON writes (temp file + rename) and JSONL logs.',
+            tests: 1,
+            lines: 112,
+            testLines: 81,
+            desc: 'Atomic JSON writes (temp file + rename, background writes for checkpoints) and JSONL logs.',
             list: ['json_file.ts', 'jsonl_log.ts'],
           },
           {
@@ -817,12 +816,12 @@
             proc: 'shared',
             files: 9,
             tests: 8,
-            lines: 1236,
+            lines: 1237,
             testLines: 852,
             desc: 'Types and logic used by both sides: IPC contract, chat events, models, settings, panels, export.',
             list: [
-              'ipc.ts (200)',
-              'chat.ts (333)',
+              'chat.ts (335)',
+              'ipc.ts (201)',
               'models.ts',
               'settings.ts',
               'project.ts',
@@ -944,29 +943,30 @@
           ['mcp_<server>_<tool>', 'mcp.ts (McpHub)', 1, 1, 'one per MCP server tool'],
         ],
         readOnly: ['read_file', 'list_directory', 'grep', 'glob', 'search_code', 'load_skill'],
-        npmDeps: 10,
-        npmDev: 27,
+        npmDeps: 9,
+        npmDev: 28,
         models: {
           anthropic: ['claude-opus-5-5 (default)', 'claude-sonnet-5-5', 'claude-haiku-4-5 (small)'],
           openai: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna (small)'],
         },
         testsByArea: [
-          { a: 'main/agent', f: 11, c: 206, src: 1537, tl: 3236 },
+          { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 17, c: 226, src: 3248, tl: 2860 },
-          { a: 'main/panels', f: 4, c: 46, src: 491, tl: 702 },
-          { a: 'main/other', f: 10, c: 136, src: 2629, tl: 2207 },
-          { a: 'shared', f: 8, c: 73, src: 1236, tl: 852 },
-          { a: 'renderer', f: 4, c: 14, src: 6347, tl: 138 },
+          { a: 'main/tools', f: 21, c: 316, src: 3541, tl: 4371 },
+          { a: 'main/panels', f: 4, c: 51, src: 492, tl: 736 },
+          { a: 'main/other', f: 11, c: 150, src: 2773, tl: 2447 },
+          { a: 'shared', f: 8, c: 73, src: 1237, tl: 852 },
+          { a: 'renderer', f: 4, c: 14, src: 6343, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
         ],
         e2e: [
-          ['ui', 11],
-          ['chat', 11],
           ['security', 12],
+          ['chat', 11],
+          ['ui', 11],
           ['panels', 7],
-          ['compact', 4],
+          ['sandbox_approvals', 7],
           ['logging', 5],
+          ['compact', 4],
           ['project_settings', 4],
           ['project_switching', 4],
           ['settings', 4],
@@ -980,11 +980,12 @@
           ['large_output', 2],
           ['long_run', 2],
           ['openai_responses', 2],
+          ['secrets_restart', 2],
           ['crash_resume', 1],
+          ['grep_redos', 1],
           ['mcp', 1],
           ['plan_mode', 1],
           ['resume', 1],
-          ['secrets_restart', 2],
           ['single_instance', 1],
           ['skills', 1],
           ['task', 1],
@@ -992,30 +993,30 @@
         ],
         untested: [
           [826, 'renderer/src/app.ts'],
-          [723, 'renderer/src/views/dialogs.ts'],
+          [719, 'renderer/src/views/dialogs.ts'],
           [648, 'renderer/src/views/panels.ts'],
           [572, 'renderer/src/views/transcript.ts'],
-          [422, 'main/index.ts'],
-          [318, 'main/tools/files.ts *'],
-          [226, 'main/tools/web.ts'],
-          [200, 'shared/ipc.ts'],
+          [423, 'main/index.ts'],
+          [334, 'main/tools/files.ts *'],
+          [226, 'main/tools/web.ts *'],
+          [201, 'shared/ipc.ts'],
         ],
         largest: [
           [826, 'renderer/src/app.ts'],
-          [723, 'renderer/src/views/dialogs.ts'],
+          [719, 'renderer/src/views/dialogs.ts'],
           [648, 'renderer/src/views/panels.ts'],
           [572, 'renderer/src/views/transcript.ts'],
-          [489, 'main/agent/agent.ts'],
+          [514, 'main/agent/agent.ts'],
+          [490, 'main/agent/session.ts'],
           [477, 'main/llm/codex_auth.ts'],
-          [472, 'main/chat_manager.ts'],
-          [459, 'main/agent/session.ts'],
+          [474, 'main/chat_manager.ts'],
+          [445, 'main/tools/shell.ts'],
+          [423, 'main/index.ts'],
           [422, 'main/llm/anthropic.ts'],
-          [422, 'main/index.ts'],
           [407, 'main/search/code_index.ts'],
+          [402, 'main/settings.ts'],
           [395, 'renderer/src/views/composer.ts'],
-          [394, 'main/settings.ts'],
-          [333, 'shared/chat.ts'],
-          [318, 'main/tools/files.ts'],
+          [355, 'main/tools/sandbox_windows.ts'],
         ],
         docs: [
           ['docs/PERFORMANCE.md', 461],
@@ -1227,6 +1228,10 @@
         },
         closedCount: 46,
       };
+      // src/renderer/src/styles.css, counted with the renderer's source lines.
+      const RENDERER_CSS_LINES = 2766;
+      // Source lines of one process (renderer, preload, main, shared), summed from its areas.
+      const procLines = (proc) => D.areas.filter((a) => a.proc === proc).reduce((sum, a) => sum + a.lines, 0);
 
       /* ---------------- helpers ---------------- */
       const $ = (s) => document.querySelector(s);
@@ -1311,7 +1316,7 @@
 
       /* ---------------- 1. Overview ---------------- */
       builders.overview = () => {
-        const totalSrc = D.areas.reduce((a, x) => a + x.lines, 0) + 2766; // + renderer CSS (derived)
+        const totalSrc = D.areas.reduce((a, x) => a + x.lines, 0) + RENDERER_CSS_LINES;
         const k = (v, l, sub) =>
           h(
             'div',
@@ -1337,14 +1342,22 @@
           h(
             'div',
             { class: 'grid kpis' },
-            k(fmt(totalSrc), 'source lines', '85 TS files + renderer CSS'),
-            k(fmt(12754), 'unit-test lines', '62 files, 798 cases'),
-            k('98', 'end-to-end cases', '28 Playwright files'),
+            k(fmt(totalSrc), 'source lines', '87 TS files + renderer CSS'),
+            k(fmt(14651), 'unit-test lines', '67 files, 913 cases'),
+            k(String(D.e2e.reduce((a, [, n]) => a + n, 0)), 'end-to-end cases', `${D.e2e.length} Playwright files`),
             k('20', 'built-in tools', '+ MCP tools, 3 subagents among them'),
-            k('47 / 10', 'IPC invoke / event channels', '18 chat event types'),
+            k('47 / 10', 'IPC invoke / event channels', '17 chat event types'),
             k('6', 'models, 2 providers', 'Anthropic + OpenAI'),
-            k('41', 'open issues', 'no high, 5 medium, 36 low'),
-            k('256', 'commits', '253 of them since 2026-09-29'),
+            k(
+              String(D.issues.length),
+              'open issues',
+              ['high', 'medium', 'low'].map((s) => `${D.issues.filter((i) => i[3] === s).length} ${s}`).join(', '),
+            ),
+            k(
+              String(D.commitsByDay.reduce((sum, [, n]) => sum + n, 0)),
+              'commits',
+              `${D.commitsByDay.filter(([d]) => d >= '2026-09-29').reduce((sum, [, n]) => sum + n, 0)} of them since 2026-09-29`,
+            ),
           ),
           h(
             'div',
@@ -1357,25 +1370,25 @@
                 proc(
                   'renderer',
                   procColor('renderer'),
-                  6347,
-                  'Sandboxed UI (no Node). App, transcript, composer, panels, dialogs. Largest layer, includes 2766 lines of CSS.',
+                  procLines('renderer') + RENDERER_CSS_LINES,
+                  `Sandboxed UI (no Node). App, transcript, composer, panels, dialogs. Largest layer, includes ${fmt(RENDERER_CSS_LINES)} lines of CSS.`,
                 ),
                 proc(
                   'preload',
                   procColor('preload'),
-                  37,
+                  procLines('preload'),
                   'Exposes only invoke/on for allow-listed channels. 47 invoke + 10 event channels.',
                 ),
                 proc(
                   'main',
                   procColor('main'),
-                  10037,
+                  procLines('main'),
                   'Agent loop, provider clients, 20 tools, command sandboxes, MCP, panel back ends, storage and IPC handlers.',
                 ),
                 proc(
                   'shared',
                   procColor('shared'),
-                  1236,
+                  procLines('shared'),
                   'IPC contract, chat events, models, settings. Imported by every layer.',
                 ),
               ),
@@ -1395,7 +1408,7 @@
                   'li',
                   null,
                   h('b', null, 'Renderer is barely unit-tested: '),
-                  '6347 source lines vs 138 test lines; its 4 biggest files have no test file (e2e covers some of it).',
+                  '6343 source lines (CSS included) vs 138 test lines; its 4 biggest files have no test file (e2e covers some of it).',
                 ),
                 h(
                   'li',
@@ -2064,19 +2077,18 @@
 
       /* ---------------- 5. Code size ---------------- */
       builders.size = () => {
+        // Built from the area data, so the map always matches the other tabs. The renderer's few test lines are not
+        // split by folder, so its cells (CSS included) share one ratio.
+        const renderer = D.testsByArea.find((t) => t.a === 'renderer');
+        const rendererRatio = renderer.tl / renderer.src;
         const cells = [
-          { n: 'renderer/views', v: 2538, p: 'renderer', r: 138 / 6347 },
-          { n: 'renderer CSS', v: 2766, p: 'renderer', r: 138 / 6347 },
-          { n: 'renderer root', v: 1043, p: 'renderer', r: 138 / 6347 },
-          { n: 'main/tools', v: 3248, p: 'main', r: 2860 / 3248 },
-          { n: 'main (root)', v: 2139, p: 'main', r: 1887 / 2139 },
-          { n: 'main/llm', v: 2132, p: 'main', r: 2759 / 2132 },
-          { n: 'main/agent', v: 1537, p: 'main', r: 3236 / 1537 },
-          { n: 'main/panels', v: 491, p: 'main', r: 702 / 491 },
-          { n: 'main/search', v: 436, p: 'main', r: 320 / 436 },
-          { n: 'main/storage', v: 54, p: 'main', r: 2171 / 2517 },
-          { n: 'shared', v: 1236, p: 'shared', r: 852 / 1236 },
-          { n: 'preload', v: 37, p: 'preload', r: 0 },
+          ...D.areas.map((a) => ({
+            n: a.label,
+            v: a.lines,
+            p: a.proc,
+            r: a.proc === 'renderer' ? rendererRatio : a.lines ? (a.testLines ?? 0) / a.lines : 0,
+          })),
+          { n: 'renderer CSS', v: RENDERER_CSS_LINES, p: 'renderer', r: rendererRatio },
         ].sort((a, b) => b.v - a.v);
         const total = cells.reduce((a, c) => a + c.v, 0);
         const Wd = 1600,
@@ -2181,7 +2193,7 @@
           h(
             'p',
             { class: 'lead' },
-            `Each rectangle's area is its share of the ${fmt(total)} source lines. Switch the color to see where unit tests are thin. (main/storage shares the ratio of the other main files; the 3 renderer cells share the renderer ratio.)`,
+            `Each rectangle's area is its share of the ${fmt(total)} source lines. Switch the color to see where unit tests are thin. (The 3 renderer cells share the renderer ratio.)`,
           ),
           h('div', { class: 'seg' }, segBtns),
           legend,
@@ -2473,23 +2485,23 @@
             h(
               'div',
               { class: 'card kpi' },
-              h('div', { class: 'v' }, '798'),
+              h('div', { class: 'v' }, String(D.testsByArea.reduce((sum, t) => sum + t.c, 0))),
               h('div', { class: 'l' }, 'unit test cases'),
-              h('div', { class: 's' }, '62 files, Vitest'),
+              h('div', { class: 's' }, `${D.testsByArea.reduce((sum, t) => sum + t.f, 0)} files, Vitest`),
             ),
             h(
               'div',
               { class: 'card kpi' },
-              h('div', { class: 'v' }, '98'),
+              h('div', { class: 'v' }, String(D.e2e.reduce((sum, [, n]) => sum + n, 0))),
               h('div', { class: 'l' }, 'e2e cases'),
-              h('div', { class: 's' }, '28 files, Playwright + mock APIs'),
+              h('div', { class: 's' }, `${D.e2e.length} files, Playwright + mock APIs`),
             ),
             h(
               'div',
               { class: 'card kpi' },
               h('div', { class: 'v' }, '12'),
               h('div', { class: 'l' }, 'benchmark tasks'),
-              h('div', { class: 's' }, '5 small + 7 large, plus an opt-in prompt cache suite'),
+              h('div', { class: 's' }, '5 small + 7 large, plus opt-in prompt cache and plan-mode suites'),
             ),
             h(
               'div',
@@ -2527,7 +2539,7 @@
               h(
                 'p',
                 { class: 'small muted', style: 'margin:6px 0 0' },
-                '* files.ts is probably covered by tools/tools.test.ts. 4 of these 8 are renderer views.',
+                '* files.ts and web.ts have no file of their own but are tested in tools/tools.test.ts. 4 of these 8 are renderer views.',
               ),
             ),
             card(
