@@ -72,38 +72,98 @@ struct ProjectDrive {
     name: Vec<u16>,
     target: Vec<u16>,
     cwd: Vec<u16>,
+    journaled: bool,
 }
 
-impl ProjectDrive {
-    fn create(path: &str) -> Result<Self> {
+#[derive(Clone, Serialize, Deserialize)]
+struct DriveMapping {
+    name: String,
+    target: String,
+}
+
+impl DriveMapping {
+    // The caller holds PermissionLock through journaling and creation, so helpers cannot pick the same letter.
+    fn reserve(path: &str) -> Result<Self> {
         let used = unsafe { GetLogicalDrives() };
-        let target = wide(&format!(r"\??\{path}"));
+        if used == 0 {
+            return Err("cannot enumerate sandbox drive letters".into());
+        }
         for letter in (b'P'..=b'Z').rev() {
-            if used & (1 << (letter - b'A')) != 0 {
-                continue;
-            }
-            let name = wide(&format!("{}:", letter as char));
-            let defined = unsafe {
-                DefineDosDeviceW(
-                    DDD_RAW_TARGET_PATH | DDD_NO_BROADCAST_SYSTEM,
-                    PCWSTR(name.as_ptr()),
-                    PCWSTR(target.as_ptr()),
-                )
-            };
-            if defined.is_ok() {
+            if used & (1 << (letter - b'A')) == 0 {
                 return Ok(Self {
-                    name,
-                    target,
-                    cwd: wide(&format!("{}:\\", letter as char)),
+                    name: format!("{}:", letter as char),
+                    target: path.to_string(),
                 });
             }
         }
         Err("no drive letter is available for the sandbox working directory".to_string())
     }
+
+    fn remove(&self) -> Result<()> {
+        let bytes = self.name.as_bytes();
+        if bytes.len() != 2
+            || !(b'P'..=b'Z').contains(&bytes[0])
+            || bytes[1] != b':'
+            || !Path::new(&self.target).is_absolute()
+        {
+            return Err("invalid sandbox project drive mapping".into());
+        }
+        let name = wide(&self.name);
+        let target = wide(&format!(r"\??\{}", self.target));
+        unsafe {
+            DefineDosDeviceW(
+                DDD_REMOVE_DEFINITION
+                    | DDD_EXACT_MATCH_ON_REMOVE
+                    | DDD_RAW_TARGET_PATH
+                    | DDD_NO_BROADCAST_SYSTEM,
+                PCWSTR(name.as_ptr()),
+                PCWSTR(target.as_ptr()),
+            )
+        }
+        .or_else(|error| {
+            if error.code() == windows::core::HRESULT::from_win32(ERROR_FILE_NOT_FOUND.0) {
+                Ok(())
+            } else {
+                Err(error)
+            }
+        })
+        .map_err(|e| describe("remove sandbox project drive mapping", e))
+    }
+}
+
+impl ProjectDrive {
+    fn create(path: &str) -> Result<Self> {
+        let _lock = PermissionLock::acquire()?;
+        Self::define(&DriveMapping::reserve(path)?, false)
+    }
+
+    fn define(mapping: &DriveMapping, journaled: bool) -> Result<Self> {
+        let name = wide(&mapping.name);
+        let target = wide(&format!(r"\??\{}", mapping.target));
+        unsafe {
+            DefineDosDeviceW(
+                DDD_RAW_TARGET_PATH | DDD_NO_BROADCAST_SYSTEM,
+                PCWSTR(name.as_ptr()),
+                PCWSTR(target.as_ptr()),
+            )
+        }
+        .map_err(|e| describe("create sandbox drive mapping", e))?;
+        Ok(Self {
+            name,
+            target,
+            cwd: wide(&format!("{}\\", mapping.name)),
+            journaled,
+        })
+    }
 }
 
 impl Drop for ProjectDrive {
     fn drop(&mut self) {
+        // The journal is the sole owner of project cleanup. Removing it twice could erase a new run's
+        // mapping if it reused the same letter for the same project between undo and this destructor.
+        if self.journaled {
+            return;
+        }
         unsafe {
             let _ = DefineDosDeviceW(
                 DDD_REMOVE_DEFINITION
@@ -481,6 +541,9 @@ struct RecoveryRecord {
     // Writable runtime files and npm cache belong to this command, never the host temp/cache.
     #[serde(default)]
     temporary: Option<String>,
+    // Exact letter and target, flushed before creation. Projects may be shared by multiple live runs.
+    #[serde(default)]
+    project_drive: Option<DriveMapping>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -830,6 +893,11 @@ impl RecoveryRecord {
                 if let Err(error) = path.restore() {
                     result = Err(error);
                 }
+            }
+        }
+        if let Some(mapping) = &self.project_drive {
+            if let Err(error) = mapping.remove() {
+                result = Err(error);
             }
         }
         for (directory, expected, kind) in [
@@ -1197,6 +1265,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 .ok_or("non-Unicode temporary path")?
                 .to_string(),
         ),
+        project_drive: Some(DriveMapping::reserve(&request.cwd)?),
     };
     // Journal candidate grants before attempting them. A failed grant is safe to revoke idempotently.
     for plan in &toolchains {
@@ -1226,6 +1295,15 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         _file: file,
         finished: false,
     };
+    // The record is durable before the DOS device exists, and selection/creation stay under the same lock.
+    let project_drive = ProjectDrive::define(
+        cleanup
+            .record
+            .project_drive
+            .as_ref()
+            .ok_or("missing project drive")?,
+        true,
+    )?;
     let sid = unsafe {
         CreateAppContainerProfile(
             PCWSTR(name.as_ptr()),
@@ -1395,7 +1473,6 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 
     // An ordinary AppContainer cannot traverse a Windows 11 volume root, even when its project
     // itself is granted. A temporary drive makes that project the root without exposing its parents.
-    let project_drive = ProjectDrive::create(&request.cwd)?;
     let project_prefix =
         String::from_utf16_lossy(&project_drive.cwd[..project_drive.cwd.len() - 1]);
     mappings.push((request.cwd.clone(), project_prefix));
@@ -1634,6 +1711,7 @@ mod tests {
                 .unwrap();
         assert!(record.staged.is_none());
         assert!(record.temporary.is_none());
+        assert!(record.project_drive.is_none());
     }
 
     #[test]
@@ -1726,6 +1804,7 @@ mod tests {
             protected: vec![],
             staged: Some(staged.to_str().unwrap().to_string()),
             temporary: None,
+            project_drive: None,
         };
         let sid = record_sid(&record.name).unwrap();
         record.undo(sid.0).unwrap();
@@ -1756,6 +1835,7 @@ mod tests {
             protected: vec![],
             staged: None,
             temporary: Some(temporary.to_str().unwrap().to_string()),
+            project_drive: None,
         };
         let sid = record_sid(&record.name).unwrap();
         record.undo(sid.0).unwrap();
@@ -1777,6 +1857,103 @@ mod tests {
             .undo(sid.0)
             .unwrap_err()
             .contains("invalid sandbox temporary path"));
+    }
+
+    #[test]
+    fn project_recovery_preserves_shared_projects_and_reused_letters() {
+        let _lock = PermissionLock::acquire().unwrap();
+        let root = std::env::temp_dir().join(profile_name());
+        let project = root.join("project");
+        let unrelated = root.join("unrelated");
+        fs::create_dir_all(&project).unwrap();
+        fs::create_dir_all(&unrelated).unwrap();
+        fs::write(project.join("keep"), "project bytes").unwrap();
+        fs::write(unrelated.join("keep"), "unrelated bytes").unwrap();
+        let crashed = ProjectDrive::create(project.to_str().unwrap()).unwrap();
+        let live = ProjectDrive::create(project.to_str().unwrap()).unwrap();
+        let mapping = DriveMapping {
+            name: String::from_utf16_lossy(&crashed.name[..crashed.name.len() - 1]),
+            target: project.to_str().unwrap().to_string(),
+        };
+        let record = RecoveryRecord {
+            name: profile_name(),
+            granted: vec![],
+            protected: vec![],
+            staged: None,
+            temporary: None,
+            project_drive: Some(mapping.clone()),
+        };
+        let sid = record_sid(&record.name).unwrap();
+        let mapped_file = |drive: &ProjectDrive| {
+            PathBuf::from(String::from_utf16_lossy(&drive.cwd[..drive.cwd.len() - 1])).join("keep")
+        };
+        assert_eq!(
+            fs::read_to_string(mapped_file(&crashed)).unwrap(),
+            "project bytes"
+        );
+        record.undo(sid.0).unwrap();
+        assert!(!mapped_file(&crashed).exists());
+        assert_eq!(
+            fs::read_to_string(mapped_file(&live)).unwrap(),
+            "project bytes"
+        );
+        assert_eq!(
+            fs::read_to_string(project.join("keep")).unwrap(),
+            "project bytes"
+        );
+        record.undo(sid.0).unwrap();
+        // A user or another run can reuse the recovered letter. An old record must not remove it.
+        let replacement = {
+            let _lock = PermissionLock::acquire().unwrap();
+            ProjectDrive::define(
+                &DriveMapping {
+                    name: mapping.name,
+                    target: unrelated.to_str().unwrap().to_string(),
+                },
+                false,
+            )
+            .unwrap()
+        };
+        record.undo(sid.0).unwrap();
+        assert_eq!(
+            fs::read_to_string(mapped_file(&replacement)).unwrap(),
+            "unrelated bytes"
+        );
+        drop(crashed);
+        assert_eq!(
+            fs::read_to_string(mapped_file(&replacement)).unwrap(),
+            "unrelated bytes"
+        );
+        drop(replacement);
+        drop(live);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn journal_owned_drive_does_not_remove_a_reused_project_mapping() {
+        let _lock = PermissionLock::acquire().unwrap();
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        let mapping = DriveMapping::reserve(root.to_str().unwrap()).unwrap();
+        let old = ProjectDrive::define(&mapping, true).unwrap();
+        mapping.remove().unwrap();
+        let new = ProjectDrive::define(&mapping, false).unwrap();
+        drop(old);
+        assert!(unsafe { GetFileAttributesW(PCWSTR(new.cwd.as_ptr())) } != INVALID_FILE_ATTRIBUTES);
+        drop(new);
+        fs::remove_dir(root).unwrap();
+    }
+
+    #[test]
+    fn project_recovery_rejects_out_of_range_drive_letters() {
+        let mapping = DriveMapping {
+            name: "C:".into(),
+            target: std::env::temp_dir().to_str().unwrap().to_string(),
+        };
+        assert!(mapping
+            .remove()
+            .unwrap_err()
+            .contains("invalid sandbox project drive mapping"));
     }
 
     #[test]
@@ -1848,6 +2025,7 @@ mod tests {
             protected: vec![],
             staged: None,
             temporary: None,
+            project_drive: None,
         };
         let other_name = wide(&profile_name());
         let other = Sid(unsafe {

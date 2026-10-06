@@ -764,7 +764,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       if (child.exitCode === null) child.kill();
       await closed;
       await recover();
-      // #94 stays out of scope: remove only the forced run's project mapping, not other threads' drives.
+      // Fallback for a failed assertion: remove only this fixture's exact project mapping.
       for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
         const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
         if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
@@ -861,6 +861,10 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         expect(child.exitCode).toBe(0);
       };
       const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
+      const projectMappings = () =>
+        execFileSync('subst', { encoding: 'utf8' })
+          .split(/\r?\n/)
+          .filter((line) => /^([P-Z]:)\\: => (.+)$/.exec(line)?.[2]?.toLowerCase() === project.toLowerCase());
       const originalHooksAcl = acl(hooks);
       expect(originalHooksAcl).toContain('(I)');
       expect(originalHooksAcl).toContain(':(R)');
@@ -882,6 +886,8 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         });
         child.stdin.write(`${JSON.stringify(request)}\n`);
         await started;
+        const firstMapping = projectMappings();
+        expect(firstMapping).toHaveLength(1);
         const liveAcl = acl(tools);
         expect(liveAcl).toMatch(/patch\.sbx\.|S-1-15-2-/);
         expect(readdirSync(journal)).toHaveLength(1);
@@ -908,6 +914,8 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         // The first attempt includes process/runtime startup, not just the loop's 100 ms interval.
         await expect.poll(() => writerOutput, { timeout: 10_000 }).toContain('BLOCKED');
         expect(readdirSync(journal)).toHaveLength(2);
+        const writerMapping = projectMappings().filter((line) => !firstMapping.includes(line));
+        expect(writerMapping).toHaveLength(1);
 
         // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
         if (exit === 'forced termination') child.kill();
@@ -916,6 +924,9 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         if (exit === 'forced termination') expect(acl(tools)).toBe(liveAcl);
         else expect(acl(tools)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
         await recover();
+        expect(projectMappings()).toEqual(writerMapping);
+        await recover();
+        expect(projectMappings()).toEqual(writerMapping);
         const attempts = (writerOutput.match(/BLOCKED/g) ?? []).length;
         await expect.poll(() => (writerOutput.match(/BLOCKED/g) ?? []).length).toBeGreaterThan(attempts + 2);
         expect(writerOutput).not.toContain('WRITABLE');
@@ -926,6 +937,7 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         for (const path of [project, tools, join(tools, 'nested.txt'), hooks])
           expect(acl(path)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
         expect(readdirSync(journal)).toEqual([]);
+        expect(projectMappings()).toEqual([]);
         // Windows recomputes inherited entries from the parent. Explicit entries must stay unchanged,
         // rather than accumulating the copies produced when inheritance was temporarily protected.
         const explicit = (text: string) => text.split(/\r?\n/).filter((line) => !line.includes('(I)'));
@@ -937,8 +949,8 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         if (child.exitCode === null) child.kill();
         await closed;
         await recover();
-        // Forced termination also bypasses ProjectDrive's destructor. Permission recovery does not yet reclaim
-        // drive mappings: remove only this fixture's mapping so repeated test runs do not consume P: through Z:.
+        // Fallback for a failed assertion: successful cleanup and recovery are checked above before teardown.
+        // Remove only this fixture's exact project mapping so a failed test cannot pollute later runs.
         for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
           const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
           if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
