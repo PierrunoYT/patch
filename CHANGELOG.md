@@ -93,6 +93,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Closing or removing a project through a linked spelling of its folder (for example macOS `/var/...` for `/private/var/...`, or a junction) now stops the active session and shell instead of treating it as a parked project and leaving the chat running after its tab closed ([#41](https://github.com/PierrunoYT/patch/issues/41)).
 - Renaming an MCP server in Settings keeps its stored `env` and header secrets when its endpoint (URL, or command and arguments) is unchanged and exactly one old and one new name match. A renamed server whose endpoint also changed, or an ambiguous match, keeps nothing, so a saved header is never sent to another host ([#23](https://github.com/PierrunoYT/patch/issues/23)).
 - Windows packages no longer include test logs and scratch files beside the application output. A log growing during packaging could corrupt archive offsets and make Patch exit before opening a window with an ASAR integrity violation. Only `out/main`, `out/preload` and `out/renderer` are packaged; integrity validation remains enabled.
 

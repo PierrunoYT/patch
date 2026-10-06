@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { createServer, type AddressInfo, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -275,6 +275,34 @@ describe('project chat retention', () => {
     expect(manager.open(alpha.id).id).toBe(alpha.id);
     open('beta');
     expect(manager.snapshot()).toEqual(beta);
+  });
+
+  it('closes the active project when it is named through a link to its folder (#41)', async () => {
+    open('alpha');
+    await manager.send({ text: 'Alpha task' });
+    const link = join(root, 'alpha-link');
+    symlinkSync(join(root, 'alpha'), link, 'junction');
+    manager.closeProject(link);
+    expect(manager.snapshot().id).toBe('');
+    projects.close(link);
+    manager.projectChanged();
+    expect(projects.current()).toBeNull();
+    expect(manager.snapshot().id).toBe('');
+  });
+
+  it('closes a parked project when it is named through a link to its folder (#41)', async () => {
+    open('alpha');
+    await manager.send({ text: 'Alpha task' });
+    const alpha = manager.snapshot();
+    open('beta');
+    const link = join(root, 'alpha-link');
+    symlinkSync(join(root, 'alpha'), link, 'junction');
+    manager.closeProject(link);
+    projects.close(link);
+    manager.projectChanged();
+    expect(chats.load(alpha.id)?.transcript[0]).toMatchObject({ text: 'Alpha task' });
+    open('alpha');
+    expect(manager.snapshot().id).toBe('');
   });
 
   it('Stop kills every background child in the active project without killing a parked project', async () => {

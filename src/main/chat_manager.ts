@@ -202,7 +202,9 @@ export class ChatManager {
       throw new Error('Stop the current task and wait for it to finish before switching chats or projects.');
   }
 
-  closeProject(path: string): void {
+  // `path` may be a linked spelling of a project (macOS /var for /private/var); sessions are keyed by the stored path.
+  closeProject(requested: string): void {
+    const path = this.deps.projects.get(requested)?.path ?? requested;
     if (path === this.projectPath) {
       this.requireIdle();
       this.closeSession();

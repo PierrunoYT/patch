@@ -961,7 +961,7 @@
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
           { a: 'main/tools', f: 22, c: 397, src: 3874, tl: 5496 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
-          { a: 'main/other', f: 11, c: 160, src: 2837, tl: 2594 },
+          { a: 'main/other', f: 11, c: 162, src: 2840, tl: 2617 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
           { a: 'renderer', f: 4, c: 14, src: 6366, tl: 138 },
           { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -1015,9 +1015,9 @@
           [572, 'renderer/src/views/transcript.ts'],
           [514, 'main/agent/agent.ts'],
           [490, 'main/agent/session.ts'],
+          [479, 'main/chat_manager.ts'],
           [477, 'main/llm/codex_auth.ts'],
           [477, 'main/tools/shell.ts'],
-          [476, 'main/chat_manager.ts'],
           [452, 'main/settings.ts'],
           [445, 'main/tools/sandbox.ts'],
           [423, 'main/index.ts'],
@@ -1197,7 +1197,6 @@
           [72, 'Rename the MCP client from CodeCompanion, use reverse-DNS appId', 'mcp', 'low', 0, '10-01'],
           [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
           [70, 'ci: pin GitHub Actions to commit SHAs', 'release', 'low', 0, '10-01'],
-          [68, 'fetch_url reads unbounded response bodies into memory', 'tools', 'low', 0, '10-01'],
           [
             67,
             'Force webSecurity on browser guests + global web-contents-created guard',
@@ -1212,7 +1211,6 @@
           [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
           [47, 'Failed tool cards should say why they failed', 'ui', 'low', 0, '10-01'],
           [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
-          [41, 'ChatManager.closeProject compares raw path with stored realpath', 'other', 'low', 0, '09-30'],
           [39, 'Git panel labels new untracked file as RENAMED', 'ui', 'low', 0, '09-30'],
           [38, 'Rename .ccignore to .patchignore', 'docs', 'low', 0, '09-30'],
           [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
@@ -1243,7 +1241,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 57,
+        closedCount: 59,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
