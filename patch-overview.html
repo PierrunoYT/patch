@@ -1172,7 +1172,6 @@
           ],
           [101, 'npm test fails and node --test hangs inside the AppContainer', 'sandbox', 'medium', 0, '10-05'],
           [100, 'Windows: concurrent commands can make .git/hooks writable', 'sandbox', 'medium', 0, '10-04'],
-          [99, 'macOS Seatbelt allows every Mach service lookup (likely escape)', 'sandbox', 'high', 0, '10-04'],
           [97, 'Enforce hostname restrictions for sandbox command networking', 'sandbox', 'low', 0, '10-04'],
           [96, 'Narrow macOS sandbox file access, isolate command temp directories', 'sandbox', 'medium', 0, '10-04'],
           [94, 'Windows sandbox: recover drive mappings after a forced helper exit', 'sandbox', 'medium', 0, '10-04'],
@@ -1236,7 +1235,7 @@
           other: 'Bugs',
           docs: 'Docs & naming',
         },
-        closedCount: 53,
+        closedCount: 54,
       };
       // src/renderer/src/styles.css, counted with the renderer's source lines.
       const RENDERER_CSS_LINES = 2766;
@@ -1450,7 +1449,7 @@
               h(
                 'div',
                 { class: 'callout', style: 'margin-top:12px' },
-                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, confirm the macOS service restrictions on CI and close #99, then the remaining review findings (#132, #112, #114–#116). See ',
+                'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Next, the remaining review findings (#132, #112, #114–#116). See ',
                 h(
                   'a',
                   {
@@ -2085,7 +2084,7 @@
                 h(
                   'div',
                   { class: 'small' },
-                  `${D.issues.filter((i) => i[2] === 'security' || i[2] === 'sandbox').length} open issues are about security or the command sandbox, ${D.issues.filter((i) => (i[2] === 'security' || i[2] === 'sandbox') && i[3] === 'high').length} of them high severity (#99). Agent commands are sandboxed; macOS and Windows follow-ups are open. See the Issues board.`,
+                  `${D.issues.filter((i) => i[2] === 'security' || i[2] === 'sandbox').length} open issues are about security or the command sandbox, ${D.issues.filter((i) => (i[2] === 'security' || i[2] === 'sandbox') && i[3] === 'high').length} of them high severity. Agent commands are sandboxed; macOS and Windows follow-ups are open. See the Issues board.`,
                 ),
               ),
             ),
@@ -2822,15 +2821,15 @@
       builders.focus = () => {
         const items = [
           [
-            'Close the remaining high-severity sandbox gap: #99',
+            'Close the remaining sandbox gaps: #132 and Windows toolchains',
             'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106).',
             [
-              '#99: Mach lookup, shared memory and sysctl reads are now limited to named entries and LaunchServices is blocked; close it once macOS CI confirms every real-Seatbelt probe',
+              '#99 is fixed: Mach lookup, shared memory and sysctl reads are limited to named entries, and macOS CI confirms LaunchServices, network-off endpoint and hard-link probes on real Seatbelt',
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
               '#129 is fixed: non-Git folders get a .git reservation file Git refuses, so a planted bare repository is never used; projects inside another repository keep an empty folder and the gap (#132). The Git panel refuses push/commit when repository config runs a project file (#130)',
               '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
             ],
-            'Prioritize #99, then #132; retain the metadata boundary while making narrower per-command path grants possible (#126).',
+            'Prioritize #132; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',
