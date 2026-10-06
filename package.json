@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "AI coding assistant desktop app",
   "author": "PierrunoYT <pierrebruno@hotmail.ch>",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "out/main/index.js",
   "engines": {
     "node": ">=22.12.0"
@@ -36,7 +36,10 @@
     "productName": "Patch",
     "files": [
       "out/**",
-      "package.json"
+      "package.json",
+      "README.md",
+      "LICENSE",
+      "LICENSE-MIT"
     ],
     "extraResources": [
       {

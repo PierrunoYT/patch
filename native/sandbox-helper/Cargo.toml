@@ -3,7 +3,7 @@ name = "sandbox-helper"
 version = "0.1.0"
 edition = "2021"
 description = "Runs one command in a Windows AppContainer for Patch"
-license = "MIT"
+license = "Apache-2.0"
 publish = false
 
 [dependencies]

@@ -127,4 +127,10 @@ Details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#security-model).
 
 ## License
 
-[MIT](LICENSE)
+Copyright (c) 2026 PierrunoYT.
+
+Patch is licensed under the [Apache License, Version 2.0](LICENSE) (`Apache-2.0`). You may use, modify and redistribute it, including commercially and in closed-source products, subject to the license's conditions. Distributions must include the license and retain required notices; modified files must carry prominent change notices. Apache-2.0 includes an explicit contributor patent grant with patent-litigation termination provisions and does not grant trademark rights, except for the limited uses stated in the license. The software is provided on an "AS IS" basis, without warranties or conditions of any kind.
+
+The switch to Apache-2.0 takes effect with this licensing change. Previously released MIT versions and material retain their MIT permissions; the original notice is preserved in [LICENSE-MIT](LICENSE-MIT). That historical notice does not offer new Apache-only contributions under MIT. Third-party dependencies retain their own licenses. Using Patch to create or edit an independent project does not change that project's license.
+
+See [distribution guidance](docs/DEVELOPMENT.md#licensing-and-distribution) before sharing a build.

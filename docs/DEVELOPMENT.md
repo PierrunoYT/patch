@@ -1,5 +1,13 @@
 # Development Guide
 
+## Licensing and distribution
+
+Patch, including the Windows sandbox helper, is licensed under Apache-2.0; see [LICENSE](../LICENSE) and the [license summary](../README.md#license). New contributions use the same license. Earlier MIT grants remain valid, and the original notice is retained in [LICENSE-MIT](../LICENSE-MIT).
+
+When distributing Patch or a derivative, include a copy of the Apache license, preserve required copyright, patent, trademark and attribution notices, and mark modified files with prominent notices that you changed them. Follow section 4 of the license, including its requirements for any applicable NOTICE files. Preserve the historical MIT notice and comply with the separate licenses of bundled dependencies. Apache-2.0 permits proprietary derivatives and does not require publishing source code.
+
+The packaging file list includes `LICENSE`, `LICENSE-MIT` and `README.md` so both license texts, the copyright notice and the scope explanation travel with the app. Check bundled third-party notices separately before releasing. Changing this repository's license does not publish an installer or change the terms of earlier releases.
+
 ## Setup
 
 Requirements: Node.js 22.12+ (22.x, 24.x or 26+, as Electron and Vitest need), Git. On Windows, the command sandbox helper (`native/sandbox-helper`) also needs a Rust toolchain: `npm run build:sandbox` builds it into `native/sandbox-helper/target/release/` (git-ignored). Without it the app still works, but Automatic mode refuses agent commands unless the user approves an explicit unsandboxed request; with it the Windows integration tests (`sandbox_windows.integration.test.ts`) run real commands in an AppContainer. Those tests use copied Node executables and isolated `PATH`, so their temporary AppContainer ACLs never touch checkout dependencies or interfere with concurrent Electron tests. The Program Files regression suite (#106) uses a simulated install root, explicit protected/readable ACL fixtures and narrow temporary drive mappings. It checks dependency-free Node assertions (not the separate `node --test` issue #101), read-only staging, unchanged source ACLs, cancellation and forced-kill recovery. Available official host Node, Git and Python installations are also exercised without changing their permissions; optional host installs skip explicitly when absent. End-to-end tests whose concern is command lifecycle or output set `sandboxMode: 'off'`; AppContainer behavior belongs in the dedicated integration suite, keeping the general e2e suite independent of helper availability and host ACLs.
