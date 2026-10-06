@@ -604,7 +604,7 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through 7b20cb9, plus the sandbox compatibility fix (#109), 2026-10-06</span>
+        <span class="sub">Snapshot through f58e2e1, with the sandbox Git and macOS Seatbelt fixes, 2026-10-06</span>
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -612,10 +612,9 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through 7b20cb9 and the sandbox compatibility fix (#109, 2026-10-06). Line counts
-      exclude tests unless they say otherwise; renderer CSS lines (2766) are counted in src/renderer/src/styles.css.
-      Test counts come from a real Vitest run on Linux, skipped tests included. Issue severities without a severity
-      label are estimates and are marked "est.".
+      This page reflects git history through f58e2e1 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from a real Vitest run on
+      Linux, skipped tests included. Issue severities without a severity label are estimates and are marked "est.".
     </footer>
 
     <script>
@@ -746,8 +745,8 @@
             proc: 'main',
             files: 23,
             tests: 22,
-            lines: 3836,
-            testLines: 5249,
+            lines: 3840,
+            testLines: 5359,
             desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering.',
             list: [
               'registry.ts',
@@ -959,7 +958,7 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2132, tl: 2759 },
-          { a: 'main/tools', f: 22, c: 384, src: 3836, tl: 5249 },
+          { a: 'main/tools', f: 22, c: 385, src: 3840, tl: 5359 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
           { a: 'main/other', f: 11, c: 154, src: 2815, tl: 2518 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -1018,20 +1017,20 @@
           [477, 'main/llm/codex_auth.ts'],
           [476, 'main/chat_manager.ts'],
           [468, 'main/tools/shell.ts'],
+          [445, 'main/tools/sandbox.ts'],
           [428, 'main/settings.ts'],
           [423, 'main/index.ts'],
           [422, 'main/llm/anthropic.ts'],
           [407, 'main/search/code_index.ts'],
           [395, 'renderer/src/views/composer.ts'],
-          [368, 'main/tools/sandbox.ts'],
         ],
         docs: [
           ['docs/PERFORMANCE.md', 461],
-          ['docs/USAGE.md', 287],
-          ['docs/ARCHITECTURE.md', 240],
-          ['docs/DEVELOPMENT.md', 196],
-          ['CHANGELOG.md', 167],
-          ['README.md', 136],
+          ['docs/USAGE.md', 289],
+          ['docs/ARCHITECTURE.md', 248],
+          ['docs/DEVELOPMENT.md', 197],
+          ['CHANGELOG.md', 173],
+          ['README.md', 137],
           ['AGENTS.md', 77],
           ['CONTRIBUTING.md', 33],
           ['LICENSE (Apache-2.0)', 202],
@@ -1046,13 +1045,13 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 16],
+          ['2026-10-06', 29],
         ],
         types: [
-          ['fix', 90],
+          ['fix', 97],
           ['feat', 60],
-          ['docs', 57],
-          ['test', 34],
+          ['docs', 59],
+          ['test', 38],
           ['chore', 27],
           ['perf', 12],
           ['ci', 9],
@@ -1062,52 +1061,60 @@
           ['other', 8],
         ],
         authors: [
-          ['PierrunoYT', 250],
+          ['PierrunoYT', 262],
+          ['Amp', 24],
           ['StepUpGaming', 23],
-          ['Amp', 23],
           ['Claude', 7],
           ['Steven Isaac', 3],
         ],
         churn: [
-          ['CHANGELOG.md', 179],
-          ['docs/ARCHITECTURE.md', 108],
-          ['docs/DEVELOPMENT.md', 103],
-          ['README.md', 91],
+          ['CHANGELOG.md', 188],
+          ['docs/ARCHITECTURE.md', 116],
+          ['docs/DEVELOPMENT.md', 110],
+          ['README.md', 96],
           ['TASKS.md (no longer tracked)', 83],
+          ['docs/USAGE.md', 48],
           ['package.json', 45],
-          ['docs/USAGE.md', 43],
           ['src/main/chat_manager.ts', 38],
           ['src/main/index.ts', 36],
+          ['patch-overview.html', 33],
           ['src/main/agent/agent.ts', 32],
           ['src/renderer/src/app.ts', 29],
           ['package-lock.json', 27],
           ['src/renderer/src/views/dialogs.ts', 26],
           ['src/main/tools/tools.test.ts', 24],
           ['src/main/agent/session.ts', 24],
-          ['patch-overview.html', 24],
           ['docs/PERFORMANCE.md', 24],
           ['src/main/agent/agent.test.ts', 22],
+          ['src/main/tools/shell.ts', 20],
           ['src/shared/ipc.ts', 19],
-          ['src/main/tools/shell.ts', 19],
         ],
         recent: [
+          ['f58e2e1', 'docs: close #99 after macOS CI confirms the Seatbelt probes'],
+          ['3a2bd4a', 'test: check macOS network-off daemon fetches and Seatbelt hard links'],
+          ['46c2eca', "test: compare Git's own top level in the nested-repository reservation test"],
+          ['d26e17f', 'fix: refuse Git panel push and commit that would run project files'],
+          ['dc872cb', 'test: give the Windows non-Git e2e command time to prepare'],
+          ['ca72977', 'fix: keep sandboxed git working on macOS with a global Git config'],
+          ['c352970', 'fix: reserve non-Git projects with a .git file Git refuses'],
+          ['b1c72e4', 'fix: correct macOS sandbox probes from the first real Seatbelt run'],
+          ['ba34094', 'fix: accept Git pointers that reach the project through a system link'],
+          ['2d0e26a', 'test: fix sandbox Git tests on macOS and Windows CI'],
+          ['7ad9650', 'fix: restrict macOS sandbox Mach lookup to named CLI services'],
+          ['8eb8d3e', 'docs: track sandbox Git review findings in the project map'],
+          ['640297c', 'fix: support ordinary projects without widening sandbox access'],
           ['7b20cb9', 'docs: track researched sandbox adoption issues'],
           ['ff87b7d', 'fix: load PowerShell Utility cmdlets inside AppContainer'],
-          ['4a43d91', 'fix: load built-in PowerShell file cmdlets inside AppContainer'],
-          ['b179e04', 'chore: license Patch under Apache-2.0'],
-          ['f8973eb', 'test: diagnose Windows sandbox startup and require real write denial'],
-          ['bf49517', 'fix: restore Windows CI path and PowerShell compatibility'],
-          ['a737a69', 'fix: allow-list native sandbox command environments'],
-          ['d2aaed9', 'docs: consolidate duplicate changelog categories'],
-          ['df69948', 'fix: migrate plaintext MCP secrets and count them in the encryption status'],
-          ['ac5c5b9', 'docs: tell agents what to keep current in patch-overview.html'],
-          ['827aae6', 'fix: discard links in the Git panel without deleting their targets'],
-          ['8b77d7c', "docs: refresh the overview's size and health numbers"],
-          ['8882705', 'docs: refresh the project overview after the Oct 5-6 reviews'],
-          ['10ece35', 'fix: confirm before saved MCP headers go to a changed URL'],
-          ['8b8ea5b', 'fix: redact passwords in connection-string URLs'],
         ],
         issues: [
+          [
+            133,
+            'Windows toolchain tests leak subst drives after the temp Node fixture is deleted',
+            'tests',
+            'low',
+            1,
+            '10-06',
+          ],
           [
             132,
             'Projects inside another repository still allow a planted bare repository',
@@ -2822,12 +2829,11 @@
         const items = [
           [
             'Close the remaining sandbox gaps: #132 and Windows toolchains',
-            'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106).',
+            'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106). On macOS, Seatbelt Mach, shared-memory and sysctl access is limited to named entries, confirmed by real-Seatbelt probes on CI (#99).',
             [
-              '#99 is fixed: Mach lookup, shared memory and sysctl reads are limited to named entries, and macOS CI confirms LaunchServices, network-off endpoint and hard-link probes on real Seatbelt',
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
               '#129 is fixed: non-Git folders get a .git reservation file Git refuses, so a planted bare repository is never used; projects inside another repository keep an empty folder and the gap (#132). The Git panel refuses push/commit when repository config runs a project file (#130)',
-              '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s)',
+              '#101 and #108: on Windows, npm test fails, node --test hangs, and the official Node is copied for every command (~14 s); the toolchain tests also leave subst drive letters behind (#133)',
             ],
             'Prioritize #132; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
