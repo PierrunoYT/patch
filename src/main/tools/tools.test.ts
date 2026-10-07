@@ -203,7 +203,7 @@ describe('file tools', () => {
     const result = await call(readFileTool, { path: 'empty.txt' });
     expect(result.content).toBe('');
     expect(result.summary).toBe('Read empty.txt (0 lines)');
-    expect(context.readFiles.has(join(root, 'empty.txt'))).toBe(true);
+    expect(context.readFiles.has(join(context.workspace.root, 'empty.txt'))).toBe(true);
     await expect(call(readFileTool, { path: 'empty.txt', offset: 2 })).rejects.toThrow(
       'offset 2 is past the end (0 lines)',
     );
