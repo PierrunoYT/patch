@@ -3,6 +3,19 @@
 builders.focus = () => {
   const items = [
     [
+      'Fix the Oct 7 audit findings that reach code outside the sandbox: #141 to #145',
+      'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. #141 (a git.exe planted in the project runs when the project opens and before every Windows sandboxed command) is critical and was reproduced on Windows.',
+      [
+        '#141: set NoDefaultCurrentDirectoryInExePath and spawn git, PowerShell and docker by absolute path',
+        '#142: MCP stdio servers start in the project folder, so npx.cmd or node_modules/.bin there replaces the configured command',
+        '#143: the protected-path guard is case-sensitive and misses 8.3 names, so Auto mode writes .GIT/config without asking (reproduced)',
+        '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
+        '#145: opening the home folder as a project makes all of it writable to sandboxed commands',
+        '#146 to #148 (medium): main-process network tools in Auto mode, macOS Unix sockets, the browser tool’s cookie session',
+      ],
+      'Fix #141 first: it needs no agent at all, only opening a repository on Windows. Each fix needs a regression test that plants the file or link it guards against.',
+    ],
+    [
       'Close the remaining Windows sandbox gaps: #101 and #133',
       'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106). On macOS, Seatbelt Mach, shared-memory and sysctl access is limited to named entries, confirmed by real-Seatbelt probes on CI (#99).',
       [
@@ -15,7 +28,7 @@ builders.focus = () => {
     ],
     [
       'Finish the Electron and tool hardening from the Oct 5–6 reviews',
-      'The audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
+      'The Oct 5–6 audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
       [
         '#112, #118: the synchronous .git validation before sandboxed commands and full chat saves still block the main process (sandbox program probes are asynchronous now)',
         '#114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #116 provider failure text kept out of local logs, #115 HTML-only Markdown and #113 MCP secret migration are also fixed',

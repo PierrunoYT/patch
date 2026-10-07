@@ -81,7 +81,7 @@ builders.issues = () => {
     h(
       'p',
       { class: 'lead' },
-      `${D.issues.length} open and ${D.closedCount} closed issues on GitHub. Most came from the Sep 30–Oct 3 audit, the Oct 4–5 sandbox, Electron and PR reviews, and the Oct 6 security review. Columns are themes; the colored edge is severity. "(est.)" means the issue has no severity label and the severity is an estimate.`,
+      `${D.issues.length} open and ${D.closedCount} closed issues on GitHub. Most came from the Sep 30–Oct 3 audit, the Oct 4–5 sandbox, Electron and PR reviews, and the Oct 6 and Oct 7 security reviews. Columns are themes; the colored edge is severity. "(est.)" means the issue has no severity label and the severity is an estimate.`,
     ),
     h(
       'div',
