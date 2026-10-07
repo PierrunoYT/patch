@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent } from '@shared/chat';
+import { SMALL_MODELS } from '@shared/models';
 import { ChatManager } from './chat_manager';
 import { ChatStore } from './chat_store';
 import { LlmService, type Conversation } from './llm';
@@ -114,7 +115,7 @@ describe('project chat retention', () => {
           expect.any(String),
         );
       } else {
-        expect(llm.createConversation).toHaveBeenNthCalledWith(2, 'claude-haiku-4-5', expect.any(String));
+        expect(llm.createConversation).toHaveBeenNthCalledWith(2, SMALL_MODELS.anthropic, expect.any(String));
         expect(llm.restoreConversation).not.toHaveBeenCalled();
       }
     },
