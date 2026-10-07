@@ -132,7 +132,7 @@ const D = {
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
       list: [
         'registry.ts',
-        'shell.ts (streaming UTF-8 output, #164; 506; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
+        'shell.ts (504; streaming UTF-8 output, #164; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'sandbox_windows.ts (402, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (340; read_file counts terminated lines and reports offsets past EOF, #181)',
@@ -335,7 +335,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
-    { a: 'main/tools', f: 23, c: 424, src: 3988, tl: 5877 },
+    { a: 'main/tools', f: 23, c: 428, src: 3986, tl: 5896 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
     { a: 'main/other', f: 12, c: 175, src: 2921, tl: 2756 },
     { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -533,7 +533,6 @@ const D = {
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
     [166, 'MCP server that dies after connecting stays "connected" forever', 'mcp', 'medium', 0, '10-07'],
     [165, 'Processes a command leaves behind are never killed on Stop or quit', 'tools', 'medium', 0, '10-07'],
-    [164, 'Command output corrupts multi-byte characters split across chunks', 'tools', 'medium', 0, '10-07'],
     [163, 'Windows sandbox: an unreadable PATH folder breaks every later helper start', 'sandbox', 'high', 0, '10-07'],
     [162, 'Windows sandbox: a command failing before start leaves the helper running', 'sandbox', 'high', 0, '10-07'],
     [161, 'Failed history:open moves the main process to another project than the UI', 'other', 'high', 0, '10-07'],
@@ -661,7 +660,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 72,
+  closedCount: 73,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
