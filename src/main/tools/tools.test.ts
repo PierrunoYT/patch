@@ -181,6 +181,15 @@ describe('file tools', () => {
     expect(result.summary).toBe('Read blank.txt (2 lines)');
   });
 
+  it('counts a single line in the singular', async () => {
+    writeFileSync(join(root, 'one.txt'), 'only\n');
+    const result = await call(readFileTool, { path: 'one.txt' });
+    expect(result.summary).toBe('Read one.txt (1 line)');
+    await expect(call(readFileTool, { path: 'one.txt', offset: 2 })).rejects.toThrow(
+      'offset 2 is past the end (1 line)',
+    );
+  });
+
   it('does not offer a phantom page after exactly 2,000 terminated lines', async () => {
     writeFileSync(join(root, 'page.txt'), 'a\n'.repeat(2000));
     const result = await call(readFileTool, { path: 'page.txt' });

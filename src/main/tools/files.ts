@@ -46,8 +46,9 @@ export const readFileTool = defineTool({
     const text = await readFile(file, 'utf8');
     const lines = text === '' ? [] : text.split(/\r?\n/);
     if (text.endsWith('\n')) lines.pop();
+    const lineCount = `${lines.length} line${lines.length === 1 ? '' : 's'}`;
     if (offset > Math.max(1, lines.length)) {
-      throw new ToolError(`offset ${offset} is past the end (${lines.length} lines)`);
+      throw new ToolError(`offset ${offset} is past the end (${lineCount})`);
     }
     const selected = lines.slice(offset - 1, offset - 1 + limit);
     const first = selected[0] ?? '';
@@ -79,7 +80,7 @@ export const readFileTool = defineTool({
       summary:
         page.cutLine || last < lines.length || offset > 1 || char_offset > 0
           ? `Read ${rel} (lines ${offset}-${last} of ${lines.length})`
-          : `Read ${rel} (${lines.length} lines)`,
+          : `Read ${rel} (${lineCount})`,
       path: rel,
     };
   },
