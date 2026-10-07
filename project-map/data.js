@@ -86,7 +86,7 @@ const D = {
       testLines: 3348,
       desc: 'The agent loop: turns, retries, permissions, allow-lists, system prompt, project map, session (approvals, events, prompt-cache keep-alive).',
       list: [
-        'agent.ts (514)',
+        'agent.ts (malformed JSON rejected before dropped-field checks, #179; 514)',
         'session.ts (490)',
         'permissions.ts',
         'allowed_commands.ts',
@@ -333,7 +333,7 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
+    { a: 'main/agent', f: 11, c: 213, src: 1593, tl: 3348 },
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
     { a: 'main/tools', f: 23, c: 428, src: 3986, tl: 5896 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },

@@ -343,6 +343,22 @@ export class Agent {
       return { result: { id: call.id, content: `Unknown tool: ${call.name}`, isError: true } };
     }
 
+    if (
+      call.input !== null &&
+      typeof call.input === 'object' &&
+      Object.keys(call.input).length === 1 &&
+      '__invalidJson' in call.input &&
+      typeof call.input.__invalidJson === 'string'
+    ) {
+      return {
+        result: {
+          id: call.id,
+          content: `Invalid JSON arguments for ${tool.name}. Send a valid JSON object and try again.`,
+          isError: true,
+        },
+      };
+    }
+
     // Validate every input, including strict provider inputs, before doing anything. Zod for
     // built-in tools; for MCP tools (JSON Schema only) a structural check, since the server validates the rest.
     const parsed = tool.schema?.safeParse(call.input);
