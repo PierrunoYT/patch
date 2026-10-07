@@ -157,7 +157,7 @@ const D = {
         'edit_backups.ts',
         'text_files.ts',
         'types.ts',
-        'native/sandbox-helper/src/win.rs (2121; project drive ownership, 8.3-alias-safe path mapping, ACL coordination and crash recovery; 28 Rust helper tests plus 1 CI-preparation test pass)',
+        'native/sandbox-helper/src/win.rs (2361; project drive ownership, 8.3-alias-safe path mapping, ACL coordination, crash recovery and the cross-command toolchain cache, #108; 31 Rust helper tests plus 1 CI-preparation test pass)',
       ],
     },
     {
@@ -515,7 +515,6 @@ const D = {
     [118, 'Full chat saves are synchronous and pretty-printed on the main process', 'perf', 'low', 0, '10-05'],
     [117, 'Stopping an MCP stdio server kills only its direct child on macOS/Linux', 'mcp', 'low', 0, '10-05'],
     [112, 'Sandbox detection and .git validation block the main process', 'perf', 'medium', 0, '10-05'],
-    [108, 'Windows sandbox copies the official Node for every command (~14 s)', 'sandbox', 'medium', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
     [104, 'No process or memory limits for sandboxed commands on Linux and macOS', 'sandbox', 'low', 0, '10-05'],
     [103, 'Windows sandbox re-propagates ACLs across the whole project per command', 'sandbox', 'medium', 0, '10-05'],
@@ -564,7 +563,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 66,
+  closedCount: 67,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

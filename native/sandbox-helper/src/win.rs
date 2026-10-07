@@ -83,15 +83,17 @@ struct DriveMapping {
 
 impl DriveMapping {
     // The caller holds PermissionLock through journaling and creation, so helpers cannot pick the same letter.
-    fn reserve(path: &str) -> Result<Self> {
+    // `taken` lists letters this run reserved but has not defined yet.
+    fn reserve(path: &str, taken: &[&DriveMapping]) -> Result<Self> {
         let used = unsafe { GetLogicalDrives() };
         if used == 0 {
             return Err("cannot enumerate sandbox drive letters".into());
         }
         for letter in (b'P'..=b'Z').rev() {
-            if used & (1 << (letter - b'A')) == 0 {
+            let name = format!("{}:", letter as char);
+            if used & (1 << (letter - b'A')) == 0 && taken.iter().all(|other| other.name != name) {
                 return Ok(Self {
-                    name: format!("{}:", letter as char),
+                    name,
                     target: path.to_string(),
                 });
             }
@@ -134,7 +136,7 @@ impl DriveMapping {
 impl ProjectDrive {
     fn create(path: &str) -> Result<Self> {
         let _lock = PermissionLock::acquire()?;
-        Self::define(&DriveMapping::reserve(path)?, false)
+        Self::define(&DriveMapping::reserve(path, &[])?, false)
     }
 
     fn define(mapping: &DriveMapping, journaled: bool) -> Result<Self> {
@@ -544,6 +546,12 @@ struct RecoveryRecord {
     // Exact letter and target, flushed before creation. Projects may be shared by multiple live runs.
     #[serde(default)]
     project_drive: Option<DriveMapping>,
+    // The shared toolchain cache, mapped for this run alone; removed by exact letter like the project drive.
+    #[serde(default)]
+    toolchain_drive: Option<DriveMapping>,
+    // Cache entries this run may use. Stale-entry removal skips any entry a live or abandoned record names.
+    #[serde(default)]
+    cached: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -601,6 +609,98 @@ fn staging_path(name: &str) -> Result<PathBuf> {
         .ok_or("missing recovery parent")?
         .join("sandbox-toolchains")
         .join(name))
+}
+
+// Finished read-only toolchain copies, kept across commands (#108). Entries are named by toolchain_key and are only
+// ever created by an atomic rename of a complete private copy, so an entry that exists is complete.
+fn cache_root() -> Result<PathBuf> {
+    Ok(recovery_dir()?
+        .parent()
+        .ok_or("missing recovery parent")?
+        .join("sandbox-toolchains")
+        .join("cache"))
+}
+
+// FNV-1a: stable across Rust releases, unlike DefaultHasher. Cache names need stability, not secrecy.
+fn fnv1a(text: &str) -> u64 {
+    text.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ byte as u64).wrapping_mul(0x0100_0000_01b3)
+    })
+}
+
+// `<source>-<contents>`: one prefix per install folder, and a new name whenever any entry's name, size or write
+// time changes (an upgrade), so a changed install is copied again instead of reusing old bytes.
+fn toolchain_key(source: &str, mut entries: Vec<String>) -> String {
+    entries.sort();
+    format!(
+        "{:016x}-{:016x}",
+        fnv1a(&source.to_lowercase()),
+        fnv1a(&entries.join("\n"))
+    )
+}
+
+// The cache root is mapped as a drive root, so packages need to read it; it is never writable for them.
+// Called under PermissionLock. The grant is made once, not per run.
+fn prepare_cache_root(package: PSID) -> Result<()> {
+    let cache = cache_root()?;
+    fs::create_dir_all(&cache).map_err(|e| format!("cannot create toolchain cache: {e}"))?;
+    if !package_access(&cache, package)?.0 {
+        edit_acl(
+            cache.to_str().ok_or("non-Unicode toolchain cache path")?,
+            package,
+            FILE_READ_EXECUTE,
+            Change::Grant,
+        )?;
+    }
+    Ok(())
+}
+
+fn cache_entry_ready(entry: &Path) -> bool {
+    fs::symlink_metadata(entry).is_ok_and(|meta| {
+        meta.is_dir() && meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 == 0
+    })
+}
+
+// A copy unused this long belongs to an install that moved or was removed; it is deleted the next time the cache grows.
+const CACHE_UNUSED_DAYS: u64 = 30;
+
+// Each use stamps the entry's write time, which is what expiry compares. Best effort.
+fn set_cache_entry_time(entry: &Path, time: SystemTime) -> std::io::Result<()> {
+    OpenOptions::new()
+        .access_mode(FILE_WRITE_ATTRIBUTES.0)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS.0 | FILE_FLAG_OPEN_REPARSE_POINT.0)
+        .open(entry)?
+        .set_modified(time)
+}
+
+// Runs when a new copy is cached, the only time the cache grows. Older copies of the same install go, and so does any
+// copy unused for CACHE_UNUSED_DAYS, unless a recovery record (a live run, or an abandoned one not yet recovered)
+// still names it. Called under PermissionLock. Best effort: what cannot be removed now is retried next time.
+fn remove_stale_cache_entries(cache: &Path, key: &str, in_use: &[String], now: SystemTime) {
+    let Some((source, _)) = key.split_once('-') else {
+        return;
+    };
+    let Ok(entries) = fs::read_dir(cache) else {
+        return;
+    };
+    let expiry = Duration::from_secs(CACHE_UNUSED_DAYS * 24 * 60 * 60);
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let superseded = name
+            .split_once('-')
+            .is_some_and(|(prefix, _)| prefix == source);
+        let expired = entry
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .is_ok_and(|used| now.duration_since(used).is_ok_and(|age| age > expiry));
+        if name != key
+            && (superseded || expired)
+            && !in_use.contains(&name)
+            && cache_entry_ready(&entry.path())
+        {
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
 }
 
 fn temporary_path(name: &str) -> Result<PathBuf> {
@@ -699,6 +799,8 @@ struct ToolchainPlan {
     source: String,
     files: Vec<PathBuf>,
     stage: bool,
+    // Name of this exact install's cached copy under cache_root.
+    key: String,
 }
 
 // Inspection is bounded separately from copying: large already-readable installs (e.g. Python) need no grant.
@@ -724,47 +826,85 @@ fn inspect_toolchain(
             return Err("toolchain resolves through an ancestor reparse point".to_string());
         }
     }
+    // First pass, cheap: names, sizes, write times and reparse flags come from the directory listing itself, with no
+    // per-entry security query. That is enough to name the install's cached copy (#108).
     let started = Instant::now();
     let mut pending = vec![root.to_path_buf()];
-    let mut files = Vec::new();
+    let root_meta =
+        fs::symlink_metadata(root).map_err(|e| format!("cannot inspect toolchain: {e}"))?;
+    let mut files = vec![root.to_path_buf()];
+    let mut fingerprint = vec![format!("|true|0|{}", root_meta.last_write_time())];
+    let mut bytes = 0u64;
+    while let Some(directory) = pending.pop() {
+        check()?;
+        if started.elapsed() > Duration::from_secs(15) {
+            return Err("toolchain inspection exceeds its time limit".to_string());
+        }
+        for entry in fs::read_dir(&directory).map_err(|e| format!("cannot list toolchain: {e}"))? {
+            if files.len() >= INSPECTION_ENTRIES {
+                return Err("toolchain inspection exceeds its entry limit".to_string());
+            }
+            let entry = entry.map_err(|e| format!("cannot list toolchain entry: {e}"))?;
+            let path = entry.path();
+            let meta = entry
+                .metadata()
+                .map_err(|e| format!("cannot inspect toolchain: {e}"))?;
+            if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+                return Err("toolchain contains a reparse point or escaping path".to_string());
+            }
+            if meta.is_dir() {
+                pending.push(path.clone());
+            } else {
+                bytes = bytes
+                    .checked_add(meta.len())
+                    .ok_or("toolchain size overflow")?;
+            }
+            fingerprint.push(format!(
+                "{}|{}|{}|{}",
+                path.strip_prefix(root)
+                    .map_err(|_| "toolchain path escaped")?
+                    .to_string_lossy()
+                    .to_lowercase(),
+                meta.is_dir(),
+                meta.len(),
+                meta.last_write_time()
+            ));
+            files.push(path);
+        }
+    }
+    let key = toolchain_key(source, fingerprint);
+    // A finished copy of exactly these contents exists: the command uses it and never reads the source, so the
+    // per-entry checks below would protect nothing. Were the copy removed before use, copy_toolchain validates
+    // every opened entry itself.
+    if cache_entry_ready(&cache_root()?.join(&key)) {
+        return Ok(Some(ToolchainPlan {
+            key,
+            source: source.to_string(),
+            files,
+            stage: true,
+        }));
+    }
+    // Second pass, only without a cached copy: links and effective package rights on every entry.
     let mut readable = true;
     let mut protected = false;
-    let mut bytes = 0u64;
-    while let Some(path) = pending.pop() {
+    for path in &files {
         check()?;
-        if files.len() >= INSPECTION_ENTRIES || started.elapsed() > Duration::from_secs(15) {
-            return Err("toolchain inspection exceeds its entry/time limit".to_string());
+        if started.elapsed() > Duration::from_secs(15) {
+            return Err("toolchain inspection exceeds its time limit".to_string());
         }
         let meta =
-            fs::symlink_metadata(&path).map_err(|e| format!("cannot inspect toolchain: {e}"))?;
+            fs::symlink_metadata(path).map_err(|e| format!("cannot inspect toolchain: {e}"))?;
         if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
-            || !fs::canonicalize(&path)
+            || !fs::canonicalize(path)
                 .map_err(|e| format!("cannot resolve toolchain entry: {e}"))?
                 .starts_with(&canonical)
         {
             return Err("toolchain contains a reparse point or escaping path".to_string());
         }
-        let (package_readable, acl_protected) = package_access(&path, package)?;
+        let (package_readable, acl_protected) = package_access(path, package)?;
         readable &= package_readable;
         // Protected descendants do not inherit a grant placed on their install directory.
         protected |= acl_protected;
-        if meta.is_dir() {
-            for entry in fs::read_dir(&path).map_err(|e| format!("cannot list toolchain: {e}"))? {
-                if files.len() + pending.len() >= INSPECTION_ENTRIES {
-                    return Err("toolchain inspection exceeds its entry limit".to_string());
-                }
-                pending.push(
-                    entry
-                        .map_err(|e| format!("cannot list toolchain entry: {e}"))?
-                        .path(),
-                );
-            }
-        } else {
-            bytes = bytes
-                .checked_add(meta.len())
-                .ok_or("toolchain size overflow")?;
-        }
-        files.push(path);
     }
     if readable {
         return Ok(None);
@@ -787,6 +927,7 @@ fn inspect_toolchain(
     .map(Handle)
     .is_ok();
     Ok(Some(ToolchainPlan {
+        key,
         source: source.to_string(),
         files,
         stage: !writable || protected,
@@ -895,7 +1036,10 @@ impl RecoveryRecord {
                 }
             }
         }
-        if let Some(mapping) = &self.project_drive {
+        for mapping in [&self.project_drive, &self.toolchain_drive]
+            .into_iter()
+            .flatten()
+        {
             if let Err(error) = mapping.remove() {
                 result = Err(error);
             }
@@ -1282,16 +1426,21 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 .ok_or("non-Unicode temporary path")?
                 .to_string(),
         ),
-        project_drive: Some(DriveMapping::reserve(&request.cwd)?),
+        project_drive: Some(DriveMapping::reserve(&request.cwd, &[])?),
+        toolchain_drive: None,
+        cached: toolchains.iter().map(|plan| plan.key.clone()).collect(),
     };
+    if !toolchains.is_empty() {
+        let cache = cache_root()?;
+        let cache = cache.to_str().ok_or("non-Unicode toolchain cache path")?;
+        let taken: Vec<&DriveMapping> = record.project_drive.iter().collect();
+        record.toolchain_drive = Some(DriveMapping::reserve(cache, &taken)?);
+    }
     // Journal candidate grants before attempting them. A failed grant is safe to revoke idempotently.
     for plan in &toolchains {
         if !plan.stage {
             record.granted.push(plan.source.clone());
         }
-    }
-    if let Some(staged) = &record.staged {
-        record.granted.push(staged.clone());
     }
     let name = wide(&record.name);
     let sid = record_sid(&record.name)?;
@@ -1321,6 +1470,15 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
             .ok_or("missing project drive")?,
         true,
     )?;
+    // Defined whenever it is journaled: a reserved but undefined letter could later hold another run's mapping of
+    // the same cache, which this record's exact-match removal would then delete.
+    let toolchain_drive = match &cleanup.record.toolchain_drive {
+        Some(mapping) => {
+            prepare_cache_root(package)?;
+            Some(ProjectDrive::define(mapping, true)?)
+        }
+        None => None,
+    };
     let sid = unsafe {
         CreateAppContainerProfile(
             PCWSTR(name.as_ptr()),
@@ -1368,47 +1526,67 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     }
     drop(permission_lock);
 
-    // Private copies belong to this run alone and can take seconds, so they are made without the lock.
+    // Toolchains are copied once and then reused from the shared cache (#108). A copy is made in this run's private
+    // staging folder (removed by cleanup and recovery), so a partial copy never appears in the cache. Copies can
+    // take seconds, so they are made without the lock.
     let mut mappings = Vec::new();
-    let mut staging_drive = None;
+    let cache = cache_root()?;
     let started = Instant::now();
     let mut copied = 0u64;
+    let mut staging_created = false;
     for (index, plan) in toolchains.iter().enumerate() {
         if !plan.stage {
             continue;
         }
-        let staged = cleanup
-            .record
-            .staged
-            .as_ref()
-            .ok_or("missing staged toolchain root")?;
-        let root = Path::new(staged);
-        if staging_drive.is_none() {
-            fs::create_dir_all(root.parent().ok_or("missing staging parent")?)
-                .map_err(|e| format!("cannot create staging parent: {e}"))?;
-            fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
-            staging_drive = Some(ProjectDrive::create(staged)?);
-        }
-        let target = root.join(index.to_string());
-        if let Err(message) = copy_toolchain(plan, &target, started, &mut copied, || {
-            ensure_active(jobs, id)
-        }) {
-            ensure_active(jobs, id)?;
-            warnings.push(format!("{}: {message}", plan.source));
-            continue;
-        }
-        let drive = staging_drive.as_ref().ok_or("missing staging drive")?;
-        let prefix = String::from_utf16_lossy(&drive.cwd[..drive.cwd.len() - 1]);
-        mappings.push((plan.source.clone(), format!("{prefix}{index}")));
-    }
-    if let Some(staged) = &cleanup.record.staged {
-        if Path::new(staged).exists() {
-            if let Err(message) = edit_acl(staged, sid, FILE_READ_EXECUTE, Change::Grant) {
-                for (source, _) in mappings.drain(..) {
-                    warnings.push(format!("{source}: {message}"));
+        let entry = cache.join(&plan.key);
+        if !cache_entry_ready(&entry) {
+            let staged = cleanup
+                .record
+                .staged
+                .as_ref()
+                .ok_or("missing staged toolchain root")?;
+            let root = Path::new(staged);
+            if !staging_created {
+                fs::create_dir_all(root.parent().ok_or("missing staging parent")?)
+                    .map_err(|e| format!("cannot create staging parent: {e}"))?;
+                fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
+                // Copies inherit this as they are written, so publishing needs no ACL propagation. Packages may
+                // read and execute the copy, never write it.
+                edit_acl(staged, package, FILE_READ_EXECUTE, Change::Grant)?;
+                staging_created = true;
+            }
+            let target = root.join(index.to_string());
+            if let Err(message) = copy_toolchain(plan, &target, started, &mut copied, || {
+                ensure_active(jobs, id)
+            }) {
+                ensure_active(jobs, id)?;
+                warnings.push(format!("{}: {message}", plan.source));
+                continue;
+            }
+            // Directory rename is atomic. If another run published the same key first, use its copy instead.
+            if let Err(error) = fs::rename(&target, &entry) {
+                if !cache_entry_ready(&entry) {
+                    warnings.push(format!(
+                        "{}: cannot cache toolchain copy: {error}",
+                        plan.source
+                    ));
+                    continue;
                 }
+            } else {
+                let _lock = PermissionLock::acquire()?;
+                let in_use: Vec<String> = recovery_records()?
+                    .into_iter()
+                    .flat_map(|record| record.cached)
+                    .collect();
+                remove_stale_cache_entries(&cache, &plan.key, &in_use, SystemTime::now());
             }
         }
+        let _ = set_cache_entry_time(&entry, SystemTime::now());
+        let drive = toolchain_drive
+            .as_ref()
+            .ok_or("missing toolchain cache drive")?;
+        let prefix = String::from_utf16_lossy(&drive.cwd[..drive.cwd.len() - 1]);
+        mappings.push((plan.source.clone(), format!("{prefix}{}", plan.key)));
     }
     let mut capability_sid = PSID::default();
     let mut capabilities = Vec::new();
@@ -1661,7 +1839,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     }
     jobs.lock().unwrap().remove(&id);
     drop(job);
-    drop(staging_drive);
+    drop(toolchain_drive);
     // Cleanup runs under the permission lock, like setup. A failure is reported with the command's output, not
     // instead of its exit code: the journal stays, and the next helper start retries it.
     let cleaned = PermissionLock::acquire().and_then(|_lock| {
@@ -1746,6 +1924,59 @@ mod tests {
             mapped_path(r"C:\Windows\System32", &mappings),
             r"C:\Windows\System32"
         );
+    }
+
+    #[test]
+    fn toolchain_keys_follow_the_install_and_its_contents() {
+        let entries = |size: u64| vec!["|true|0|1".to_string(), format!("node.exe|false|{size}|2")];
+        let key = toolchain_key(r"C:\Program Files\nodejs", entries(10));
+        // Walk order and source spelling do not matter.
+        let mut reversed = entries(10);
+        reversed.reverse();
+        assert_eq!(toolchain_key(r"c:\program files\NODEJS", reversed), key);
+        // An upgrade changes the contents part only; another install changes the source part.
+        let upgraded = toolchain_key(r"C:\Program Files\nodejs", entries(11));
+        assert_ne!(upgraded, key);
+        assert_eq!(
+            upgraded.split_once('-').unwrap().0,
+            key.split_once('-').unwrap().0
+        );
+        let other = toolchain_key(r"C:\Program Files\Go\bin", entries(10));
+        assert_ne!(
+            other.split_once('-').unwrap().0,
+            key.split_once('-').unwrap().0
+        );
+    }
+
+    #[test]
+    fn stale_cache_removal_keeps_the_current_copy_entries_in_use_and_recently_used_installs() {
+        let cache = std::env::temp_dir().join(profile_name());
+        let now = SystemTime::now();
+        let old = now - Duration::from_secs((CACHE_UNUSED_DAYS + 1) * 24 * 60 * 60);
+        for name in ["aaaa-1", "aaaa-2", "aaaa-3", "bbbb-1", "cccc-1", "dddd-1"] {
+            fs::create_dir_all(cache.join(name)).unwrap();
+            fs::write(cache.join(name).join("node.exe"), name).unwrap();
+        }
+        // Other installs: one unused past the expiry, one equally old but named by a live record.
+        for name in ["cccc-1", "dddd-1"] {
+            set_cache_entry_time(&cache.join(name), old).unwrap();
+        }
+        let in_use = ["aaaa-3".to_string(), "dddd-1".to_string()];
+        remove_stale_cache_entries(&cache, "aaaa-1", &in_use, now);
+        let mut left: Vec<String> = fs::read_dir(&cache)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["aaaa-1", "aaaa-3", "bbbb-1", "dddd-1"]);
+        fs::remove_dir_all(cache).unwrap();
+    }
+
+    #[test]
+    fn drive_reservation_skips_letters_this_run_already_reserved() {
+        let first = DriveMapping::reserve(r"C:\first", &[]).unwrap();
+        let second = DriveMapping::reserve(r"C:\second", &[&first]).unwrap();
+        assert_ne!(first.name, second.name);
     }
 
     #[test]
@@ -1840,6 +2071,8 @@ mod tests {
             staged: Some(staged.to_str().unwrap().to_string()),
             temporary: None,
             project_drive: None,
+            toolchain_drive: None,
+            cached: vec![],
         };
         let sid = record_sid(&record.name).unwrap();
         record.undo(sid.0).unwrap();
@@ -1871,6 +2104,8 @@ mod tests {
             staged: None,
             temporary: Some(temporary.to_str().unwrap().to_string()),
             project_drive: None,
+            toolchain_drive: None,
+            cached: vec![],
         };
         let sid = record_sid(&record.name).unwrap();
         record.undo(sid.0).unwrap();
@@ -1917,6 +2152,8 @@ mod tests {
             staged: None,
             temporary: None,
             project_drive: Some(mapping.clone()),
+            toolchain_drive: None,
+            cached: vec![],
         };
         let sid = record_sid(&record.name).unwrap();
         let mapped_file = |drive: &ProjectDrive| {
@@ -1969,7 +2206,7 @@ mod tests {
         let _lock = PermissionLock::acquire().unwrap();
         let root = std::env::temp_dir().join(profile_name());
         fs::create_dir(&root).unwrap();
-        let mapping = DriveMapping::reserve(root.to_str().unwrap()).unwrap();
+        let mapping = DriveMapping::reserve(root.to_str().unwrap(), &[]).unwrap();
         let old = ProjectDrive::define(&mapping, true).unwrap();
         mapping.remove().unwrap();
         let new = ProjectDrive::define(&mapping, false).unwrap();
@@ -2002,6 +2239,7 @@ mod tests {
             source: source.to_str().unwrap().to_string(),
             files: vec![source.clone(), source.join("file")],
             stage: true,
+            key: String::new(),
         };
         let mut copied = 0;
         copy_toolchain(&plan, &target, Instant::now(), &mut copied, || Ok(())).unwrap();
@@ -2061,6 +2299,8 @@ mod tests {
             staged: None,
             temporary: None,
             project_drive: None,
+            toolchain_drive: None,
+            cached: vec![],
         };
         let other_name = wide(&profile_name());
         let other = Sid(unsafe {

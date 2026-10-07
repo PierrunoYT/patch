@@ -10,6 +10,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { connect } from 'node:net';
@@ -479,6 +480,13 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   let tools: string;
   let env: NodeJS.ProcessEnv;
   let shell: ShellRunner;
+  // Copies of protected installs persist here across commands (#108).
+  const stageRoot = join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-toolchains');
+  const cacheRoot = join(stageRoot, 'cache');
+  const cacheEntries = () => (existsSync(cacheRoot) ? readdirSync(cacheRoot) : []);
+  let cachedBefore: string[];
+  // A staged command runs Node from the cache drive: <letter>:\<install hash>-<contents hash>\node.exe.
+  const cachedNode = /^[P-Z]:\\[0-9a-f]{16}-[0-9a-f]{16}\\node\.exe$/im;
   const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
   // Whether the DACL has an ALL APPLICATION PACKAGES entry. icacls prints names in the system language, so read
   // the SDDL that `icacls /save` writes (UTF-16), where the group is always the alias AC.
@@ -492,6 +500,7 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
     }
   };
   beforeAll(() => {
+    cachedBefore = cacheEntries();
     fixture = mkdtempSync(join(tmpdir(), 'patch-toolchain-'));
     project = join(fixture, 'project');
     programs = join(fixture, 'Program Files');
@@ -528,6 +537,9 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   afterAll(() => {
     shell.stopAll();
     rmSync(fixture, { recursive: true, force: true });
+    // Fixture installs live in a temp folder that is now gone; their copies would only expire after 30 days.
+    for (const name of cacheEntries().filter((entry) => !cachedBefore.includes(entry)))
+      rmSync(join(cacheRoot, name), { recursive: true, force: true });
   });
   it('stages a protected installation read-only and runs Node plus dependency-free assertions', async () => {
     const original = acl(tools);
@@ -558,15 +570,50 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       sibling: boolean;
       home: boolean;
     };
-    expect(result.exe).toMatch(/^[P-Z]:\\0\\node.exe$/i);
+    expect(result.exe).toMatch(cachedNode);
+    // The cached copy is readable and executable for the container, never writable.
     expect(result).toMatchObject({ marker: 'READ-ONLY-TOOL', write: false, sibling: false, home: false });
     expect(acl(tools)).toBe(original);
     expect(existsSync(join(tools, 'planted.txt'))).toBe(false);
-    const stageRoot = join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-toolchains');
+    const key = result.exe.split('\\')[1]!;
+    expect(existsSync(join(cacheRoot, key, 'planted.txt'))).toBe(false);
     expect(readdirSync(stageRoot).filter((name) => name.startsWith('patch.sbx.'))).toEqual([]);
     console.info(
       `Protected Node fixture: version + assertion/isolation probes completed in ${Date.now() - started} ms`,
     );
+  }, 60_000);
+
+  it('reuses the cached copy for the next command and copies again after an upgrade (#108)', async () => {
+    const execPath = async () => {
+      const result = await shell.run('node -p process.execPath');
+      expect(result.exitCode, result.output).toBe(0);
+      return result.output.trim().split(/\r?\n/).at(-1)!;
+    };
+    const first = await execPath();
+    expect(first).toMatch(cachedNode);
+    const key = first.split('\\')[1]!;
+    const copied = statSync(join(cacheRoot, key, 'node.exe')).birthtimeMs;
+
+    let started = performance.now();
+    execFileSync(join(tools, 'node.exe'), ['-p', 'process.execPath']);
+    const host = performance.now() - started;
+    started = performance.now();
+    expect(await execPath()).toBe(first);
+    const sandboxed = performance.now() - started;
+    // Same copy, not a new one with the same name.
+    expect(statSync(join(cacheRoot, key, 'node.exe')).birthtimeMs).toBe(copied);
+    console.info(`Cached Node: sandboxed ${Math.round(sandboxed)} ms, unsandboxed ${Math.round(host)} ms`);
+
+    // Any changed entry is an upgrade: copy again under a new name, and drop the copy nothing uses any more.
+    writeFileSync(join(tools, 'marker.txt'), 'READ-ONLY-TOOL v2');
+    const upgraded = await execPath();
+    expect(upgraded).toMatch(cachedNode);
+    const upgradedKey = upgraded.split('\\')[1]!;
+    expect(upgradedKey).not.toBe(key);
+    expect(upgradedKey.split('-')[0]).toBe(key.split('-')[0]);
+    expect(readFileSync(join(cacheRoot, upgradedKey, 'marker.txt'), 'utf8')).toBe('READ-ONLY-TOOL v2');
+    expect(existsSync(join(cacheRoot, key))).toBe(false);
+    expect(readdirSync(stageRoot).filter((name) => name.startsWith('patch.sbx.'))).toEqual([]);
   }, 60_000);
 
   it('does not modify or stage a package-readable installation', async () => {
@@ -671,11 +718,11 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     expect(result.output).toMatch(/not readable in this command: .*linked: .*(reparse point|escaping path)/i);
     // Neither granted nor copied: PATH still names the original folder, and its ACL is unchanged.
     expect(result.output).toContain(linked);
-    expect(result.output).not.toMatch(/[P-Z]:\\0/i);
+    expect(result.output).not.toMatch(/[P-Z]:\\[0-9a-f]{16}-/i);
     expect(acl(linked)).toBe(original);
   }, 60_000);
 
-  it('stops a staged background command and cleans its read-only copy', async () => {
+  it('stops a staged background command and removes its private staging, keeping the cached copy', async () => {
     // Remove the readable control ACE so this test must stage again.
     execFileSync('icacls', [tools, '/remove:g', '*S-1-15-2-1']);
     const entry = shell.startBackground('node -e "console.log(process.execPath); setInterval(()=>{},1000)"');
@@ -683,11 +730,12 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       const until = Date.now() + 30_000;
       while (!entry.output.includes('node.exe') && Date.now() < until && entry.exitCode === undefined)
         await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(entry.output).toMatch(/[P-Z]:\\0\\node.exe/i);
+      expect(entry.output).toMatch(cachedNode);
       const closed = once(entry.process, 'close');
       shell.stopBackground(entry.id);
       await closed;
-      expect(readdirSync(join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-toolchains'))).toEqual([]);
+      expect(readdirSync(stageRoot).filter((name) => name.startsWith('patch.sbx.'))).toEqual([]);
+      expect(existsSync(join(cacheRoot, entry.output.match(cachedNode)![0].split('\\')[1]!))).toBe(true);
       expect(acl(tools)).not.toMatch(/S-1-15-2-|patch\.sbx\./);
     } finally {
       shell.stopAll();
@@ -698,6 +746,8 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     const local = join(fixture, 'recovery-local');
     const stagedRoot = join(local, 'Patch', 'sandbox-toolchains');
     const temporaryRoot = join(local, 'Patch', 'sandbox-temp');
+    // Private staging folders only; the shared cache folder outlives every run.
+    const staging = () => readdirSync(stagedRoot).filter((name) => name.startsWith('patch.sbx.'));
     execFileSync('icacls', [tools, '/remove:g', '*S-1-15-2-1']);
     const request = buildHelperRequest({
       id: 1,
@@ -737,7 +787,8 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       });
       child.stdin.write(`${JSON.stringify(request)}\n`);
       await started;
-      expect(readdirSync(stagedRoot)).toHaveLength(1);
+      expect(staging()).toHaveLength(1);
+      expect(readdirSync(join(stagedRoot, 'cache'))).toHaveLength(1);
       expect(readdirSync(temporaryRoot)).toHaveLength(1);
       const liveMapping = execFileSync('subst', { encoding: 'utf8' })
         .split(/\r?\n/)
@@ -748,14 +799,16 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
         .find((line) => line.includes(temporaryRoot));
       expect(temporaryMapping).toBeDefined();
       await recover();
-      expect(readdirSync(stagedRoot)).toHaveLength(1);
+      expect(staging()).toHaveLength(1);
       expect(readdirSync(temporaryRoot)).toHaveLength(1);
       expect(execFileSync('subst', { encoding: 'utf8' })).toContain(liveMapping!);
       expect(execFileSync('subst', { encoding: 'utf8' })).toContain(temporaryMapping!);
       child.kill();
       await closed;
       await recover();
-      expect(readdirSync(stagedRoot)).toEqual([]);
+      expect(staging()).toEqual([]);
+      // Recovery removes the run, not the shared copy another run may be using.
+      expect(readdirSync(join(stagedRoot, 'cache'))).toHaveLength(1);
       expect(readdirSync(temporaryRoot)).toEqual([]);
       expect(execFileSync('subst', { encoding: 'utf8' })).not.toContain(liveMapping!);
       expect(execFileSync('subst', { encoding: 'utf8' })).not.toContain(temporaryMapping!);
@@ -816,6 +869,15 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     expect(result.output).toContain('ASSERT-PASS');
     expect(acl(official)).toBe(original);
     console.info(`Official Node staging + assertions: ${Date.now() - started} ms`);
+    // The acceptance check of #108: the next command reuses the cached copy instead of copying ~110 MiB again.
+    let begun = performance.now();
+    execFileSync(process.execPath, ['--version']);
+    const host = performance.now() - begun;
+    begun = performance.now();
+    const again = await runner.run('node --version');
+    const sandboxed = performance.now() - begun;
+    expect(again.exitCode, again.output).toBe(0);
+    console.info(`Official Node again: sandboxed ${Math.round(sandboxed)} ms, unsandboxed ${Math.round(host)} ms`);
   }, 60_000);
 });
 
