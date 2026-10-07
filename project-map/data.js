@@ -143,7 +143,7 @@ const D = {
         'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees, metadata write and hard-link denial)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
-        'apply_patch.ts',
+        'apply_patch.ts (same-path moves are updates; unanchored additions append, #183)',
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process)',
         'browser.ts',

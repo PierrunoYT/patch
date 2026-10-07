@@ -116,7 +116,7 @@ export function applyHunks(content: string, hunks: Hunk[], label: string): strin
       else if (at >= from && matchesAt(lines, before, at, normalizeLoose)) start = at;
       if (start < 0) throw new ToolError(`${label}: the end-of-file hunk does not match the end of the file.`);
     } else if (before.length === 0) {
-      // Nothing to look for: insert at the anchor line or, without one, at the cursor.
+      // Nothing to look for: insert after the anchor line or, without one, append at the end.
       start = hunk.anchor ? from + 1 : lines.length;
     } else {
       for (const normalize of [normalizeExact, normalizeTrailing, normalizeLoose]) {
@@ -212,8 +212,12 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
       const targetRel = workspace.relative(target);
       if (target !== absolute && existsSync(target))
         throw new ToolError(`${targetRel} already exists; cannot move ${rel} there.`);
-      claim(target, targetRel);
-      changes.push({ rel: targetRel, absolute: target, before, after, fromAbsolute: absolute, fromRel: rel });
+      if (target === absolute) {
+        changes.push({ rel, absolute, before, after });
+      } else {
+        claim(target, targetRel);
+        changes.push({ rel: targetRel, absolute: target, before, after, fromAbsolute: absolute, fromRel: rel });
+      }
     } else {
       changes.push({ rel, absolute, before, after });
     }
