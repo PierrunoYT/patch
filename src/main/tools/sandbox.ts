@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { posix, relative } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
@@ -7,7 +7,7 @@ import { findHelper } from './sandbox_windows';
 import { validateSandboxGit } from './sandbox_git';
 
 // Runs agent commands (run_command, background ones included) with limited rights. The planning code below is pure
-// so it can be tested on any platform; only detectSandboxSupport() looks at the machine.
+// so it can be tested on any platform; only refreshSandboxSupport() and detectSandboxSupport() look at the machine.
 
 export interface SandboxConfig {
   mode: SandboxMode;
@@ -389,36 +389,67 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
   return `${where}: project files are writable but Git metadata is read-only; use the Git panel or explicitly approved unsandboxed access for Git writes. The rest of your home folder is hidden, ${net}.`;
 }
 
-let cached: { at: number; support: SandboxSupport } | null = null;
 const CACHE_MS = 30_000;
+const BWRAP_PROBE: [string, string[]] = ['bwrap', ['--unshare-all', '--ro-bind', '/', '/', 'true']];
+const DOCKER_PROBE: [string, string[]] = ['docker', ['version', '--format', '{{.Server.Version}}']];
+const PODMAN_PROBE: [string, string[]] = ['podman', ['version']];
 
-function succeeds(file: string, args: string[]): boolean {
-  try {
-    return spawnSync(file, args, { stdio: 'ignore', timeout: 8000, windowsHide: true }).status === 0;
-  } catch {
-    return false;
-  }
+// Program probes run asynchronously: a hung Docker CLI must not freeze the main process (#112). `value` keeps the
+// last finished result while a refresh runs, and stays undefined until the first probe finishes.
+const probes = new Map<string, { at: number; result: Promise<boolean>; value?: boolean }>();
+
+function probe([file, args]: [string, string[]]): Promise<boolean> {
+  const key = [file, ...args].join(' ');
+  const cached = probes.get(key);
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.result;
+  const entry: { at: number; result: Promise<boolean>; value?: boolean } = {
+    at: Date.now(),
+    result: new Promise((resolve) => {
+      try {
+        execFile(file, args, { timeout: 8000, windowsHide: true }, (error) => resolve(!error));
+      } catch {
+        resolve(false);
+      }
+    }),
+    value: cached?.value,
+  };
+  void entry.result.then((ok) => (entry.value = ok));
+  probes.set(key, entry);
+  return entry.result;
 }
 
-// Looks for the sandbox programs on this machine. Cached briefly: starting Docker later should be noticed.
+function known(program: [string, string[]]): boolean {
+  return probes.get([program[0], ...program[1]].join(' '))?.value ?? false;
+}
+
+// Runs the probes a sandbox mode needs: bwrap for "auto" on Linux, Docker and Podman only for "container".
+// Cached briefly: starting Docker later should be noticed.
+export async function refreshSandboxSupport(
+  mode: SandboxMode,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  if (mode === 'auto' && platform === 'linux') await probe(BWRAP_PROBE);
+  if (mode === 'container' && !(await probe(DOCKER_PROBE))) await probe(PODMAN_PROBE);
+}
+
+// What this machine supports, from the last finished probes. Never blocks: call refreshSandboxSupport first.
 export function detectSandboxSupport(platform: NodeJS.Platform = process.platform): SandboxSupport {
-  if (cached && Date.now() - cached.at < CACHE_MS) return cached.support;
-  const support: SandboxSupport = {
-    bwrap: platform === 'linux' && succeeds('bwrap', ['--unshare-all', '--ro-bind', '/', '/', 'true']),
+  return {
+    bwrap: platform === 'linux' && known(BWRAP_PROBE),
     seatbelt: platform === 'darwin' && existsSync('/usr/bin/sandbox-exec'),
     appcontainer: platform === 'win32' ? findHelper() : null,
-    container: succeeds('docker', ['version', '--format', '{{.Server.Version}}'])
-      ? 'docker'
-      : succeeds('podman', ['version'])
-        ? 'podman'
-        : null,
+    container: known(DOCKER_PROBE) ? 'docker' : known(PODMAN_PROBE) ? 'podman' : null,
   };
-  cached = { at: Date.now(), support };
-  return support;
+}
+
+// Probes every sandbox program, for tests that pick their cases from what the machine has.
+export async function probeSandboxSupport(platform: NodeJS.Platform = process.platform): Promise<SandboxSupport> {
+  await Promise.all([refreshSandboxSupport('auto', platform), refreshSandboxSupport('container', platform)]);
+  return detectSandboxSupport(platform);
 }
 
 export function resetSandboxSupportCache(): void {
-  cached = null;
+  probes.clear();
 }
 
 export function systemLaunchEnv(

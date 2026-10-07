@@ -13,6 +13,7 @@ import {
   decideSandbox,
   describeSandbox,
   detectSandboxSupport,
+  refreshSandboxSupport,
   systemLaunchEnv,
   wantsNetwork,
   type CommandAccess,
@@ -124,6 +125,15 @@ export class ShellRunner {
     return config.mode !== 'off' && config.network === 'allow-list' && wantsNetwork(command, config, access);
   }
 
+  // Runs the sandbox probes this command's decision needs, off the main thread's critical path (#112). describe,
+  // run and startBackground read the results; run awaits this itself.
+  async prepare(access: CommandAccess = {}): Promise<void> {
+    const config = this.sandbox();
+    // An injected detector (tests) already knows its answer.
+    if (config.mode === 'off' || access.unsandboxed || this.detect !== detectSandboxSupport) return;
+    await refreshSandboxSupport(config.mode);
+  }
+
   // What would happen to this command: shown on the approval card and in the result.
   describe(command: string, access: CommandAccess = {}): { sandboxed: boolean; text: string } {
     const decision = this.decide(command, access);
@@ -142,7 +152,7 @@ export class ShellRunner {
     return decideSandbox(command, config, support, access, process.platform);
   }
 
-  run(
+  async run(
     command: string,
     {
       timeoutSeconds = DEFAULT_TIMEOUT_SECONDS,
@@ -156,6 +166,7 @@ export class ShellRunner {
       access?: CommandAccess;
     } = {},
   ): Promise<CommandResult> {
+    await this.prepare(access);
     return new Promise((resolve) => {
       // A stop that came in before the command could start: an abort listener added now would never fire.
       if (signal?.aborted) return resolve({ exitCode: null, output: '', timedOut: false, aborted: true });
@@ -432,6 +443,7 @@ export const runCommandTool = defineTool({
   requiresApproval: true,
   mustAsk: ({ command, network, unsandboxed }, context) => context.shell.mustAsk(command, { network, unsandboxed }),
   async preview({ command, background, network, unsandboxed }, context) {
+    await context.shell.prepare({ network, unsandboxed });
     const { text } = context.shell.describe(command, { network, unsandboxed });
     return { title: background ? 'Start background command' : 'Run command', command, note: text };
   },
@@ -440,6 +452,7 @@ export const runCommandTool = defineTool({
     if (background) {
       let entry: BackgroundCommand;
       try {
+        await context.shell.prepare(access);
         entry = context.shell.startBackground(command, context.signal, access);
       } catch (error) {
         if (context.signal.aborted) throw error;

@@ -95,6 +95,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Sandbox detection no longer blocks the main process. Before, every `run_command` approval and launch could run `docker version` and `podman version` synchronously (up to 8 s each, every 30 s), even in the default `auto` mode, which never uses them; the window froze and chat saves waited. The probes now run asynchronously and only for the mode that needs them: bwrap for `auto` on Linux, Docker/Podman for `container` (refs [#112](https://github.com/PierrunoYT/patch/issues/112), [#138](https://github.com/PierrunoYT/patch/issues/138)).
 - Windows sandbox PATH entries and commands spelled with an 8.3 short name (such as `C:\Users\RUNNER~1\…`) now map to the project drive like their long form. Before, npm and Node resolved them on `C:\`, failed with `EPERM` on the volume root, and the Windows CI job failed since 3ac2d97 ([#137](https://github.com/PierrunoYT/patch/issues/137)).
 - ChatGPT subscription chats no longer fail with `400 Unsupported parameter: truncation`. Codex requests omit that platform-only parameter, including when a saved chat is reopened; OpenAI API-key requests retain automatic truncation.
 - On macOS, the window reopened from the Dock now clears `mainWindow` when it is closed, as the first window does, so later code no longer holds a destroyed window ([#36](https://github.com/PierrunoYT/patch/issues/36)).

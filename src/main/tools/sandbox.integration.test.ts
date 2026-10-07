@@ -19,11 +19,11 @@ import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sandboxEnv } from './env';
 import { ShellRunner } from './shell';
-import { buildLaunch, detectSandboxSupport, systemLaunchEnv } from './sandbox';
+import { buildLaunch, probeSandboxSupport, systemLaunchEnv } from './sandbox';
 
 // Exercise the production launch builders, never Automatic mode's unsandboxed fallback.
 // Container tests use an already-pulled image; tests must not download images or use the internet.
-const support = detectSandboxSupport();
+const support = await probeSandboxSupport();
 const native = process.platform === 'linux' ? 'bwrap' : process.platform === 'darwin' ? 'seatbelt' : null;
 const nativeAvailable = native === 'bwrap' ? support.bwrap : native === 'seatbelt' && support.seatbelt;
 const image = 'node:lts';

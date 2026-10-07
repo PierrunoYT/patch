@@ -67,7 +67,12 @@ describe('background command cancellation', () => {
 
   it('cancels the startup wait immediately and terminates its process', async () => {
     const pending = runCommandTool.run({ command, background: true }, context);
-    const entry = shell.getBackground(1)!;
+    // The command starts once the sandbox probes it needs have finished.
+    const entry = await vi.waitFor(() => {
+      const started = shell.getBackground(1);
+      expect(started).toBeDefined();
+      return started!;
+    });
     const closed = once(entry.process, 'close');
     controller.abort();
 

@@ -16,12 +16,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildLaunch, detectSandboxSupport, systemLaunchEnv } from './sandbox';
+import { buildLaunch, probeSandboxSupport, systemLaunchEnv } from './sandbox';
 import { GIT_RESERVATION } from './sandbox_git';
 import { GitService } from '../panels/git';
 import { ShellRunner } from './shell';
 
-const support = detectSandboxSupport();
+const support = await probeSandboxSupport();
 const execute = promisify(execFile);
 const image = 'node:lts';
 const container = Boolean(

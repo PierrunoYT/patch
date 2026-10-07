@@ -4,9 +4,9 @@ import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sandboxEnv } from './env';
-import { buildLaunch, detectSandboxSupport, HOME_READ_ONLY, systemLaunchEnv } from './sandbox';
+import { buildLaunch, probeSandboxSupport, HOME_READ_ONLY, systemLaunchEnv } from './sandbox';
 
-const support = detectSandboxSupport();
+const support = await probeSandboxSupport();
 const clangAvailable =
   process.platform === 'darwin' && spawnSync('clang', ['--version'], { stdio: 'ignore', timeout: 8000 }).status === 0;
 const available = process.platform === 'darwin' && support.seatbelt && clangAvailable;
