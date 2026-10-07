@@ -1,11 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ShellRunner } from '../tools/shell';
 import { Workspace } from '../tools/workspace';
 import { chunkFile } from './chunker';
 import {
   CodeIndex,
+  searchCodeTool,
   openRouterEmbedder,
   openRouterReranker,
   type Embedder,
@@ -89,6 +91,31 @@ describe('CodeIndex', () => {
     // Chunks are embedded as documents, the search text as a query.
     expect(embedder.inputs.at(-1)).toBe('query');
     expect(new Set(embedder.inputs.slice(0, -1))).toEqual(new Set(['document']));
+  });
+
+  it('walks the project once per search tool call and still reports indexing progress', async () => {
+    const workspace = new Workspace(root);
+    const walk = vi.spyOn(workspace, 'listFiles');
+    const embedder = new FakeEmbedder();
+    const index = new CodeIndex(workspace, embedder, indexDir, () => 1000);
+    const progress: string[] = [];
+    const result = await searchCodeTool(index).run(
+      { query: 'validate session token', limit: 2 },
+      {
+        workspace,
+        signal,
+        readFiles: new Set(),
+        shell: new ShellRunner(() => workspace.root),
+        browser: null,
+        codeSearch: null,
+        webSearch: null,
+        onProgress: (message) => progress.push(message),
+      },
+    );
+    expect(result.content).toContain('validateSession');
+    expect(walk).toHaveBeenCalledTimes(1);
+    expect(progress).toContain(`Indexing project: ${index.chunkCount}/${index.chunkCount} chunks\n`);
+    expect(embedder.inputs.at(-1)).toBe('query');
   });
 
   it('reports status and re-embeds everything on rebuild', async () => {

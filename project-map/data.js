@@ -186,7 +186,7 @@ const D = {
       lines: 436,
       testLines: 320,
       desc: 'Embedding code index for the search_code tool: Voyage voyage-code-4 embeddings and rerank-3 reranking through OpenRouter.',
-      list: ['code_index.ts (407)', 'chunker.ts'],
+      list: ['code_index.ts (single index refresh per search with progress, #186; 407)', 'chunker.ts'],
     },
     {
       id: 'storage',
