@@ -181,13 +181,12 @@ export class ShellRunner {
       let timedOut = false;
       let aborted = false;
 
-      const collect = (chunk: Buffer) => {
-        const text = chunk.toString('utf8');
+      const collect = (text: string) => {
         output = (output + text).slice(-MAX_BUFFERED_CHARS);
         onOutput?.(text);
       };
-      child.stdout?.on('data', collect);
-      child.stderr?.on('data', collect);
+      child.stdout?.setEncoding('utf8').on('data', collect);
+      child.stderr?.setEncoding('utf8').on('data', collect);
 
       const timer = setTimeout(
         () => {
@@ -240,9 +239,8 @@ export class ShellRunner {
       entry.output = (entry.output + text).slice(-MAX_BUFFERED_CHARS);
       entry.unread = (entry.unread + text).slice(-MAX_BUFFERED_CHARS);
     };
-    const collect = (chunk: Buffer) => append(chunk.toString('utf8'));
-    child.stdout?.on('data', collect);
-    child.stderr?.on('data', collect);
+    child.stdout?.setEncoding('utf8').on('data', append);
+    child.stderr?.setEncoding('utf8').on('data', append);
     child.on('close', (code) => {
       entry.exitCode = code;
       entry.detachAbort();
