@@ -32,16 +32,16 @@ Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit
 
 After every change, fix or feature:
 
-1. Update the docs the change affects: `README.md`, `docs/`, `CHANGELOG.md` and the root `patch-overview.html` project map. Open work is tracked in [GitHub issues](https://github.com/PierrunoYT/patch/issues), not in a file: reference the issue a change fixes (`Fixes #n` in the commit message closes it), and open an issue for follow-up work you leave undone (`gh issue list` first, to avoid duplicates).
+1. Update the docs the change affects: `README.md`, `docs/`, `CHANGELOG.md` and the `project-map/` page. Open work is tracked in [GitHub issues](https://github.com/PierrunoYT/patch/issues), not in a file: reference the issue a change fixes (`Fixes #n` in the commit message closes it), and open an issue for follow-up work you leave undone (`gh issue list` first, to avoid duplicates).
 2. Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit` (and `npm test` for user-visible changes).
 3. Make a commit for that change, with a Conventional Commit message. One change per commit; don't batch unrelated work.
 4. Push to `main` only. Don't create or push other branches, and don't open pull requests.
 
 Don't leave a finished change uncommitted or its docs stale.
 
-### Keeping `patch-overview.html` current
+### Keeping `project-map/` current
 
-The project map is a single HTML page whose data lives in the `const D = { … }` block near the top of its script. It goes stale quietly, so update it in the same commit as the change that affects it:
+The project map is a static page in `project-map/`: open `project-map/index.html` from disk, no server needed. Its data lives in the `const D = { … }` block in `project-map/data.js`. `core.js` holds the shared helpers, `views/` has one file per tab and `boot.js` draws them. They are plain scripts that `index.html` loads in order, not modules, so they work from `file://`. A new top-level helper that views share belongs in `core.js` and in the `project-map/` globals in `eslint.config.mjs`. It goes stale quietly, so update it in the same commit as the change that affects it:
 
 - **Issues:** opening or closing an issue (including through `Fixes #n`) means editing `D.issues` (`[number, title, theme, severity, estimated, 'MM-DD']`) and `closedCount`. Remove closed issues; don't leave them listed as open.
 - **Code:** adding, removing or renaming a source file, tool, IPC channel, setting or chat event means editing the matching data: `D.areas` (file lists, counts, line numbers), `D.tools`, `D.ipc`, `D.chatEvents`, and the descriptions that name them.
@@ -49,7 +49,7 @@ The project map is a single HTML page whose data lives in the `const D = { … }
 - **Focus and summaries:** the Focus tab and the summary callouts name issue numbers and priorities. Rewrite them when the work they describe is done.
 - **History and sizes:** commit history (`D.commitsByDay`, `D.recent`, `D.types`, `D.authors`, `D.churn`) and line counts drift with every commit. Refresh them when you touch the page anyway, and at least whenever they visibly disagree with `git log` or the source tree. Update the commit named in the footer.
 
-Totals and counts in the page's text are computed from `D` (for example `D.issues.length`). Keep it that way: never type a number into a sentence that the data already holds. After editing, open the page in a browser, click through every tab, and check that none shows "Could not draw this view" and the console has no errors.
+Totals and counts in the page's text are computed from `D` (for example `D.issues.length`). Keep it that way: never type a number into a sentence that the data already holds. After editing, open `project-map/index.html` in a browser, click through every tab, and check that none shows "Could not draw this view" and the console has no errors.
 
 ## Rules
 

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Patch Project Map</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <div class="top">
+        <h1>Patch, mapped</h1>
+        <span class="sub">Snapshot through d419f6c, with protective-rule confirmations (#114), 2026-10-06</span>
+        <span class="sp"></span>
+        <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
+      </div>
+      <nav id="tabs" role="tablist"></nav>
+    </header>
+    <main id="main"></main>
+    <footer>
+      This page reflects git history through d419f6c (2026-10-06). Line counts exclude tests unless they say otherwise;
+      renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from real Vitest runs, with
+      settings confirmation, OpenAI and UI coverage refreshed on Linux; skipped tests included. Issue severities without
+      a severity label are estimates and are marked "est.".
+    </footer>
+
+    <!-- Classic scripts, in order: they share top-level names (D, h, builders, ...) and work from file://. -->
+    <script src="data.js"></script>
+    <script src="core.js"></script>
+    <script src="views/01-overview.js"></script>
+    <script src="views/02-architecture-map.js"></script>
+    <script src="views/03-one-chat-turn.js"></script>
+    <script src="views/04-safety.js"></script>
+    <script src="views/05-code-size.js"></script>
+    <script src="views/06-dependencies-ipc.js"></script>
+    <script src="views/07-health.js"></script>
+    <script src="views/08-issues.js"></script>
+    <script src="views/09-activity.js"></script>
+    <script src="views/10-focus.js"></script>
+    <script src="boot.js"></script>
+  </body>
+</html>

@@ -22,6 +22,31 @@ export default tseslint.config(
     },
   },
   {
+    // The project map is classic browser scripts loaded in order by project-map/index.html (modules do not load from
+    // file://). data.js and core.js define the shared top-level names the views and boot.js use.
+    files: ['project-map/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        $: 'readonly',
+        D: 'readonly',
+        RENDERER_CSS_LINES: 'readonly',
+        procLines: 'readonly',
+        NS: 'readonly',
+        s: 'readonly',
+        h: 'readonly',
+        fmt: 'readonly',
+        procColor: 'readonly',
+        card: 'readonly',
+        bars: 'readonly',
+        TABS: 'readonly',
+        builders: 'readonly',
+        showTab: 'readonly',
+      },
+    },
+  },
+  {
     files: ['scripts/**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
@@ -42,5 +67,10 @@ export default tseslint.config(
       // `_`-prefixed bindings signal deliberate omission (e.g. the destructure-to-drop idiom).
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
+  },
+  {
+    // These define the project map's shared names, which only the other scripts use. After the rule above.
+    files: ['project-map/data.js', 'project-map/core.js'],
+    rules: { 'no-redeclare': 'off', '@typescript-eslint/no-unused-vars': 'off' },
   },
 );
