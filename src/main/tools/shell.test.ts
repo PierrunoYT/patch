@@ -39,6 +39,25 @@ describe('background command cancellation', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it.each(['stdout', 'stderr'] as const)('decodes split UTF-8 on foreground %s', async (stream) => {
+    const script = `process.${stream}.write(Buffer.from([226])); setTimeout(() => process.${stream}.write(Buffer.from([156,147,240,159])), 30); setTimeout(() => process.${stream}.write(Buffer.from([152,128,195])), 60); setTimeout(() => process.${stream}.write(Buffer.from([169])), 90);`;
+    const chunks: string[] = [];
+    const result = await shell.run(`node -e "${script}"`, { onOutput: (text) => chunks.push(text) });
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBe('✓😀é');
+    expect(chunks.join('')).toBe('✓😀é');
+    expect(chunks.every((text) => !text.includes('�'))).toBe(true);
+  });
+
+  it.each(['stdout', 'stderr'] as const)('decodes split UTF-8 on background %s', async (stream) => {
+    const script = `process.${stream}.write(Buffer.from([226])); setTimeout(() => process.${stream}.write(Buffer.from([156,147,240,159])), 30); setTimeout(() => process.${stream}.write(Buffer.from([152,128,195])), 60); setTimeout(() => process.${stream}.write(Buffer.from([169])), 90);`;
+    const entry = shell.startBackground(`node -e "${script}"`);
+    await once(entry.process, 'close');
+    expect(entry.exitCode).toBe(0);
+    expect(entry.output).toBe('✓😀é');
+    expect(entry.unread).toBe('✓😀é');
+  });
+
   it('does not launch a background command with an already-aborted signal', async () => {
     controller.abort();
     await expect(
