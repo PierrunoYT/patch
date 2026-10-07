@@ -96,6 +96,10 @@ describe('applyHunks', () => {
     expect(() => applyHunks('a\n', [hunk(null, '-nope', '+z')], 'f')).toThrow('does not match');
   });
 
+  it('appends an unanchored insertion after earlier hunks', () => {
+    expect(applyHunks('a\nb\nc\n', [hunk(null, '-a', '+A'), hunk(null, '+last')], 'f')).toBe('A\nb\nc\nlast\n');
+  });
+
   it('inserts at the end of the file', () => {
     expect(applyHunks('a\nb\n', [{ anchor: null, atEnd: true, lines: [{ prefix: '+', text: 'c' }] }], 'f')).toBe(
       'a\nb\nc\n',
@@ -127,6 +131,39 @@ describe('apply_patch tool', () => {
     expect(existsSync(join(root, 'src', 'b.ts'))).toBe(false);
     expect(result.content).toContain('Moved src/b.ts to src/c.ts');
     expect(result.summary).toBe('Patched 3 files');
+  });
+
+  it.each(['src/a.ts', './src/a.ts', 'src/../src/a.ts'])(
+    'treats a move to the same resolved path as an update: %s',
+    async (target) => {
+      const text = patch('*** Update File: src/a.ts', `*** Move to: ${target}`, '@@', '-one', '+ONE');
+      const preview = await applyPatchTool.preview!({ patch: text }, context);
+      expect(preview.title).toBe('Updated src/a.ts');
+      expect(preview.diff).toContain('+ONE');
+      const result = await run(text);
+      expect(read('src/a.ts')).toBe('ONE\ntwo\nthree\nfour\n');
+      expect(result.content).toContain('Updated src/a.ts');
+      expect(context.readFiles.has(join(context.workspace.root, 'src', 'a.ts'))).toBe(true);
+    },
+  );
+
+  it('still rejects a second update after a same-path move without writing either', async () => {
+    await expect(
+      run(
+        patch(
+          '*** Update File: src/a.ts',
+          '*** Move to: ./src/a.ts',
+          '@@',
+          '-one',
+          '+ONE',
+          '*** Update File: src/a.ts',
+          '@@',
+          '-two',
+          '+TWO',
+        ),
+      ),
+    ).rejects.toThrow('appears twice');
+    expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
   });
 
   it('deletes a file that was read', async () => {

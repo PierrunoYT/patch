@@ -143,7 +143,7 @@ const D = {
         'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees, metadata write and hard-link denial)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
-        'apply_patch.ts',
+        'apply_patch.ts (same-path moves are updates; unanchored additions append, #183)',
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process)',
         'browser.ts',
@@ -335,7 +335,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
-    { a: 'main/tools', f: 23, c: 419, src: 3984, tl: 5838 },
+    { a: 'main/tools', f: 23, c: 424, src: 3988, tl: 5877 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
     { a: 'main/other', f: 12, c: 174, src: 2917, tl: 2729 },
     { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -517,7 +517,6 @@ const D = {
     [186, 'search_code walks and stats the project twice per call', 'perf', 'low', 0, '10-07'],
     [185, 'Windows path casing duplicates projects, read tracking and indexes', 'other', 'low', 0, '10-07'],
     [184, 'Settings validation gaps (max indexed files 1, base URL, MCP values)', 'other', 'low', 0, '10-07'],
-    [183, 'apply_patch: Move to the same path fails; insert comment says cursor', 'tools', 'low', 0, '10-07'],
     [182, 'Mixed line endings: apply_patch rewrites LF as CRLF; edit_file misses', 'tools', 'low', 0, '10-07'],
     [180, 'Exhausted pause_turn continuations end the turn silently', 'other', 'low', 0, '10-07'],
     [179, 'Malformed tool-call JSON is reported as "required but missing"', 'tools', 'low', 0, '10-07'],
@@ -663,7 +662,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 70,
+  closedCount: 71,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
