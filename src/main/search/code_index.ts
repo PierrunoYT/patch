@@ -118,8 +118,13 @@ export class CodeIndex implements CodeSearch {
 
   // Embedding search, then, with a reranker, a second pass over the best candidates. A failed rerank falls back to
   // the embedding order instead of failing the search; a stop is passed on.
-  async searchDetailed(query: string, limit: number, signal: AbortSignal): Promise<SearchResult> {
-    await this.update(signal);
+  async searchDetailed(
+    query: string,
+    limit: number,
+    signal: AbortSignal,
+    onProgress?: (progress: UpdateProgress) => void,
+  ): Promise<SearchResult> {
+    await this.update(signal, onProgress);
     const [queryVector] = await this.embedder.embed([query], 'query', signal);
     if (!queryVector) throw new Error('The embedding service returned no vector for the query.');
     const q = normalize(Float32Array.from(queryVector));
@@ -320,10 +325,9 @@ export function searchCodeTool(index: CodeIndex): AgentTool {
     requiresApproval: false,
     parallelSafe: true,
     async run({ query, limit = 8 }, context) {
-      await index.update(context.signal, ({ embedded, total }) =>
+      const { hits, rerankFailure } = await index.searchDetailed(query, limit, context.signal, ({ embedded, total }) =>
         context.onProgress(`Indexing project: ${embedded}/${total} chunks\n`),
       );
-      const { hits, rerankFailure } = await index.searchDetailed(query, limit, context.signal);
       const content = hits.map((hit) => `${hit.path}:${hit.startLine}-${hit.endLine}\n${hit.text}`).join('\n\n---\n\n');
       const note = rerankFailure ? `Reranking failed (${rerankFailure}); results are in embedding order.\n\n` : '';
       return {

@@ -68,6 +68,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- Each `search_code` call updates its index once instead of walking and checking every file twice, while retaining indexing progress (#186).
+
 - The project map moved from the single 3,000-line `patch-overview.html` to `project-map/`: `index.html`, `styles.css`, the data in `data.js`, shared helpers in `core.js`, one script per tab in `views/` and `boot.js`. It still opens straight from disk and renders the same. ESLint now checks its scripts.
 - A Windows sandbox command that times out now tells the agent why Node test runs hang there: Node.js programs that start child processes with piped output never finish in the AppContainer on current Node releases (libuv older than 1.53, upstream). The hint names `--test-isolation=none` (`--experimental-test-isolation=none` on Node 22) and the `unsandboxed` request. Patch still never rewrites the command. Default `node --test` stays blocked until Node bundles libuv 1.53 (refs #101).
 - Chat/provider failure text, stacks and context are no longer copied into the local app log, where a provider could echo prompt or file content; the full error remains visible in the chat (#116).
