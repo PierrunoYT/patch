@@ -183,10 +183,10 @@ const D = {
       proc: 'main',
       files: 2,
       tests: 1,
-      lines: 436,
-      testLines: 320,
+      lines: 440,
+      testLines: 347,
       desc: 'Embedding code index for the search_code tool: Voyage voyage-code-4 embeddings and rerank-3 reranking through OpenRouter.',
-      list: ['code_index.ts (single index refresh per search with progress, #186; 407)', 'chunker.ts'],
+      list: ['code_index.ts (single index refresh per search with progress, #186; 411)', 'chunker.ts'],
     },
     {
       id: 'storage',
@@ -337,7 +337,7 @@ const D = {
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
     { a: 'main/tools', f: 23, c: 424, src: 3988, tl: 5877 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
-    { a: 'main/other', f: 12, c: 174, src: 2917, tl: 2729 },
+    { a: 'main/other', f: 12, c: 175, src: 2921, tl: 2756 },
     { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
     { a: 'renderer', f: 4, c: 14, src: 6367, tl: 138 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -399,7 +399,7 @@ const D = {
     [445, 'main/tools/sandbox.ts'],
     [446, 'main/index.ts'],
     [422, 'main/llm/anthropic.ts'],
-    [407, 'main/search/code_index.ts'],
+    [411, 'main/search/code_index.ts'],
     [395, 'renderer/src/views/composer.ts'],
   ],
   docs: [
@@ -514,7 +514,6 @@ const D = {
     [189, 'fetch_url: timeout aborts a slow body read; charset is ignored', 'tools', 'low', 0, '10-07'],
     [188, 'Unbounded waits: revokeProjectGrant, timed-out browser waiters', 'other', 'low', 0, '10-07'],
     [187, 'Background commands stay in memory; their IDs are shared across chats', 'tools', 'low', 0, '10-07'],
-    [186, 'search_code walks and stats the project twice per call', 'perf', 'low', 0, '10-07'],
     [185, 'Windows path casing duplicates projects, read tracking and indexes', 'other', 'low', 0, '10-07'],
     [184, 'Settings validation gaps (max indexed files 1, base URL, MCP values)', 'other', 'low', 0, '10-07'],
     [182, 'Mixed line endings: apply_patch rewrites LF as CRLF; edit_file misses', 'tools', 'low', 0, '10-07'],
@@ -662,7 +661,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 71,
+  closedCount: 72,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
