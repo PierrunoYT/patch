@@ -18,7 +18,15 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildHelperRequest, exceedsEntryLimit, findHelper, HelperProcess, type HelperLimits } from './sandbox_windows';
+import {
+  buildHelperRequest,
+  exceedsEntryLimit,
+  findHelper,
+  HelperProcess,
+  releaseProjectGrant,
+  revokeProjectGrant,
+  type HelperLimits,
+} from './sandbox_windows';
 import { ShellRunner } from './shell';
 import { scrubEnv } from './env';
 
@@ -879,6 +887,78 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     const sandboxed = performance.now() - begun;
     expect(again.exitCode, again.output).toBe(0);
     console.info(`Official Node again: sandboxed ${Math.round(sandboxed)} ms, unsandboxed ${Math.round(host)} ms`);
+  }, 60_000);
+});
+
+describe.skipIf(!helper)('Project write grant (real helper, #103)', () => {
+  let project: string;
+  let runner: ShellRunner;
+  const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
+  // icacls prints a capability SID it cannot name as the raw SID.
+  const capability = /S-1-15-3-1024-/;
+
+  beforeAll(() => {
+    project = mkdtempSync(join(tmpdir(), 'patch-sbx-grant-'));
+    mkdirSync(join(project, '.git', 'hooks'), { recursive: true });
+    mkdirSync(join(project, 'src'));
+    writeFileSync(join(project, 'src', 'existing.txt'), 'old');
+    const env = Object.fromEntries(
+      Object.entries(scrubEnv(process.env)).filter(([name]) => name.toLowerCase() !== 'path'),
+    );
+    runner = new ShellRunner(
+      () => project,
+      () => config,
+      undefined,
+      () => ({ ...env, PATH: project }),
+    );
+  });
+  afterAll(async () => {
+    runner.stopAll();
+    await revokeProjectGrant(project, helper);
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('grants once, changes no permissions on later commands, keeps hooks read-only and is revoked on close', async () => {
+    const existing = join(project, 'src', 'existing.txt');
+    const first = await runner.run(
+      'Set-Content -Path src/existing.txt -Value new; Set-Content -Path made.txt -Value x',
+    );
+    expect(first.exitCode, first.output).toBe(0);
+    expect(readFileSync(existing, 'utf8').trim()).toBe('new');
+    expect(acl(existing)).toMatch(capability);
+
+    // Later commands reuse the grant: nothing in the project is rewritten.
+    const before = [acl(project), acl(existing), acl(join(project, 'made.txt'))];
+    const second = await runner.run('Set-Content -Path src/existing.txt -Value again');
+    expect(second.exitCode, second.output).toBe(0);
+    expect([acl(project), acl(existing), acl(join(project, 'made.txt'))]).toEqual(before);
+
+    const hook = await runner.run('Set-Content -Path .git/hooks/pre-commit -Value pwned');
+    expect(hook.exitCode).not.toBe(0);
+    expect(existsSync(join(project, '.git', 'hooks', 'pre-commit'))).toBe(false);
+    expect(acl(join(project, '.git', 'hooks'))).toMatch(capability);
+
+    // Closing the project removes the grant from the whole tree; the next command grants it again.
+    expect(await revokeProjectGrant(project, helper)).toBeNull();
+    for (const path of [project, existing, join(project, 'made.txt'), join(project, '.git', 'hooks')])
+      expect(acl(path)).not.toMatch(capability);
+    const reopened = await runner.run('Set-Content -Path made.txt -Value again');
+    expect(reopened.exitCode, reopened.output).toBe(0);
+  }, 60_000);
+
+  it('keeps the grant while a command still runs in the project, and releases it once it stops', async () => {
+    const entry = runner.startBackground('Start-Sleep -Seconds 120');
+    try {
+      await expect.poll(() => acl(project), { timeout: 30_000 }).toMatch(capability);
+      expect(await revokeProjectGrant(project, helper)).toMatch(/still run/);
+      expect(acl(project)).toMatch(capability);
+    } finally {
+      const closed = once(entry.process, 'close');
+      runner.stopBackground(entry.id);
+      await closed;
+    }
+    expect(await releaseProjectGrant(project, (path) => revokeProjectGrant(path, helper), 10, 500)).toBe(true);
+    expect(acl(project)).not.toMatch(capability);
   }, 60_000);
 });
 

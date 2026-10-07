@@ -19,6 +19,7 @@ import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
 import { changesToConfirm, projectChangesToConfirm } from './settings_confirm';
 import { McpHub } from './tools/mcp';
+import { releaseProjectGrant } from './tools/sandbox_windows';
 import { Workspace } from './tools/workspace';
 import type { IndexStatus } from '@shared/ipc';
 import { BrowserService } from './panels/browser';
@@ -82,6 +83,13 @@ function createSettings(): SettingsStore {
 }
 
 let quitting = false;
+
+// Closing or removing a project ends its lasting Windows sandbox grant (#103); quitting keeps it for next time.
+function revokeSandboxGrant(project: string): void {
+  void releaseProjectGrant(project).then((released) => {
+    if (!released) appLog.warn('sandbox', 'A closed project kept its sandbox grant.');
+  });
+}
 
 function start(): void {
   appLog.info('app', 'Started.', {
@@ -262,6 +270,7 @@ function start(): void {
   handle('project:close', (path) => {
     manager.requireIdle();
     manager.closeProject(path);
+    revokeSandboxGrant(path);
     projects.close(path);
     manager.projectChanged();
     terminal.stop();
@@ -275,6 +284,7 @@ function start(): void {
   handle('project:remove', (path) => {
     manager.requireIdle();
     manager.closeProject(path);
+    revokeSandboxGrant(path);
     projects.remove(path);
     manager.projectChanged();
     terminal.stop();

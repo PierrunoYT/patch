@@ -41,10 +41,18 @@ pub struct Kill {
     pub kill: bool,
 }
 
+// The user closed or removed the project in Patch: remove its lasting write grant.
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Revoke {
+    pub revoke_project: String,
+}
+
 #[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum Message {
     Kill(Kill),
+    Revoke(Revoke),
     Run(Request),
 }
 
@@ -126,6 +134,20 @@ mod tests {
             parse_message(r#"{"id":2,"kill":true}"#).unwrap(),
             Message::Kill(Kill { id: 2, kill: true })
         );
+    }
+
+    #[test]
+    fn parses_a_revoke_message_and_never_mistakes_a_run_for_one() {
+        assert_eq!(
+            parse_message(r#"{"revokeProject":"C:\\p"}"#).unwrap(),
+            Message::Revoke(Revoke {
+                revoke_project: r"C:\p".into()
+            })
+        );
+        assert!(matches!(
+            parse_message(r#"{"id":1,"command":"a","cwd":"C:\\p"}"#).unwrap(),
+            Message::Run(_)
+        ));
     }
 
     #[test]

@@ -9,6 +9,7 @@ import {
   helperCandidates,
   HelperProcess,
   parseHelperEvent,
+  releaseProjectGrant,
   windowsPolicy,
   type HelperRequest,
 } from './sandbox_windows';
@@ -155,6 +156,27 @@ describe('windowsPolicy', () => {
       exists: () => true,
     });
     expect(policy.readOnly.filter((path) => path.toLowerCase().startsWith('d:\\tools'))).toHaveLength(1);
+  });
+});
+
+describe('releaseProjectGrant (#103)', () => {
+  it('retries while a closing project still has a running command, then reports success', async () => {
+    const answers = ['sandboxed commands still run in this project; its grant is kept', null];
+    const calls: string[] = [];
+    const released = await releaseProjectGrant(
+      cwd,
+      async (project) => (calls.push(project), answers.shift() ?? null),
+      5,
+      0,
+    );
+    expect(released).toBe(true);
+    expect(calls).toEqual([cwd, cwd]);
+  });
+
+  it('gives up after its attempts and says the grant was kept', async () => {
+    let calls = 0;
+    expect(await releaseProjectGrant(cwd, async () => (calls++, 'refused'), 3, 0)).toBe(false);
+    expect(calls).toBe(3);
   });
 });
 

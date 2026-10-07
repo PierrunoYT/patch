@@ -1,8 +1,9 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { existsSync, readdirSync, type Dirent } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, type Dirent } from 'node:fs';
 import { PassThrough } from 'node:stream';
 import { join, win32 } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 // The Windows sandbox: sandbox-helper.exe (native/sandbox-helper) starts the command in an AppContainer. The planning
 // code here is pure so it can be tested on any platform; the protocol client can be pointed at any script that speaks
@@ -242,6 +243,49 @@ export function findHelper(): string | null {
       existsSync(path),
     ) ?? null
   );
+}
+
+// The helper grants each project's sandbox write access once, to a capability derived from the project path, and
+// keeps it across commands (#103). This removes it when the user closes or removes the project; quitting keeps it.
+// Resolves to the helper's error, or null. The helper refuses while a sandboxed command still runs in the project.
+export function revokeProjectGrant(project: string, helper: string | null = findHelper()): Promise<string | null> {
+  if (!helper || process.platform !== 'win32') return Promise.resolve(null);
+  let cwd = project;
+  try {
+    // The same spelling ShellRunner sends as the command's cwd, which names the capability.
+    cwd = realpathSync.native(project);
+  } catch {
+    // A deleted project has nothing left to revoke on disk; the helper still drops its record.
+  }
+  return new Promise((resolve) => {
+    const child = spawn(helper, [], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    let output = '';
+    child.stdout?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => (output += chunk));
+    child.on('error', (error) => resolve(error.message));
+    child.on('close', () => {
+      for (const event of output.split('\n').map(parseHelperEvent))
+        if (event?.type === 'error') return resolve(event.message);
+      resolve(null);
+    });
+    child.stdin?.on('error', () => {});
+    child.stdin?.end(`${JSON.stringify({ revokeProject: cwd })}\n`);
+  });
+}
+
+// Closing a project stops its commands first, but their helpers can still be finishing their cleanup, and a grant a
+// live run uses is kept, so the revoke is retried briefly. Resolves to whether the grant is gone.
+export async function releaseProjectGrant(
+  project: string,
+  revoke: (project: string) => Promise<string | null> = revokeProjectGrant,
+  attempts = 5,
+  waitMs = 2000,
+): Promise<boolean> {
+  for (let attempt = 1; ; attempt++) {
+    if ((await revoke(project)) === null) return true;
+    if (attempt >= attempts) return false;
+    await delay(waitMs);
+  }
 }
 
 const FORCE_KILL_MS = 3000;

@@ -233,6 +233,14 @@ pub fn serve() {
                     jobs.lock().unwrap().remove(&id);
                 }));
             }
+            Ok(Message::Revoke(revoke)) => {
+                if let Err(message) = revoke_project(&revoke.revoke_project) {
+                    emitter.send(&Event::Error {
+                        id: None,
+                        message: &message,
+                    });
+                }
+            }
             Ok(Message::Kill(kill)) => {
                 if kill.kill {
                     kill_job(&jobs, Some(kill.id));
@@ -313,29 +321,8 @@ fn edit_acl(path: &str, sid: PSID, access: u32, change: Change) -> Result<()> {
             ));
         }
         let _descriptor = LocalMem(descriptor.0);
-        if change == Change::Revoke {
-            let mut present = false;
-            if !old_dacl.is_null() {
-                for index in 0..(*old_dacl).AceCount as u32 {
-                    let mut ace = std::ptr::null_mut();
-                    GetAce(old_dacl, index, &mut ace).map_err(|e| describe("GetAce", e))?;
-                    // Our grants use ordinary ACCESS_ALLOWED_ACE (type 0), never object/callback ACEs.
-                    let allowed = ace as *const ACCESS_ALLOWED_ACE;
-                    if (*allowed).Header.AceType == 0
-                        && EqualSid(
-                            PSID(std::ptr::addr_of!((*allowed).SidStart) as *mut c_void),
-                            sid,
-                        )
-                        .is_ok()
-                    {
-                        present = true;
-                        break;
-                    }
-                }
-            }
-            if !present {
-                return Ok(());
-            }
+        if change == Change::Revoke && !acl_allows(old_dacl, sid)? {
+            return Ok(());
         }
         let entry = EXPLICIT_ACCESS_W {
             grfAccessPermissions: if change == Change::Revoke { 0 } else { access },
@@ -383,7 +370,9 @@ fn edit_acl(path: &str, sid: PSID, access: u32, change: Change) -> Result<()> {
     Ok(())
 }
 
-fn set_acl_protected(path: &str, protected: bool) -> Result<()> {
+// Stops the path inheriting from its parent, keeping today's entries as explicit copies except any for `strip`: the
+// project capability's write grant, which would otherwise be copied in and make protected Git metadata writable.
+fn protect_acl(path: &str, strip: PSID) -> Result<()> {
     let wpath = wide(path);
     unsafe {
         let mut dacl: *mut ACL = std::ptr::null_mut();
@@ -405,18 +394,18 @@ fn set_acl_protected(path: &str, protected: bool) -> Result<()> {
             ));
         }
         let _descriptor = LocalMem(descriptor.0);
-        let protection = if protected {
-            PROTECTED_DACL_SECURITY_INFORMATION
+        let stripped = if dacl.is_null() {
+            None
         } else {
-            UNPROTECTED_DACL_SECURITY_INFORMATION
+            Some(acl_without(dacl, strip)?)
         };
         let status = SetNamedSecurityInfoW(
             PCWSTR(wpath.as_ptr()),
             SE_FILE_OBJECT,
-            DACL_SECURITY_INFORMATION | protection,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
             None,
             None,
-            Some(dacl),
+            stripped.as_ref().map(|acl| acl.as_ptr() as *const ACL),
             None,
         );
         if status != ERROR_SUCCESS {
@@ -700,6 +689,220 @@ fn remove_stale_cache_entries(cache: &Path, key: &str, in_use: &[String], now: S
         {
             let _ = fs::remove_dir_all(entry.path());
         }
+    }
+}
+
+// A SID copied out of a Windows allocation, so it can be kept and freed like any value.
+struct OwnedSid(Vec<u32>);
+
+impl OwnedSid {
+    fn psid(&self) -> PSID {
+        PSID(self.0.as_ptr() as *mut c_void)
+    }
+}
+
+// One project's write grant goes to a capability derived from its path, not to each run's own AppContainer SID, so
+// it is propagated through the project once instead of on every command (#103). Every sandboxed command for the
+// project carries the capability; commands for other projects carry their own. Windows derives the SID from the name
+// with SHA-256, so no folder name can be chosen to collide with another project's capability.
+fn project_capability(cwd: &str) -> Result<OwnedSid> {
+    let name = wide(&format!("patch.project.{}", cwd.to_lowercase()));
+    let (mut groups, mut group_count) = (std::ptr::null_mut::<PSID>(), 0u32);
+    let (mut sids, mut sid_count) = (std::ptr::null_mut::<PSID>(), 0u32);
+    unsafe {
+        DeriveCapabilitySidsFromName(
+            PCWSTR(name.as_ptr()),
+            &mut groups,
+            &mut group_count,
+            &mut sids,
+            &mut sid_count,
+        )
+    }
+    .map_err(|e| describe("derive the project capability", e))?;
+    let copied = if sid_count == 0 {
+        Err("no project capability was derived".to_string())
+    } else {
+        unsafe {
+            let sid = *sids;
+            let length = GetLengthSid(sid);
+            let mut buffer = vec![0u32; (length as usize).div_ceil(4)];
+            CopySid(length, PSID(buffer.as_mut_ptr() as *mut c_void), sid)
+                .map(|_| OwnedSid(buffer))
+                .map_err(|e| describe("copy the project capability", e))
+        }
+    };
+    for (array, count) in [(groups, group_count), (sids, sid_count)] {
+        if array.is_null() {
+            continue;
+        }
+        unsafe {
+            for index in 0..count as usize {
+                LocalFree(Some(HLOCAL((*array.add(index)).0)));
+            }
+            LocalFree(Some(HLOCAL(array as *mut c_void)));
+        }
+    }
+    copied
+}
+
+// Whether the DACL has an ordinary allow entry (inherited or explicit) for this SID.
+unsafe fn acl_allows(dacl: *const ACL, sid: PSID) -> Result<bool> {
+    if dacl.is_null() {
+        return Ok(false);
+    }
+    for index in 0..(*dacl).AceCount as u32 {
+        let mut ace = std::ptr::null_mut();
+        GetAce(dacl, index, &mut ace).map_err(|e| describe("GetAce", e))?;
+        // Our grants use ordinary ACCESS_ALLOWED_ACE (type 0), never object/callback ACEs.
+        let allowed = ace as *const ACCESS_ALLOWED_ACE;
+        if (*allowed).Header.AceType == 0
+            && EqualSid(
+                PSID(std::ptr::addr_of!((*allowed).SidStart) as *mut c_void),
+                sid,
+            )
+            .is_ok()
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn path_allows(path: &str, sid: PSID) -> Result<bool> {
+    let wpath = wide(path);
+    unsafe {
+        let mut dacl: *mut ACL = std::ptr::null_mut();
+        let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        let status = GetNamedSecurityInfoW(
+            PCWSTR(wpath.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(&mut dacl),
+            None,
+            &mut descriptor,
+        );
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot read the permissions of {path} (error {})",
+                status.0
+            ));
+        }
+        let _descriptor = LocalMem(descriptor.0);
+        acl_allows(dacl, sid)
+    }
+}
+
+// A copy of the DACL without allow or deny entries for this SID, inherited ones included.
+unsafe fn acl_without(dacl: *const ACL, sid: PSID) -> Result<Vec<u32>> {
+    let mut info = ACL_SIZE_INFORMATION::default();
+    GetAclInformation(
+        dacl,
+        &mut info as *mut _ as *mut c_void,
+        std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+        AclSizeInformation,
+    )
+    .map_err(|e| describe("GetAclInformation", e))?;
+    // Removing entries only shrinks the list, so the original size is enough. ACLs need 4-byte alignment.
+    let mut buffer = vec![0u32; (info.AclBytesInUse as usize).div_ceil(4)];
+    let acl = buffer.as_mut_ptr() as *mut ACL;
+    let revision = ACE_REVISION((*dacl).AclRevision as u32);
+    InitializeAcl(acl, (buffer.len() * 4) as u32, revision)
+        .map_err(|e| describe("InitializeAcl", e))?;
+    for index in 0..(*dacl).AceCount as u32 {
+        let mut ace = std::ptr::null_mut();
+        GetAce(dacl, index, &mut ace).map_err(|e| describe("GetAce", e))?;
+        let header = ace as *const ACE_HEADER;
+        // Allow (0) and deny (1) entries share the layout with the SID at SidStart.
+        if matches!((*header).AceType, 0 | 1)
+            && EqualSid(
+                PSID(
+                    std::ptr::addr_of!((*(ace as *const ACCESS_ALLOWED_ACE)).SidStart)
+                        as *mut c_void,
+                ),
+                sid,
+            )
+            .is_ok()
+        {
+            continue;
+        }
+        AddAce(acl, revision, u32::MAX, ace, (*header).AceSize as u32)
+            .map_err(|e| describe("AddAce", e))?;
+    }
+    Ok(buffer)
+}
+
+#[derive(Serialize, Deserialize)]
+struct ProjectGrant {
+    path: String,
+    complete: bool,
+}
+
+fn project_grant_marker(cwd: &str) -> Result<PathBuf> {
+    Ok(recovery_dir()?
+        .parent()
+        .ok_or("missing recovery parent")?
+        .join("sandbox-projects")
+        .join(format!("{:016x}.json", fnv1a(&cwd.to_lowercase()))))
+}
+
+fn write_project_grant(marker: &Path, cwd: &str, complete: bool) -> Result<()> {
+    let mut file = File::create(marker).map_err(|e| format!("cannot record project grant: {e}"))?;
+    serde_json::to_writer(
+        &mut file,
+        &ProjectGrant {
+            path: cwd.to_string(),
+            complete,
+        },
+    )
+    .map_err(|e| format!("cannot record project grant: {e}"))?;
+    file.sync_all()
+        .map_err(|e| format!("cannot flush project grant: {e}"))
+}
+
+// Grants the project capability write access through the project once. The marker is flushed as incomplete before
+// propagation starts and as complete after it ends, so a helper killed half-way leaves a marker the next run sees as
+// unfinished and repeats (granting twice is harmless). Called under PermissionLock.
+fn ensure_project_grant(cwd: &str, capability: PSID) -> Result<()> {
+    let marker = project_grant_marker(cwd)?;
+    let recorded = fs::read(&marker)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<ProjectGrant>(&bytes).ok())
+        .is_some_and(|grant| grant.complete && grant.path.eq_ignore_ascii_case(cwd));
+    // The root check notices permissions reset by the user since the grant.
+    if recorded && path_allows(cwd, capability)? {
+        return Ok(());
+    }
+    fs::create_dir_all(marker.parent().ok_or("missing project grant folder")?)
+        .map_err(|e| format!("cannot create project grant folder: {e}"))?;
+    write_project_grant(&marker, cwd, false)?;
+    edit_acl(cwd, capability, FILE_MODIFY, Change::Grant)?;
+    write_project_grant(&marker, cwd, true)
+}
+
+// Removes the project's lasting grant when the user closes or removes the project in Patch. Startup recovery has
+// already ended abandoned runs, so a remaining record is a live command: the grant is kept for it and the next
+// close retries. Revoking an ungranted project changes nothing.
+fn revoke_project(cwd: &str) -> Result<()> {
+    let _lock = PermissionLock::acquire()?;
+    let live = recovery_records()?.iter().any(|record| {
+        record
+            .project_drive
+            .as_ref()
+            .is_some_and(|drive| drive.target.eq_ignore_ascii_case(cwd))
+    });
+    if live {
+        return Err("sandboxed commands still run in this project; its grant is kept".into());
+    }
+    if Path::new(cwd).is_dir() {
+        edit_acl(cwd, project_capability(cwd)?.psid(), 0, Change::Revoke)?;
+    }
+    match fs::remove_file(project_grant_marker(cwd)?) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+            Err(format!("cannot remove project grant record: {error}"))
+        }
+        _ => Ok(()),
     }
 }
 
@@ -1393,11 +1596,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     }
     let mut record = RecoveryRecord {
         name: profile.clone(),
+        // The project itself is granted to its capability, which outlives the run (#103).
         granted: request
             .read_only
             .iter()
             .chain(&request.read_write)
-            .filter(|path| Path::new(path).exists())
+            .filter(|path| Path::new(path).exists() && !path.eq_ignore_ascii_case(&request.cwd))
             .cloned()
             .collect(),
         protected: request
@@ -1492,16 +1696,20 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 
     // Package-SID deny ACEs do not override the restricted token's inherited project grant.
     // Stop that grant from inheriting into sensitive paths instead, then restore inheritance on cleanup.
+    let capability = project_capability(&request.cwd)?;
     for path in &cleanup.record.protected {
-        set_acl_protected(&path.path, true)?;
+        protect_acl(&path.path, capability.psid())?;
     }
+    // After protection, so the one-time propagation never enters protected metadata.
+    ensure_project_grant(&request.cwd, capability.psid())?;
 
     for (paths, access, required) in [
         (&request.read_only, FILE_READ_EXECUTE, false),
         (&request.read_write, FILE_MODIFY, true),
     ] {
         for path in paths {
-            if !Path::new(path).exists() {
+            // The project's own write grant belongs to its capability (above), not to this run.
+            if !Path::new(path).exists() || path.eq_ignore_ascii_case(&request.cwd) {
                 continue;
             }
             if let Err(message) = edit_acl(path, sid, access, Change::Grant) {
@@ -1589,7 +1797,10 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         mappings.push((plan.source.clone(), format!("{prefix}{}", plan.key)));
     }
     let mut capability_sid = PSID::default();
-    let mut capabilities = Vec::new();
+    let mut capabilities = vec![SID_AND_ATTRIBUTES {
+        Sid: capability.psid(),
+        Attributes: SE_GROUP_ENABLED,
+    }];
     if request.network {
         // internetClient: outgoing connections only.
         unsafe { ConvertStringSidToSidW(windows::core::w!("S-1-15-3-1"), &mut capability_sid) }
@@ -1924,6 +2135,55 @@ mod tests {
             mapped_path(r"C:\Windows\System32", &mappings),
             r"C:\Windows\System32"
         );
+    }
+
+    fn sid_text(sid: PSID) -> String {
+        let mut text = PWSTR::null();
+        unsafe {
+            ConvertSidToStringSidW(sid, &mut text).unwrap();
+            let _text = LocalMem(text.0 as *mut c_void);
+            text.to_string().unwrap()
+        }
+    }
+
+    #[test]
+    fn project_capabilities_are_stable_per_project_and_distinct_between_projects() {
+        let project = project_capability(r"C:\Users\ada\project").unwrap();
+        assert!(sid_text(project.psid()).starts_with("S-1-15-3-1024-"));
+        assert_eq!(
+            sid_text(project_capability(r"c:\users\ADA\Project").unwrap().psid()),
+            sid_text(project.psid())
+        );
+        assert_ne!(
+            sid_text(project_capability(r"C:\Users\ada\project2").unwrap().psid()),
+            sid_text(project.psid())
+        );
+    }
+
+    #[test]
+    fn protection_strips_only_the_project_capability_and_revoke_removes_the_grant() {
+        let root = std::env::temp_dir().join(profile_name());
+        let git = root.join(".git");
+        fs::create_dir_all(git.join("hooks")).unwrap();
+        let cwd = root.to_str().unwrap();
+        let capability = project_capability(cwd).unwrap();
+        ensure_project_grant(cwd, capability.psid()).unwrap();
+        let hooks = git.join("hooks");
+        assert!(path_allows(hooks.to_str().unwrap(), capability.psid()).unwrap());
+        // A second run finds the finished grant and changes nothing.
+        ensure_project_grant(cwd, capability.psid()).unwrap();
+
+        protect_acl(git.to_str().unwrap(), capability.psid()).unwrap();
+        assert!(!path_allows(git.to_str().unwrap(), capability.psid()).unwrap());
+        assert!(!path_allows(hooks.to_str().unwrap(), capability.psid()).unwrap());
+        assert!(path_allows(cwd, capability.psid()).unwrap());
+        // Everything else was kept: the user can still write inside the protected folder.
+        fs::write(hooks.join("pre-commit"), "user").unwrap();
+
+        revoke_project(cwd).unwrap();
+        assert!(!path_allows(cwd, capability.psid()).unwrap());
+        assert!(!project_grant_marker(cwd).unwrap().exists());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

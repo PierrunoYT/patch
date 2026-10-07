@@ -459,3 +459,33 @@ About 23% fewer cache writes and 14% lower cost per delegated question, as the s
 - "Solved" with plan mode on requires the plan; every run solved the task itself (the hidden tests pass).
 - The tasks are small, and the tool description says a one-step change needs no plan, so the model is right to hesitate on `add-feature`. Larger multi-step tasks are not covered. Three runs per task: read the numbers as a direction.
 - Runs of 150–200 s on both builds come from the sandbox, not plan mode: inside the Windows AppContainer, `npm test` exited with code 1 and `node --test` timed out in every run that tried them, and the model retried variations ([#101](https://github.com/PierrunoYT/patch/issues/101)).
+
+## Windows sandbox in a large project (#103, 2026-10-07)
+
+**Question:** how much does the Windows AppContainer sandbox add to one command in a project with many files, such as one with a large `node_modules`?
+
+**Answer:** it added about 23 seconds per command at 100,000 files, because each command granted its own AppContainer SID write access through the whole project and revoked it afterwards. Windows rewrites the security descriptor of every file and folder for both changes. Now the project's write grant goes to a capability derived from the project path, propagated once and kept until the project is closed in Patch, and a command adds about 0.07 s.
+
+### How it is measured
+
+`npm run perf` runs `tests/perf/windows_sandbox.perf.ts` on Windows when the helper is built (`npm run build:sandbox`); elsewhere it is skipped.
+
+- A fixture project with `PATCH_PERF_FILES` files (default 100,000) in 1,000 folders under `node_modules`, and an empty `.git`.
+- `Write-Output hi` through `ShellRunner`, five times with the sandbox off and five times in Automatic mode, PATH limited to the Windows system folders so no toolchain preparation is timed. Medians are reported.
+
+### Results
+
+Windows 11, the development machine used above, 100,000 files:
+
+| Build                 | Unsandboxed | Sandboxed (median) | Added per command |
+| --------------------- | ----------- | ------------------ | ----------------- |
+| Before (`3b64815`)    | 186 ms      | 23,409 ms          | 23.2 s            |
+| After (project grant) | 180 ms      | 251 ms             | 0.07 s            |
+
+- **The first command in a project pays the grant once:** 12.0 s in the run above. Later commands, and later app sessions until the project is closed in Patch, skip it.
+- **Closing or removing the project** revokes the grant, which walks the tree once more, in a background helper process. The window does not wait for it.
+
+### What still scales with the project
+
+- **`.git`:** each command still stops `.git` inheriting the project grant, grants its own SID read access there and undoes both when it ends. That walks the `.git` tree a few times per command. In a packed repository that is a few hundred entries, but many loose objects make it slower. Not measured here: the fixture's `.git` is empty.
+- **Files moved in from elsewhere:** a file moved into the project from another folder keeps its old permissions, so it lacks the inherited grant until the project is closed and opened again. Files created or copied in the project inherit it normally.
