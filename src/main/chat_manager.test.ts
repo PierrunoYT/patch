@@ -87,6 +87,39 @@ describe('project chat retention', () => {
     manager.projectChanged();
   }
 
+  it.each(['https://gateway.example/v1', '   https://gateway.example/v1   ', ''])(
+    'selects the finder model for the configured Anthropic endpoint: %s',
+    async (anthropicBaseUrl) => {
+      settings.update({ model: 'claude-custom', anthropicBaseUrl });
+      const parent = vi.mocked(llm.createConversation).getMockImplementation()!();
+      const finder = { ...parent, runTurn: vi.fn(parent.runTurn) };
+      const done = await parent.runTurn({} as never);
+      parent.runTurn = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ...done,
+          toolCalls: [{ id: 'find', name: 'finder', input: { query: 'find auth code' } }],
+          stopReason: 'tool_use',
+        })
+        .mockResolvedValue(done);
+      vi.mocked(llm.createConversation).mockReset().mockReturnValueOnce(parent).mockReturnValue(finder);
+      vi.mocked(llm.restoreConversation).mockReturnValue(finder);
+      open('alpha');
+      await manager.send({ text: 'Find the auth code' });
+      expect(finder.runTurn).toHaveBeenCalledOnce();
+      if (anthropicBaseUrl.trim()) {
+        expect(llm.createConversation).toHaveBeenCalledTimes(1);
+        expect(llm.restoreConversation).toHaveBeenCalledWith(
+          { provider: 'anthropic', model: 'test', messages: [] },
+          expect.any(String),
+        );
+      } else {
+        expect(llm.createConversation).toHaveBeenNthCalledWith(2, 'claude-haiku-4-5', expect.any(String));
+        expect(llm.restoreConversation).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('has nothing to compact before a chat exists, and reports when a short chat needs no compaction', async () => {
     open('alpha');
     expect(() => manager.compact()).toThrow(/no chat to compact/);

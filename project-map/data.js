@@ -60,7 +60,7 @@ const D = {
       testLines: 2328,
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
-        'chat_manager.ts (478)',
+        'chat_manager.ts (finder preserves the chat model on custom Anthropic endpoints, #203)',
         'index.ts (446, IPC handlers, untested)',
         'exec_search.ts (37, bare program names never resolve in the project, #141)',
         'settings.ts (451)',
