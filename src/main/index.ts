@@ -27,6 +27,11 @@ import { suggestCommitMessage } from './panels/commit_message';
 import { GitService } from './panels/git';
 import { TerminalService } from './panels/terminal';
 import { createMainWindow } from './window';
+import { hardenExecutableSearch } from './exec_search';
+
+// Before anything is spawned: bare program names (git, powershell.exe, docker) must never resolve to a file in the
+// project folder (#141).
+const droppedPathEntries = hardenExecutableSearch();
 
 // Files offered for @-mentions in the composer; a larger project lists the first ones, breadth first.
 const MAX_MENTION_FILES = 20_000;
@@ -46,6 +51,9 @@ appLog.setFile(join(logsPath, 'app.log.jsonl'));
 // minidump before the process exits; a later launch records it in the ordinary log. Reports never leave the machine.
 crashReporter.start({ productName: 'Patch', uploadToServer: false });
 logNativeCrashDumps(appLog, app.getPath('crashDumps'), join(logsPath, 'native-crashes.json'));
+if (droppedPathEntries > 0) {
+  appLog.warn('exec', 'Ignored PATH entries that depend on the working directory.', { count: droppedPathEntries });
+}
 process.on('uncaughtException', (error) => {
   appLog.error('uncaught-exception', error);
   // A listener replaces Electron's own error dialog, so keep telling the user.

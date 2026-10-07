@@ -3,17 +3,16 @@
 builders.focus = () => {
   const items = [
     [
-      'Fix the Oct 7 audit findings that reach code outside the sandbox: #141 to #145',
-      'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. #141 (a git.exe planted in the project runs when the project opens and before every Windows sandboxed command) is critical and was reproduced on Windows.',
+      'Fix the Oct 7 audit findings that reach code outside the sandbox: #142 to #145',
+      'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test.',
       [
-        '#141: set NoDefaultCurrentDirectoryInExePath and spawn git, PowerShell and docker by absolute path',
         '#142: MCP stdio servers start in the project folder, so npx.cmd or node_modules/.bin there replaces the configured command',
         '#143: the protected-path guard is case-sensitive and misses 8.3 names, so Auto mode writes .GIT/config without asking (reproduced)',
         '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
         '#145: opening the home folder as a project makes all of it writable to sandboxed commands',
         '#146 to #148 (medium): main-process network tools in Auto mode, macOS Unix sockets, the browser tool’s cookie session',
       ],
-      'Fix #141 first: it needs no agent at all, only opening a repository on Windows. Each fix needs a regression test that plants the file or link it guards against.',
+      'Fix #142 next: it is the same planted-program problem through cross-spawn, which searches the working directory itself. Each fix needs a regression test that plants the file or link it guards against.',
     ],
     [
       'Fix the high-severity bugs from the Oct 7 code review: #159 to #163',
