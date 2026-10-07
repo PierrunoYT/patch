@@ -82,11 +82,11 @@ const D = {
       proc: 'main',
       files: 10,
       tests: 11,
-      lines: 1593,
-      testLines: 3348,
+      lines: 1609,
+      testLines: 3366,
       desc: 'The agent loop: turns, retries, permissions, allow-lists, system prompt, project map, session (approvals, events, prompt-cache keep-alive).',
       list: [
-        'agent.ts (514)',
+        'agent.ts (530; malformed JSON rejected before dropped-field checks, #179)',
         'session.ts (490)',
         'permissions.ts',
         'allowed_commands.ts',
@@ -333,7 +333,7 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
+    { a: 'main/agent', f: 11, c: 213, src: 1609, tl: 3366 },
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
     { a: 'main/tools', f: 23, c: 428, src: 3986, tl: 5896 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
@@ -390,7 +390,7 @@ const D = {
     [742, 'renderer/src/views/dialogs.ts'],
     [648, 'renderer/src/views/panels.ts'],
     [572, 'renderer/src/views/transcript.ts'],
-    [514, 'main/agent/agent.ts'],
+    [530, 'main/agent/agent.ts'],
     [490, 'main/agent/session.ts'],
     [478, 'main/chat_manager.ts'],
     [477, 'main/llm/codex_auth.ts'],
@@ -518,7 +518,6 @@ const D = {
     [184, 'Settings validation gaps (max indexed files 1, base URL, MCP values)', 'other', 'low', 0, '10-07'],
     [182, 'Mixed line endings: apply_patch rewrites LF as CRLF; edit_file misses', 'tools', 'low', 0, '10-07'],
     [180, 'Exhausted pause_turn continuations end the turn silently', 'other', 'low', 0, '10-07'],
-    [179, 'Malformed tool-call JSON is reported as "required but missing"', 'tools', 'low', 0, '10-07'],
     [178, 'Permission delegates fail on Windows for .cmd/.bat and take no arguments', 'security', 'medium', 0, '10-07'],
     [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
@@ -660,7 +659,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 73,
+  closedCount: 74,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

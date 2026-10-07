@@ -284,6 +284,24 @@ describe('Agent: dropped-field reporting', () => {
     },
   });
 
+  it('reports malformed JSON without claiming fields were dropped or running the tool', async () => {
+    const reported: DroppedFieldError[] = [];
+    const run = vi.fn(edit.run);
+    const raw = '{"path":"src/a.ts",';
+    const { agent, conversation } = setup(
+      [{ toolCalls: [call('bad-json', 'edit_file', { __invalidJson: raw })] }, { text: 'done' }],
+      { tools: [{ ...edit, run }], onDroppedFields: (error) => reported.push(error) },
+    );
+    await agent.send({ text: 'go' }, new AbortController().signal);
+    expect(conversation.results[0]![0]).toMatchObject({
+      id: 'bad-json',
+      isError: true,
+      content: 'Invalid JSON arguments for edit_file. Send a valid JSON object and try again.',
+    });
+    expect(run).not.toHaveBeenCalled();
+    expect(reported).toEqual([]);
+  });
+
   it('reports the tool, the model and the field names, never the values', async () => {
     const reported: DroppedFieldError[] = [];
     const { agent } = setup(
