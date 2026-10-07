@@ -22,7 +22,7 @@ builders.focus = () => {
         '#160: opening a chat or clicking the active project tab kills the terminal shell and clears the commit message',
         '#161: a chat that cannot be restored still switches the main process to its project, so the next message runs where the UI is not',
         '#162, #163: the Windows sandbox leaks a helper process per failed start, and one unreadable PATH folder stops every later start',
-        '#164 to #178 (medium), #179 to #196 (low) and #197 to #206 (improvements): output decoding, orphaned processes, MCP reconnects, stale ignore rules, the code index, settings recovery and more',
+        '#165 to #178 (medium), #180 to #196 (low) and #197 to #206 (improvements): orphaned processes, MCP reconnects, stale ignore rules, settings recovery and more. Already fixed: #164 (output decoding), #179, #181, #183, #186 (the code index) and #203',
       ],
       'The recurring causes: side effects on every change event without comparing old and new state, state changed before validation, and error paths that do less cleanup than success paths.',
     ],

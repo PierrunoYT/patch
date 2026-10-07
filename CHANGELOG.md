@@ -8,14 +8,6 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
-### Fixed
-
-- `read_file` counts newline-terminated files correctly, keeps real blank lines, and reports offsets past the end instead of returning a silent empty result (#181).
-- `apply_patch` accepts a move back to the same resolved path as an update, while still rejecting a second block for that file (#183).
-- Command output preserves UTF-8 characters split across pipe chunks, for both stdout and stderr in foreground and background commands (#164).
-- Malformed model tool-call JSON is reported as invalid JSON before schema validation, without recording a misleading dropped-field event or executing the tool (#179).
-- Finder keeps the chat model when using a custom Anthropic endpoint, rather than requesting a Haiku model that the gateway may not provide (#203).
-
 ### Test maintenance
 
 - Windows sandbox approval end-to-end tests use an isolated project PATH for their PowerShell built-in commands, avoiding unrelated runner toolchain preparation. Unfinished chats are stopped after each test so a timeout does not cascade into later approval checks.
@@ -106,6 +98,11 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- `read_file` counts newline-terminated files correctly, keeps real blank lines, and reports offsets past the end instead of returning a silent empty result (#181).
+- `apply_patch` accepts a move back to the same resolved path as an update, while still rejecting a second block for that file (#183).
+- Command output preserves UTF-8 characters split across pipe chunks, for both stdout and stderr in foreground and background commands (#164).
+- Malformed model tool-call JSON is reported as invalid JSON before schema validation, without recording a misleading dropped-field event or executing the tool (#179).
+- Finder keeps the chat model when using a custom Anthropic endpoint, rather than requesting a Haiku model that the gateway may not provide (#203).
 - Windows sandboxed commands no longer rewrite the permissions of every file in the project. Each command used to grant its own AppContainer write access through the whole project and revoke it afterwards, about 23 s per command in a project with 100,000 files. The write grant now goes to a per-project capability, propagated once (12 s at that size) and kept until the project is closed or removed in Patch; later commands add about 0.07 s. `.git` stays read-only, a helper killed during the grant leaves it to be repeated, and closing the project waits for running commands before revoking. Measured by the new `tests/perf/windows_sandbox.perf.ts` and recorded in `docs/PERFORMANCE.md` ([#103](https://github.com/PierrunoYT/patch/issues/103)).
 - The Windows sandbox no longer copies a protected toolchain such as the official Node.js install for every command. The read-only copy is now made once per installed version and kept in `%LOCALAPPDATA%\Patch\sandbox-toolchains\cache`, and a command that finds it skips the per-file security inspection too: a repeat `node --version` takes about 0.3 s sandboxed instead of about 4 s (14 s when the issue was filed). Changing any file in the install (an upgrade) makes a new copy; older copies of that install and copies unused for 30 days are removed when a new copy is cached, never while a live run lists them ([#108](https://github.com/PierrunoYT/patch/issues/108)).
 - Overlapping Windows sandbox commands can no longer make `.git/hooks` writable. A command that starts while another one has already protected `.git` copies the original inheritance snapshot from that run's recovery record, so finishing, killing or recovering the first run no longer restores inheritance under the second; only the last run restores it. The real-helper test now also keeps trying to write `.git/hooks/pre-commit` from the second command throughout ([#100](https://github.com/PierrunoYT/patch/issues/100)).
