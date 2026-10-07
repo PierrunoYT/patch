@@ -480,8 +480,9 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   let tools: string;
   let env: NodeJS.ProcessEnv;
   let shell: ShellRunner;
-  // Copies of protected installs persist here across commands (#108).
-  const stageRoot = join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-toolchains');
+  // Copies of protected installs persist here across commands (#108). The describe body is evaluated on every
+  // platform even when the suite is skipped, and only Windows has LOCALAPPDATA.
+  const stageRoot = join(process.env.LOCALAPPDATA ?? '', 'Patch', 'sandbox-toolchains');
   const cacheRoot = join(stageRoot, 'cache');
   const cacheEntries = () => (existsSync(cacheRoot) ? readdirSync(cacheRoot) : []);
   let cachedBefore: string[];
