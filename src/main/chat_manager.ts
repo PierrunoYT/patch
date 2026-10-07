@@ -300,7 +300,9 @@ export class ChatManager {
       createFinderConversation: () => {
         const settings = this.deps.settings.get();
         const effort = effortForSubagent('finder', settings.effort, settings.subagentEffort);
-        return customOpenAIChat()
+        const customEndpoint =
+          customOpenAIChat() || (conversation.provider === 'anthropic' && Boolean(settings.anthropicBaseUrl.trim()));
+        return customEndpoint
           ? subagentConversation(conversation, (saved) => this.deps.llm.restoreConversation(saved, effort))
           : this.deps.llm.createConversation(SMALL_MODELS[conversation.provider], effort);
       },

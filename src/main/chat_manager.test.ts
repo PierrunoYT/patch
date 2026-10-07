@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent } from '@shared/chat';
+import { SMALL_MODELS } from '@shared/models';
 import { ChatManager } from './chat_manager';
 import { ChatStore } from './chat_store';
 import { LlmService, type Conversation } from './llm';
@@ -86,6 +87,39 @@ describe('project chat retention', () => {
     projects.open(join(root, name));
     manager.projectChanged();
   }
+
+  it.each(['https://gateway.example/v1', '   https://gateway.example/v1   ', ''])(
+    'selects the finder model for the configured Anthropic endpoint: %s',
+    async (anthropicBaseUrl) => {
+      settings.update({ model: 'claude-custom', anthropicBaseUrl });
+      const parent = vi.mocked(llm.createConversation).getMockImplementation()!();
+      const finder = { ...parent, runTurn: vi.fn(parent.runTurn) };
+      const done = await parent.runTurn({} as never);
+      parent.runTurn = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ...done,
+          toolCalls: [{ id: 'find', name: 'finder', input: { query: 'find auth code' } }],
+          stopReason: 'tool_use',
+        })
+        .mockResolvedValue(done);
+      vi.mocked(llm.createConversation).mockReset().mockReturnValueOnce(parent).mockReturnValue(finder);
+      vi.mocked(llm.restoreConversation).mockReturnValue(finder);
+      open('alpha');
+      await manager.send({ text: 'Find the auth code' });
+      expect(finder.runTurn).toHaveBeenCalledOnce();
+      if (anthropicBaseUrl.trim()) {
+        expect(llm.createConversation).toHaveBeenCalledTimes(1);
+        expect(llm.restoreConversation).toHaveBeenCalledWith(
+          { provider: 'anthropic', model: 'test', messages: [] },
+          expect.any(String),
+        );
+      } else {
+        expect(llm.createConversation).toHaveBeenNthCalledWith(2, SMALL_MODELS.anthropic, expect.any(String));
+        expect(llm.restoreConversation).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it('has nothing to compact before a chat exists, and reports when a short chat needs no compaction', async () => {
     open('alpha');

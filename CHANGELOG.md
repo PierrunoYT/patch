@@ -14,6 +14,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - `apply_patch` accepts a move back to the same resolved path as an update, while still rejecting a second block for that file (#183).
 - Command output preserves UTF-8 characters split across pipe chunks, for both stdout and stderr in foreground and background commands (#164).
 - Malformed model tool-call JSON is reported as invalid JSON before schema validation, without recording a misleading dropped-field event or executing the tool (#179).
+- Finder keeps the chat model when using a custom Anthropic endpoint, rather than requesting a Haiku model that the gateway may not provide (#203).
 
 ### Test maintenance
 

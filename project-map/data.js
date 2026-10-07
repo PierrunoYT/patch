@@ -60,7 +60,7 @@ const D = {
       testLines: 2328,
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
-        'chat_manager.ts (478)',
+        'chat_manager.ts (480; finder keeps the chat model on a custom Anthropic base URL, #203)',
         'index.ts (446, IPC handlers, untested)',
         'exec_search.ts (37, bare program names never resolve in the project, #141)',
         'settings.ts (451)',
@@ -337,7 +337,7 @@ const D = {
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
     { a: 'main/tools', f: 23, c: 428, src: 3986, tl: 5896 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
-    { a: 'main/other', f: 12, c: 175, src: 2921, tl: 2756 },
+    { a: 'main/other', f: 12, c: 178, src: 2923, tl: 2790 },
     { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
     { a: 'renderer', f: 4, c: 14, src: 6367, tl: 138 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -392,7 +392,7 @@ const D = {
     [572, 'renderer/src/views/transcript.ts'],
     [530, 'main/agent/agent.ts'],
     [490, 'main/agent/session.ts'],
-    [478, 'main/chat_manager.ts'],
+    [480, 'main/chat_manager.ts'],
     [477, 'main/llm/codex_auth.ts'],
     [493, 'main/tools/shell.ts'],
     [451, 'main/settings.ts'],
@@ -497,7 +497,6 @@ const D = {
     [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
     [205, 'Small cleanups in command and panel code', 'other', 'low', 0, '10-07'],
     [204, 'Offer Resume after a run fails once its retries are used up', 'ui', 'low', 0, '10-07'],
-    [203, 'Finder subagent ignores a custom Anthropic base URL', 'tools', 'low', 0, '10-07'],
     [202, 'ChatGPT sign-in: keep-cache-warm does nothing; no refresh after a 401', 'other', 'low', 0, '10-07'],
     [201, 'Reuse regex workers across grep and glob calls', 'perf', 'low', 0, '10-07'],
     [200, 'Rendering cost grows with transcript length while an answer streams', 'perf', 'low', 0, '10-07'],
@@ -659,7 +658,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 74,
+  closedCount: 75,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
