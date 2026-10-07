@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
-import { runCommandTool, ShellRunner } from './shell';
+import { APPCONTAINER_TIMEOUT_HINT, formatResult, runCommandTool, ShellRunner } from './shell';
 import type { ToolContext } from './types';
 import { Workspace } from './workspace';
 
@@ -125,6 +125,28 @@ describe('background command cancellation', () => {
   }, 20_000);
 });
 
+describe('formatResult', () => {
+  const result = { exitCode: null, output: 'running tests', timedOut: true, aborted: false };
+
+  it('explains the Node child-process hang when a Windows sandbox command times out (#101)', () => {
+    const text = formatResult('node --test', { ...result, sandbox: 'appcontainer' });
+    expect(text).toBe(`$ node --test\nTimed out and was stopped.\nrunning tests\n${APPCONTAINER_TIMEOUT_HINT}`);
+    expect(text).toContain('--test-isolation=none');
+    expect(text).toContain('unsandboxed');
+  });
+
+  it('adds no hint to other timeouts or to Windows sandbox commands that finished', () => {
+    for (const sandbox of ['none', 'bwrap', 'seatbelt', 'container'] as const)
+      expect(formatResult('node --test', { ...result, sandbox })).not.toContain(APPCONTAINER_TIMEOUT_HINT);
+    expect(
+      formatResult('node --test', { ...result, timedOut: false, exitCode: 1, sandbox: 'appcontainer' }),
+    ).not.toContain(APPCONTAINER_TIMEOUT_HINT);
+    expect(
+      formatResult('node --test', { ...result, timedOut: false, aborted: true, sandbox: 'appcontainer' }),
+    ).not.toContain(APPCONTAINER_TIMEOUT_HINT);
+  });
+});
+
 describe('sandbox selection', () => {
   const config = { mode: 'container' as const, network: 'off' as const, image: 'node:lts', allowedHosts: '' };
   const noSupport = { bwrap: false, seatbelt: false, appcontainer: null, container: null };
@@ -169,6 +191,17 @@ describe('sandbox selection', () => {
       expect((await shell.run('echo hi')).output).toContain('The command was not run');
     },
   );
+
+  it('reports where a command ran, and nothing for a command that never started', async () => {
+    const off = new ShellRunner(() => root);
+    expect((await off.run('echo hi')).sandbox).toBe('none');
+    const refused = new ShellRunner(
+      () => root,
+      () => config,
+      () => noSupport,
+    );
+    expect((await refused.run('echo hi')).sandbox).toBeUndefined();
+  });
 
   it('uses an injected environment for commands', async () => {
     const shell = new ShellRunner(

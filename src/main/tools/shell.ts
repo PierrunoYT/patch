@@ -19,6 +19,7 @@ import {
   type Launch,
   type SandboxConfig,
   type SandboxDecision,
+  type SandboxKind,
   type SandboxSupport,
 } from './sandbox';
 import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
@@ -35,6 +36,8 @@ export interface CommandResult {
   output: string;
   timedOut: boolean;
   aborted: boolean;
+  // Where the command ran; absent when it never started.
+  sandbox?: SandboxKind;
 }
 
 // What the runner needs from a running command: a ChildProcess, or a command running through the Windows helper.
@@ -157,8 +160,9 @@ export class ShellRunner {
       // A stop that came in before the command could start: an abort listener added now would never fire.
       if (signal?.aborted) return resolve({ exitCode: null, output: '', timedOut: false, aborted: true });
       let child: CommandProcess;
+      let sandbox: SandboxKind;
       try {
-        child = this.spawn(command, access);
+        ({ child, sandbox } = this.spawn(command, access));
       } catch (error) {
         return resolve({ exitCode: null, output: (error as Error).message, timedOut: false, aborted: false });
       }
@@ -195,7 +199,7 @@ export class ShellRunner {
         signal?.removeEventListener('abort', onAbort);
         child.stdout?.destroy();
         child.stderr?.destroy();
-        resolve({ exitCode, output, timedOut, aborted });
+        resolve({ exitCode, output, timedOut, aborted, sandbox });
       };
       child.on('error', (error) => {
         output += `\n${error.message}`;
@@ -210,7 +214,7 @@ export class ShellRunner {
 
   startBackground(command: string, signal?: AbortSignal, access: CommandAccess = {}): BackgroundCommand {
     signal?.throwIfAborted();
-    const child = this.spawn(command, access);
+    const { child } = this.spawn(command, access);
     const onAbort = () => this.stopBackground(entry.id);
     const entry: BackgroundCommand = {
       id: this.nextId++,
@@ -263,7 +267,7 @@ export class ShellRunner {
   }
 
   // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then.
-  private spawn(command: string, access: CommandAccess): CommandProcess {
+  private spawn(command: string, access: CommandAccess): { child: CommandProcess; sandbox: SandboxKind } {
     const decision = this.decide(command, access);
     if (decision.kind === 'unavailable') {
       appLog.warn('sandbox', 'The chosen sandbox is not available.', { mode: this.sandbox().mode });
@@ -271,7 +275,8 @@ export class ShellRunner {
     }
     const config = this.sandbox();
     const inner = shellCommand(command, decision.kind !== 'none');
-    if (decision.kind === 'appcontainer') return this.spawnInAppContainer(inner, decision.network);
+    if (decision.kind === 'appcontainer')
+      return { child: this.spawnInAppContainer(inner, decision.network), sandbox: decision.kind };
     const launch: Launch =
       decision.kind === 'none'
         ? { file: inner.file, args: inner.args }
@@ -309,7 +314,7 @@ export class ShellRunner {
     });
     if (launch.stop) stoppers.set(child, launch.stop);
     child.once('spawn', () => spawned.add(child));
-    return child;
+    return { child, sandbox: decision.kind };
   }
 
   private spawnInAppContainer(inner: { file: string; args: string[] }, network: boolean): CommandProcess {
@@ -379,6 +384,16 @@ function killTree(child: CommandProcess): void {
     child.kill('SIGKILL');
   }
 }
+// libuv before 1.53 (every Node.js release so far) names child-process pipes outside the AppContainer's LOCAL\
+// namespace and retries the denied name forever, so the command hangs instead of failing (#101). Patch never
+// rewrites the command; the model decides whether a workaround suits the project.
+export const APPCONTAINER_TIMEOUT_HINT =
+  'Note: this command ran in the Windows sandbox. Node.js programs that start child processes with piped output hang ' +
+  'there on current Node.js releases (libuv older than 1.53), including `node --test` and `npm test` with default ' +
+  'test isolation. For Node tests, add `--test-isolation=none` (`--experimental-test-isolation=none` on ' +
+  'Node 22), for example `npm test -- --test-isolation=none`; test files then share one process. If the tests need ' +
+  'separate processes, set unsandboxed to ask the user to run the command outside the sandbox.';
+
 export function formatResult(command: string, result: CommandResult): string {
   const status = result.aborted
     ? 'Stopped by the user.'
@@ -386,7 +401,8 @@ export function formatResult(command: string, result: CommandResult): string {
       ? 'Timed out and was stopped.'
       : `Exit code: ${result.exitCode ?? 'unknown'}`;
   const output = stripAnsi(result.output).trim();
-  return `$ ${command}\n${status}\n${output ? truncateOutput(output) : '(no output)'}`;
+  const hint = result.timedOut && result.sandbox === 'appcontainer' ? `\n${APPCONTAINER_TIMEOUT_HINT}` : '';
+  return `$ ${command}\n${status}\n${output ? truncateOutput(output) : '(no output)'}${hint}`;
 }
 
 export function stripAnsi(text: string): string {

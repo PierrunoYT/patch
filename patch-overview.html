@@ -604,7 +604,7 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through 3ac2d97, with Windows project-drive crash recovery (#94), 2026-10-06</span>
+        <span class="sub">Snapshot through d419f6c, with protective-rule confirmations (#114), 2026-10-06</span>
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -612,7 +612,7 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through fee9934 (2026-10-06). Line counts exclude tests unless they say otherwise;
+      This page reflects git history through d419f6c (2026-10-06). Line counts exclude tests unless they say otherwise;
       renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from real Vitest runs, with
       settings confirmation, OpenAI and UI coverage refreshed on Linux; skipped tests included. Issue severities without
       a severity label are estimates and are marked "est.".
@@ -746,12 +746,12 @@
             proc: 'main',
             files: 23,
             tests: 22,
-            lines: 3874,
-            testLines: 5496,
-            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101). Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
+            lines: 3890,
+            testLines: 5529,
+            desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
             list: [
               'registry.ts',
-              'shell.ts (477; sandbox-only PowerShell imports and script policy)',
+              'shell.ts (493; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101)',
               'sandbox_windows.ts (358, Program Files candidates, protected Git paths and helper protocol)',
               'sandbox.ts (445; exact-name Seatbelt Mach, sysctl and IPC grants)',
               'files.ts (334)',
@@ -960,7 +960,7 @@
         testsByArea: [
           { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
           { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
-          { a: 'main/tools', f: 22, c: 397, src: 3874, tl: 5496 },
+          { a: 'main/tools', f: 22, c: 400, src: 3890, tl: 5529 },
           { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
           { a: 'main/other', f: 11, c: 167, src: 2857, tl: 2669 },
           { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -1018,7 +1018,7 @@
           [490, 'main/agent/session.ts'],
           [478, 'main/chat_manager.ts'],
           [477, 'main/llm/codex_auth.ts'],
-          [477, 'main/tools/shell.ts'],
+          [493, 'main/tools/shell.ts'],
           [451, 'main/settings.ts'],
           [445, 'main/tools/sandbox.ts'],
           [428, 'main/index.ts'],
@@ -1047,10 +1047,10 @@
           ['2026-10-03', 24],
           ['2026-10-04', 32],
           ['2026-10-05', 17],
-          ['2026-10-06', 41],
+          ['2026-10-06', 42],
         ],
         types: [
-          ['fix', 106],
+          ['fix', 107],
           ['docs', 61],
           ['feat', 60],
           ['test', 39],
@@ -1064,21 +1064,21 @@
         ],
         authors: [
           ['PierrunoYT', 271],
-          ['Amp', 26],
+          ['Amp', 27],
           ['StepUpGaming', 23],
           ['Claude', 7],
           ['Steven Isaac', 3],
           ['patchmote[bot]', 1],
         ],
         churn: [
-          ['CHANGELOG.md', 198],
-          ['docs/ARCHITECTURE.md', 122],
+          ['CHANGELOG.md', 199],
+          ['docs/ARCHITECTURE.md', 123],
           ['docs/DEVELOPMENT.md', 115],
-          ['README.md', 102],
+          ['README.md', 103],
           ['TASKS.md (no longer tracked)', 83],
-          ['docs/USAGE.md', 51],
+          ['docs/USAGE.md', 52],
           ['package.json', 46],
-          ['patch-overview.html', 44],
+          ['patch-overview.html', 45],
           ['src/main/chat_manager.ts', 39],
           ['src/main/index.ts', 37],
           ['src/main/agent/agent.ts', 32],
@@ -1093,6 +1093,7 @@
           ['src/shared/ipc.ts', 19],
         ],
         recent: [
+          ['d419f6c', 'fix: confirm changes to protective permission rules'],
           ['fee9934', 'fix: restrict model Markdown to HTML-only markup'],
           ['a6c9929', 'fix: omit unsupported truncation from ChatGPT subscription requests'],
           ['ac612b2', 'fix: reset mainWindow when a reopened macOS window closes'],
@@ -1108,7 +1109,6 @@
           ['f58e2e1', 'docs: close #99 after macOS CI confirms the Seatbelt probes'],
           ['3a2bd4a', 'test: check macOS network-off daemon fetches and Seatbelt hard links'],
           ['46c2eca', "test: compare Git's own top level in the nested-repository reservation test"],
-          ['d26e17f', 'fix: refuse Git panel push and commit that would run project files'],
         ],
         issues: [
           [
@@ -2823,9 +2823,9 @@
               'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
               '#129 and #132 are fixed: non-Git folders get a .git reservation file Git refuses, and projects inside another repository get a protected empty HEAD folder, so a planted bare repository is never used. The Git panel refuses push/commit when repository config runs a project file (#130)',
               '#100: on Windows, concurrent commands can make .git/hooks writable',
-              '#101: npm startup and private temp/cache handling are fixed; default node --test still needs the upstream libuv pipe fix. The explicit test-isolation=none workaround passes real Windows tests. #108: official Node is copied for every command (~14 s); toolchain tests leave subst drives behind (#133)',
+              '#101: npm startup and private temp/cache handling are fixed. Default node --test is blocked upstream: it needs libuv 1.53, which no Node release bundles yet. A Windows-sandbox timeout now tells the agent about the test-isolation=none workaround (passes real Windows tests) and the unsandboxed request. #108: official Node is copied for every command (~14 s); toolchain tests leave subst drives behind (#133)',
             ],
-            'Project-drive crash recovery (#94) is complete. Project-drive crash recovery (#94) is complete. Prioritize #100, then #101 and #108; retain the metadata boundary while making narrower per-command path grants possible (#126).',
+            'Project-drive crash recovery (#94) is complete. Prioritize #100 and #108, and re-check #101 when Node updates libuv; retain the metadata boundary while making narrower per-command path grants possible (#126).',
           ],
           [
             'Finish the Electron and tool hardening from the Oct 5–6 reviews',
