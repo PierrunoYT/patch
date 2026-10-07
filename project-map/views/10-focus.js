@@ -16,6 +16,18 @@ builders.focus = () => {
       'Fix #141 first: it needs no agent at all, only opening a repository on Windows. Each fix needs a regression test that plants the file or link it guards against.',
     ],
     [
+      'Fix the high-severity bugs from the Oct 7 code review: #159 to #163',
+      'A full code review found no critical bug. The high findings sit in lifecycle and state handling across modules, not in single functions.',
+      [
+        '#159: edit_file and apply_patch rewrite a non-UTF-8 file as UTF-8, replacing bytes far from the edit (confirmed)',
+        '#160: opening a chat or clicking the active project tab kills the terminal shell and clears the commit message',
+        '#161: a chat that cannot be restored still switches the main process to its project, so the next message runs where the UI is not',
+        '#162, #163: the Windows sandbox leaks a helper process per failed start, and one unreadable PATH folder stops every later start',
+        '#164 to #178 (medium): output decoding, orphaned processes, MCP reconnects, stale ignore rules, the code index, settings recovery and more',
+      ],
+      'The recurring causes: side effects on every change event without comparing old and new state, state changed before validation, and error paths that do less cleanup than success paths.',
+    ],
+    [
       'Close the remaining Windows sandbox gaps: #101 and #133',
       'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106). On macOS, Seatbelt Mach, shared-memory and sysctl access is limited to named entries, confirmed by real-Seatbelt probes on CI (#99).',
       [
