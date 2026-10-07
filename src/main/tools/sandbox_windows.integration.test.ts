@@ -907,7 +907,8 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
               '-NoProfile',
               '-NonInteractive',
               '-Command',
-              "while ($true) { try { [IO.File]::WriteAllText([IO.Path]::Combine([Environment]::CurrentDirectory, '.git/config.worktree'), 'bad'); [Console]::WriteLine('WRITABLE') } catch [UnauthorizedAccessException] { [Console]::WriteLine('BLOCKED') } catch { [Console]::WriteLine($_.Exception.ToString()); exit 1 }; [Threading.Thread]::Sleep(100) }",
+              // Both a metadata file and a hook (#100: hooks later run with the user's full rights).
+              "while ($true) { foreach ($target in '.git/config.worktree', '.git/hooks/pre-commit') { try { [IO.File]::WriteAllText([IO.Path]::Combine([Environment]::CurrentDirectory, $target), 'bad'); [Console]::WriteLine('WRITABLE ' + $target) } catch [UnauthorizedAccessException] { [Console]::WriteLine('BLOCKED') } catch { [Console]::WriteLine($_.Exception.ToString()); exit 1 } }; [Threading.Thread]::Sleep(100) }",
             ],
           })}\n`,
         );
@@ -931,6 +932,7 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         await expect.poll(() => (writerOutput.match(/BLOCKED/g) ?? []).length).toBeGreaterThan(attempts + 2);
         expect(writerOutput).not.toContain('WRITABLE');
         expect(existsSync(join(project, '.git', 'config.worktree'))).toBe(false);
+        expect(existsSync(join(hooks, 'pre-commit'))).toBe(false);
         expect(readdirSync(journal)).toHaveLength(1);
         writer.stdin!.end(`${JSON.stringify({ id: 2, kill: true })}\n`);
         await writerClosed;

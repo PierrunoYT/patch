@@ -129,7 +129,7 @@ builders.overview = () => {
         h(
           'div',
           { class: 'callout', style: 'margin-top:12px' },
-          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Next, the Windows sandbox gaps (#100, #101, #108) and the remaining review finding (#112). See',
+          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100). Next, the Windows sandbox gaps (#101, #108) and the remaining review finding (#112). See',
           h(
             'a',
             {

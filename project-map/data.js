@@ -521,7 +521,6 @@ const D = {
     [103, 'Windows sandbox re-propagates ACLs across the whole project per command', 'sandbox', 'medium', 0, '10-05'],
     [102, 'Linux sandbox with network reaches abstract sockets and host loopback', 'sandbox', 'medium', 0, '10-05'],
     [101, 'npm test fails and node --test hangs inside the AppContainer', 'sandbox', 'medium', 0, '10-05'],
-    [100, 'Windows: concurrent commands can make .git/hooks writable', 'sandbox', 'medium', 0, '10-04'],
     [97, 'Enforce hostname restrictions for sandbox command networking', 'sandbox', 'low', 0, '10-04'],
     [96, 'Narrow macOS sandbox file access, isolate command temp directories', 'sandbox', 'medium', 0, '10-04'],
     [87, 'Sandbox MCP stdio servers like agent commands', 'mcp', 'low', 0, '10-04'],
@@ -565,7 +564,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 65,
+  closedCount: 66,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

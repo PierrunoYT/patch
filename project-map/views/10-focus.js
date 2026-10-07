@@ -3,15 +3,15 @@
 builders.focus = () => {
   const items = [
     [
-      'Close the remaining Windows sandbox gaps: #100, #101 and #108',
+      'Close the remaining Windows sandbox gaps: #101 and #108',
       'The command sandbox is the main control against a prompt-injected model. The #95 fix gives native commands a minimal environment, with native-confirmed extra variable and PATH settings. Root .git is read-only on every backend (#98), and Program Files toolchains such as the official Node now work in the AppContainer (#106). On macOS, Seatbelt Mach, shared-memory and sysctl access is limited to named entries, confirmed by real-Seatbelt probes on CI (#99).',
       [
         'Native environment isolation (#95) has unit and real-backend regression probes; Windows passes locally, while Linux/macOS probes require their native hosts',
         '#129 and #132 are fixed: non-Git folders get a .git reservation file Git refuses, and projects inside another repository get a protected empty HEAD folder, so a planted bare repository is never used. The Git panel refuses push/commit when repository config runs a project file (#130)',
-        '#100: on Windows, concurrent commands can make .git/hooks writable',
+        '#100 is fixed: overlapping helpers share the original .git inheritance snapshot and only the last run (or recovery) restores it; a real-helper test keeps writing .git/hooks while another run exits or is killed',
         '#101: npm startup and private temp/cache handling are fixed. Default node --test is blocked upstream: it needs libuv 1.53, which no Node release bundles yet. A Windows-sandbox timeout now tells the agent about the test-isolation=none workaround (passes real Windows tests) and the unsandboxed request. #108: official Node is copied for every command (~14 s); toolchain tests leave subst drives behind (#133)',
       ],
-      'Project-drive crash recovery (#94) is complete. Prioritize #100 and #108, and re-check #101 when Node updates libuv; retain the metadata boundary while making narrower per-command path grants possible (#126).',
+      'Project-drive crash recovery (#94) is complete. Prioritize #108, and re-check #101 when Node updates libuv; retain the metadata boundary while making narrower per-command path grants possible (#126).',
     ],
     [
       'Finish the Electron and tool hardening from the Oct 5–6 reviews',
