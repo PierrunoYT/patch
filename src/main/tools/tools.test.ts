@@ -158,7 +158,46 @@ describe('file tools', () => {
     expect(full.content).toContain('1\tconst a = 1;');
     const range = await call(readFileTool, { path: 'src/app.ts', offset: 2, limit: 1 });
     expect(range.content.split('\n')[0]).toBe('2\tconst b = 2;');
-    expect(range.content).toContain('Showing lines 2-2 of 4');
+    expect(range.content).toContain('Showing lines 2-2 of 3');
+  });
+
+  it.each(['one\ntwo\n', 'one\r\ntwo\r\n', 'one\ntwo'])(
+    'does not count a line terminator as another line',
+    async (text) => {
+      writeFileSync(join(root, 'lines.txt'), text);
+      const result = await call(readFileTool, { path: 'lines.txt' });
+      expect(result.content).toBe('1\tone\n2\ttwo');
+      expect(result.summary).toBe('Read lines.txt (2 lines)');
+      await expect(call(readFileTool, { path: 'lines.txt', offset: 3 })).rejects.toThrow(
+        'offset 3 is past the end (2 lines)',
+      );
+    },
+  );
+
+  it('preserves a real final blank line', async () => {
+    writeFileSync(join(root, 'blank.txt'), 'one\n\n');
+    const result = await call(readFileTool, { path: 'blank.txt' });
+    expect(result.content).toBe('1\tone\n2\t');
+    expect(result.summary).toBe('Read blank.txt (2 lines)');
+  });
+
+  it('does not offer a phantom page after exactly 2,000 terminated lines', async () => {
+    writeFileSync(join(root, 'page.txt'), 'a\n'.repeat(2000));
+    const result = await call(readFileTool, { path: 'page.txt' });
+    expect(result.summary).toBe('Read page.txt (2000 lines)');
+    expect(result.content).not.toContain('Use offset=2001');
+    expect(result.content.split('\n')).toHaveLength(2000);
+  });
+
+  it('reads an empty file and rejects offsets beyond it', async () => {
+    writeFileSync(join(root, 'empty.txt'), '');
+    const result = await call(readFileTool, { path: 'empty.txt' });
+    expect(result.content).toBe('');
+    expect(result.summary).toBe('Read empty.txt (0 lines)');
+    expect(context.readFiles.has(join(root, 'empty.txt'))).toBe(true);
+    await expect(call(readFileTool, { path: 'empty.txt', offset: 2 })).rejects.toThrow(
+      'offset 2 is past the end (0 lines)',
+    );
   });
 
   it('reads a large file page by page, in whole lines, with nothing missing in between', async () => {
@@ -237,7 +276,7 @@ describe('file tools', () => {
   it('reads a small file whole, with no note', async () => {
     const result = await call(readFileTool, { path: 'src/app.ts' });
     expect(result.content).not.toContain('(Showing');
-    expect(result.summary).toBe('Read src/app.ts (4 lines)');
+    expect(result.summary).toBe('Read src/app.ts (3 lines)');
   });
 
   it('refuses to edit or overwrite a file that was not read', async () => {

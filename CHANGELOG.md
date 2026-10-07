@@ -8,6 +8,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Fixed
+
+- `read_file` counts newline-terminated files correctly, keeps real blank lines, and reports offsets past the end instead of returning a silent empty result (#181).
+
 ### Test maintenance
 
 - Windows sandbox approval end-to-end tests use an isolated project PATH for their PowerShell built-in commands, avoiding unrelated runner toolchain preparation. Unfinished chats are stopped after each test so a timeout does not cascade into later approval checks.

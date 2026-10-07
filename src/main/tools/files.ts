@@ -43,7 +43,12 @@ export const readFileTool = defineTool({
     if (await isBinaryFile(file)) throw new ToolError(`${path} is a binary file.`);
     if ((await fileSize(file)) > MAX_READ_BYTES * 8) throw new ToolError(`${path} is too large to read.`);
 
-    const lines = (await readFile(file, 'utf8')).split(/\r?\n/);
+    const text = await readFile(file, 'utf8');
+    const lines = text === '' ? [] : text.split(/\r?\n/);
+    if (text.endsWith('\n')) lines.pop();
+    if (offset > Math.max(1, lines.length)) {
+      throw new ToolError(`offset ${offset} is past the end (${lines.length} lines)`);
+    }
     const selected = lines.slice(offset - 1, offset - 1 + limit);
     const first = selected[0] ?? '';
     if (char_offset > first.length || splitsSurrogatePair(first, char_offset)) {
