@@ -143,7 +143,7 @@ describe('apply_patch tool', () => {
       const result = await run(text);
       expect(read('src/a.ts')).toBe('ONE\ntwo\nthree\nfour\n');
       expect(result.content).toContain('Updated src/a.ts');
-      expect(context.readFiles.has(join(root, 'src', 'a.ts'))).toBe(true);
+      expect(context.readFiles.has(join(context.workspace.root, 'src', 'a.ts'))).toBe(true);
     },
   );
 
