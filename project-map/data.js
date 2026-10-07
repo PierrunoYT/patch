@@ -487,6 +487,11 @@ const D = {
     ['3ac2d97', 'fix: isolate Windows sandbox npm runtime paths'],
   ],
   issues: [
+    [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
+    [210, 'ChatGPT sign-in: redirect says localhost, server binds only 127.0.0.1', 'security', 'low', 0, '10-07'],
+    [209, 'openInEditor runs the editor command through a shell', 'security', 'low', 0, '10-07'],
+    [208, 'Renderer h() sets any known DOM property from props', 'security', 'low', 0, '10-07'],
+    [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
     [205, 'Small cleanups in command and panel code', 'other', 'low', 0, '10-07'],
     [204, 'Offer Resume after a run fails once its retries are used up', 'ui', 'low', 0, '10-07'],
