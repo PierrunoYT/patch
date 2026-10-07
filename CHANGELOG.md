@@ -95,6 +95,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows sandbox PATH entries and commands spelled with an 8.3 short name (such as `C:\Users\RUNNER~1\…`) now map to the project drive like their long form. Before, npm and Node resolved them on `C:\`, failed with `EPERM` on the volume root, and the Windows CI job failed since 3ac2d97 ([#137](https://github.com/PierrunoYT/patch/issues/137)).
 - ChatGPT subscription chats no longer fail with `400 Unsupported parameter: truncation`. Codex requests omit that platform-only parameter, including when a saved chat is reopened; OpenAI API-key requests retain automatic truncation.
 - On macOS, the window reopened from the Dock now clears `mainWindow` when it is closed, as the first window does, so later code no longer holds a destroyed window ([#36](https://github.com/PierrunoYT/patch/issues/36)).
 - Closing or removing a project through a linked spelling of its folder (for example macOS `/var/...` for `/private/var/...`, or a junction) now stops the active session and shell instead of treating it as a parked project and leaving the chat running after its tab closed ([#41](https://github.com/PierrunoYT/patch/issues/41)).

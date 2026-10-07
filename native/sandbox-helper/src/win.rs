@@ -1139,10 +1139,27 @@ fn copy_toolchain(
     Ok(())
 }
 
+// Expands 8.3 aliases (C:\Users\RUNNER~1) of an existing path. Others, and failures, keep their spelling.
+fn long_path(path: &str) -> String {
+    let short = wide(path);
+    let size = unsafe { GetLongPathNameW(PCWSTR(short.as_ptr()), None) };
+    if size == 0 {
+        return path.to_string();
+    }
+    let mut long = vec![0u16; size as usize];
+    let written = unsafe { GetLongPathNameW(PCWSTR(short.as_ptr()), Some(&mut long)) };
+    if written == 0 || written >= size {
+        return path.to_string();
+    }
+    String::from_utf16_lossy(&long[..written as usize])
+}
+
+// Mapped sources come from realpath (long names); PATH entries and commands may use 8.3 aliases of them.
 fn mapped_path(path: &str, mappings: &[(String, String)]) -> String {
-    let lower = path.replace('/', "\\").to_ascii_lowercase();
+    let full = long_path(path).replace('/', "\\");
+    let lower = full.to_ascii_lowercase();
     for (source, target) in mappings {
-        let source = source
+        let source = long_path(source)
             .trim_end_matches(['\\', '/'])
             .replace('/', "\\")
             .to_ascii_lowercase();
@@ -1150,7 +1167,7 @@ fn mapped_path(path: &str, mappings: &[(String, String)]) -> String {
             return target.clone();
         }
         if lower.starts_with(&format!("{source}\\")) {
-            return format!("{}{}", target.trim_end_matches('\\'), &path[source.len()..]);
+            return format!("{}{}", target.trim_end_matches('\\'), &full[source.len()..]);
         }
     }
     path.to_string()
@@ -1729,6 +1746,24 @@ mod tests {
             mapped_path(r"C:\Windows\System32", &mappings),
             r"C:\Windows\System32"
         );
+    }
+
+    #[test]
+    fn mapped_paths_match_short_name_aliases_of_the_source() {
+        let root = std::env::temp_dir().join(format!("{} long name", profile_name()));
+        fs::create_dir_all(root.join("bin")).unwrap();
+        let long = root.to_str().unwrap().to_string();
+        let source = wide(&long);
+        let mut short = vec![0u16; 1024];
+        let size = unsafe { GetShortPathNameW(PCWSTR(source.as_ptr()), Some(&mut short)) } as usize;
+        let short = String::from_utf16_lossy(&short[..size]);
+        // Volumes can disable 8.3 names (CI runners keep them: C:\Users\RUNNER~1).
+        if size > 0 && !short.eq_ignore_ascii_case(&long) {
+            let mappings = vec![(long.clone(), r"Q:\".to_string())];
+            assert_eq!(mapped_path(&format!(r"{short}\bin"), &mappings), r"Q:\bin");
+            assert_eq!(mapped_path(&short, &mappings), r"Q:\");
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
