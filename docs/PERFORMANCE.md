@@ -487,5 +487,5 @@ Windows 11, the development machine used above, 100,000 files:
 
 ### What still scales with the project
 
-- **`.git`:** each command still stops `.git` inheriting the project grant, grants its own SID read access there and undoes both when it ends. That walks the `.git` tree a few times per command. In a packed repository that is a few hundred entries, but many loose objects make it slower. Not measured here: the fixture's `.git` is empty.
-- **Files moved in from elsewhere:** a file moved into the project from another folder keeps its old permissions, so it lacks the inherited grant until the project is closed and opened again. Files created or copied in the project inherit it normally.
+- **`.git`:** each command still stops `.git` inheriting the project grant, grants its own SID read access there and undoes both when it ends. That walks the `.git` tree a few times per command. In a packed repository that is a few hundred entries, but many loose objects make it slower. Not measured here: the fixture's `.git` is empty ([#139](https://github.com/PierrunoYT/patch/issues/139)).
+- **Files moved in from elsewhere:** a file moved into the project from another folder keeps its old permissions, so it lacks the inherited grant until the project is closed and opened again. Files created or copied in the project inherit it normally ([#140](https://github.com/PierrunoYT/patch/issues/140)).

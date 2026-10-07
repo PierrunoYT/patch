@@ -488,6 +488,15 @@ const D = {
   ],
   issues: [
     [
+      140,
+      'Windows sandbox: files moved into a project lack its write grant until reopened',
+      'sandbox',
+      'low',
+      0,
+      '10-07',
+    ],
+    [139, 'Windows sandbox: .git permissions are still walked several times per command', 'sandbox', 'low', 0, '10-07'],
+    [
       138,
       'e2e: crash_kill approval test stalls on CI (chat save and Local State never written)',
       'tests',
