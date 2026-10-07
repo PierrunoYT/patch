@@ -78,7 +78,7 @@ describe.each(['platform', 'codex'] as const)('OpenAI Responses API end to end (
     expect(done.transcript[2]).toMatchObject({
       name: 'read_file',
       status: 'done',
-      summary: 'Read notes.txt (2 lines)',
+      summary: 'Read notes.txt (1 line)',
     });
     expect(done.transcript[3]).toMatchObject({ text: 'The secret word is pineapple.' });
     expect(done.usage.cacheReadTokens).toBeGreaterThan(0);

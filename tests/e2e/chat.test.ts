@@ -92,7 +92,7 @@ describe('chat end to end (mock Claude API)', () => {
     expect(snapshot.transcript[2]).toMatchObject({
       name: 'read_file',
       status: 'done',
-      summary: 'Read notes.txt (2 lines)',
+      summary: 'Read notes.txt (1 line)',
     });
     expect(snapshot.transcript[3]).toMatchObject({ text: 'The secret word is pineapple.' });
 

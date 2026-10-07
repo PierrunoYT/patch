@@ -135,7 +135,7 @@ const D = {
         'shell.ts (506; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'sandbox_windows.ts (402, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
-        'files.ts (334)',
+        'files.ts (340; read_file counts terminated lines and reports offsets past EOF, #181)',
         'web.ts (226, no own test)',
         'sandbox_windows.integration.test.ts (real AppContainer temp/cache writes, Node/npm tests and upstream skips, toolchains, overlapping project-drive and ACL recovery)',
         'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
@@ -335,7 +335,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 212, src: 1593, tl: 3348 },
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
-    { a: 'main/tools', f: 23, c: 412, src: 3978, tl: 5792 },
+    { a: 'main/tools', f: 23, c: 419, src: 3984, tl: 5838 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
     { a: 'main/other', f: 12, c: 174, src: 2917, tl: 2729 },
     { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -519,7 +519,6 @@ const D = {
     [184, 'Settings validation gaps (max indexed files 1, base URL, MCP values)', 'other', 'low', 0, '10-07'],
     [183, 'apply_patch: Move to the same path fails; insert comment says cursor', 'tools', 'low', 0, '10-07'],
     [182, 'Mixed line endings: apply_patch rewrites LF as CRLF; edit_file misses', 'tools', 'low', 0, '10-07'],
-    [181, 'read_file counts a trailing newline as a line; silent past-the-end offset', 'tools', 'low', 0, '10-07'],
     [180, 'Exhausted pause_turn continuations end the turn silently', 'other', 'low', 0, '10-07'],
     [179, 'Malformed tool-call JSON is reported as "required but missing"', 'tools', 'low', 0, '10-07'],
     [178, 'Permission delegates fail on Windows for .cmd/.bat and take no arguments', 'security', 'medium', 0, '10-07'],
@@ -664,7 +663,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 69,
+  closedCount: 70,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
