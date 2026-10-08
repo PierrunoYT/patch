@@ -30,4 +30,4 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for setup and where things live.
 
 ## License
 
-By contributing, you agree that your new contributions will be licensed under the project's [Apache License, Version 2.0](LICENSE) (`Apache-2.0`). Submit only material you have the right to contribute under these terms, and preserve existing copyright and third-party license notices. This does not change the MIT permissions already granted for earlier contributions; see [README.md](README.md#license).
+By contributing, you agree that your new contributions will be licensed under the project's [Apache License, Version 2.0](LICENSE) (`Apache-2.0`). Submit only material you have the right to contribute under these terms, and preserve existing copyright and third-party license notices. This does not change the MIT permissions already granted for earlier contributions, whose notice is kept at the end of [LICENSE](LICENSE); see [README.md](README.md#license).

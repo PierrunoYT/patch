@@ -124,7 +124,7 @@ builders.health = () => {
             null,
             'License: ',
             h('code', null, D.license),
-            '. Commercial and closed-source derivatives are allowed subject to license and notice requirements. Prior MIT grants and dependency licenses remain intact. Packaged builds include both license texts and the README.',
+            '. Commercial and closed-source derivatives are allowed subject to license and notice requirements. Prior MIT grants and dependency licenses remain intact. Packaged builds include the license (with the preserved MIT notice) and the README.',
           ),
           h('li', null, 'package.json version: ', h('code', null, '0.1.0'), ' (the version of the first release)'),
           h('li', null, 'Git tags: v0.1.0, v0.1.1, v0.2.0, v0.3.0 (2026-09-29 to 09-30)'),

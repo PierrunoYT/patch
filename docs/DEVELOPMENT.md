@@ -2,11 +2,11 @@
 
 ## Licensing and distribution
 
-Patch, including the Windows sandbox helper, is licensed under Apache-2.0; see [LICENSE](../LICENSE) and the [license summary](../README.md#license). New contributions use the same license. Earlier MIT grants remain valid, and the original notice is retained in [LICENSE-MIT](../LICENSE-MIT).
+Patch, including the Windows sandbox helper, is licensed under Apache-2.0; see [LICENSE](../LICENSE) and the [license summary](../README.md#license). New contributions use the same license. Earlier MIT grants remain valid, and the original notice is retained at the end of [LICENSE](../LICENSE).
 
 When distributing Patch or a derivative, include a copy of the Apache license, preserve required copyright, patent, trademark and attribution notices, and mark modified files with prominent notices that you changed them. Follow section 4 of the license, including its requirements for any applicable NOTICE files. Preserve the historical MIT notice and comply with the separate licenses of bundled dependencies. Apache-2.0 permits proprietary derivatives and does not require publishing source code.
 
-The packaging file list includes `LICENSE`, `LICENSE-MIT` and `README.md` so both license texts, the copyright notice and the scope explanation travel with the app. Check bundled third-party notices separately before releasing. Changing this repository's license does not publish an installer or change the terms of earlier releases.
+The packaging file list includes `LICENSE` and `README.md` so the license text (with the preserved MIT notice), the copyright notice and the scope explanation travel with the app. Check bundled third-party notices separately before releasing. Changing this repository's license does not publish an installer or change the terms of earlier releases.
 
 ## Setup
 
