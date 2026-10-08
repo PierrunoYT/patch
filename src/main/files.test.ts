@@ -113,24 +113,56 @@ describe('saveTextFile', () => {
 });
 
 describe('openInEditor', () => {
-  it('starts the editor detached with the file as one quoted argument', () => {
+  const started = (args: string[]): [string, string[]] =>
+    process.platform === 'win32'
+      ? ['cmd.exe', ['/d', '/s', '/c', `"${args.map((arg) => `"${arg}"`).join(' ')}"`]]
+      : [args[0]!, args.slice(1)];
+
+  it('starts the editor detached, without a shell, with the file as one argument', () => {
     const file = join(dir, 'src file.ts');
     writeFileSync(file, '');
 
     openInEditor('  cursor --reuse-window ', dir, 'src file.ts');
 
     expect(mocks.spawn).toHaveBeenCalledWith(
-      `cursor --reuse-window "${realpathSync(file)}"`,
-      expect.objectContaining({ shell: true, detached: true, stdio: 'ignore', windowsHide: true }),
+      ...started(['cursor', '--reuse-window', realpathSync(file)]),
+      expect.objectContaining({ detached: true, stdio: 'ignore', windowsHide: true }),
     );
+    expect(mocks.spawn.mock.calls[0]![2]).not.toHaveProperty('shell');
     expect(mocks.unref).toHaveBeenCalled();
+  });
+
+  it('keeps a quoted program path with spaces as one word', () => {
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, '');
+    openInEditor('"C:\\Program Files\\Editor\\ed.exe" -g', dir, 'a.txt');
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      ...started(['C:\\Program Files\\Editor\\ed.exe', '-g', realpathSync(file)]),
+      expect.any(Object),
+    );
+  });
+
+  it('does not run shell operators in the editor command', () => {
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, '');
+    if (process.platform === 'win32') {
+      expect(() => openInEditor('code & calc', dir, 'a.txt')).toThrow('Unsupported characters in the editor command.');
+      expect(mocks.spawn).not.toHaveBeenCalled();
+    } else {
+      openInEditor('code; touch pwned', dir, 'a.txt');
+      expect(mocks.spawn).toHaveBeenCalledWith('code;', ['touch', 'pwned', realpathSync(file)], expect.any(Object));
+    }
   });
 
   it('falls back to "code" when no editor command is set', () => {
     const file = join(dir, 'a.txt');
     writeFileSync(file, '');
     openInEditor('   ', dir, 'a.txt');
-    expect(mocks.spawn).toHaveBeenCalledWith(`code "${realpathSync(file)}"`, expect.any(Object));
+    expect(mocks.spawn).toHaveBeenCalledWith(...started(['code', realpathSync(file)]), expect.any(Object));
+  });
+
+  it('rejects an unclosed quote', () => {
+    expect(() => openInEditor('code "x', dir, 'a.txt')).toThrow('unclosed quote');
   });
 
   it('refuses paths outside the project', () => {
