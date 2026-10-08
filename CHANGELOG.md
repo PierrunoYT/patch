@@ -104,7 +104,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 ### Fixed
 
 - Claude Sonnet 5.5 cost estimates price cache reads at $0.10 per million tokens (5% of input), as Anthropic lists, instead of $0.20.
-- On Linux and macOS, programs a command starts and leaves running (`npm run dev &`) are killed once a foreground command finishes, and when a background command is stopped after its shell has exited. Windows without the sandbox is not covered yet (refs #165).
+- Programs a command starts and leaves running (`npm run dev &`, `Start-Process`) are killed once a foreground command finishes, and when a background command is stopped, its chat or project closes, or the app quits, even after its shell has exited. On Linux and macOS this signals the command's process group; on Windows without the sandbox the leftovers are found through their parent process id (#165).
 - Failed saved-chat restoration no longer switches the main process to another project or closes the active chat. Sessions are prepared against the target workspace before switching, and history-open notifications keep the renderer synchronized even on errors (#161).
 - Same-project navigation no longer kills the interactive terminal, clears the Git commit draft or rebuilds the active transcript. Closing or removing an inactive project leaves the active panels alone; closing the last project still clears its chat (#160).
 - File tools reject non-UTF-8 edits and overwrites before approval and execution instead of corrupting unrelated bytes. A patch containing a non-UTF-8 update or move leaves every file unchanged (#159).

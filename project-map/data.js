@@ -132,7 +132,8 @@ const D = {
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
       list: [
         'registry.ts',
-        'shell.ts (520; streaming UTF-8 output, #164; kills POSIX leftovers of a finished command, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
+        'shell.ts (538; streaming UTF-8 output, #164; kills the programs a finished command left running, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
+        'shell_leftovers.ts (113; finds and kills what a Windows shell left running through its parent pid, #165)',
         'sandbox_windows.ts (402, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
@@ -341,7 +342,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
     { a: 'main/llm', f: 8, c: 102, src: 2162, tl: 2836 },
-    { a: 'main/tools', f: 23, c: 437, src: 4021, tl: 6017 },
+    { a: 'main/tools', f: 24, c: 445, src: 4152, tl: 6112 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
     { a: 'main/other', f: 12, c: 180, src: 2960, tl: 2831 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
@@ -400,7 +401,7 @@ const D = {
     [491, 'main/agent/session.ts'],
     [480, 'main/chat_manager.ts'],
     [477, 'main/llm/codex_auth.ts'],
-    [520, 'main/tools/shell.ts'],
+    [538, 'main/tools/shell.ts'],
     [451, 'main/settings.ts'],
     [445, 'main/tools/sandbox.ts'],
     [446, 'main/index.ts'],
@@ -541,7 +542,6 @@ const D = {
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
     [166, 'MCP server that dies after connecting stays "connected" forever', 'mcp', 'medium', 0, '10-07'],
-    [165, 'Windows: processes a command leaves behind are never killed (POSIX fixed)', 'tools', 'medium', 0, '10-07'],
     [163, 'Windows sandbox: an unreadable PATH folder breaks every later helper start', 'sandbox', 'high', 0, '10-07'],
     [162, 'Windows sandbox: a command failing before start leaves the helper running', 'sandbox', 'high', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
@@ -666,7 +666,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 79,
+  closedCount: 80,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

@@ -213,6 +213,61 @@ describe.skipIf(process.platform === 'win32')('processes a command leaves behind
   }, 20_000);
 });
 
+describe.skipIf(process.platform !== 'win32')('processes a command leaves behind on Windows (#165)', () => {
+  let shell: ShellRunner;
+  const spawnedPids: number[] = [];
+  const root = tmpdir();
+  // A program that runs until killed, started detached from the shell the way `Start-Process npm run dev` would.
+  const start = `$p = Start-Process -FilePath '${process.execPath}' -ArgumentList '-e','setInterval(()=>{},1000)' -WindowStyle Hidden -PassThru; $p.Id`;
+
+  const isAlive = (pid: number) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const readPid = (output: string) => {
+    const pid = Number(/^\d+$/m.exec(output)?.[0]);
+    spawnedPids.push(pid);
+    return pid;
+  };
+
+  beforeEach(() => {
+    shell = new ShellRunner(() => root);
+  });
+
+  afterEach(() => {
+    shell.stopAll();
+    for (const pid of spawnedPids.splice(0)) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // Already gone.
+      }
+    }
+  });
+
+  it('kills a program a foreground command started and left running', async () => {
+    const result = await shell.run(start);
+    const pid = readPid(result.output);
+    expect(result.exitCode).toBe(0);
+    await vi.waitFor(() => expect(isAlive(pid)).toBe(false), { timeout: 15_000, interval: 250 });
+  }, 30_000);
+
+  it('kills a program a background command started when the shell has already exited', async () => {
+    const entry = shell.startBackground(start);
+    await vi.waitFor(() => expect(entry.output).toMatch(/\d+/), { timeout: 15_000 });
+    const pid = readPid(entry.output);
+    await vi.waitFor(() => expect(entry.process.exitCode).not.toBeNull(), { timeout: 15_000 });
+    // The background command is not swept when its shell exits; only Stop reaches what it left.
+    if (!isAlive(pid)) throw new Error('the program was expected to outlive its shell');
+    shell.stopBackground(entry.id);
+    await vi.waitFor(() => expect(isAlive(pid)).toBe(false), { timeout: 15_000, interval: 250 });
+  }, 40_000);
+});
+
 describe('formatResult', () => {
   const result = { exitCode: null, output: 'running tests', timedOut: true, aborted: false };
 
