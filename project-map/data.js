@@ -342,7 +342,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
-    { a: 'main/tools', f: 24, c: 446, src: 4173, tl: 6132 },
+    { a: 'main/tools', f: 24, c: 448, src: 4295, tl: 6323 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 934 },
     { a: 'main/other', f: 12, c: 188, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
@@ -539,7 +539,6 @@ const D = {
     [170, 'Code index: lost progress, shared stop, duplicate runs on settings change', 'tools', 'medium', 0, '10-07'],
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
-    [166, 'MCP server that dies after connecting stays "connected" forever', 'mcp', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -660,7 +659,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 87,
+  closedCount: 88,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

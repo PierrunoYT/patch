@@ -196,6 +196,7 @@ export class McpHub {
       state.client = client;
       state.error = undefined;
       state.listed = listed.tools as McpToolDescription[];
+      client.onclose = () => this.onServerClosed(state, client);
     } catch (error) {
       state.error = error instanceof Error ? error.message : String(error);
       state.tools = [];
@@ -203,6 +204,18 @@ export class McpHub {
     } finally {
       state.connecting = null;
     }
+  }
+
+  // A server that exits or drops the connection on its own. closeClient clears state.client before closing, so this
+  // only acts on unexpected closes, and the instance check ignores a late callback from a client already replaced.
+  // The next refresh reconnects it, because a state without a client is never skipped.
+  private onServerClosed(state: ServerState, client: Client): void {
+    if (state.client !== client || this.stopped) return;
+    state.client = null;
+    state.error = 'The server stopped.';
+    state.listed = [];
+    state.tools = [];
+    this.onToolsChanged();
   }
 
   // Names are assigned in config order once every server has connected, so two servers that connect in parallel
@@ -293,14 +306,15 @@ function isSupportedImage(mimeType: unknown): mimeType is 'image/png' | 'image/j
 async function closeClient(state: ServerState): Promise<void> {
   const client = state.client ?? state.connecting;
   const pid = client ? stdioPid(client) : undefined;
+  // Cleared first, so the client's onclose sees a close the hub asked for and does not report the server as stopped.
+  state.client = null;
+  state.connecting = null;
   try {
     await client?.close();
   } catch {
     // A server that will not close cleanly is killed below; the process is going away anyway.
   }
   killProcessTree(pid);
-  state.client = null;
-  state.connecting = null;
 }
 
 function stdioPid(client: Client): number | undefined {

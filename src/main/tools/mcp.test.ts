@@ -99,7 +99,75 @@ describe('McpHub', () => {
       await hub.stop();
     }
   });
+
+  // #166: a server that exits after connecting must not stay "connected" with tools that can only fail.
+  it('reports a server that stops after connecting and reconnects it on the next refresh', async () => {
+    const servers: McpServerConfig[] = [
+      { name: 'test', transport: 'stdio', command: process.execPath, args: [mockServerScript] },
+    ];
+    let changed = 0;
+    const hub = new McpHub(
+      () => servers,
+      () => changed++,
+    );
+    try {
+      await hub.refresh();
+      const tool = hub.tools()[0]!;
+      const pid = serverPid(hub, 'test');
+      process.kill(pid, 'SIGKILL');
+      for (let i = 0; i < 100 && hub.status()[0]!.state === 'connected'; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+
+      expect(hub.status()).toEqual([{ name: 'test', state: 'error', error: 'The server stopped.', tools: [] }]);
+      expect(hub.tools()).toEqual([]);
+      expect(changed).toBe(2);
+      await expect(tool.run({ text: 'hi' }, {} as never)).rejects.toThrow('The MCP server "test" is not connected.');
+
+      await hub.refresh();
+      expect(hub.status()).toEqual([{ name: 'test', state: 'connected', tools: ['mcp_test_echo'] }]);
+      expect(serverPid(hub, 'test')).not.toBe(pid);
+      const output = await hub.tools()[0]!.run({ text: 'back' }, {} as never);
+      expect(output.content).toBe('echo:back');
+    } finally {
+      await hub.stop();
+    }
+  });
+
+  it('does not report a server it closed itself as stopped', async () => {
+    let servers: McpServerConfig[] = [
+      { name: 'test', transport: 'stdio', command: process.execPath, args: [mockServerScript] },
+    ];
+    let changed = 0;
+    const hub = new McpHub(
+      () => servers,
+      () => changed++,
+    );
+    try {
+      await hub.refresh();
+      // A changed config closes the old client and connects a new one; the old client's close must not touch it.
+      servers = [{ ...servers[0]!, env: { CHANGED: '1' } }];
+      await hub.refresh();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(hub.status()).toEqual([{ name: 'test', state: 'connected', tools: ['mcp_test_echo'] }]);
+      // One notice per refresh, and none for the close the hub asked for.
+      expect(changed).toBe(2);
+      await hub.stop();
+      expect(changed).toBe(2);
+    } finally {
+      await hub.stop();
+    }
+  });
 });
+
+// The process id of a connected stdio server, read from the hub's private state.
+function serverPid(hub: McpHub, name: string): number {
+  const states = (hub as unknown as { states: Map<string, { client: { transport?: { pid?: number } } | null }> })
+    .states;
+  const pid = states.get(name)?.client?.transport?.pid;
+  if (typeof pid !== 'number') throw new Error(`no process for ${name}`);
+  return pid;
+}
 
 // #142: a stdio server must never run a program planted in the project, or start inside it.
 describe('launchConfig', () => {
