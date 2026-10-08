@@ -65,6 +65,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- The Git panel works for a project inside a larger repository (a monorepo package): it lists only the project's files, relative to the project folder, shows their diffs and line counts, discards them, and commits only them, leaving changes staged elsewhere in the repository staged. Before, diffs were empty, Discard failed, new files had no line counts, and files from sibling folders were listed and committed (fixes #174).
 - An MCP server that exits or drops its connection after connecting is shown as stopped and its tools are removed, instead of staying "connected" with tools that always fail. The next refresh (for example saving the MCP settings or switching projects) reconnects it (fixes #166).
 - A Claude connection that drops mid-stream is no longer re-sent at once without a notice. It now goes to the agent loop's retry, which waits with backoff and shows each retry in the chat; only an unparseable streamed tool input is still re-asked immediately (fixes #173).
 - Long chats on OpenAI-compatible (Chat Completions) endpoints no longer freeze the app before each request: trimming an over-long history measures each message once instead of re-measuring the rest of the history at every step (a 6,000-message history went from 22 s to 29 ms). The messages kept are unchanged (fixes #171).

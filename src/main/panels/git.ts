@@ -124,14 +124,14 @@ export class GitService {
     if (!(await this.isRepo()))
       return { isRepo: false, branch: null, files: [], tracking: null, ahead: 0, behind: 0, canPush: false };
     const repo = await this.repo();
-    const status = await repo.status();
+    const { status, files } = await this.projectStatus();
     const hasOrigin = status.tracking
       ? true
       : (await repo.getRemotes().catch(() => [])).some((remote) => remote.name === 'origin');
     return {
       isRepo: true,
       branch: status.current,
-      files: await this.withLineCounts(toFiles(status)),
+      files: await this.withLineCounts(files),
       tracking: status.tracking,
       ahead: status.ahead,
       behind: status.behind,
@@ -139,12 +139,24 @@ export class GitService {
     };
   }
 
+  // The project's part of `git status`. The project can be a subfolder of the repository (#132), and Git prints
+  // paths relative to the repository root, so the status is limited to the project folder and its paths are made
+  // relative to it: the panel lists and acts on the project's files only. Pathspecs given to Git later are relative
+  // to the project folder too, since simple-git runs Git there.
+  private async projectStatus(): Promise<{ status: StatusResult; files: GitFile[]; renames: Map<string, string> }> {
+    const repo = await this.repo();
+    const prefix = await repo.revparse(['--show-prefix']).catch(() => '');
+    const status = await repo.status(['--', '.']);
+    return { status, ...projectFiles(status, prefix) };
+  }
+
   // Adds the lines added and removed to each file: `git diff --numstat` for tracked files (renames counted as a
   // deletion and an addition), and the line count of new files, which git does not diff.
   private async withLineCounts(files: GitFile[]): Promise<GitFile[]> {
     if (files.length === 0) return files;
     const repo = await this.repo();
-    const safe = ['--no-ext-diff', '--no-textconv', '--no-renames', '--numstat'];
+    // --relative limits the counts to the project folder and names files relative to it, as the status does.
+    const safe = ['--no-ext-diff', '--no-textconv', '--no-renames', '--relative', '--numstat'];
     const hasHead = await repo.revparse(['--verify', 'HEAD']).then(
       () => true,
       () => false,
@@ -221,11 +233,10 @@ export class GitService {
   // Unified diff of all changes, or of one file. Untracked files are shown as additions.
   async diff(path: string | null): Promise<string> {
     if (!(await this.isRepo())) return '';
-    const status = await (await this.repo()).status();
-    const files = toFiles(status).filter((file) => path === null || file.path === path);
+    const { files: all, renames: originals } = await this.projectStatus();
+    const files = all.filter((file) => path === null || file.path === path);
 
     const parts: string[] = [];
-    const originals = new Map(status.renamed.map((rename) => [rename.to, rename.from]));
     const tracked = new Set<string>();
     for (const file of files) {
       if (file.status === 'untracked') continue;
@@ -242,8 +253,9 @@ export class GitService {
         () => true,
         () => false,
       );
-      // No external diff programs or textconv drivers: the repository's config could name any command.
-      const safe = ['--no-ext-diff', '--no-textconv'];
+      // No external diff programs or textconv drivers: the repository's config could name any command. --relative
+      // names files relative to the project folder, as the panel lists them.
+      const safe = ['--no-ext-diff', '--no-textconv', '--relative'];
       if (hasHead) {
         parts.push(await (await this.repo()).diff([...safe, 'HEAD', '--', ...paths]));
       } else {
@@ -263,19 +275,29 @@ export class GitService {
   async commit(message: string): Promise<GitStatus> {
     if (!message.trim()) throw new Error('Enter a commit message.');
     await this.refuseProjectCommands(COMMIT_COMMANDS);
-    await (await this.repo()).add(['-A']);
-    await (await this.repo()).commit(message.trim());
+    const repo = await this.repo();
+    const prefix = await repo.revparse(['--show-prefix']);
+    if (!prefix) {
+      await repo.add(['-A']);
+      await repo.commit(message.trim());
+    } else {
+      // A project inside a larger repository commits only its own folder. Naming the paths makes Git commit just
+      // them (--only), so changes staged elsewhere in the repository stay staged and out of this commit.
+      await repo.add(['-A', '--', '.']);
+      await repo.raw(['commit', '-m', message.trim(), '--', '.']);
+    }
     return this.status();
   }
 
   // Reverts one file to the last commit; new (untracked) files are deleted.
   async discard(path: string): Promise<GitStatus> {
     if (!(await this.isRepo())) return this.status();
-    const status = await (await this.repo()).status();
-    const file = toFiles(status).find((candidate) => candidate.path === path);
+    const { files, renames } = await this.projectStatus();
+    const file = files.find((candidate) => candidate.path === path);
     if (!file) return this.status();
     const literalPath = `:(literal)${path}`;
-    const rename = status.renamed.find((candidate) => candidate.to === path);
+    const from = renames.get(path);
+    const rename = from === undefined ? undefined : { from, to: path };
     if (file.status === 'untracked') {
       await removeEntry(this.ownPath(path));
     } else if (rename) {
@@ -369,18 +391,33 @@ export async function removeEntry(path: string): Promise<void> {
   }
 }
 
-function toFiles(status: StatusResult): GitFile[] {
+// The changed files inside the project folder (`prefix`, from `git rev-parse --show-prefix`), with paths relative to
+// it, and the renames among them (new path to old path). A status limited to the project already shows a rename across
+// the project's edge as an addition or a deletion. Should one still appear, only the side inside the project is
+// listed, as added or deleted: discarding it then touches nothing outside the project.
+function projectFiles(status: StatusResult, prefix: string): { files: GitFile[]; renames: Map<string, string> } {
+  const own = (path: string): string | null => (path.startsWith(prefix) ? path.slice(prefix.length) : null);
   const files = new Map<string, GitFile>();
-  const add = (path: string, fileStatus: GitFile['status']) => {
-    if (!files.has(path)) files.set(path, { path, status: fileStatus });
+  const renames = new Map<string, string>();
+  const add = (repoPath: string, fileStatus: GitFile['status']) => {
+    const path = own(repoPath);
+    if (path !== null && path !== '' && !files.has(path)) files.set(path, { path, status: fileStatus });
   };
   status.conflicted.forEach((path) => add(path, 'conflicted'));
-  status.renamed.forEach((rename) => add(rename.to, 'renamed'));
+  status.renamed.forEach((rename) => {
+    const to = own(rename.to);
+    const from = own(rename.from);
+    if (to !== null && from !== null) {
+      renames.set(to, from);
+      add(rename.to, 'renamed');
+    } else if (to !== null) add(rename.to, 'added');
+    else if (from !== null) add(rename.from, 'deleted');
+  });
   status.created.forEach((path) => add(path, 'added'));
   status.deleted.forEach((path) => add(path, 'deleted'));
   status.modified.forEach((path) => add(path, 'modified'));
   status.not_added.forEach((path) => add(path, 'untracked'));
   // Anything else git reports (e.g. type changes) shows as modified.
   status.files.forEach((file) => add(file.path, 'modified'));
-  return [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
+  return { files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)), renames };
 }

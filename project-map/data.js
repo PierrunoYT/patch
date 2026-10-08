@@ -174,7 +174,7 @@ const D = {
       list: [
         'terminal.ts',
         'browser.ts',
-        'git.ts (386; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
+        'git.ts (423; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
         'commit_message.ts',
       ],
     },
@@ -343,7 +343,7 @@ const D = {
     { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
     { a: 'main/tools', f: 24, c: 450, src: 4295, tl: 6323 },
-    { a: 'main/panels', f: 4, c: 64, src: 608, tl: 947 },
+    { a: 'main/panels', f: 4, c: 71, src: 645, tl: 1057 },
     { a: 'main/other', f: 12, c: 190, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
     { a: 'renderer', f: 4, c: 14, src: 6368, tl: 138 },
@@ -533,7 +533,6 @@ const D = {
     [178, 'Permission delegates fail on Windows for .cmd/.bat and take no arguments', 'security', 'medium', 0, '10-07'],
     [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
-    [174, 'Git panel diff and Discard fail when the project is a repo subfolder', 'ui', 'medium', 0, '10-07'],
     [172, 'Subagent token usage is priced at the chat model’s rate', 'other', 'medium', 0, '10-07'],
     [170, 'Code index: lost progress, shared stop, duplicate runs on settings change', 'tools', 'medium', 0, '10-07'],
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
@@ -657,7 +656,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 90,
+  closedCount: 91,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

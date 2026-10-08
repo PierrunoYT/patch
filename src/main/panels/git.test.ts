@@ -362,6 +362,116 @@ describe('GitService', () => {
   });
 });
 
+// #174: a project can be a subfolder of a repository (#132). The panel lists and acts on the project's files only,
+// with paths relative to the project folder, and leaves the rest of the repository alone.
+describe('GitService for a project in a subfolder of a repository', () => {
+  let project: string;
+  let git: ReturnType<typeof simpleGit>;
+
+  beforeEach(async () => {
+    await initRepo();
+    project = join(root, 'pkg');
+    mkdirSync(project);
+    mkdirSync(join(root, 'other'));
+    writeFileSync(join(project, 'f.txt'), 'one\n');
+    writeFileSync(join(root, 'other', 'o.txt'), 'sibling\n');
+    git = simpleGit({ baseDir: root });
+    await git.add('-A');
+    await git.commit('packages');
+    service = new GitService(project);
+  });
+
+  it('lists only the project files, relative to the project folder', async () => {
+    writeFileSync(join(project, 'f.txt'), 'two\n');
+    writeFileSync(join(project, 'new.txt'), 'a\nb\n');
+    writeFileSync(join(root, 'other', 'o.txt'), 'changed\n');
+    writeFileSync(join(root, 'a.txt'), 'changed\n');
+    writeFileSync(join(root, 'other', 'untracked.txt'), 'x\n');
+    expect((await service.status()).files).toEqual([
+      { path: 'f.txt', status: 'modified', added: 1, removed: 1 },
+      { path: 'new.txt', status: 'untracked', added: 2, removed: 0 },
+    ]);
+  });
+
+  it('shows the diff of a project file and leaves out the rest of the repository', async () => {
+    writeFileSync(join(project, 'f.txt'), 'two\n');
+    writeFileSync(join(project, 'new.txt'), 'brand new\n');
+    writeFileSync(join(root, 'other', 'o.txt'), 'changed\n');
+    const one = await service.diff('f.txt');
+    expect(one).toContain('-one');
+    expect(one).toContain('+two');
+    expect(one).toContain('+++ b/f.txt');
+    const all = await service.diff(null);
+    expect(all).toContain('+two');
+    expect(all).toContain('+brand new');
+    expect(all).not.toContain('changed');
+  });
+
+  it('discards a modified file, deletes an untracked file and unstages an added file', async () => {
+    writeFileSync(join(project, 'f.txt'), 'changed\n');
+    writeFileSync(join(project, 'untracked.txt'), 'x\n');
+    writeFileSync(join(project, 'staged.txt'), 'y\n');
+    await git.add('pkg/staged.txt');
+    writeFileSync(join(root, 'other', 'o.txt'), 'changed\n');
+
+    await service.discard('f.txt');
+    expect(readFileSync(join(project, 'f.txt'), 'utf8')).toBe('one\n');
+    await service.discard('untracked.txt');
+    expect(existsSync(join(project, 'untracked.txt'))).toBe(false);
+    const status = await service.discard('staged.txt');
+    expect(existsSync(join(project, 'staged.txt'))).toBe(false);
+    expect(status.files).toEqual([]);
+    expect(readFileSync(join(root, 'other', 'o.txt'), 'utf8')).toBe('changed\n');
+  });
+
+  it('discards every project change at once and keeps changes elsewhere', async () => {
+    writeFileSync(join(project, 'f.txt'), 'two\n');
+    writeFileSync(join(project, 'new.txt'), 'new\n');
+    writeFileSync(join(root, 'other', 'o.txt'), 'changed\n');
+    writeFileSync(join(root, 'other', 'untracked.txt'), 'x\n');
+    expect((await service.discardAll()).files).toEqual([]);
+    expect(readFileSync(join(project, 'f.txt'), 'utf8')).toBe('one\n');
+    expect(existsSync(join(project, 'new.txt'))).toBe(false);
+    expect(readFileSync(join(root, 'other', 'o.txt'), 'utf8')).toBe('changed\n');
+    expect(existsSync(join(root, 'other', 'untracked.txt'))).toBe(true);
+  });
+
+  it('discards a rename inside the project', async () => {
+    await git.mv('pkg/f.txt', 'pkg/g.txt');
+    expect(kinds((await service.status()).files)).toEqual([{ path: 'g.txt', status: 'renamed' }]);
+    const diff = await service.diff('g.txt');
+    expect(diff).toContain('rename from f.txt');
+    expect(diff).toContain('rename to g.txt');
+    expect((await service.discard('g.txt')).files).toEqual([]);
+    expect(readFileSync(join(project, 'f.txt'), 'utf8')).toBe('one\n');
+    expect(existsSync(join(project, 'g.txt'))).toBe(false);
+  });
+
+  it('shows a file moved in from outside the project as added and discards only the project side', async () => {
+    await git.mv('other/o.txt', 'pkg/moved.txt');
+    expect(kinds((await service.status()).files)).toEqual([{ path: 'moved.txt', status: 'added' }]);
+    expect((await service.discard('moved.txt')).files).toEqual([]);
+    expect(existsSync(join(project, 'moved.txt'))).toBe(false);
+    // The deletion outside the project is left as it was; the content is still in HEAD.
+    expect((await git.diff(['--cached', '--name-status'])).trim()).toBe('D\tother/o.txt');
+  });
+
+  it('commits only the project files and leaves changes staged elsewhere staged', async () => {
+    writeFileSync(join(root, 'other', 'o.txt'), 'staged elsewhere\n');
+    await git.add('other/o.txt');
+    writeFileSync(join(root, 'a.txt'), 'unstaged elsewhere\n');
+    writeFileSync(join(project, 'f.txt'), 'two\n');
+    writeFileSync(join(project, 'new.txt'), 'new\n');
+
+    expect((await service.commit('package only')).files).toEqual([]);
+    const committed = await git.raw(['show', '--name-only', '--format=%s', 'HEAD']);
+    expect(committed.trim().split('\n')).toEqual(['package only', '', 'pkg/f.txt', 'pkg/new.txt']);
+    expect((await git.diff(['--cached', '--name-only'])).trim()).toBe('other/o.txt');
+    expect(await git.show([':other/o.txt'])).toBe('staged elsewhere\n');
+    expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('unstaged elsewhere\n');
+  });
+});
+
 // A repository from an untrusted source can name commands in its own .git/config. Opening the Git panel, viewing a
 // diff or discarding a file must not run any of them (issue #24). Each "command" here only creates a marker file.
 describe('GitService with a hostile repository config', () => {
