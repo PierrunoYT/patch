@@ -314,6 +314,11 @@ fn edit_acl(path: &str, sid: PSID, access: u32, change: Change) -> Result<()> {
             None,
             &mut descriptor,
         );
+        // Granting needs the same read access, so a path whose permissions can't be read never got the grant and
+        // there is nothing to revoke; failing here would keep its recovery record, and every later start, failing.
+        if change == Change::Revoke && status == ERROR_ACCESS_DENIED {
+            return Ok(());
+        }
         if status != ERROR_SUCCESS {
             return Err(format!(
                 "cannot read the permissions of {path} (error {})",
@@ -1290,12 +1295,22 @@ impl RecoveryRecord {
     }
 }
 
+// Starts a record survives before it is set aside in quarantine\ and stops being retried.
+const RECOVERY_ATTEMPTS: u32 = 5;
+
 fn recover_abandoned_runs() -> Result<()> {
     let _lock = PermissionLock::acquire()?;
-    let dir = recovery_dir()?;
-    fs::create_dir_all(&dir).map_err(|e| format!("cannot create sandbox recovery folder: {e}"))?;
+    recover_records(&recovery_dir()?, |record| {
+        record.undo(record_sid(&record.name)?.0)
+    })
+}
+
+// A record that can't be undone must not stop the helper, or one bad record disables the sandbox until it is deleted
+// by hand: it is skipped, retried on later starts and quarantined after RECOVERY_ATTEMPTS failures.
+fn recover_records(dir: &Path, undo: impl Fn(&RecoveryRecord) -> Result<()>) -> Result<()> {
+    fs::create_dir_all(dir).map_err(|e| format!("cannot create sandbox recovery folder: {e}"))?;
     for entry in
-        fs::read_dir(&dir).map_err(|e| format!("cannot read sandbox recovery folder: {e}"))?
+        fs::read_dir(dir).map_err(|e| format!("cannot read sandbox recovery folder: {e}"))?
     {
         let path = entry
             .map_err(|e| format!("cannot read sandbox recovery record: {e}"))?
@@ -1325,13 +1340,43 @@ fn recover_abandoned_runs() -> Result<()> {
             {
                 return Err("invalid sandbox recovery profile".to_string());
             }
-            let sid = record_sid(&record.name)?;
-            record.undo(sid.0)?;
+            if undo(&record).is_err() {
+                drop(file);
+                note_failed_recovery(dir, &path, &record.name);
+                continue;
+            }
+            let _ = fs::remove_file(failures_path(dir, &record.name));
         }
         fs::remove_file(&path)
             .map_err(|e| format!("cannot remove sandbox recovery record: {e}"))?;
     }
     Ok(())
+}
+
+fn failures_path(dir: &Path, name: &str) -> PathBuf {
+    dir.join(format!("{name}.failures"))
+}
+
+// Best effort: the record stays where it is when the count or the move fails, and is simply retried next time.
+fn note_failed_recovery(dir: &Path, record: &Path, name: &str) {
+    let counter = failures_path(dir, name);
+    let failures = fs::read_to_string(&counter)
+        .ok()
+        .and_then(|text| text.trim().parse::<u32>().ok())
+        .unwrap_or(0)
+        + 1;
+    if failures < RECOVERY_ATTEMPTS {
+        eprintln!("sandbox recovery of {name} failed ({failures}/{RECOVERY_ATTEMPTS})");
+        let _ = fs::write(&counter, failures.to_string());
+        return;
+    }
+    let quarantine = dir.join("quarantine");
+    let moved = fs::create_dir_all(&quarantine)
+        .and_then(|()| fs::rename(record, quarantine.join(format!("{name}.json"))));
+    if moved.is_ok() {
+        eprintln!("sandbox recovery of {name} failed {failures} times; moved to quarantine");
+        let _ = fs::remove_file(counter);
+    }
 }
 
 fn original_inheritance(path: &str) -> Result<Option<ProtectedPath>> {
@@ -2534,6 +2579,89 @@ mod tests {
         .unwrap_err()
         .contains("cancelled"));
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_record_that_cannot_be_undone_does_not_stop_recovery_of_the_others() {
+        let dir = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&dir).unwrap();
+        let names = [profile_name(), profile_name(), profile_name()];
+        let failing = names[1].clone();
+        let write_records = || {
+            for name in &names {
+                let record = format!(r#"{{"name":"{name}","granted":[],"protected":[]}}"#);
+                fs::write(dir.join(format!("{name}.json")), record).unwrap();
+            }
+        };
+        let undo = |record: &RecoveryRecord| {
+            if record.name == failing {
+                Err("cannot read the permissions".to_string())
+            } else {
+                Ok(())
+            }
+        };
+        write_records();
+        recover_records(&dir, undo).unwrap();
+        for name in &names {
+            assert_eq!(dir.join(format!("{name}.json")).exists(), *name == failing);
+        }
+        assert_eq!(
+            fs::read_to_string(failures_path(&dir, &failing)).unwrap(),
+            "1"
+        );
+        for _ in 1..RECOVERY_ATTEMPTS {
+            recover_records(&dir, undo).unwrap();
+        }
+        assert!(!dir.join(format!("{failing}.json")).exists());
+        assert!(!failures_path(&dir, &failing).exists());
+        assert!(dir
+            .join("quarantine")
+            .join(format!("{failing}.json"))
+            .exists());
+        // A record that recovers after failing loses its failure count.
+        write_records();
+        recover_records(&dir, |record| undo(record).and(Err("once".to_string()))).unwrap();
+        recover_records(&dir, |_| Ok(())).unwrap();
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn revoking_on_a_path_whose_permissions_cannot_be_read_is_a_no_op() {
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        let path = root.to_str().unwrap().to_string();
+        let set_dacl = |sddl: &str| {
+            let (wpath, sddl) = (wide(&path), wide(sddl));
+            unsafe {
+                let mut descriptor = PSECURITY_DESCRIPTOR::default();
+                ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                    PCWSTR(sddl.as_ptr()),
+                    1,
+                    &mut descriptor,
+                    None,
+                )
+                .unwrap();
+                let _descriptor = LocalMem(descriptor.0);
+                // Unlike SetNamedSecurityInfoW, this needs only WRITE_DAC, not reading the current permissions.
+                SetFileSecurityW(
+                    PCWSTR(wpath.as_ptr()),
+                    DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                    descriptor,
+                )
+                .ok()
+                .unwrap();
+            }
+        };
+        // OWNER RIGHTS replaces the owner's implicit READ_CONTROL: only changing and deleting stay allowed.
+        set_dacl("D:P(A;;WDSD;;;OW)");
+        let sid = record_sid(&profile_name()).unwrap();
+        assert!(edit_acl(&path, sid.0, FILE_MODIFY, Change::Grant)
+            .unwrap_err()
+            .contains("cannot read the permissions"));
+        edit_acl(&path, sid.0, 0, Change::Revoke).unwrap();
+        set_dacl("D:P(A;OICI;FA;;;OW)");
+        fs::remove_dir(root).unwrap();
     }
 
     #[test]

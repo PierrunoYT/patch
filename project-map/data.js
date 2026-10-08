@@ -159,7 +159,7 @@ const D = {
         'edit_backups.ts',
         'text_files.ts',
         'types.ts',
-        'native/sandbox-helper/src/win.rs (2621; project drive ownership, 8.3-alias-safe path mapping, ACL coordination, crash recovery, the cross-command toolchain cache, #108, and the once-per-project capability grant, #103; 34 Rust helper tests plus 1 CI-preparation test pass)',
+        'native/sandbox-helper/src/win.rs (2749; project drive ownership, 8.3-alias-safe path mapping, ACL coordination, per-record crash recovery with quarantine (#163), the cross-command toolchain cache, #108, and the once-per-project capability grant, #103; 36 Rust helper tests plus 1 CI-preparation test pass)',
       ],
     },
     {
@@ -542,7 +542,6 @@ const D = {
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
     [166, 'MCP server that dies after connecting stays "connected" forever', 'mcp', 'medium', 0, '10-07'],
-    [163, 'Windows sandbox: an unreadable PATH folder breaks every later helper start', 'sandbox', 'high', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -665,7 +664,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 81,
+  closedCount: 82,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
