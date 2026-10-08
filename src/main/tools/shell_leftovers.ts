@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 
 // Windows has no process groups. Once a shell exits, `taskkill /T` cannot find the programs it started (`Start-Process
 // npm.cmd run dev`, `cmd /c start ...`), since the tree is walked from a live pid. Their ParentProcessId still names the
@@ -63,51 +63,35 @@ const LIST_SCRIPT =
 const POWERSHELL_ARGS = ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', LIST_SCRIPT];
 const SWEEP_TIMEOUT_MS = 15_000;
 
-function killPids(pids: number[]): void {
-  if (pids.length === 0) return;
-  spawnSync('taskkill', ['/F', ...pids.flatMap((pid) => ['/PID', String(pid)])], {
-    stdio: 'ignore',
-    timeout: 10_000,
-    windowsHide: true,
+// Runs a program and returns its output, or null when it fails. Never rejects.
+function run(file: string, args: string[], timeout: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      execFile(file, args, { encoding: 'utf8', timeout, windowsHide: true }, (error, stdout) =>
+        resolve(error ? null : stdout),
+      );
+    } catch {
+      resolve(null);
+    }
   });
 }
 
-// Kills what the shell `root` left running. Synchronous: for Stop, closing a chat and quitting, which cannot wait.
-export function killWindowsLeftovers(root: number, lifetime: { startedAt: number; endedAt: number }): void {
-  try {
-    const listed = spawnSync('powershell.exe', POWERSHELL_ARGS, {
-      encoding: 'utf8',
-      timeout: SWEEP_TIMEOUT_MS,
-      windowsHide: true,
-    });
-    if (listed.status !== 0) return;
-    killPids(findLeftovers(parseProcessRows(listed.stdout), root, lifetime, [process.pid]));
-  } catch {
-    // Nothing more can be done for programs that cannot be listed.
-  }
+async function killPids(pids: number[]): Promise<void> {
+  if (pids.length === 0) return;
+  await run('taskkill', ['/F', ...pids.flatMap((pid) => ['/PID', String(pid)])], 10_000);
 }
 
-// The same without blocking the main process: for a foreground command that has just finished, whose result must
-// not wait for a process listing that takes a few hundred milliseconds.
-export function killWindowsLeftoversLater(root: number, lifetime: { startedAt: number; endedAt: number }): void {
+// Kills what the shell `root` left running. Asynchronous, so the process listing (a few hundred milliseconds, up to
+// the sweep timeout) does not freeze the main process (#112); quitting waits for it. Never rejects.
+export async function killWindowsLeftovers(
+  root: number,
+  lifetime: { startedAt: number; endedAt: number },
+): Promise<void> {
   try {
-    const lister = spawn('powershell.exe', POWERSHELL_ARGS, {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-      timeout: SWEEP_TIMEOUT_MS,
-    });
-    let text = '';
-    lister.stdout.setEncoding('utf8').on('data', (chunk: string) => (text += chunk));
-    lister.on('error', () => undefined);
-    lister.on('close', (code) => {
-      if (code !== 0) return;
-      try {
-        killPids(findLeftovers(parseProcessRows(text), root, lifetime, [process.pid]));
-      } catch {
-        // Best effort.
-      }
-    });
+    const listed = await run('powershell.exe', POWERSHELL_ARGS, SWEEP_TIMEOUT_MS);
+    if (listed === null) return;
+    await killPids(findLeftovers(parseProcessRows(listed), root, lifetime, [process.pid]));
   } catch {
-    // Best effort.
+    // Nothing more can be done for programs that cannot be listed.
   }
 }

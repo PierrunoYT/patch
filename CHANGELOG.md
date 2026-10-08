@@ -65,6 +65,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Sandboxed commands no longer freeze the app while Patch checks the project's Git metadata: the check runs asynchronously and its result is cached per project until `.git`, its config, hooks or protected folders change (about 2 s of frozen UI per command in a repository with 100,000 `.git` entries before; see `docs/PERFORMANCE.md`). Stopping commands, containers and MCP servers no longer blocks the main process with `taskkill` or `docker rm` (fixes #112).
 - Permission rules that delegate to a program accept arguments (`"to": ["node", "check.js"]`), and `.cmd`/`.bat` programs such as `npx` work on Windows instead of failing with `spawn EINVAL` (fixes #178).
 - The estimated cost no longer prices subagent tokens at the chat model's rates: tokens a subagent spends on another model (finder on the small model, task on the subagent model) are priced at that model's rates, including its long-context rates, in the status bar and the chat list (fixes #172).
 - The code index keeps the embeddings it already made when an update fails or is stopped, saving them every few batches, so the next search embeds only the rest. Stopping one of several searches waiting for the same index update no longer cancels it for the others, and changing settings other than the OpenRouter key no longer starts a second, duplicate indexing run (fixes #170).

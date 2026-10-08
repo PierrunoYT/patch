@@ -452,10 +452,18 @@ export function resetSandboxSupportCache(): void {
   probes.clear();
 }
 
-export function systemLaunchEnv(
-  base: Omit<LaunchEnv, 'exists' | 'gitPaths' | 'uid' | 'gid' | 'home' | 'tmp'> & { home: string; tmp: string },
-): LaunchEnv {
-  const gitPaths = validateSandboxGit(base.cwd);
+type LaunchBase = Omit<LaunchEnv, 'exists' | 'gitPaths' | 'uid' | 'gid' | 'home' | 'tmp'> & {
+  home: string;
+  tmp: string;
+};
+
+// Validates the project's Git metadata first (sandbox_git.ts), which fails when it cannot be protected.
+export async function systemLaunchEnv(base: LaunchBase): Promise<LaunchEnv> {
+  return launchEnvWith(base, await validateSandboxGit(base.cwd));
+}
+
+// The launch environment for Git paths that validateSandboxGit returned.
+export function launchEnvWith(base: LaunchBase, gitPaths: string[]): LaunchEnv {
   const real = (path: string) => {
     try {
       return realpathSync(path);

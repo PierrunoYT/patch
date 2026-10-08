@@ -103,7 +103,7 @@ for (const [kind, available] of [
         return JSON.parse(result.output.trim());
       }
       const command = `${kind === 'container' ? 'node' : './node'} probe.cjs`;
-      const env = systemLaunchEnv({
+      const env = await systemLaunchEnv({
         cwd: root,
         home: fixture,
         tmp: fixture,

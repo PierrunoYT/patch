@@ -92,13 +92,13 @@ describe('GitService', () => {
   });
 
   it('can initialize an empty sandbox reservation on the same service after checking status', async () => {
-    validateSandboxGit(root);
+    await validateSandboxGit(root);
     expect((await service.status()).isRepo).toBe(false);
     expect((await service.init()).isRepo).toBe(true);
   });
 
   it('does not discover planted bare metadata outside the protected reservation', async () => {
-    validateSandboxGit(root);
+    await validateSandboxGit(root);
     expect(spawnSync('git', ['init', '--bare', '--template='], { cwd: root }).status).toBe(0);
     writeFileSync(join(root, 'config'), '[core]\nbare = true\n[include]\npath = nonexistent\n');
     // Git stops at the reservation file instead of accepting the planted bare repository (#129).

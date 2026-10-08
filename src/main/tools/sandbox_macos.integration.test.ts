@@ -4,7 +4,8 @@ import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sandboxEnv } from './env';
-import { buildLaunch, probeSandboxSupport, HOME_READ_ONLY, systemLaunchEnv } from './sandbox';
+import { buildLaunch, probeSandboxSupport, HOME_READ_ONLY, launchEnvWith } from './sandbox';
+import { validateSandboxGit } from './sandbox_git';
 
 const support = await probeSandboxSupport();
 const clangAvailable =
@@ -146,6 +147,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   let probe: string;
   let app: string;
   let fetcher: string;
+  let gitPaths: string[];
 
   const diagnostic = (result: ReturnType<typeof spawnSync>) =>
     `status=${String(result.status)} error=${String(result.error)} stdout=${String(result.stdout)} stderr=${String(result.stderr)}`;
@@ -159,15 +161,18 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   // The probes use a disposable home; toolchain smoke tests pass the real one, as ShellRunner does.
   const runSandboxed = (file: string, args: string[], network = false, sandboxHome = home) => {
     const command = [file, ...args].join(' ');
-    const env = systemLaunchEnv({
-      cwd: project,
-      home: sandboxHome,
-      tmp: temp,
-      inner: { file, args },
-      command,
-      containerName: 'unused-seatbelt-test',
-      image: '',
-    });
+    const env = launchEnvWith(
+      {
+        cwd: project,
+        home: sandboxHome,
+        tmp: temp,
+        inner: { file, args },
+        command,
+        containerName: 'unused-seatbelt-test',
+        image: '',
+      },
+      gitPaths,
+    );
     const launch = buildLaunch({ kind: 'seatbelt', network }, env, null);
     return spawnSync(launch.file, launch.args, {
       cwd: project,
@@ -192,7 +197,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     }
   };
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Keep HOME outside the broadly writable system temp paths in the production profile.
     fixture = realpathSync(mkdtempSync(join(homedir(), '.patch-macos-sandbox-')));
     home = join(fixture, 'home');
@@ -234,6 +239,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
       timeout: 60_000,
     });
     expect(compiledFetch.status, diagnostic(compiledFetch)).toBe(0);
+    gitPaths = await validateSandboxGit(project);
   });
 
   afterAll(() => {

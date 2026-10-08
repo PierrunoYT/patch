@@ -1,11 +1,18 @@
 import { once } from 'node:events';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
-import { APPCONTAINER_TIMEOUT_HINT, backgroundStartup, formatResult, runCommandTool, ShellRunner } from './shell';
+import {
+  APPCONTAINER_TIMEOUT_HINT,
+  backgroundStartup,
+  commandStopsSettled,
+  formatResult,
+  runCommandTool,
+  ShellRunner,
+} from './shell';
 import type { ToolContext } from './types';
 import { Workspace } from './workspace';
 
@@ -54,7 +61,7 @@ describe('background command cancellation', () => {
 
   it.each(['stdout', 'stderr'] as const)('decodes split UTF-8 on background %s', async (stream) => {
     const script = `process.${stream}.write(Buffer.from([226])); setTimeout(() => process.${stream}.write(Buffer.from([156,147,240,159])), 30); setTimeout(() => process.${stream}.write(Buffer.from([152,128,195])), 60); setTimeout(() => process.${stream}.write(Buffer.from([169])), 90);`;
-    const entry = shell.startBackground(`node -e "${script}"`);
+    const entry = await shell.startBackground(`node -e "${script}"`);
     await once(entry.process, 'close');
     expect(entry.exitCode).toBe(0);
     expect(entry.output).toBe('✓😀é');
@@ -81,7 +88,7 @@ describe('background command cancellation', () => {
       controller.abort();
       return root;
     });
-    const entry = shell.startBackground(command, controller.signal);
+    const entry = await shell.startBackground(command, controller.signal);
     await once(entry.process, 'close');
     expect(shell.getBackground(entry.id)).toBeUndefined();
     expect(entry.exitCode).not.toBeUndefined();
@@ -114,17 +121,14 @@ describe('background command cancellation', () => {
   it.skipIf(process.platform !== 'win32')(
     'terminates its owned process when taskkill fails during startup',
     async () => {
-      const taskkill = vi.spyOn(childProcess, 'spawnSync').mockReturnValue({
-        pid: 0,
-        output: [],
-        stdout: Buffer.from(''),
-        stderr: Buffer.from(''),
-        status: 128,
-        signal: null,
-      });
+      const taskkill = vi.spyOn(childProcess, 'execFile').mockImplementation(((...args: unknown[]) => {
+        const callback = args.at(-1) as (error: Error | null) => void;
+        setImmediate(() => callback(Object.assign(new Error('taskkill failed'), { code: 128 })));
+        return {} as childProcess.ChildProcess;
+      }) as unknown as typeof childProcess.execFile);
       syncBuiltinESMExports();
       try {
-        const entry = shell.startBackground('Start-Sleep -Seconds 120', controller.signal);
+        const entry = await shell.startBackground('Start-Sleep -Seconds 120', controller.signal);
         const closed = once(entry.process, 'close');
         await once(entry.process, 'spawn');
         controller.abort();
@@ -209,7 +213,7 @@ describe.skipIf(process.platform === 'win32')('processes a command leaves behind
   }, 20_000);
 
   it('kills a program a background command started when the shell has already exited', async () => {
-    const entry = shell.startBackground('sleep 100 & echo $!');
+    const entry = await shell.startBackground('sleep 100 & echo $!');
     await vi.waitFor(() => expect(entry.output).toMatch(/\d+/));
     const pid = readPid(entry.output);
     await vi.waitFor(() => expect(entry.process.exitCode).not.toBeNull());
@@ -220,7 +224,7 @@ describe.skipIf(process.platform === 'win32')('processes a command leaves behind
   }, 20_000);
 
   it('kills a leftover that holds no output pipe once the background command has closed', async () => {
-    const entry = shell.startBackground('sleep 100 > /dev/null 2>&1 & echo $!');
+    const entry = await shell.startBackground('sleep 100 > /dev/null 2>&1 & echo $!');
     await once(entry.process, 'close');
     const pid = readPid(entry.output);
     expect(isAlive(pid)).toBe(true);
@@ -273,7 +277,7 @@ describe.skipIf(process.platform !== 'win32')('processes a command leaves behind
   }, 30_000);
 
   it('kills a program a background command started when the shell has already exited', async () => {
-    const entry = shell.startBackground(start);
+    const entry = await shell.startBackground(start);
     await vi.waitFor(() => expect(entry.output).toMatch(/\d+/), { timeout: 15_000 });
     const pid = readPid(entry.output);
     await vi.waitFor(() => expect(entry.process.exitCode).not.toBeNull(), { timeout: 15_000 });
@@ -328,7 +332,7 @@ describe('sandbox selection', () => {
       const result = await shell.run(command);
       expect(result.exitCode).toBeNull();
       expect(result.output).toMatch(/The command was not run/);
-      expect(() => shell.startBackground(command)).toThrow(/The command was not run/);
+      await expect(shell.startBackground(command)).rejects.toThrow(/The command was not run/);
       expect(shell.getBackground(1)).toBeUndefined();
       expect(existsSync(join(root, 'ran.txt'))).toBe(false);
     },
@@ -349,6 +353,40 @@ describe('sandbox selection', () => {
       expect(result.output).toContain('hi');
       expect((await shell.run('echo hi')).output).toContain('The command was not run');
     },
+  );
+
+  // A fake engine whose `rm -f` takes a second: Stop must not wait for it, quitting must (#112).
+  it.skipIf(process.platform === 'win32')(
+    'removes a stopped container in the background, and commandStopsSettled waits for it',
+    async () => {
+      const bin = join(root, 'bin');
+      mkdirSync(bin);
+      const marker = join(root, 'removed');
+      writeFileSync(
+        join(bin, 'docker'),
+        `#!/bin/sh\nif [ "$1" = rm ]; then sleep 1; touch '${marker}'; exit 0; fi\nexec sleep 100\n`,
+      );
+      chmodSync(join(bin, 'docker'), 0o755);
+      const path = process.env.PATH;
+      process.env.PATH = `${bin}:${path}`;
+      try {
+        const shell = new ShellRunner(
+          () => root,
+          () => config,
+          () => ({ ...noSupport, container: 'docker' }),
+        );
+        const entry = await shell.startBackground('echo hi');
+        const started = performance.now();
+        shell.stopBackground(entry.id);
+        expect(performance.now() - started).toBeLessThan(500);
+        expect(existsSync(marker)).toBe(false);
+        await commandStopsSettled();
+        expect(existsSync(marker)).toBe(true);
+      } finally {
+        process.env.PATH = path;
+      }
+    },
+    20_000,
   );
 
   it('reports where a command ran, and nothing for a command that never started', async () => {

@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
@@ -10,6 +10,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { lstat, readdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Workspace } from './workspace';
@@ -69,10 +70,111 @@ function reserveHead(root: string, refuse: (reason: string) => never): string {
   return head;
 }
 
+// `git config --list` of one file, without includes, repository discovery or startup config.
+function readConfig(path: string, cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'git',
+      ['--git-dir=/dev/null', 'config', '--file', path, '--no-includes', '--null', '--list'],
+      { cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 1024 * 1024, windowsHide: true },
+      (error, stdout) => (error ? reject(error) : resolve(stdout)),
+    );
+  });
+}
+
+// The last successful validation per project root (#112). It is reused while the fingerprint of the paths it read
+// directly (.git, HEAD, the Git directories, their config, config.worktree, commondir and hooks folder, every config
+// file it checked, and the protected top-level entries) is unchanged, and while the project's place inside or outside
+// another repository is the same. The fingerprint does not see changes deeper in a protected tree, such as a link
+// added under .git/refs: sandboxed commands cannot make those, because every returned path is read-only inside the
+// sandbox, and the next change to .git itself (any Git write touches .git/index or a lock file) re-validates.
+interface CachedCheck {
+  watched: string[];
+  fingerprint?: string;
+  result?: string[];
+}
+const checks = new Map<string, CachedCheck>();
+
+// File times tick coarsely (a few milliseconds on Linux), so a same-size write right after a validation can leave the
+// fingerprint unchanged. Like Git's racy-index rule, a result is cached only when every watched path is older than
+// racyMs. `validations` counts full validations; both are test seams.
+export const sandboxGitCache = { validations: 0, racyMs: 2000 };
+
+export function clearSandboxGitCache(): void {
+  checks.clear();
+}
+
+// The paths every validation reads, before it knows where a gitfile points.
+const basePaths = (root: string) => {
+  const git = join(root, '.git');
+  return [
+    git,
+    join(root, 'HEAD'),
+    ...['config', 'config.worktree', 'commondir', 'hooks'].map((name) => join(git, name)),
+  ];
+};
+
+// Identity, size and times of each path, with the newest time among them, or null when one cannot be read: then the
+// cache is not used.
+async function fingerprint(root: string, paths: string[]): Promise<{ text: string; newest: bigint } | null> {
+  try {
+    let newest = 0n;
+    const stats = await Promise.all(
+      paths.map(async (path) => {
+        try {
+          const s = await lstat(path, { bigint: true });
+          for (const time of [s.mtimeNs, s.ctimeNs]) if (time > newest) newest = time;
+          return `${s.dev}:${s.ino}:${s.mode}:${s.nlink}:${s.size}:${s.mtimeNs}:${s.ctimeNs}`;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'ENOENT' || code === 'ENOTDIR') return '-';
+          throw error;
+        }
+      }),
+    );
+    return { text: JSON.stringify([insideRepository(root), ...paths.map((path, i) => [path, stats[i]])]), newest };
+  } catch {
+    return null;
+  }
+}
+
 // Reserve missing metadata without initializing Git. Keep the reservation across command lifetimes:
 // deleting it on exit could let an overlapping sandbox plant a gitfile or a new repository.
 // Return top-level entries to protect, so metadata redirects cannot be replaced by renaming a writable ancestor.
-export function validateSandboxGit(cwd: string): string[] {
+// Asynchronous, so a large .git does not freeze the main process before every command (#112). A failure is never
+// cached: every call after one validates again.
+export async function validateSandboxGit(cwd: string): Promise<string[]> {
+  let root: string | null = null;
+  try {
+    root = new Workspace(cwd).root;
+  } catch {
+    // The full validation reports it.
+  }
+  const known = root === null ? undefined : checks.get(root);
+  const watched = known?.watched ?? (root === null ? [] : basePaths(root));
+  const before = root === null ? null : await fingerprint(root, watched);
+  if (known?.result && before !== null && before.text === known.fingerprint) return [...known.result];
+  if (root !== null) checks.delete(root);
+  const { result, read } = await checkSandboxGit(cwd);
+  if (root !== null && before !== null) {
+    // Cache only when every path the validation read was fingerprinted before it began and is unchanged after it,
+    // so a change during the validation is never taken as validated. Otherwise remember the paths for next time.
+    const all = [...new Set([...basePaths(root), ...read])];
+    const covered = all.every((path) => watched.includes(path));
+    const after = covered ? await fingerprint(root, watched) : null;
+    const settled = BigInt(Date.now() - sandboxGitCache.racyMs) * 1_000_000n;
+    checks.set(
+      root,
+      after !== null && after.text === before.text && after.newest < settled
+        ? { watched, fingerprint: after.text, result: [...result] }
+        : { watched: all },
+    );
+  }
+  return result;
+}
+
+async function checkSandboxGit(cwd: string): Promise<{ result: string[]; read: string[] }> {
+  sandboxGitCache.validations++;
   const refuse = (reason: string): never => {
     throw new Error(
       `Cannot protect Git metadata: ${reason}. The command was not run. Use the Git panel or request explicit unsandboxed access, which removes filesystem confinement and permits unrestricted network access.`,
@@ -109,7 +211,7 @@ export function validateSandboxGit(cwd: string): string[] {
     if (root.isSymbolicLink() || (!root.isDirectory() && !root.isFile()))
       refuse('the project .git must be a regular directory or gitfile');
     if (root.isFile() && root.nlink !== 1) refuse('linked Git metadata is not supported');
-    if (isReservation(git)) return [git];
+    if (isReservation(git)) return { result: [git], read: [] };
     // A pointer may name the project through a link above it (macOS /tmp -> /private/tmp) only when no command can
     // retarget that link: it must sit in a root-owned directory that group and others cannot write. Every link inside
     // the project is refused, because a sandboxed command could point it at writable metadata.
@@ -155,15 +257,18 @@ export function validateSandboxGit(cwd: string): string[] {
     const pending = [...protectedPaths].filter((path) => lstatSync(path).isDirectory());
     while (pending.length) {
       const directory = pending.pop()!;
-      for (const name of readdirSync(directory)) {
-        const path = join(directory, name);
-        const stat = lstatSync(path);
+      const names = await readdir(directory);
+      const paths = names.map((name) => join(directory, name));
+      // Checked in listing order after all are read, so the reason given does not depend on which lstat ends first.
+      const stats = await Promise.all(paths.map((path) => lstat(path)));
+      paths.forEach((path, i) => {
+        const stat = stats[i]!;
         if (stat.isSymbolicLink() || (stat.isFile() && stat.nlink !== 1))
           refuse('linked Git metadata is not supported');
         workspace.resolve(relative(workspace.root, path));
         if (stat.isDirectory()) pending.push(path);
         else if (!stat.isFile()) refuse('special files in Git metadata are not supported');
-      }
+      });
     }
     // Existing executable integrations are not planted metadata. Includes are different: a writable include
     // lets the command plant new config without changing .git. Allow only targets inside the protected trees.
@@ -178,18 +283,7 @@ export function validateSandboxGit(cwd: string): string[] {
       if (!existsSync(path)) continue;
       // Suppress repository discovery and startup config loading as well: --no-includes applies only to
       // --file, not to config Git loads during startup when --git-dir names a real repository.
-      const entries = execFileSync(
-        'git',
-        ['--git-dir=/dev/null', 'config', '--file', path, '--no-includes', '--null', '--list'],
-        {
-          cwd: workspace.root,
-          encoding: 'utf8',
-          timeout: 5000,
-          maxBuffer: 1024 * 1024,
-          windowsHide: true,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        },
-      ).split('\0');
+      const entries = (await readConfig(path, workspace.root)).split('\0');
       for (const entry of entries) {
         const newline = entry.indexOf('\n');
         if (!/^(include|includeif\..+)\.path$/i.test(newline === -1 ? entry : entry.slice(0, newline))) continue;
@@ -202,7 +296,16 @@ export function validateSandboxGit(cwd: string): string[] {
         configs.push(target);
       }
     }
-    return [...protectedPaths];
+    // What the result depends on directly, for the cache's fingerprint.
+    const read = [
+      metadata,
+      ...directories.flatMap((directory) =>
+        ['config', 'config.worktree', 'commondir', 'hooks'].map((name) => join(directory, name)),
+      ),
+      ...protectedPaths,
+      ...checked,
+    ];
+    return { result: [...protectedPaths], read };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Cannot protect Git metadata:')) throw error;
     return refuse('metadata is unreadable, linked, outside the project, or unsupported');

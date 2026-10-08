@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, readdirSync, realpathSync, type Dirent } from 'node:fs';
 import { PassThrough } from 'node:stream';
@@ -420,7 +420,7 @@ export class HelperProcess extends EventEmitter {
     const force = setTimeout(() => {
       if (this.helper.exitCode === null && this.helper.pid) {
         // The job object has KILL_ON_JOB_CLOSE, so ending the helper ends the command too.
-        spawnSync('taskkill', ['/pid', String(this.helper.pid), '/T', '/F'], { windowsHide: true });
+        execFile('taskkill', ['/pid', String(this.helper.pid), '/T', '/F'], { windowsHide: true }, () => undefined);
       }
     }, FORCE_KILL_MS);
     force.unref();

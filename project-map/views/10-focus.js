@@ -37,7 +37,7 @@ builders.focus = () => {
       'Finish the Electron and tool hardening from the Oct 5–6 reviews',
       'The Oct 5–6 audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
       [
-        '#112, #118: the synchronous .git validation before sandboxed commands and full chat saves still block the main process (sandbox program probes are asynchronous now)',
+        '#118: full chat saves still block the main process. #112 is fixed: the .git check before sandboxed commands is asynchronous and cached, and stopping commands no longer uses spawnSync',
         '#114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #116 provider failure text kept out of local logs, #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
         '#73: web_search still sends queries without approval',
         '#125: two transcript_view e2e tests fail intermittently in full runs',

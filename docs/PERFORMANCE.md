@@ -489,3 +489,24 @@ Windows 11, the development machine used above, 100,000 files:
 
 - **`.git`:** each command still stops `.git` inheriting the project grant, grants its own SID read access there and undoes both when it ends. That walks the `.git` tree a few times per command. In a packed repository that is a few hundred entries, but many loose objects make it slower. Not measured here: the fixture's `.git` is empty ([#139](https://github.com/PierrunoYT/patch/issues/139)).
 - **Files moved in from elsewhere:** a file moved into the project from another folder keeps its old permissions, so it lacks the inherited grant until the project is closed and opened again. Files created or copied in the project inherit it normally ([#140](https://github.com/PierrunoYT/patch/issues/140)).
+
+## Sandbox Git metadata check before each command (#112, 2026-10-08)
+
+**Question:** how long does the check of the project's Git metadata (`validateSandboxGit`) block the main process before each sandboxed command?
+
+**Answer:** for the whole check, every time: about 2 s with a `.git` of about 100,000 entries, during which no window responds. The check is now asynchronous, so the main process never stalls for more than about 25 ms, and its result is cached per project until the fingerprinted Git metadata changes.
+
+### How it is measured
+
+A `.git` with about 102,700 entries in a Linux orb, Node. The check is timed from start to finish, and a `setImmediate` loop records the longest gap between event-loop turns (the main-process stall).
+
+### Results
+
+| Build                         | Check takes | Longest main-process stall |
+| ----------------------------- | ----------- | -------------------------- |
+| Before (synchronous)          | 1.9–2.1 s   | 1.9–2.1 s                  |
+| After, first or after changes | 3.3–3.7 s   | 18–24 ms                   |
+| After, cached                 | 0.2–0.5 ms  | 0.3 ms                     |
+
+- An uncached check takes about 1.7× as long in total, because of the overhead of asynchronous file calls, but it no longer freezes the app. Most commands hit the cache.
+- Stopping commands, containers (`docker rm -f`) and MCP servers (`taskkill`) no longer blocks either; quitting waits for those stops to finish.

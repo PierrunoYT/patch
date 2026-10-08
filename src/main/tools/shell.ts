@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import type { EventEmitter } from 'node:events';
 import { existsSync, realpathSync } from 'node:fs';
@@ -24,7 +24,7 @@ import {
   type SandboxSupport,
 } from './sandbox';
 import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
-import { killWindowsLeftovers, killWindowsLeftoversLater } from './shell_leftovers';
+import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
 import { validateSandboxGit } from './sandbox_git';
 
@@ -168,16 +168,18 @@ export class ShellRunner {
     } = {},
   ): Promise<CommandResult> {
     await this.prepare(access);
+    const stopped: CommandResult = { exitCode: null, output: '', timedOut: false, aborted: true };
+    // A stop that came in before the command could start: an abort listener added now would never fire.
+    if (signal?.aborted) return stopped;
+    let child: CommandProcess;
+    let sandbox: SandboxKind;
+    try {
+      ({ child, sandbox } = await this.spawn(command, access, signal));
+    } catch (error) {
+      if (signal?.aborted) return stopped;
+      return { exitCode: null, output: (error as Error).message, timedOut: false, aborted: false };
+    }
     return new Promise((resolve) => {
-      // A stop that came in before the command could start: an abort listener added now would never fire.
-      if (signal?.aborted) return resolve({ exitCode: null, output: '', timedOut: false, aborted: true });
-      let child: CommandProcess;
-      let sandbox: SandboxKind;
-      try {
-        ({ child, sandbox } = this.spawn(command, access));
-      } catch (error) {
-        return resolve({ exitCode: null, output: (error as Error).message, timedOut: false, aborted: false });
-      }
       let output = '';
       let timedOut = false;
       let aborted = false;
@@ -201,6 +203,8 @@ export class ShellRunner {
         killTree(child);
       };
       signal?.addEventListener('abort', onAbort, { once: true });
+      // A stop between the launch and the listener above.
+      if (signal?.aborted) onAbort();
 
       let finished = false;
       const finish = (exitCode: number | null) => {
@@ -208,7 +212,7 @@ export class ShellRunner {
         finished = true;
         clearTimeout(timer);
         signal?.removeEventListener('abort', onAbort);
-        killLeftovers(child, false);
+        killLeftovers(child);
         child.stdout?.destroy();
         child.stderr?.destroy();
         resolve({ exitCode, output, timedOut, aborted, sandbox });
@@ -224,9 +228,9 @@ export class ShellRunner {
     });
   }
 
-  startBackground(command: string, signal?: AbortSignal, access: CommandAccess = {}): BackgroundCommand {
+  async startBackground(command: string, signal?: AbortSignal, access: CommandAccess = {}): Promise<BackgroundCommand> {
     signal?.throwIfAborted();
-    const { child } = this.spawn(command, access);
+    const { child } = await this.spawn(command, access, signal);
     const onAbort = () => this.stopBackground(entry.id);
     const entry: BackgroundCommand = {
       id: this.nextId++,
@@ -278,8 +282,13 @@ export class ShellRunner {
     for (const id of [...this.background.keys()]) this.stopBackground(id);
   }
 
-  // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then.
-  private spawn(command: string, access: CommandAccess): { child: CommandProcess; sandbox: SandboxKind } {
+  // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then. The Git
+  // metadata check is awaited before anything starts; a stop that arrives during it throws instead of starting.
+  private async spawn(
+    command: string,
+    access: CommandAccess,
+    signal?: AbortSignal,
+  ): Promise<{ child: CommandProcess; sandbox: SandboxKind }> {
     const decision = this.decide(command, access);
     if (decision.kind === 'unavailable') {
       appLog.warn('sandbox', 'The chosen sandbox is not available.', { mode: this.sandbox().mode });
@@ -288,23 +297,22 @@ export class ShellRunner {
     const config = this.sandbox();
     const inner = shellCommand(command, decision.kind !== 'none');
     if (decision.kind === 'appcontainer')
-      return { child: this.spawnInAppContainer(inner, decision.network), sandbox: decision.kind };
-    const launch: Launch =
-      decision.kind === 'none'
-        ? { file: inner.file, args: inner.args }
-        : buildLaunch(
-            decision,
-            systemLaunchEnv({
-              cwd: this.cwd(),
-              home: homedir(),
-              tmp: tmpdir(),
-              inner: decision.kind === 'container' ? { file: '/bin/sh', args: ['-c', command] } : inner,
-              command,
-              containerName: `patch-${randomBytes(6).toString('hex')}`,
-              image: config.image,
-            }),
-            this.detect().container,
-          );
+      return { child: await this.spawnInAppContainer(inner, decision.network, signal), sandbox: decision.kind };
+    let launch: Launch;
+    if (decision.kind === 'none') launch = { file: inner.file, args: inner.args };
+    else {
+      const env = await systemLaunchEnv({
+        cwd: this.cwd(),
+        home: homedir(),
+        tmp: tmpdir(),
+        inner: decision.kind === 'container' ? { file: '/bin/sh', args: ['-c', command] } : inner,
+        command,
+        containerName: `patch-${randomBytes(6).toString('hex')}`,
+        image: config.image,
+      });
+      signal?.throwIfAborted();
+      launch = buildLaunch(decision, env, this.detect().container);
+    }
     appLog.info('sandbox', 'Command started.', {
       kind: decision.kind,
       network: decision.kind === 'none' ? true : decision.network,
@@ -332,11 +340,16 @@ export class ShellRunner {
     return { child, sandbox: decision.kind };
   }
 
-  private spawnInAppContainer(inner: { file: string; args: string[] }, network: boolean): CommandProcess {
+  private async spawnInAppContainer(
+    inner: { file: string; args: string[] },
+    network: boolean,
+    signal?: AbortSignal,
+  ): Promise<CommandProcess> {
     const helper = this.detect().appcontainer;
     if (!helper)
       throw new Error('The Windows sandbox helper (sandbox-helper.exe) was not found. The command was not run.');
-    const gitPaths = validateSandboxGit(this.cwd());
+    const gitPaths = await validateSandboxGit(this.cwd());
+    signal?.throwIfAborted();
     const real = (path: string) => {
       try {
         return realpathSync.native(path);
@@ -375,31 +388,57 @@ interface Lifetime {
 }
 const lifetimes = new WeakMap<CommandProcess, Lifetime>();
 
+// Stops still running (container removal, taskkill, the Windows leftover sweep). They run asynchronously so a slow
+// engine or process listing does not freeze the main process; quitting waits for them (commandStopsSettled).
+const pendingStops = new Set<Promise<void>>();
+
+function trackStop(work: Promise<unknown>): void {
+  const tracked = work.then(
+    () => undefined,
+    () => undefined,
+  );
+  pendingStops.add(tracked);
+  void tracked.then(() => pendingStops.delete(tracked));
+}
+
+export async function commandStopsSettled(): Promise<void> {
+  await Promise.all([...pendingStops]);
+}
+
+// Whether a program ran and exited with 0. Never rejects.
+function runQuietly(file: string, args: string[], timeout?: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      execFile(file, args, { timeout, windowsHide: true }, (error) => resolve(!error));
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 function killTree(child: CommandProcess): void {
   if (child instanceof HelperProcess) return child.stopTree();
   const stop = stoppers.get(child);
-  if (stop) {
-    try {
-      spawnSync(stop.file, stop.args, { stdio: 'ignore', timeout: 10_000, windowsHide: true });
-    } catch {
-      // Falls through to killing the client.
-    }
-  }
+  // Removing the container and killing its client below happen side by side.
+  if (stop) trackStop(runQuietly(stop.file, stop.args, 10_000));
   if (!child.pid) return;
   // The shell can exit while programs it started (its process group) keep running, so the group is signalled anyway.
   if (child.exitCode !== null) return killLeftovers(child);
   try {
     if (process.platform === 'win32') {
-      // Before the spawn event, synchronously spawning taskkill gives the just-created shell time to launch a
-      // child after taskkill's snapshot. Terminate our native process handle immediately instead.
+      // Before the spawn event, spawning taskkill gives the just-created shell time to launch a child after
+      // taskkill's snapshot. Terminate our native process handle immediately instead.
       if (!spawned.has(child)) {
         child.kill('SIGKILL');
         return;
       }
-      const killed = spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
       // taskkill can lose a startup race before Windows exposes the new process to its process-tree query.
-      // spawnSync returns a nonzero status rather than throwing; still terminate the process we own.
-      if (killed.status !== 0) child.kill('SIGKILL');
+      // When it fails, still terminate the process we own.
+      trackStop(
+        runQuietly('taskkill', ['/pid', String(child.pid), '/T', '/F']).then((killed) => {
+          if (!killed) child.kill('SIGKILL');
+        }),
+      );
     } else {
       process.kill(-child.pid, 'SIGKILL');
     }
@@ -410,15 +449,14 @@ function killTree(child: CommandProcess): void {
 
 // Kills what a command left behind (`npm run dev &`) after its shell has exited. On POSIX the command was started in
 // its own process group, which outlives the shell while any member runs; ESRCH means nothing is left. Windows has no
-// groups, so the leftovers are found through their parent pid; `wait` says whether the caller can block for that
-// (Stop, closing a chat, quitting) or must not (a foreground command that just finished).
-function killLeftovers(child: CommandProcess, wait = true): void {
+// groups, so the leftovers are found through their parent pid, in the background (quitting waits for it).
+function killLeftovers(child: CommandProcess): void {
   if (!child.pid || child instanceof HelperProcess) return;
   if (process.platform === 'win32') {
     const lifetime = lifetimes.get(child);
     if (!lifetime || child.exitCode === null) return;
     const ended = { startedAt: lifetime.startedAt, endedAt: lifetime.endedAt ?? Date.now() };
-    return wait ? killWindowsLeftovers(child.pid, ended) : killWindowsLeftoversLater(child.pid, ended);
+    return trackStop(killWindowsLeftovers(child.pid, ended));
   }
   try {
     process.kill(-child.pid, 'SIGKILL');
@@ -505,7 +543,7 @@ export const runCommandTool = defineTool({
       let entry: BackgroundCommand;
       try {
         await context.shell.prepare(access);
-        entry = context.shell.startBackground(command, context.signal, access);
+        entry = await context.shell.startBackground(command, context.signal, access);
       } catch (error) {
         if (context.signal.aborted) throw error;
         return { content: (error as Error).message, isError: true, summary: `Could not start \`${command}\`` };

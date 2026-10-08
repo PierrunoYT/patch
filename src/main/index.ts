@@ -28,6 +28,7 @@ import { SettingsStore } from './settings';
 import { changesToConfirm, projectChangesToConfirm } from './settings_confirm';
 import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
 import { releaseProjectGrant } from './tools/sandbox_windows';
+import { commandStopsSettled } from './tools/shell';
 import { Workspace } from './tools/workspace';
 import type { IndexStatus } from '@shared/ipc';
 import { BrowserService } from './panels/browser';
@@ -483,7 +484,8 @@ function start(): void {
     manager.dispose();
     terminal.stop();
     // The chats were saved by dispose; a checkpoint it replaced may still be cleaning up its temporary file.
-    void Promise.allSettled([mcp.stop(), chats.flush()]).finally(() => app.quit());
+    // Stopping commands runs in the background (container removal, taskkill); quitting waits for it as it did before.
+    void Promise.allSettled([mcp.stop(), chats.flush(), commandStopsSettled()]).finally(() => app.quit());
   });
 }
 

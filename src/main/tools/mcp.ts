@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { posix, win32 } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -314,7 +314,7 @@ async function closeClient(state: ServerState): Promise<void> {
   } catch {
     // A server that will not close cleanly is killed below; the process is going away anyway.
   }
-  killProcessTree(pid);
+  await killProcessTree(pid);
 }
 
 function stdioPid(client: Client): number | undefined {
@@ -324,11 +324,14 @@ function stdioPid(client: Client): number | undefined {
 
 // close() kills the spawned process but not what it started. `npx` runs under cmd.exe on Windows, and killing that
 // leaves the node grandchild running, so the whole tree goes.
-function killProcessTree(pid: number | undefined): void {
+// Asynchronous, so the main process keeps running meanwhile; stop() and quitting still wait for it.
+async function killProcessTree(pid: number | undefined): Promise<void> {
   if (!pid) return;
   try {
     if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true });
+      await new Promise<void>((resolve) =>
+        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true }, () => resolve()),
+      );
     } else {
       process.kill(pid, 'SIGKILL');
     }

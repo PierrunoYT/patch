@@ -415,7 +415,7 @@ setInterval(() => {}, 1000);`,
   }, 60_000);
 
   it('stops a background command when told to', async () => {
-    const entry = shell.startBackground('Start-Sleep -Seconds 120');
+    const entry = await shell.startBackground('Start-Sleep -Seconds 120');
     await new Promise((resolve) => setTimeout(resolve, 2500));
     expect(entry.exitCode).toBeUndefined();
     const closed = once(entry.process, 'close');
@@ -734,7 +734,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
   it('stops a staged background command and removes its private staging, keeping the cached copy', async () => {
     // Remove the readable control ACE so this test must stage again.
     execFileSync('icacls', [tools, '/remove:g', '*S-1-15-2-1']);
-    const entry = shell.startBackground('node -e "console.log(process.execPath); setInterval(()=>{},1000)"');
+    const entry = await shell.startBackground('node -e "console.log(process.execPath); setInterval(()=>{},1000)"');
     try {
       const until = Date.now() + 30_000;
       while (!entry.output.includes('node.exe') && Date.now() < until && entry.exitCode === undefined)
@@ -947,7 +947,7 @@ describe.skipIf(!helper)('Project write grant (real helper, #103)', () => {
   }, 60_000);
 
   it('keeps the grant while a command still runs in the project, and releases it once it stops', async () => {
-    const entry = runner.startBackground('Start-Sleep -Seconds 120');
+    const entry = await runner.startBackground('Start-Sleep -Seconds 120');
     try {
       await expect.poll(() => acl(project), { timeout: 30_000 }).toMatch(capability);
       expect(await revokeProjectGrant(project, helper)).toMatch(/still run/);

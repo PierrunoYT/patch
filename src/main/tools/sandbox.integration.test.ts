@@ -94,7 +94,7 @@ for (const [kind, available] of [
 
       const run = async (action: string, target: string, value = '', network = false) => {
         const command = `${kind === 'container' ? 'node' : './node'} probe.cjs ${[action, target, value].map(quote).join(' ')}`;
-        const env = systemLaunchEnv({
+        const env = await systemLaunchEnv({
           cwd: project,
           home,
           tmp: temp,
