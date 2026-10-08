@@ -134,7 +134,7 @@ const D = {
         'registry.ts',
         'shell.ts (559; streaming UTF-8 output, #164; kills the programs a finished command left running, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'shell_leftovers.ts (113; finds and kills what a Windows shell left running through its parent pid, #165)',
-        'sandbox_windows.ts (404, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
+        'sandbox_windows.ts (417, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
         'web.ts (226, no own test)',
@@ -159,7 +159,7 @@ const D = {
         'edit_backups.ts',
         'text_files.ts',
         'types.ts',
-        'native/sandbox-helper/src/win.rs (2749; project drive ownership, 8.3-alias-safe path mapping, ACL coordination, per-record crash recovery with quarantine (#163), the cross-command toolchain cache, #108, and the once-per-project capability grant, #103; 36 Rust helper tests plus 1 CI-preparation test pass)',
+        'native/sandbox-helper/src/win.rs (2860; project drive ownership, 8.3-alias-safe path mapping, ACL coordination, per-record crash recovery with quarantine for failing and unreadable records (#163, #152), the cross-command toolchain cache, #108, and the once-per-project capability grant, #103; 37 Rust helper tests plus 1 CI-preparation test pass)',
       ],
     },
     {
@@ -555,7 +555,6 @@ const D = {
     [155, 'Allowed-command prefixes also allow flags that write files', 'security', 'low', 0, '10-07'],
     [154, 'Code indexer follows a swapped symlink and embeds outside content', 'security', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
-    [152, 'Windows sandbox: one unreadable recovery record disables the sandbox', 'sandbox', 'low', 0, '10-07'],
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
     [149, 'Packaged builds look for sandbox-helper.exe in dev paths and the cwd', 'sandbox', 'low', 0, '10-07'],
@@ -664,7 +663,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 82,
+  closedCount: 83,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

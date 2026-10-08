@@ -81,6 +81,13 @@ pub enum Event<'a> {
         id: Option<u64>,
         message: &'a str,
     },
+    // Something Patch should write to its local log, never a failure of the command. Codes, record names and counts
+    // only, no paths or other details.
+    Log {
+        code: &'a str,
+        record: &'a str,
+        failures: u32,
+    },
 }
 
 pub fn parse_message(line: &str) -> Result<Message, String> {
@@ -176,6 +183,14 @@ mod tests {
                 data: "a\"b\n"
             }),
             r#"{"type":"stdout","id":1,"data":"a\"b\n"}"#
+        );
+        assert_eq!(
+            encode_event(&Event::Log {
+                code: "recovery-failed",
+                record: "patch.sbx.1",
+                failures: 2
+            }),
+            r#"{"type":"log","code":"recovery-failed","record":"patch.sbx.1","failures":2}"#
         );
     }
 }

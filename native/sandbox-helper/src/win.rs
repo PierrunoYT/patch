@@ -204,7 +204,14 @@ fn ensure_active(jobs: &Jobs, id: u64) -> Result<()> {
 
 pub fn serve() {
     let emitter = Emitter(Arc::new(Mutex::new(std::io::stdout())));
-    if let Err(message) = recover_abandoned_runs() {
+    let log = |code: &str, record: &str, failures: u32| {
+        emitter.send(&Event::Log {
+            code,
+            record,
+            failures,
+        })
+    };
+    if let Err(message) = recover_abandoned_runs(&log) {
         emitter.send(&Event::Error {
             id: None,
             message: &message,
@@ -1179,7 +1186,10 @@ impl Drop for PermissionLock {
 }
 
 fn recovery_records() -> Result<Vec<RecoveryRecord>> {
-    let dir = recovery_dir()?;
+    records_in(&recovery_dir()?)
+}
+
+fn records_in(dir: &Path) -> Result<Vec<RecoveryRecord>> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -1193,10 +1203,11 @@ fn recovery_records() -> Result<Vec<RecoveryRecord>> {
         if path.extension().and_then(|s| s.to_str()) == Some("json") {
             let bytes = fs::read(&path)
                 .map_err(|e| format!("cannot read sandbox protection owner: {e}"))?;
-            records.push(
-                serde_json::from_slice(&bytes)
-                    .map_err(|e| format!("invalid sandbox protection owner: {e}"))?,
-            );
+            // A live run publishes its record complete (written as .pending, then renamed), so one that can't be
+            // parsed belongs to no running command. Startup recovery quarantines it; until then it is ignored.
+            if let Ok(record) = serde_json::from_slice(&bytes) {
+                records.push(record);
+            }
         }
     }
     Ok(records)
@@ -1298,16 +1309,26 @@ impl RecoveryRecord {
 // Starts a record survives before it is set aside in quarantine\ and stops being retried.
 const RECOVERY_ATTEMPTS: u32 = 5;
 
-fn recover_abandoned_runs() -> Result<()> {
+// Reports a recovery outcome to Patch's log: a code, the record's name and its failure count.
+type RecoveryLog<'a> = &'a dyn Fn(&str, &str, u32);
+
+fn recover_abandoned_runs(log: RecoveryLog) -> Result<()> {
     let _lock = PermissionLock::acquire()?;
-    recover_records(&recovery_dir()?, |record| {
-        record.undo(record_sid(&record.name)?.0)
-    })
+    recover_records(
+        &recovery_dir()?,
+        |record| record.undo(record_sid(&record.name)?.0),
+        log,
+    )
 }
 
 // A record that can't be undone must not stop the helper, or one bad record disables the sandbox until it is deleted
-// by hand: it is skipped, retried on later starts and quarantined after RECOVERY_ATTEMPTS failures.
-fn recover_records(dir: &Path, undo: impl Fn(&RecoveryRecord) -> Result<()>) -> Result<()> {
+// by hand: it is skipped, retried on later starts and quarantined after RECOVERY_ATTEMPTS failures. A record that
+// can't be parsed or names an invalid profile can never be undone, so it is quarantined at once.
+fn recover_records(
+    dir: &Path,
+    undo: impl Fn(&RecoveryRecord) -> Result<()>,
+    log: RecoveryLog,
+) -> Result<()> {
     fs::create_dir_all(dir).map_err(|e| format!("cannot create sandbox recovery folder: {e}"))?;
     for entry in
         fs::read_dir(dir).map_err(|e| format!("cannot read sandbox recovery folder: {e}"))?
@@ -1328,21 +1349,25 @@ fn recover_records(dir: &Path, undo: impl Fn(&RecoveryRecord) -> Result<()>) -> 
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => return Err(format!("cannot lock sandbox recovery record: {error}")),
         };
-        let mut text = String::new();
-        file.read_to_string(&mut text)
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)
             .map_err(|e| format!("cannot read sandbox recovery record: {e}"))?;
         // Pending writes cannot have changed permissions. A published record must remain intact.
         if extension == Some("json") {
-            let record: RecoveryRecord = serde_json::from_str(&text)
-                .map_err(|e| format!("invalid sandbox recovery record: {e}"))?;
-            if !record.name.starts_with("patch.sbx.")
-                || path.file_stem().and_then(|s| s.to_str()) != Some(&record.name)
-            {
-                return Err("invalid sandbox recovery profile".to_string());
-            }
+            let stem = path.file_stem().and_then(|s| s.to_str());
+            let record = serde_json::from_slice::<RecoveryRecord>(&bytes)
+                .ok()
+                .filter(|record| {
+                    record.name.starts_with("patch.sbx.") && stem == Some(record.name.as_str())
+                });
+            let Some(record) = record else {
+                drop(file);
+                quarantine_record(dir, &path, "record-unreadable", 0, log);
+                continue;
+            };
             if undo(&record).is_err() {
                 drop(file);
-                note_failed_recovery(dir, &path, &record.name);
+                note_failed_recovery(dir, &path, &record.name, log);
                 continue;
             }
             let _ = fs::remove_file(failures_path(dir, &record.name));
@@ -1358,7 +1383,7 @@ fn failures_path(dir: &Path, name: &str) -> PathBuf {
 }
 
 // Best effort: the record stays where it is when the count or the move fails, and is simply retried next time.
-fn note_failed_recovery(dir: &Path, record: &Path, name: &str) {
+fn note_failed_recovery(dir: &Path, record: &Path, name: &str, log: RecoveryLog) {
     let counter = failures_path(dir, name);
     let failures = fs::read_to_string(&counter)
         .ok()
@@ -1366,17 +1391,36 @@ fn note_failed_recovery(dir: &Path, record: &Path, name: &str) {
         .unwrap_or(0)
         + 1;
     if failures < RECOVERY_ATTEMPTS {
-        eprintln!("sandbox recovery of {name} failed ({failures}/{RECOVERY_ATTEMPTS})");
+        log("recovery-failed", name, failures);
         let _ = fs::write(&counter, failures.to_string());
-        return;
-    }
-    let quarantine = dir.join("quarantine");
-    let moved = fs::create_dir_all(&quarantine)
-        .and_then(|()| fs::rename(record, quarantine.join(format!("{name}.json"))));
-    if moved.is_ok() {
-        eprintln!("sandbox recovery of {name} failed {failures} times; moved to quarantine");
+    } else if quarantine_record(dir, record, "recovery-quarantined", failures, log) {
         let _ = fs::remove_file(counter);
     }
+}
+
+// Moves a record into quarantine\, where recovery no longer reads it and the user can still inspect it.
+fn quarantine_record(
+    dir: &Path,
+    record: &Path,
+    code: &str,
+    failures: u32,
+    log: RecoveryLog,
+) -> bool {
+    let name = record
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default();
+    let quarantine = dir.join("quarantine");
+    let moved = fs::create_dir_all(&quarantine)
+        .and_then(|()| fs::rename(record, quarantine.join(name)))
+        .is_ok();
+    let record_name = name.strip_suffix(".json").unwrap_or(name);
+    log(
+        if moved { code } else { "quarantine-failed" },
+        record_name,
+        failures,
+    );
+    moved
 }
 
 fn original_inheritance(path: &str) -> Result<Option<ProtectedPath>> {
@@ -2600,8 +2644,14 @@ mod tests {
                 Ok(())
             }
         };
+        let logged = std::cell::RefCell::new(Vec::new());
+        let log = |code: &str, record: &str, failures: u32| {
+            logged
+                .borrow_mut()
+                .push((code.to_string(), record.to_string(), failures))
+        };
         write_records();
-        recover_records(&dir, undo).unwrap();
+        recover_records(&dir, undo, &log).unwrap();
         for name in &names {
             assert_eq!(dir.join(format!("{name}.json")).exists(), *name == failing);
         }
@@ -2610,7 +2660,7 @@ mod tests {
             "1"
         );
         for _ in 1..RECOVERY_ATTEMPTS {
-            recover_records(&dir, undo).unwrap();
+            recover_records(&dir, undo, &log).unwrap();
         }
         assert!(!dir.join(format!("{failing}.json")).exists());
         assert!(!failures_path(&dir, &failing).exists());
@@ -2618,10 +2668,71 @@ mod tests {
             .join("quarantine")
             .join(format!("{failing}.json"))
             .exists());
+        let mut expected: Vec<_> = (1..RECOVERY_ATTEMPTS)
+            .map(|n| ("recovery-failed".to_string(), failing.clone(), n))
+            .collect();
+        expected.push((
+            "recovery-quarantined".to_string(),
+            failing.clone(),
+            RECOVERY_ATTEMPTS,
+        ));
+        assert_eq!(*logged.borrow(), expected);
         // A record that recovers after failing loses its failure count.
         write_records();
-        recover_records(&dir, |record| undo(record).and(Err("once".to_string()))).unwrap();
-        recover_records(&dir, |_| Ok(())).unwrap();
+        recover_records(
+            &dir,
+            |record| undo(record).and(Err("once".to_string())),
+            &log,
+        )
+        .unwrap();
+        recover_records(&dir, |_| Ok(()), &log).unwrap();
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn records_that_cannot_be_parsed_are_quarantined_and_ignored() {
+        let dir = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&dir).unwrap();
+        let (good, truncated, renamed) = (profile_name(), profile_name(), profile_name());
+        let record = |name: &str| format!(r#"{{"name":"{name}","granted":[],"protected":[]}}"#);
+        fs::write(dir.join(format!("{good}.json")), record(&good)).unwrap();
+        fs::write(
+            dir.join(format!("{truncated}.json")),
+            r#"{"name":"patch.sb"#,
+        )
+        .unwrap();
+        // A valid record whose file name doesn't match the profile it names can't be trusted to undo.
+        fs::write(dir.join(format!("{renamed}.json")), record(&good)).unwrap();
+        assert_eq!(records_in(&dir).unwrap().len(), 2);
+        let undone = std::cell::RefCell::new(Vec::new());
+        let logged = std::cell::RefCell::new(Vec::new());
+        recover_records(
+            &dir,
+            |record| {
+                undone.borrow_mut().push(record.name.clone());
+                Ok(())
+            },
+            &|code, record, failures| {
+                logged
+                    .borrow_mut()
+                    .push((code.to_string(), record.to_string(), failures))
+            },
+        )
+        .unwrap();
+        assert_eq!(*undone.borrow(), vec![good.clone()]);
+        let mut logged = logged.into_inner();
+        logged.sort();
+        let mut expected = vec![
+            ("record-unreadable".to_string(), truncated.clone(), 0),
+            ("record-unreadable".to_string(), renamed.clone(), 0),
+        ];
+        expected.sort();
+        assert_eq!(logged, expected);
+        for name in [&truncated, &renamed] {
+            assert!(dir.join("quarantine").join(format!("{name}.json")).exists());
+        }
+        assert!(records_in(&dir).unwrap().is_empty());
         assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
         fs::remove_dir_all(dir).unwrap();
     }

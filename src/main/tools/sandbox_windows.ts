@@ -4,6 +4,7 @@ import { existsSync, readdirSync, realpathSync, type Dirent } from 'node:fs';
 import { PassThrough } from 'node:stream';
 import { join, win32 } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { appLog } from '../app_log';
 
 // The Windows sandbox: sandbox-helper.exe (native/sandbox-helper) starts the command in an AppContainer. The planning
 // code here is pure so it can be tested on any platform; the protocol client can be pointed at any script that speaks
@@ -37,7 +38,8 @@ export type HelperEvent =
   | { type: 'stdout'; id: number; data: string }
   | { type: 'stderr'; id: number; data: string }
   | { type: 'exit'; id: number; exitCode: number; timedOut: boolean }
-  | { type: 'error'; id?: number | null; message: string };
+  | { type: 'error'; id?: number | null; message: string }
+  | { type: 'log'; code: string; record: string; failures: number };
 
 export const DEFAULT_LIMITS = { memoryMb: 8192, processes: 512 };
 
@@ -212,6 +214,11 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
   };
 }
 
+// Startup recovery reports records it could not clean up or set aside (codes, record names and counts only).
+export function logHelperEvent(event: Extract<HelperEvent, { type: 'log' }>): void {
+  appLog.warn('sandbox-helper', event.code, { record: event.record, failures: event.failures });
+}
+
 export function parseHelperEvent(line: string): HelperEvent | null {
   try {
     const value = JSON.parse(line) as HelperEvent;
@@ -264,9 +271,12 @@ export function revokeProjectGrant(project: string, helper: string | null = find
     child.stdout?.on('data', (chunk: string) => (output += chunk));
     child.on('error', (error) => resolve(error.message));
     child.on('close', () => {
-      for (const event of output.split('\n').map(parseHelperEvent))
-        if (event?.type === 'error') return resolve(event.message);
-      resolve(null);
+      let error: string | null = null;
+      for (const event of output.split('\n').map(parseHelperEvent)) {
+        if (event?.type === 'log') logHelperEvent(event);
+        else if (event?.type === 'error') error ??= event.message;
+      }
+      resolve(error);
     });
     child.stdin?.on('error', () => {});
     child.stdin?.end(`${JSON.stringify({ revokeProject: cwd })}\n`);
@@ -349,6 +359,9 @@ export class HelperProcess extends EventEmitter {
         break;
       case 'error':
         this.fail(event.message);
+        break;
+      case 'log':
+        logHelperEvent(event);
         break;
     }
   }

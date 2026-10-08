@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { appLog } from '../app_log';
 import {
   buildHelperRequest,
   exceedsEntryLimit,
@@ -291,6 +292,10 @@ rl.on('line', (line) => {
   // Like the real helper, it keeps waiting for input after an error and only exits once stdin closes.
   if (request.command === 'error') out({ type: 'error', id: request.id, message: 'no container' });
   if (request.command === 'crash') process.exit(9);
+  if (request.command === 'log') {
+    out({ type: 'log', code: 'recovery-failed', record: 'patch.sbx.1', failures: 2 });
+    out({ type: 'exit', id: request.id, exitCode: 0, timedOut: false });
+  }
 });
 rl.on('close', () => {
   if (request?.command === 'error' && request.args[0]) require('node:fs').writeFileSync(request.args[0], 'closed');
@@ -344,6 +349,18 @@ describe('HelperProcess', () => {
     expect(error.message).toBe('no container');
     // The helper must not be left running after the failed run.
     await vi.waitFor(() => expect(existsSync(marker)).toBe(true), { timeout: 3000 });
+  });
+
+  it('writes helper log events to the app log without failing the command', async () => {
+    const warn = vi.spyOn(appLog, 'warn').mockImplementation(() => {});
+    const child = start('log');
+    const errors: Error[] = [];
+    child.on('error', (error: Error) => errors.push(error));
+    const [code] = (await once(child, 'close')) as [number];
+    expect(code).toBe(0);
+    expect(errors).toEqual([]);
+    expect(warn).toHaveBeenCalledWith('sandbox-helper', 'recovery-failed', { record: 'patch.sbx.1', failures: 2 });
+    warn.mockRestore();
   });
 
   it('reports a helper that dies without an exit event', async () => {
