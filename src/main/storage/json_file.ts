@@ -1,6 +1,18 @@
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import {
+  closeSync,
+  type Dirent,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { appLog } from '../app_log';
 
 // Reads a JSON file, returning `fallback` if it is missing or unreadable. A file that exists but is not valid JSON is
@@ -31,12 +43,29 @@ function keepCorruptCopy(path: string): void {
   }
 }
 
+// A random temporary name next to the file. It is created with `wx`, so a file or link already at the name makes the
+// write fail instead of being followed or replaced (#124).
+function tempName(path: string): string {
+  return `${path}.${randomUUID()}.tmp`;
+}
+
 // Writes via a temporary file and rename so a crash mid-write never leaves a truncated file behind.
 export function writeJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
-  const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, JSON.stringify(value, null, 2), 'utf8');
-  renameSync(temp, path);
+  const temp = tempName(path);
+  // Throws before anything is created when the name is taken; that file is not ours to remove.
+  const fd = openSync(temp, 'wx');
+  try {
+    try {
+      writeFileSync(fd, JSON.stringify(value, null, 2), 'utf8');
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(temp, path);
+  } catch (error) {
+    rmSync(temp, { force: true });
+    throw error;
+  }
   // This is the newest content: a write still on its way from writeJsonLater must not replace it.
   cancelJsonWrite(path);
 }
@@ -70,22 +99,62 @@ export function writeJsonLater(path: string, value: unknown): Promise<void> {
 }
 
 async function drain(path: string, write: LaterWrite): Promise<void> {
-  // One name per file: writes to a file never overlap, and a temporary file left by a crash is reused.
-  const temp = `${path}.later.tmp`;
+  // Writes to a file never overlap, so one random name serves the whole run; it is free again after each rename.
+  const temp = tempName(path);
+  // False when the name turned out to be taken: that file is not ours to remove.
+  let ours = true;
   try {
     await mkdir(dirname(path), { recursive: true });
     while (write.next !== null) {
       const text = write.next;
       write.next = null;
       write.stale = false;
-      await writeFile(temp, text, 'utf8');
+      await writeFile(temp, text, { encoding: 'utf8', flag: 'wx' });
       // Checked and renamed in one synchronous step, so nothing newer can land in between.
       if (!write.stale) renameSync(temp, path);
+      else rmSync(temp, { force: true });
     }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') ours = false;
+    throw error;
   } finally {
     laterWrites.delete(path);
-    rmSync(temp, { force: true });
+    // A write that failed half-way may have left the file.
+    if (ours) rmSync(temp, { force: true });
   }
+}
+
+// Temporary files of writeJson and writeJsonLater: `<name>.json.<random UUID>.tmp`, plus the `.<pid>.tmp` and
+// `.later.tmp` names of earlier versions.
+const TEMP_FILE = /\.json\.(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+|later)\.tmp$/i;
+
+// How old a temporary file must be before start-up cleanup removes it. A write takes milliseconds, so an older file
+// belongs to no running write, in this process or another one.
+export const STALE_TEMP_AGE_MS = 5 * 60_000;
+
+// Removes temporary files that a crash left between writing and renaming, in `dir` only (not its subfolders). Files
+// younger than `maxAgeMs` are kept. Returns how many were removed.
+export function removeStaleTempFiles(dir: string, maxAgeMs = STALE_TEMP_AGE_MS, now = Date.now()): number {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.isFile() || !TEMP_FILE.test(entry.name)) continue;
+    const file = join(dir, entry.name);
+    try {
+      if (now - lstatSync(file).mtimeMs < maxAgeMs) continue;
+      rmSync(file, { force: true });
+      removed++;
+    } catch {
+      // Gone already, or not removable: try again on the next start.
+    }
+  }
+  if (removed > 0) appLog.info('storage', 'Removed temporary files left by an interrupted write.', { count: removed });
+  return removed;
 }
 
 // Settles when no write from writeJsonLater is left, including ones asked for while waiting, e.g. before a folder

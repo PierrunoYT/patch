@@ -25,6 +25,7 @@ import { buildMenu } from './menu';
 import { ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
+import { removeStaleTempFiles } from './storage/json_file';
 import { changesToConfirm, projectChangesToConfirm } from './settings_confirm';
 import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
 import { releaseProjectGrant } from './tools/sandbox_windows';
@@ -115,6 +116,8 @@ function start(): void {
     platform: process.platform,
   });
   const userData = app.getPath('userData');
+  // Temporary files that a crash left between writing a JSON file and moving it into place (#124).
+  for (const dir of [userData, join(userData, 'chats'), join(userData, 'indexes')]) removeStaleTempFiles(dir);
   const settings = createSettings();
   const projects = new ProjectStore(join(userData, 'projects.json'));
   const chats = new ChatStore(join(userData, 'chats'));

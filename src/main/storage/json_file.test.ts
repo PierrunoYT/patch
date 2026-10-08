@@ -1,8 +1,42 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cancelJsonWrite, flushJsonWrites, readJson, writeJson, writeJsonLater } from './json_file';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  cancelJsonWrite,
+  flushJsonWrites,
+  readJson,
+  removeStaleTempFiles,
+  STALE_TEMP_AGE_MS,
+  writeJson,
+  writeJsonLater,
+} from './json_file';
+
+// Lets a test choose the next temporary name; otherwise the real random UUID is used.
+const uuid = vi.hoisted(() => ({ next: null as string | null }));
+vi.mock('node:crypto', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:crypto')>();
+  return {
+    ...actual,
+    randomUUID: () => {
+      const next = uuid.next;
+      uuid.next = null;
+      return next ?? actual.randomUUID();
+    },
+  };
+});
+
+const FIXED_UUID = '01234567-89ab-cdef-0123-456789abcdef';
 
 let dir: string;
 
@@ -11,7 +45,71 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  uuid.next = null;
   rmSync(dir, { recursive: true, force: true });
+});
+
+// Places a symbolic link at `path` pointing at `target`, or returns false where links need privileges (Windows).
+function tryLink(target: string, path: string): boolean {
+  try {
+    symlinkSync(target, path, 'file');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe('writeJson', () => {
+  it('uses a random temporary name each time and leaves no temporary file', () => {
+    const file = join(dir, 'data.json');
+    writeJson(file, { n: 1 });
+    writeJson(file, { n: 2 });
+    expect(readJson(file, null)).toEqual({ n: 2 });
+    expect(readdirSync(dir)).toEqual(['data.json']);
+  });
+
+  it('refuses a file or link already at the temporary name instead of writing through it', () => {
+    const file = join(dir, 'data.json');
+    const temp = `${file}.${FIXED_UUID}.tmp`;
+    const victim = join(dir, 'victim.txt');
+    writeFileSync(victim, 'keep');
+    if (!tryLink(victim, temp)) writeFileSync(temp, 'keep');
+
+    uuid.next = FIXED_UUID;
+    expect(() => writeJson(file, { n: 1 })).toThrow(/EEXIST/);
+    expect(existsSync(file)).toBe(false);
+    expect(readFileSync(victim, 'utf8')).toBe('keep');
+    // The name belongs to someone else, so it is left in place.
+    expect(readFileSync(temp, 'utf8')).toBe('keep');
+  });
+});
+
+describe('removeStaleTempFiles', () => {
+  it('removes temporary files older than the limit and keeps everything else', () => {
+    const old = (Date.now() - STALE_TEMP_AGE_MS - 60_000) / 1000;
+    const names = {
+      staleUuid: `settings.json.${FIXED_UUID}.tmp`,
+      stalePid: 'index.json.1234.tmp',
+      staleLater: 'chat.json.later.tmp',
+      fresh: `projects.json.${FIXED_UUID.replace('0', '1')}.tmp`,
+      unrelated: 'notes.tmp',
+      data: 'settings.json',
+    };
+    for (const name of Object.values(names)) writeFileSync(join(dir, name), '{}');
+    for (const name of [names.staleUuid, names.stalePid, names.staleLater, names.unrelated, names.data]) {
+      utimesSync(join(dir, name), old, old);
+    }
+    mkdirSync(join(dir, `folder.json.${FIXED_UUID}.tmp`));
+
+    expect(removeStaleTempFiles(dir)).toBe(3);
+    expect(readdirSync(dir).sort()).toEqual(
+      [names.fresh, names.unrelated, names.data, `folder.json.${FIXED_UUID}.tmp`].sort(),
+    );
+  });
+
+  it('returns 0 for a missing folder', () => {
+    expect(removeStaleTempFiles(join(dir, 'missing'))).toBe(0);
+  });
 });
 
 describe('readJson', () => {
@@ -87,6 +185,16 @@ describe('writeJsonLater', () => {
     cancelJsonWrite(file);
     await done;
     expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('refuses a file already at its temporary name and leaves that file alone', async () => {
+    const file = join(dir, 'data.json');
+    const temp = `${file}.${FIXED_UUID}.tmp`;
+    writeFileSync(temp, 'keep');
+    uuid.next = FIXED_UUID;
+    await expect(writeJsonLater(file, { n: 1 })).rejects.toThrow(/EEXIST/);
+    expect(existsSync(file)).toBe(false);
+    expect(readFileSync(temp, 'utf8')).toBe('keep');
   });
 
   it('rejects when the file cannot be written, and works again afterwards', async () => {
