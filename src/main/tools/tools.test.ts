@@ -970,6 +970,12 @@ describe('glob', () => {
     expect(page[0]).toBe('src/app.ts');
     expect(page[1]).toContain('Use offset=2');
   });
+
+  it('treats backslashes as separators and names a missing folder', async () => {
+    expect(await names({ pattern: 'src\\*.ts' })).toEqual(['src/app.test.ts', 'src/app.ts']);
+    await expect(call(globTool, { pattern: '*.ts', path: 'nope' })).rejects.toThrow('Not found: nope');
+    await expect(call(grepTool, { pattern: 'x', path: 'nope' })).rejects.toThrow('Not found: nope');
+  });
 });
 
 describe('grep limits', () => {

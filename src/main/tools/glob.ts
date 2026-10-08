@@ -1,4 +1,4 @@
-import { statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { z } from 'zod';
 import { RegexWorker } from './regex_worker';
 import { defineTool, ToolError } from './types';
@@ -12,6 +12,8 @@ const GLOB_TIMEOUT_MS = 5000;
 // folder name, `**` any number of folders, `?` one character, `{a,b}` alternatives. A pattern without a `/` matches the
 // file name at any depth, like a .gitignore line.
 export function globToRegExp(glob: string): RegExp {
+  // The syntax has no escapes, so a backslash is a path separator (models on Windows write `src\*.ts`).
+  glob = glob.replace(/\\/g, '/');
   const pattern = glob.includes('/') ? glob.replace(/^\.\//, '').replace(/^\//, '') : `**/${glob}`;
   let source = '';
   let depth = 0;
@@ -61,6 +63,7 @@ export const globTool = defineTool({
   parallelSafe: true,
   async run({ pattern, path = '.', limit = DEFAULT_LIMIT, offset = 0 }, context) {
     const base = context.workspace.resolve(path);
+    if (!existsSync(base)) throw new ToolError(`Not found: ${path}`);
     if (!statSync(base).isDirectory()) throw new ToolError(`Not a directory: ${path}`);
     const baseRel = context.workspace.relative(base);
     const regex = globToRegExp(pattern);

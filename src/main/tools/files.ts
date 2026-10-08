@@ -151,6 +151,7 @@ export const grepTool = defineTool({
       );
     }
     const target = context.workspace.resolve(path);
+    if (!existsSync(target)) throw new ToolError(`Not found: ${path}`);
     const files = statSync(target).isDirectory() ? await context.workspace.listFiles(target) : [target];
 
     const matches: string[] = [];
