@@ -149,6 +149,70 @@ describe('background command cancellation', () => {
   }, 20_000);
 });
 
+describe.skipIf(process.platform === 'win32')('processes a command leaves behind (#165)', () => {
+  let root: string;
+  let shell: ShellRunner;
+  const spawnedPids: number[] = [];
+
+  const isAlive = (pid: number) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const readPid = (output: string) => {
+    const pid = Number(/^\d+$/m.exec(output)?.[0]);
+    spawnedPids.push(pid);
+    return pid;
+  };
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'patch-shell-leftover-'));
+    shell = new ShellRunner(() => root);
+  });
+
+  afterEach(() => {
+    shell.stopAll();
+    for (const pid of spawnedPids.splice(0)) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // Already gone.
+      }
+    }
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('kills a program a foreground command started and left running', async () => {
+    const result = await shell.run('sleep 100 & echo $!');
+    const pid = readPid(result.output);
+    expect(result.exitCode).toBe(0);
+    await vi.waitFor(() => expect(isAlive(pid)).toBe(false));
+  }, 20_000);
+
+  it('kills a program a background command started when the shell has already exited', async () => {
+    const entry = shell.startBackground('sleep 100 & echo $!');
+    await vi.waitFor(() => expect(entry.output).toMatch(/\d+/));
+    const pid = readPid(entry.output);
+    await vi.waitFor(() => expect(entry.process.exitCode).not.toBeNull());
+    expect(entry.exitCode).toBeUndefined();
+    expect(isAlive(pid)).toBe(true);
+    shell.stopBackground(entry.id);
+    await vi.waitFor(() => expect(isAlive(pid)).toBe(false));
+  }, 20_000);
+
+  it('kills a leftover that holds no output pipe once the background command has closed', async () => {
+    const entry = shell.startBackground('sleep 100 > /dev/null 2>&1 & echo $!');
+    await once(entry.process, 'close');
+    const pid = readPid(entry.output);
+    expect(isAlive(pid)).toBe(true);
+    shell.stopBackground(entry.id);
+    await vi.waitFor(() => expect(isAlive(pid)).toBe(false));
+  }, 20_000);
+});
+
 describe('formatResult', () => {
   const result = { exitCode: null, output: 'running tests', timedOut: true, aborted: false };
 

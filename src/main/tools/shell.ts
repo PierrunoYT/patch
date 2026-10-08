@@ -207,6 +207,7 @@ export class ShellRunner {
         finished = true;
         clearTimeout(timer);
         signal?.removeEventListener('abort', onAbort);
+        killLeftovers(child);
         child.stdout?.destroy();
         child.stderr?.destroy();
         resolve({ exitCode, output, timedOut, aborted, sandbox });
@@ -266,6 +267,7 @@ export class ShellRunner {
     if (!entry) return false;
     entry.detachAbort();
     if (entry.exitCode === undefined) killTree(entry.process);
+    else killLeftovers(entry.process);
     this.background.delete(id);
     return true;
   }
@@ -373,7 +375,9 @@ function killTree(child: CommandProcess): void {
       // Falls through to killing the client.
     }
   }
-  if (!child.pid || child.exitCode !== null) return;
+  if (!child.pid) return;
+  // The shell can exit while programs it started (its process group) keep running, so the group is signalled anyway.
+  if (child.exitCode !== null) return killLeftovers(child);
   try {
     if (process.platform === 'win32') {
       // Before the spawn event, synchronously spawning taskkill gives the just-created shell time to launch a
@@ -393,6 +397,18 @@ function killTree(child: CommandProcess): void {
     child.kill('SIGKILL');
   }
 }
+
+// Kills what a command left behind (`npm run dev &`) after its shell has exited. POSIX only: the command was started
+// in its own process group, which outlives the shell while any member runs. ESRCH means nothing is left.
+function killLeftovers(child: CommandProcess): void {
+  if (process.platform === 'win32' || !child.pid || child instanceof HelperProcess) return;
+  try {
+    process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    // Nothing left in the group.
+  }
+}
+
 // libuv before 1.53 (every Node.js release so far) names child-process pipes outside the AppContainer's LOCAL\
 // namespace and retries the denied name forever, so the command hangs instead of failing (#101). Patch never
 // rewrites the command; the model decides whether a workaround suits the project.
