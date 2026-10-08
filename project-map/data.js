@@ -344,7 +344,7 @@ const D = {
     { a: 'main/tools', f: 23, c: 437, src: 4021, tl: 6017 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
     { a: 'main/other', f: 12, c: 180, src: 2960, tl: 2831 },
-    { a: 'shared', f: 8, c: 75, src: 1261, tl: 891 },
+    { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
     { a: 'renderer', f: 4, c: 14, src: 6368, tl: 138 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
   ],

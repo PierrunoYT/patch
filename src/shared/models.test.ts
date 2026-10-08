@@ -80,6 +80,16 @@ describe('estimateCost', () => {
     ).toBeCloseTo(29.4);
   });
 
+  it('prices Sonnet 5.5 cache reads at 5% of input', () => {
+    const usage = {
+      inputTokens: 1_000_000,
+      outputTokens: 500_000,
+      cacheReadTokens: 2_000_000,
+      cacheWriteTokens: 3_000_000,
+    };
+    expect(estimateCost('claude-sonnet-5-5', usage)).toBeCloseTo(14.7);
+  });
+
   it('prices mixed GPT-6 short and long requests without choosing a tier from chat totals', () => {
     const usage = {
       inputTokens: 300_000,
