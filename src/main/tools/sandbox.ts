@@ -287,7 +287,16 @@ export function seatbeltProfile(
   for (let path = env.cwd; path !== '/'; path = posix.dirname(path)) {
     lines.push(`(deny file-write-unlink (literal ${sbplString(path)}))`);
   }
-  if (network) lines.push('(allow network*)');
+  if (network) {
+    // Network access means IP networking. Local Unix sockets (Docker, ssh-agent and other daemons) act outside the
+    // sandbox, so connecting to them stays denied; mDNSResponder is the system name resolver (as in Chromium's
+    // network.sb). Later rules win.
+    lines.push(
+      '(allow network*)',
+      '(deny network-outbound (remote unix-socket))',
+      '(allow network-outbound (literal "/private/var/run/mDNSResponder"))',
+    );
+  }
   // Keep service-mediated launches and arbitrary XPC lookups denied even if a later grant is broadened.
   lines.push(
     '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd") (global-name "com.apple.lsd.mapdb"))',
@@ -386,7 +395,9 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
       ? 'unrestricted network allowed for this command'
       : 'unrestricted network on (not filtered by hostname)'
     : 'no network';
-  return `${where}: project files are writable but Git metadata is read-only; use the Git panel or explicitly approved unsandboxed access for Git writes. The rest of your home folder is hidden, ${net}.`;
+  // Seatbelt keeps local Unix sockets (Docker, ssh-agent) blocked even with network access.
+  const sockets = decision.kind === 'seatbelt' && decision.network ? ', but not local Unix sockets' : '';
+  return `${where}: project files are writable but Git metadata is read-only; use the Git panel or explicitly approved unsandboxed access for Git writes. The rest of your home folder is hidden, ${net}${sockets}.`;
 }
 
 const CACHE_MS = 30_000;

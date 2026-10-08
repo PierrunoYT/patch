@@ -24,6 +24,7 @@ const probeSource = String.raw`
 #include <errno.h>
 #include <fcntl.h>
 #include <mach/mach.h>
+#include <netdb.h>
 #include <semaphore.h>
 #include <servers/bootstrap.h>
 #include <stdio.h>
@@ -39,6 +40,17 @@ int main(int argc, char **argv) {
     mach_port_t service = MACH_PORT_NULL;
     kern_return_t result = bootstrap_look_up(bootstrap_port, argv[2], &service);
     if (service != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), service);
+    printf("{\"entered\":true,\"result\":%d}\n", result);
+    return 0;
+  }
+  if (strcmp(argv[1], "resolve") == 0) {
+    if (argc < 3) return 64;
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo *found = NULL;
+    int result = getaddrinfo(argv[2], "80", &hints, &found);
+    if (found != NULL) freeaddrinfo(found);
     printf("{\"entered\":true,\"result\":%d}\n", result);
     return 0;
   }
@@ -126,6 +138,19 @@ const server = require('node:http').createServer((req, res) => {
   res.end('ok');
 });
 server.listen(0, '127.0.0.1', () => console.log(server.address().port));
+`;
+
+// Listens on the Unix socket named by its first argument, records each client's first message in the file named by
+// its second argument, and prints "ready".
+const unixEndpointSource = `
+const fs = require('node:fs');
+const server = require('node:net').createServer((socket) => {
+  socket.once('data', (data) => {
+    fs.appendFileSync(process.argv[2], data.toString().trim() + '\\n');
+    socket.end('ok');
+  });
+});
+server.listen(process.argv[1], () => console.log('ready'));
 `;
 
 const launchServicesName = 'com.apple.coreservices.launchservicesd';
@@ -337,6 +362,42 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     } finally {
       server.kill();
     }
+  });
+
+  it('keeps a local Unix socket unreachable with the network both off and on', async () => {
+    // The socket sits in the sandbox's readable, writable temp folder, so only the network rule can block it.
+    const socketDir = realpathSync(mkdtempSync(join(tmpdir(), 'patch-uds-')));
+    const socketPath = join(socketDir, 's');
+    const messages = join(fixture, 'unix-endpoint-messages');
+    writeFileSync(messages, '');
+    const server = spawn(process.execPath, ['-e', unixEndpointSource, socketPath, messages], {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.stdout.once('data', () => resolve());
+        server.once('error', reject);
+        server.once('exit', (code) => reject(new Error(`unix endpoint exited with ${String(code)}`)));
+      });
+      const send = (label: string) => ['-c', `printf ${label} | /usr/bin/nc -U -w 5 ${socketPath}`];
+      const control = spawnSync('/bin/sh', send('host'), { encoding: 'utf8', timeout: 15_000 });
+      expect(control.status, diagnostic(control)).toBe(0);
+      for (const network of [false, true]) {
+        const denied = runSandboxed('/bin/sh', send(`sandbox-network-${String(network)}`), network);
+        expect(denied.error, diagnostic(denied)).toBeUndefined();
+        expect(denied.status, `network=${String(network)} ${diagnostic(denied)}`).not.toBe(0);
+      }
+      expect(readFileSync(messages, 'utf8').split('\n').filter(Boolean)).toEqual(['host']);
+    } finally {
+      server.kill();
+      rmSync(socketDir, { recursive: true, force: true });
+    }
+  });
+
+  it('still resolves host names through the system resolver with the network on', () => {
+    // getaddrinfo asks mDNSResponder, even for names in /etc/hosts.
+    expect(runHostProbe('resolve', 'localhost')).toMatchObject({ entered: true, result: 0 });
+    expect(runSandboxedProbe(['resolve', 'localhost'], true)).toMatchObject({ entered: true, result: 0 });
   });
 
   // A tool installed in the hidden part of the home folder (GitHub's hosted tool cache, for example) cannot run in

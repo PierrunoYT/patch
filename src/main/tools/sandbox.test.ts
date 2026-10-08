@@ -166,6 +166,18 @@ describe('seatbeltProfile', () => {
     expect(seatbeltProfile({ ...env(), cwd: '/a"b' }, false)).toContain('(subpath "/a\\"b")');
   });
 
+  it('keeps local Unix sockets denied with network access, except the system name resolver', () => {
+    const lines = seatbeltProfile(env(), true).split('\n');
+    const allow = lines.indexOf('(allow network*)');
+    const deny = lines.indexOf('(deny network-outbound (remote unix-socket))');
+    // Later rules win: only the resolver exception may follow the deny.
+    expect(allow).toBeGreaterThanOrEqual(0);
+    expect(deny).toBeGreaterThan(allow);
+    expect(lines.slice(deny + 1).filter((line) => line.startsWith('(allow network'))).toEqual([
+      '(allow network-outbound (literal "/private/var/run/mDNSResponder"))',
+    ]);
+  });
+
   it.each([false, true])(
     'allows only named CLI services, never application-launch or URL-session daemons (network=%s)',
     (network) => {
@@ -312,6 +324,11 @@ describe('describeSandbox', () => {
     expect(describeSandbox({ kind: 'bwrap', network: true })).toContain(
       'unrestricted network on (not filtered by hostname)',
     );
+    expect(describeSandbox({ kind: 'seatbelt', network: true })).toContain(
+      'unrestricted network on (not filtered by hostname), but not local Unix sockets.',
+    );
+    expect(describeSandbox({ kind: 'seatbelt', network: false })).not.toContain('Unix sockets');
+    expect(describeSandbox({ kind: 'bwrap', network: true })).not.toContain('Unix sockets');
   });
 });
 

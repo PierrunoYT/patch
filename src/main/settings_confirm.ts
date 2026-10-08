@@ -28,7 +28,9 @@ export function changesToConfirm(
     changes.push('Turn the command sandbox off: commands run with your full rights.');
   }
   if (patch.sandboxNetwork === 'on' && current.sandboxNetwork !== 'on') {
-    changes.push('Give sandboxed commands full network access.');
+    changes.push(
+      'Give sandboxed commands full network access, including local network services such as databases and dev servers (on macOS, not local Unix sockets).',
+    );
   }
   if (typeof patch.sandboxImage === 'string' && patch.sandboxImage.trim() !== current.sandboxImage.trim()) {
     changes.push(`Run container-sandboxed commands in the image "${patch.sandboxImage.trim()}".`);

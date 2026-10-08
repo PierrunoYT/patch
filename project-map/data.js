@@ -135,7 +135,7 @@ const D = {
         'shell.ts (597; streaming UTF-8 output, #164; kills the programs a finished command left running, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'shell_leftovers.ts (97; finds and kills what a Windows shell left running through its parent pid, #165)',
         'sandbox_windows.ts (434, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
-        'sandbox.ts (484; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
+        'sandbox.ts (495; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
         'web.ts (335; fetch_url pins the checked address and keeps redirects on the origin, #146)',
         'net_address.ts (76; local and private address checks for fetch_url and browser, #146)',
@@ -343,7 +343,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 228, src: 1711, tl: 3559 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
-    { a: 'main/tools', f: 24, c: 543, src: 4725, tl: 6973 },
+    { a: 'main/tools', f: 24, c: 544, src: 4736, tl: 7051 },
     { a: 'main/panels', f: 4, c: 73, src: 663, tl: 1083 },
     { a: 'main/other', f: 12, c: 198, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 87, src: 1261, tl: 901 },
@@ -403,7 +403,7 @@ const D = {
     [477, 'main/llm/codex_auth.ts'],
     [597, 'main/tools/shell.ts'],
     [451, 'main/settings.ts'],
-    [484, 'main/tools/sandbox.ts'],
+    [495, 'main/tools/sandbox.ts'],
     [446, 'main/index.ts'],
     [456, 'main/llm/anthropic.ts'],
     [411, 'main/search/code_index.ts'],
@@ -547,7 +547,6 @@ const D = {
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
     [149, 'Packaged builds run sandbox-helper.exe without checking its signature', 'sandbox', 'low', 0, '10-07'],
-    [147, 'macOS sandboxed commands with network can reach local Unix sockets', 'sandbox', 'medium', 0, '10-07'],
     [
       145,
       'Opening the home folder as a project makes all of it writable to the sandbox',
@@ -641,7 +640,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 99,
+  closedCount: 100,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

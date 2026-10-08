@@ -9,7 +9,7 @@ builders.focus = () => {
         '#143: the protected-path guard is case-sensitive and misses 8.3 names, so Auto mode writes .GIT/config without asking (reproduced)',
         '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
         '#145: opening the home folder as a project makes all of it writable to sandboxed commands',
-        '#146 to #148 (medium): main-process network tools in Auto mode, macOS Unix sockets, the browser tool’s cookie session',
+        '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
       'Fix #143 next: Auto mode can write .GIT/config without asking, and it is reproduced. Each fix needs a regression test that plants the file or link it guards against.',
     ],
