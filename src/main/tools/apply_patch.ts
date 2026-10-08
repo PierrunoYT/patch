@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { unifiedDiff } from './files';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
-import { requireUtf8ForEdit, isBinaryFile } from './text_files';
+import { requireUtf8ForEdit, isBinaryFile, sha256 } from './text_files';
 import { defineTool, ToolError, type ToolContext } from './types';
 
 // The patch format of OpenAI's Codex CLI:
@@ -273,7 +273,7 @@ export const applyPatchTool = defineTool({
       await writeFile(change.absolute, change.after, 'utf8');
       if (change.fromAbsolute && change.fromAbsolute !== change.absolute)
         await rm(change.fromAbsolute, { force: true });
-      context.readFiles.add(change.absolute);
+      context.readFiles.set(change.absolute, sha256(change.after));
       if (change.rel.endsWith('.gitignore')) context.workspace.invalidateIgnoreRules();
     }
     const lines = changes.map(describeChange);

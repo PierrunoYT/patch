@@ -104,7 +104,7 @@ describe('CodeIndex', () => {
       {
         workspace,
         signal,
-        readFiles: new Set(),
+        readFiles: new Map(),
         shell: new ShellRunner(() => workspace.root),
         browser: null,
         codeSearch: null,

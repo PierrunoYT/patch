@@ -340,9 +340,9 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
+    { a: 'main/agent', f: 11, c: 216, src: 1619, tl: 3434 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
-    { a: 'main/tools', f: 24, c: 450, src: 4295, tl: 6323 },
+    { a: 'main/tools', f: 24, c: 456, src: 4318, tl: 6407 },
     { a: 'main/panels', f: 4, c: 71, src: 645, tl: 1057 },
     { a: 'main/other', f: 12, c: 190, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
@@ -536,7 +536,6 @@ const D = {
     [172, 'Subagent token usage is priced at the chat model’s rate', 'other', 'medium', 0, '10-07'],
     [170, 'Code index: lost progress, shared stop, duplicate runs on settings change', 'tools', 'medium', 0, '10-07'],
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
-    [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -656,7 +655,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 91,
+  closedCount: 92,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

@@ -29,7 +29,8 @@ export interface SavedChat {
   transcript: TranscriptItem[];
   usage: UsageTotals;
   conversation: SerializedConversation;
-  readFiles: string[];
+  // [absolute path, sha256 of the content last read or written]. Chats saved by older versions hold plain paths.
+  readFiles: SavedReadFiles;
   pendingNotes?: string[];
   // The last message sent to the model said plan mode is on, so turning it off is told with the next one.
   planModeTold?: boolean;
@@ -37,6 +38,13 @@ export interface SavedChat {
   resumable?: boolean;
   // False for custom OpenAI-compatible endpoints, whose prices are unknown. Missing in chats saved by older versions.
   officialPricing?: boolean;
+}
+
+export type SavedReadFiles = Array<[string, string | null] | string>;
+
+// A plain path (older versions) counts as read, but with an unknown hash: write_file asks for a new read first.
+export function restoreReadFiles(saved: SavedReadFiles | undefined): Map<string, string | null> {
+  return new Map((saved ?? []).map((entry) => (typeof entry === 'string' ? [entry, null] : [entry[0], entry[1]])));
 }
 
 // The provider keeps a cache entry 5 minutes after the request that last read or wrote it started; a keep-alive a
@@ -56,7 +64,7 @@ export interface ChatSessionOptions {
   tools: () => AgentTool[];
   transcript?: TranscriptItem[];
   usage?: UsageTotals;
-  readFiles?: string[];
+  readFiles?: SavedReadFiles;
   pendingNotes?: string[];
   resumable?: boolean;
   planModeTold?: boolean;
@@ -84,7 +92,7 @@ export class ChatSession {
   readonly createdAt: string;
   title: string;
   private transcript: TranscriptItem[];
-  private readonly readFiles: Set<string>;
+  private readonly readFiles: Map<string, string | null>;
   private readonly agent: Agent;
   private readonly approvals = new Map<string, (decision: ApprovalDecision) => void>();
   private controller: AbortController | null = null;
@@ -110,7 +118,7 @@ export class ChatSession {
     this.updatedAt = this.createdAt;
     this.title = options.title ?? 'New chat';
     this.transcript = options.transcript ? closeStaleRows(options.transcript) : [];
-    this.readFiles = new Set(options.readFiles ?? []);
+    this.readFiles = restoreReadFiles(options.readFiles);
     this.notes = [...(options.pendingNotes ?? [])];
     this.planModeTold = options.planModeTold ?? false;
     // A chat saved mid-run (see `running`), or whose saved history ends in unanswered tool calls, was interrupted by a
@@ -407,7 +415,7 @@ export class ChatSession {
       transcript: this.transcript,
       usage: this.agent.totals,
       conversation: this.options.conversation.serialize(),
-      readFiles: [...this.readFiles],
+      readFiles: [...this.readFiles.entries()],
       pendingNotes: [...this.notes],
       ...(this.planModeTold ? { planModeTold: true } : {}),
       agentFile: this.options.agentFile,

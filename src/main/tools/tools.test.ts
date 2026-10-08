@@ -40,7 +40,7 @@ function makeContext(): ToolContext {
   return {
     workspace,
     signal: new AbortController().signal,
-    readFiles: new Set(),
+    readFiles: new Map(),
     shell: new ShellRunner(() => workspace.root),
     browser: null,
     codeSearch: null,
@@ -393,6 +393,61 @@ describe('file tools', () => {
     );
     expect(preview.title).toBe('Create new.txt');
     expect(preview.diff).toContain('+hello');
+  });
+
+  describe('write_file after the file changed', () => {
+    const app = () => join(root, 'src', 'app.ts');
+
+    it('refuses when the user changed the file after it was read, and keeps their edit', async () => {
+      await call(readFileTool, { path: 'src/app.ts', offset: 2, limit: 1 });
+      writeFileSync(app(), 'user edit\n');
+      const input = { path: 'src/app.ts', content: 'agent\n' };
+      await expect(writeFileTool.preview!(input, context)).rejects.toThrow(
+        'src/app.ts changed since you read it. Read it again first.',
+      );
+      await expect(call(writeFileTool, input)).rejects.toThrow('changed since you read it');
+      expect(readFileSync(app(), 'utf8')).toBe('user edit\n');
+    });
+
+    it('refuses when the file changes between the preview and the run', async () => {
+      await call(readFileTool, { path: 'src/app.ts' });
+      const input = { path: 'src/app.ts', content: 'agent\n' };
+      await writeFileTool.preview!(input, context);
+      writeFileSync(app(), 'edited while the card was open\n');
+      await expect(call(writeFileTool, input)).rejects.toThrow('changed since you read it');
+      expect(readFileSync(app(), 'utf8')).toBe('edited while the card was open\n');
+    });
+
+    it('writes after the file is read again', async () => {
+      await call(readFileTool, { path: 'src/app.ts' });
+      writeFileSync(app(), 'user edit\n');
+      await call(readFileTool, { path: 'src/app.ts' });
+      await call(writeFileTool, { path: 'src/app.ts', content: 'agent\n' });
+      expect(readFileSync(app(), 'utf8')).toBe('agent\n');
+    });
+
+    it('lets the agent write again what it just wrote or edited without a new read', async () => {
+      await call(readFileTool, { path: 'src/app.ts' });
+      await call(writeFileTool, { path: 'src/app.ts', content: 'first\n' });
+      await call(writeFileTool, { path: 'src/app.ts', content: 'second\n' });
+      await call(editFileTool, { path: 'src/app.ts', old_string: 'second', new_string: 'third' });
+      await writeFileTool.preview!({ path: 'src/app.ts', content: 'fourth\n' }, context);
+      await call(writeFileTool, { path: 'src/app.ts', content: 'fourth\n' });
+      expect(readFileSync(app(), 'utf8')).toBe('fourth\n');
+
+      await call(writeFileTool, { path: 'lib/new.ts', content: 'a\n' });
+      await call(writeFileTool, { path: 'lib/new.ts', content: 'b\n' });
+      expect(readFileSync(join(root, 'lib', 'new.ts'), 'utf8')).toBe('b\n');
+    });
+
+    it('asks for a new read of a file read in a chat saved by an older version (unknown hash)', async () => {
+      context.readFiles.set(app(), null);
+      await expect(call(writeFileTool, { path: 'src/app.ts', content: 'agent\n' })).rejects.toThrow(
+        'changed since you read it',
+      );
+      await call(editFileTool, { path: 'src/app.ts', old_string: 'const a = 1;', new_string: 'const a = 10;' });
+      expect(readFileSync(app(), 'utf8')).toContain('const a = 10;');
+    });
   });
 
   it('lists a directory without ignored entries', async () => {

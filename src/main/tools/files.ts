@@ -51,7 +51,9 @@ export const readFileTool = defineTool({
     if (await isBinaryFile(file)) throw new ToolError(`${path} is a binary file.`);
     if ((await fileSize(file)) > MAX_READ_BYTES * 8) throw new ToolError(`${path} is too large to read.`);
 
-    const text = await readFile(file, 'utf8');
+    // Hash the bytes read, whatever range is shown, so write_file can tell when the file changed since.
+    const bytes = await readFile(file);
+    const text = bytes.toString('utf8');
     const lines = text === '' ? [] : text.split(/\r?\n/);
     if (text.endsWith('\n')) lines.pop();
     const lineCount = `${lines.length} line${lines.length === 1 ? '' : 's'}`;
@@ -66,7 +68,7 @@ export const readFileTool = defineTool({
       );
     }
     if (selected.length > 0) selected[0] = first.slice(char_offset);
-    context.readFiles.add(file);
+    context.readFiles.set(file, sha256(bytes));
 
     const rel = context.workspace.relative(file);
     const page = fitLines(withLineNumbers(selected, offset).split('\n'), MAX_OUTPUT_CHARS);
@@ -210,8 +212,13 @@ export const writeFileTool = defineTool({
   async preview({ path, content }, context) {
     refuseRedacted(content);
     const file = context.workspace.resolve(path);
-    if (existsSync(file)) requireRead(file, path, context);
-    const before = existsSync(file) ? requireUtf8ForEdit(await readFile(file), path).toString('utf8') : '';
+    let before = '';
+    if (existsSync(file)) {
+      requireRead(file, path, context);
+      const bytes = await readFile(file);
+      requireUnchanged(file, path, bytes, context);
+      before = requireUtf8ForEdit(bytes, path).toString('utf8');
+    }
     const rel = context.workspace.relative(file);
     return { title: existsSync(file) ? `Overwrite ${rel}` : `Create ${rel}`, diff: unifiedDiff(rel, before, content) };
   },
@@ -222,10 +229,14 @@ export const writeFileTool = defineTool({
     if (exists) requireRead(file, path, context);
     // Keep the exact previous bytes for Undo.
     const previous = exists ? await readFile(file) : null;
-    if (previous !== null) requireUtf8ForEdit(previous, path);
+    if (previous !== null) {
+      // Checked again here: the user may have edited the file while the approval card was open.
+      requireUnchanged(file, path, previous, context);
+      requireUtf8ForEdit(previous, path);
+    }
     await mkdir(dirname(file), { recursive: true });
     await writeFile(file, content, 'utf8');
-    context.readFiles.add(file);
+    context.readFiles.set(file, sha256(content));
     if (path.endsWith('.gitignore')) context.workspace.invalidateIgnoreRules();
     const rel = context.workspace.relative(file);
     return {
@@ -266,6 +277,8 @@ export const editFileTool = defineTool({
     const before = requireUtf8ForEdit(bytes, input.path).toString('utf8');
     const after = applyEdit(before, input);
     await writeFile(file, after, 'utf8');
+    // The model knows what it wrote, so a later write_file needs no new read.
+    context.readFiles.set(file, sha256(after));
     const rel = context.workspace.relative(file);
     return {
       content: `Edited ${rel}.\n${unifiedDiff(rel, before, after)}`,
@@ -319,6 +332,15 @@ function requireRead(file: string, path: string, context: ToolContext): void {
     throw new ToolError(
       `${path} has not been read in this chat. Call read_file on it first, and wait for the result before editing (do not send the read and the edit in the same batch).`,
     );
+  }
+}
+
+// write_file replaces the whole file, so it must not be built from a read that is out of date: that would silently
+// drop a change the user made since. A file read in a chat saved by an older version has no known hash.
+function requireUnchanged(file: string, path: string, bytes: Buffer, context: ToolContext): void {
+  // An unknown (null) hash never matches.
+  if (context.readFiles.get(file) !== sha256(bytes)) {
+    throw new ToolError(`${path} changed since you read it. Read it again first.`);
   }
 }
 

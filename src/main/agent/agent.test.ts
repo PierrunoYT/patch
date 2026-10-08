@@ -122,7 +122,7 @@ function setup(
     officialPricing = undefined as boolean | undefined,
     resumable = undefined as boolean | undefined,
     transcript = undefined as ChatSessionOptions['transcript'],
-    readFiles = undefined as string[] | undefined,
+    readFiles = undefined as ChatSessionOptions['readFiles'],
     pendingNotes = undefined as string[] | undefined,
     planMode = undefined as (() => boolean) | undefined,
     planModeTold = undefined as boolean | undefined,
@@ -666,7 +666,7 @@ describe('agent loop', () => {
           seenAsRead.push(context.readFiles.has('/abs/a.ts'));
           return { content: 'probed' };
         }
-        context.readFiles.add('/abs/a.ts');
+        context.readFiles.set('/abs/a.ts', 'h');
         return {
           content: 'Edited',
           path: 'src/a.ts',
@@ -756,7 +756,7 @@ describe('agent loop', () => {
 
       const saved = JSON.parse(JSON.stringify(session.serialize())) as ReturnType<ChatSession['serialize']>;
       expect(saved.pendingNotes).toHaveLength(2);
-      expect(saved.readFiles).not.toContain('/abs/a.ts');
+      expect(saved.readFiles.map((entry) => (typeof entry === 'string' ? entry : entry[0]))).not.toContain('/abs/a.ts');
       const reopened = setup([{ text: 'Continued.' }], {
         pendingNotes: saved.pendingNotes,
         readFiles: saved.readFiles,
@@ -805,6 +805,55 @@ describe('agent loop', () => {
       expect(conversation.users[2]!.text).toMatch(
         /^\[Note from the app: The user undid your edit to src\/a\.ts[^\]]*\]\n\nContinue the task/,
       );
+    });
+  });
+
+  describe('saving which files were read', () => {
+    const seen: Array<Array<[string, string | null]>> = [];
+    // Reports what the session counts as read, or records a read of /abs/b.ts.
+    const readTool = defineTool({
+      name: 'reads',
+      description: 'probes or reads',
+      schema: z.object({ read: z.boolean().optional() }),
+      requiresApproval: false,
+      async run({ read }, context) {
+        if (read) context.readFiles.set('/abs/b.ts', 'hash-b');
+        else seen.push([...context.readFiles.entries()]);
+        return { content: 'ok' };
+      },
+    });
+    const probe = (readFiles: ChatSessionOptions['readFiles'], read = false) => {
+      seen.length = 0;
+      return setup(
+        [{ toolCalls: [{ id: 't1', name: 'reads', input: read ? { read: true } : {} }] }, { text: 'Done.' }],
+        { tools: () => [readTool], mode: 'auto', readFiles },
+      );
+    };
+
+    it('saves each path with the hash of what was read, and restores it', async () => {
+      const { session } = probe([['/abs/a.ts', 'hash-a']], true);
+      await session.send({ text: 'read b' });
+      const saved = JSON.parse(JSON.stringify(session.serialize())) as ReturnType<ChatSession['serialize']>;
+      expect(saved.readFiles).toEqual([
+        ['/abs/a.ts', 'hash-a'],
+        ['/abs/b.ts', 'hash-b'],
+      ]);
+
+      const reopened = probe(saved.readFiles);
+      await reopened.session.send({ text: 'probe' });
+      expect(seen).toEqual([
+        [
+          ['/abs/a.ts', 'hash-a'],
+          ['/abs/b.ts', 'hash-b'],
+        ],
+      ]);
+    });
+
+    it('restores the plain paths of an older version as read with an unknown hash', async () => {
+      const { session } = probe(['/abs/a.ts']);
+      await session.send({ text: 'probe' });
+      expect(seen).toEqual([[['/abs/a.ts', null]]]);
+      expect(session.serialize().readFiles).toEqual([['/abs/a.ts', null]]);
     });
   });
 

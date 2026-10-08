@@ -121,7 +121,7 @@ function setup(
     tools: () => tools,
     approvalMode: () => mode,
     requestApproval,
-    toolContext: (signal, onProgress) => ({ signal, onProgress, readFiles: new Set() }) as unknown as ToolContext,
+    toolContext: (signal, onProgress) => ({ signal, onProgress, readFiles: new Map() }) as unknown as ToolContext,
     emit: (event) => events.push(event),
     onDroppedFields,
     onEditApplied,

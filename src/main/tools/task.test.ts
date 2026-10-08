@@ -70,12 +70,12 @@ const readTool = defineTool({
   schema: z.object({ path: z.string() }),
   requiresApproval: false,
   async run({ path }, context) {
-    context.readFiles.add(context.workspace.resolve(path));
+    context.readFiles.set(context.workspace.resolve(path), 'hash');
     return { content: 'file contents', summary: `Read ${path}` };
   },
 });
 
-function context(signal = new AbortController().signal, readFiles = new Set<string>()): ToolContext {
+function context(signal = new AbortController().signal, readFiles = new Map<string, string | null>()): ToolContext {
   return {
     workspace: null as never,
     signal,
@@ -241,7 +241,7 @@ describe('task tool (subagent)', () => {
     try {
       writeFileSync(join(root, 'a.ts'), 'original\n');
       const workspace = new Workspace(root);
-      const parentReads = new Set<string>();
+      const parentReads = new Map<string, string | null>();
       const conversation = new ScriptedConversation([
         { toolCalls: [{ id: 't1', name: 'read_file', input: { path: 'a.ts' } }] },
         { text: 'It says original.' },

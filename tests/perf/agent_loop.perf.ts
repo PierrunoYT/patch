@@ -82,7 +82,7 @@ function context(workspace: Workspace | null = null): ToolContext {
   return {
     workspace: workspace as never,
     signal: new AbortController().signal,
-    readFiles: new Set(),
+    readFiles: new Map(),
     shell: null as never,
     browser: null,
     codeSearch: null,

@@ -53,9 +53,10 @@ export interface WebSearchConfig {
 export interface ToolContext {
   workspace: Workspace;
   signal: AbortSignal;
-  // Absolute paths of files the model has read in this chat. Existing files must be read before they are
-  // overwritten or edited, so the model never changes code it has not seen.
-  readFiles: Set<string>;
+  // Absolute paths of files the model has read in this chat, with the sha256 of the content it last read or wrote
+  // (null: unknown, from a chat saved by an older version). Existing files must be read before they are overwritten
+  // or edited, so the model never changes code it has not seen; write_file also refuses when the hash no longer matches.
+  readFiles: Map<string, string | null>;
   shell: ShellRunner;
   browser: BrowserController | null;
   codeSearch: CodeSearch | null;

@@ -164,7 +164,7 @@ async function runSubagent(
     decidePermission: options.decidePermission,
     requestApproval: () => Promise.resolve({ approved: false }),
     // Own read set: a file the subagent read is not a file the parent has read, so the read-before-edit guard holds.
-    toolContext: (signal, onProgress) => ({ ...context, signal, onProgress, readFiles: new Set() }),
+    toolContext: (signal, onProgress) => ({ ...context, signal, onProgress, readFiles: new Map() }),
     maxTurns: SUBAGENT_MAX_TURNS,
     emit: (event) => {
       // Interim text (a turn that also called tools) is only progress. The answer is taken from the outcome below.

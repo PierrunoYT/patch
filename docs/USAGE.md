@@ -60,7 +60,7 @@ Very large diffs are shown only in part: the first 2,000 lines. The approval car
 - **Decline** with the box left empty stops the task. Any other calls the assistant had planned for that step are skipped.
 - **Decline with a note** ("use pnpm instead") sends the note to the assistant, which adjusts and carries on. Use this rather than an empty decline when you want it to try something else.
 
-Existing files must be read by the assistant in the same chat before it can change them, and a file that was not read is rejected before you are asked to approve.
+Existing files must be read by the assistant in the same chat before it can change them, and a file that was not read is rejected before you are asked to approve. If you edit a file after the assistant read it, the assistant cannot overwrite it with `write_file` until it reads it again, so your edit is not lost.
 
 ### Undo an edit
 

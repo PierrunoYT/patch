@@ -29,7 +29,7 @@ describe('background command cancellation', () => {
       shell,
       signal: controller.signal,
       workspace: new Workspace(root),
-      readFiles: new Set(),
+      readFiles: new Map(),
       browser: null,
       codeSearch: null,
       webSearch: null,

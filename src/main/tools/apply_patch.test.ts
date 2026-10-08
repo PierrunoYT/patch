@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyHunks, applyPatchTool, parsePatch } from './apply_patch';
+import { writeFileTool } from './files';
 import { ShellRunner } from './shell';
 import type { ToolContext } from './types';
 import { Workspace } from './workspace';
@@ -19,7 +20,10 @@ beforeEach(() => {
   context = {
     workspace,
     signal: new AbortController().signal,
-    readFiles: new Set([join(workspace.root, 'src', 'a.ts'), join(workspace.root, 'src', 'b.ts')]),
+    readFiles: new Map([
+      [join(workspace.root, 'src', 'a.ts'), null],
+      [join(workspace.root, 'src', 'b.ts'), null],
+    ]),
     shell: new ShellRunner(() => workspace.root),
     browser: null,
     codeSearch: null,
@@ -193,6 +197,31 @@ describe('apply_patch tool', () => {
       ),
     ).rejects.toThrow('appears twice');
     expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
+  });
+
+  it('records what it wrote, so write_file can replace patched, added and moved files without a new read', async () => {
+    // a.ts and b.ts start with an unknown hash (a chat saved by an older version): patching still works.
+    await run(
+      patch(
+        '*** Update File: src/a.ts',
+        '@@',
+        '-one',
+        '+ONE',
+        '*** Add File: src/new.ts',
+        '+export {};',
+        '*** Update File: src/b.ts',
+        '*** Move to: src/c.ts',
+        '@@',
+        '-alpha',
+        '+ALPHA',
+      ),
+    );
+    for (const path of ['src/a.ts', 'src/new.ts', 'src/c.ts']) {
+      const input = writeFileTool.schema!.parse({ path, content: 'replaced\n' });
+      await writeFileTool.preview!(input, context);
+      await writeFileTool.run(input, context);
+      expect(read(path)).toBe('replaced\n');
+    }
   });
 
   it('deletes a file that was read', async () => {

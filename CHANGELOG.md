@@ -65,6 +65,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- `write_file` no longer overwrites changes you made to a file after the assistant read it: the chat records a hash of what was read and asks the assistant to read the file again when it has changed, including while the approval card is open. Files read in chats saved by older versions must be read again before `write_file` replaces them (fixes #167).
 - The Git panel works for a project inside a larger repository (a monorepo package): it lists only the project's files, relative to the project folder, shows their diffs and line counts, discards them, and commits only them, leaving changes staged elsewhere in the repository staged. Before, diffs were empty, Discard failed, new files had no line counts, and files from sibling folders were listed and committed (fixes #174).
 - An MCP server that exits or drops its connection after connecting is shown as stopped and its tools are removed, instead of staying "connected" with tools that always fail. The next refresh (for example saving the MCP settings or switching projects) reconnects it (fixes #166).
 - A Claude connection that drops mid-stream is no longer re-sent at once without a notice. It now goes to the agent loop's retry, which waits with backoff and shows each retry in the chat; only an unparseable streamed tool input is still re-asked immediately (fixes #173).
