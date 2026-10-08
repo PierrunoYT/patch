@@ -998,7 +998,7 @@ describe('fetch_url paging, cache and size cap', () => {
     expect(sent).toBeLessThan(10);
     expect(text).toContain('Use offset=20000 to read on');
     const body = await readBodyCapped(new Response('x'.repeat(100)), 40);
-    expect(body).toEqual({ text: 'x'.repeat(40), truncated: true });
+    expect(body).toEqual({ text: 'x'.repeat(40), truncated: true, timedOut: false });
   });
 
   it('keeps only the most recent pages', async () => {

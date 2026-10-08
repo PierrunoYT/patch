@@ -10,7 +10,10 @@ import { z } from 'zod';
 import { destinationFor, resolveDestination, type Destination } from './net_address';
 import { defineTool, ToolError } from './types';
 
+// How long to wait for the response headers. Reading the body has its own limit, so a slow page still returns what
+// arrived in time instead of failing.
 const FETCH_TIMEOUT_MS = 15_000;
+const BODY_TIMEOUT_MS = 15_000;
 const MAX_PAGE_CHARS = 20_000;
 const MAX_REDIRECTS = 10;
 // A response is read only up to this many bytes, so a huge or endless body cannot fill the main process's memory.
@@ -23,6 +26,7 @@ const MAX_HIGHLIGHTS = 15;
 interface CachedPage {
   text: string;
   truncated: boolean;
+  timedOut: boolean;
   at: number;
 }
 
@@ -48,30 +52,73 @@ function rememberPage(url: string, page: CachedPage): void {
   while (pageCache.size > CACHE_MAX_PAGES) pageCache.delete(pageCache.keys().next().value as string);
 }
 
-// Reads at most `maxBytes` of the body and stops the download there.
+// The charset named in a Content-Type header, or null when there is none.
+export function charsetFrom(contentType: string | null): string | null {
+  const match = /;\s*charset\s*=\s*("[^"]*"|[^;\s]*)/i.exec(contentType ?? '');
+  const label = match?.[1]?.replace(/^"|"$/g, '').trim();
+  return label ? label : null;
+}
+
+// A decoder for the response's charset, falling back to UTF-8 when it is missing or not a known label.
+function textDecoderFor(charset: string | null): TextDecoder {
+  if (charset) {
+    try {
+      return new TextDecoder(charset, { fatal: false });
+    } catch {
+      // An unknown label: read the page as UTF-8.
+    }
+  }
+  return new TextDecoder('utf-8', { fatal: false });
+}
+
+export interface BodyText {
+  text: string;
+  // The body was cut: it was longer than `maxBytes`, or it was still arriving when the time ran out.
+  truncated: boolean;
+  timedOut: boolean;
+}
+
+// Reads at most `maxBytes` of the body, for at most `timeoutMs`, and stops the download there. A body still arriving
+// when the time runs out returns what was read so far; an abort by the user still throws.
 export async function readBodyCapped(
   response: Response,
   maxBytes = MAX_BODY_BYTES,
-): Promise<{ text: string; truncated: boolean }> {
-  if (!response.body) return { text: '', truncated: false };
+  timeoutMs = BODY_TIMEOUT_MS,
+): Promise<BodyText> {
+  if (!response.body) return { text: '', truncated: false, timedOut: false };
   const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
+  const decoder = textDecoderFor(charsetFrom(response.headers.get('content-type')));
   let text = '';
   let received = 0;
   let truncated = false;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    received += value.byteLength;
-    if (received > maxBytes) {
-      text += decoder.decode(value.subarray(0, value.byteLength - (received - maxBytes)), { stream: true });
-      truncated = true;
-      await reader.cancel();
-      break;
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<'timeout'>((resolve) => {
+    timer = setTimeout(() => resolve('timeout'), timeoutMs);
+  });
+  try {
+    for (;;) {
+      const next = await Promise.race([reader.read(), deadline]);
+      if (next === 'timeout') {
+        truncated = timedOut = true;
+        reader.cancel().catch(() => {});
+        break;
+      }
+      const { done, value } = next;
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        text += decoder.decode(value.subarray(0, value.byteLength - (received - maxBytes)), { stream: true });
+        truncated = true;
+        await reader.cancel();
+        break;
+      }
+      text += decoder.decode(value, { stream: true });
     }
-    text += decoder.decode(value, { stream: true });
+  } finally {
+    clearTimeout(timer);
   }
-  return { text: text + decoder.decode(), truncated };
+  return { text: text + decoder.decode(), truncated, timedOut };
 }
 
 const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'what', 'how', 'are', 'was', 'can']);
@@ -177,6 +224,7 @@ export const fetchUrlTool = defineTool({
       page = {
         text: type.includes('html') ? extractArticle(body.text) : body.text,
         truncated: body.truncated,
+        timedOut: body.timedOut,
         at: Date.now(),
       };
       rememberPage(parsed.href, page);
@@ -196,6 +244,10 @@ export const fetchUrlTool = defineTool({
     sections.push(part);
     if (end < total) {
       sections.push(`(Characters ${offset}-${end} of ${total}. Use offset=${end} to read on.)`);
+    } else if (page.timedOut) {
+      sections.push(
+        `(The page was still downloading after ${BODY_TIMEOUT_MS / 1000} s and was cut there; the rest is not available. Pass force_refetch to try again.)`,
+      );
     } else if (page.truncated) {
       sections.push(
         `(The download was cut at ${MAX_BODY_BYTES / 1024 / 1024} MB; the rest of the page is not available.)`,
@@ -230,7 +282,19 @@ export async function fetchWithoutCrossOriginRedirect(
   const { addresses } = destination ?? (await resolveDestination(initial.hostname));
   let current = initial;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
-    const response = await webTransport.request(current, addresses, withTimeout(signal));
+    // The timeout covers only the wait for the headers and is cleared once they arrive, so it cannot abort the body
+    // (readBodyCapped has its own limit). The caller's signal still aborts the body.
+    const headersTimeout = new AbortController();
+    const timer = setTimeout(
+      () => headersTimeout.abort(new DOMException('The server did not answer in time.', 'TimeoutError')),
+      FETCH_TIMEOUT_MS,
+    );
+    let response: Response;
+    try {
+      response = await webTransport.request(current, addresses, AbortSignal.any([signal, headersTimeout.signal]));
+    } finally {
+      clearTimeout(timer);
+    }
     if (![301, 302, 303, 307, 308].includes(response.status)) return response;
     const location = response.headers.get('location');
     if (!location) return response;

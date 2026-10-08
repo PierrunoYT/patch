@@ -545,7 +545,6 @@ const D = {
     [192, 'Renderer can miss chat events sent during startup', 'ui', 'low', 0, '10-07'],
     [191, 'Terminal drops keys typed before the shell is ready; blank after reopen', 'ui', 'low', 0, '10-07'],
     [190, 'Quitting while an MCP server connects keeps the app running up to 20 s', 'mcp', 'low', 0, '10-07'],
-    [189, 'fetch_url: timeout aborts a slow body read; charset is ignored', 'tools', 'low', 0, '10-07'],
     [188, 'Unbounded waits: revokeProjectGrant, timed-out browser waiters', 'other', 'low', 0, '10-07'],
     [187, 'Background commands stay in memory; their IDs are shared across chats', 'tools', 'low', 0, '10-07'],
     [185, 'Windows path casing duplicates projects, read tracking and indexes', 'other', 'low', 0, '10-07'],
@@ -650,7 +649,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 105,
+  closedCount: 106,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
