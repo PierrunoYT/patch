@@ -135,7 +135,7 @@ const D = {
         'shell.ts (597; streaming UTF-8 output, #164; kills the programs a finished command left running, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'shell_leftovers.ts (97; finds and kills what a Windows shell left running through its parent pid, #165)',
         'sandbox_windows.ts (434, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
-        'sandbox.ts (495; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
+        'sandbox.ts (safe canonical project roots before Git preparation, #145; project-only Seatbelt writes and command-local temp, #144; asynchronous support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
         'web.ts (335; fetch_url pins the checked address and keeps redirects on the origin, #146)',
         'net_address.ts (76; local and private address checks for fetch_url and browser, #146)',
@@ -356,7 +356,7 @@ const D = {
     ['chat', 13],
     ['ui', 12],
     ['panels', 8],
-    ['sandbox_approvals', 8],
+    ['sandbox_approvals', 9],
     ['logging', 5],
     ['compact', 4],
     ['project_settings', 4],
@@ -547,14 +547,6 @@ const D = {
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
     [149, 'Packaged builds run sandbox-helper.exe without checking its signature', 'sandbox', 'low', 0, '10-07'],
-    [
-      145,
-      'Opening the home folder as a project makes all of it writable to the sandbox',
-      'sandbox',
-      'high',
-      0,
-      '10-07',
-    ],
     [144, 'File tools check a path, then write it later: a swapped symlink redirects', 'security', 'high', 0, '10-07'],
     [
       140,
@@ -639,7 +631,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 101,
+  closedCount: 102,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

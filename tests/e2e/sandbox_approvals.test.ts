@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { detectSandboxSupport } from '../../src/main/tools/sandbox';
@@ -16,7 +16,7 @@ describe('sandbox escalation approvals', () => {
   const captureDir = process.env.E2E_SCREENSHOTS;
 
   beforeAll(async () => {
-    project = mkdtempSync(join(tmpdir(), 'patch-sandbox-approval-'));
+    project = mkdtempSync(join(process.platform === 'win32' ? homedir() : tmpdir(), 'patch-sandbox-approval-'));
     claude = new MockClaude();
     running = await launchApp({ PATCH_TEST_ANTHROPIC_URL: await claude.start() });
     await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
@@ -97,6 +97,35 @@ describe('sandbox escalation approvals', () => {
       expect(await running.page.evaluate(async () => (await window.api.invoke('git:status')).isRepo)).toBe(false);
     },
     90_000,
+  );
+
+  it.skipIf(!support.bwrap && !support.seatbelt && !support.appcontainer)(
+    'refuses commands when application data is opened as a project (#145)',
+    async () => {
+      await running.page.evaluate((path) => window.api.invoke('project:open', path), running.userData);
+      try {
+        claude.script(
+          {
+            blocks: [{ type: 'tool_use', id: 'unsafe-root', name: 'run_command', input: { command: 'echo unsafe' } }],
+            stopReason: 'tool_use',
+          },
+          { blocks: [{ type: 'text', text: 'The unsafe root was refused.' }], stopReason: 'end_turn' },
+        );
+        await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Try a sandboxed command' }));
+        await expect
+          .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy))
+          .toBe(false);
+        const tools = await running.page.evaluate(async () =>
+          (await window.api.invoke('chat:snapshot')).transcript.filter((item) => item.kind === 'tool'),
+        );
+        expect(tools).toHaveLength(1);
+        expect(tools[0]?.output).toContain('Sandbox refused this project root');
+        expect(tools[0]?.output).not.toContain('Exit code: 0');
+        expect(existsSync(join(running.userData, '.git'))).toBe(false);
+      } finally {
+        await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
+      }
+    },
   );
 
   it.each([

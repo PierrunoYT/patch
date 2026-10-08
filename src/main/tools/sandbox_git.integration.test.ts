@@ -12,7 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -55,7 +55,9 @@ for (const [kind, available] of [
         },
       });
     beforeEach(() => {
-      fixture = realpathSync(mkdtempSync(join(tmpdir(), 'patch-git-isolation-')));
+      fixture = realpathSync(
+        mkdtempSync(join(process.platform === 'win32' ? homedir() : tmpdir(), 'patch-git-isolation-')),
+      );
       root = join(fixture, 'project');
       mkdirSync(root);
       git('-c', 'init.templateDir=', 'init', '--quiet');

@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import childProcess from 'node:child_process';
@@ -325,6 +325,34 @@ describe('sandbox selection', () => {
     root = mkdtempSync(join(tmpdir(), 'patch-shell-sandbox-'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it.each(['auto', 'container'] as const)(
+    'refuses home and application-data roots before foreground or background %s launch',
+    async (mode) => {
+      const support = { bwrap: true, seatbelt: true, appcontainer: 'unused-helper.exe', container: 'docker' as const };
+      const sensitive = join(root, 'app-data');
+      mkdirSync(sensitive);
+      for (const project of [homedir(), root, sensitive]) {
+        const shell = new ShellRunner(
+          () => project,
+          () => ({ ...config, mode }),
+          () => support,
+          () => process.env,
+          () => [sensitive],
+        );
+        const result = await shell.run('echo unsafe-root-must-not-run');
+        expect(result.exitCode).toBeNull();
+        expect(result.output).toMatch(/Sandbox refused this project root/);
+        expect(result.output).not.toContain('unsafe-root-must-not-run');
+        await expect(shell.startBackground('echo unsafe-root-must-not-run')).rejects.toThrow(
+          /Sandbox refused this project root/,
+        );
+        expect(shell.getBackground(1)).toBeUndefined();
+      }
+      expect(existsSync(join(root, '.git'))).toBe(false);
+      expect(existsSync(join(sensitive, '.git'))).toBe(false);
+    },
+  );
 
   it.each(['auto', 'container'] as const)(
     'does not run foreground or background commands without the %s sandbox',

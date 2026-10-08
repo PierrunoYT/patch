@@ -52,8 +52,8 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
   let hostCanConnect = false;
 
   beforeAll(async () => {
-    // Under the user-profile temp folder, matching the reported PowerShell failure in #88.
-    root = mkdtempSync(join(tmpdir(), 'patch-sbx-proj-'));
+    // The AppData/temp tree is deliberately not a sandbox project root (#145). An ordinary home child is safe.
+    root = mkdtempSync(join(homedir(), 'patch-sbx-proj-'));
     outside = mkdtempSync(join(tmpdir(), 'patch-sbx-secret-'));
     sandboxNode = join(root, 'node.exe');
     copyFileSync(process.execPath, sandboxNode);
@@ -510,7 +510,7 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   };
   beforeAll(() => {
     cachedBefore = cacheEntries();
-    fixture = mkdtempSync(join(tmpdir(), 'patch-toolchain-'));
+    fixture = mkdtempSync(join(homedir(), 'patch-toolchain-'));
     project = join(fixture, 'project');
     programs = join(fixture, 'Program Files');
     tools = join(programs, 'nodejs');
@@ -898,7 +898,7 @@ describe.skipIf(!helper)('Project write grant (real helper, #103)', () => {
   const capability = /S-1-15-3-1024-/;
 
   beforeAll(() => {
-    project = mkdtempSync(join(tmpdir(), 'patch-sbx-grant-'));
+    project = mkdtempSync(join(homedir(), 'patch-sbx-grant-'));
     mkdirSync(join(project, '.git', 'hooks'), { recursive: true });
     mkdirSync(join(project, 'src'));
     writeFileSync(join(project, 'src', 'existing.txt'), 'old');
@@ -966,7 +966,7 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
   it.each(['normal exit', 'forced termination'])(
     'keeps metadata protected through an overlapping helper %s',
     async (exit) => {
-      const fixture = mkdtempSync(join(tmpdir(), 'patch-sbx-recovery-'));
+      const fixture = mkdtempSync(join(homedir(), 'patch-sbx-recovery-'));
       const project = join(fixture, 'project');
       const tools = join(fixture, 'tools');
       const hooks = join(project, '.git', 'hooks');

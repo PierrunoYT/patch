@@ -1,8 +1,9 @@
 import { execFile, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import type { EventEmitter } from 'node:events';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Readable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
@@ -26,7 +27,6 @@ import {
 import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
 import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
-import { validateSandboxGit } from './sandbox_git';
 
 const DEFAULT_TIMEOUT_SECONDS = 120;
 const MAX_TIMEOUT_SECONDS = 600;
@@ -117,6 +117,7 @@ export class ShellRunner {
     private readonly sandbox: () => SandboxConfig = () => ({ mode: 'off', network: 'on', image: '', allowedHosts: '' }),
     private readonly detect: () => SandboxSupport = detectSandboxSupport,
     private readonly env: () => NodeJS.ProcessEnv = () => process.env,
+    private readonly sensitivePaths: () => string[] = () => [],
   ) {}
 
   // URL matching cannot constrain the connections a program makes. Treat it as a request for full network access.
@@ -299,6 +300,7 @@ export class ShellRunner {
     if (decision.kind === 'appcontainer')
       return { child: await this.spawnInAppContainer(inner, decision.network, signal), sandbox: decision.kind };
     let launch: Launch;
+    let commandTemp: string | undefined;
     if (decision.kind === 'none') launch = { file: inner.file, args: inner.args };
     else {
       const env = await systemLaunchEnv({
@@ -309,8 +311,13 @@ export class ShellRunner {
         command,
         containerName: `patch-${randomBytes(6).toString('hex')}`,
         image: config.image,
+        sensitivePaths: this.sensitivePaths(),
       });
       signal?.throwIfAborted();
+      if (decision.kind === 'seatbelt') {
+        commandTemp = mkdtempSync(join(env.cwd, '.patch-command-tmp-'));
+        env.tmp = commandTemp;
+      }
       launch = buildLaunch(decision, env, this.detect().container);
     }
     appLog.info('sandbox', 'Command started.', {
@@ -321,7 +328,13 @@ export class ShellRunner {
       cwd: this.cwd(),
       env: {
         ...(decision.kind === 'bwrap' || decision.kind === 'seatbelt'
-          ? sandboxEnv(this.env(), process.platform, homedir(), decision.kind === 'bwrap' ? '/tmp' : tmpdir(), config)
+          ? sandboxEnv(
+              this.env(),
+              process.platform,
+              homedir(),
+              decision.kind === 'bwrap' ? '/tmp' : commandTemp!,
+              config,
+            )
           : scrubEnv(this.env())),
         CI: '1',
         FORCE_COLOR: '0',
@@ -332,6 +345,14 @@ export class ShellRunner {
       // Own process group on POSIX so the whole tree can be killed.
       detached: process.platform !== 'win32',
     });
+    if (commandTemp)
+      child.once('close', () => {
+        try {
+          rmSync(commandTemp, { recursive: true, force: true });
+        } catch {
+          appLog.warn('sandbox', 'Could not remove the command temporary directory.');
+        }
+      });
     if (launch.stop) stoppers.set(child, launch.stop);
     child.once('spawn', () => spawned.add(child));
     const lifetime: Lifetime = { startedAt: Date.now() };
@@ -348,7 +369,17 @@ export class ShellRunner {
     const helper = this.detect().appcontainer;
     if (!helper)
       throw new Error('The Windows sandbox helper (sandbox-helper.exe) was not found. The command was not run.');
-    const gitPaths = await validateSandboxGit(this.cwd());
+    const launchEnv = await systemLaunchEnv({
+      cwd: this.cwd(),
+      home: homedir(),
+      tmp: tmpdir(),
+      inner,
+      command: '',
+      containerName: '',
+      image: '',
+      sensitivePaths: this.sensitivePaths(),
+    });
+    const gitPaths = launchEnv.gitPaths;
     signal?.throwIfAborted();
     const real = (path: string) => {
       try {
@@ -360,7 +391,7 @@ export class ShellRunner {
     const request = buildHelperRequest({
       id: this.nextId,
       shell: inner,
-      cwd: real(this.cwd()),
+      cwd: launchEnv.cwd,
       env: {
         ...sandboxEnv(this.env(), 'win32', real(homedir()), real(tmpdir()), this.sandbox()),
         CI: '1',

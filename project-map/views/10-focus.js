@@ -3,15 +3,15 @@
 builders.focus = () => {
   const items = [
     [
-      'Fix the remaining high-severity Oct 7 findings: #144 and #145',
+      'Finish native file-operation confinement: #144',
       'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
         '#143 is fixed: protected paths match case-insensitively, Windows short names expand before checks, and failed safety checks ask',
         '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
-        '#145: opening the home folder as a project makes all of it writable to sandboxed commands',
+        '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'Keep the approval boundary while fixing native file-handle confinement (#144) and unsafe sandbox roots (#145). Each fix needs a regression test that plants the file or link it guards against.',
+      'Keep the approval boundary while fixing native file-handle confinement (#144), with deterministic replacement-link tests for edits, patch deletion and Undo.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',

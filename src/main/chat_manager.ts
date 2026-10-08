@@ -46,6 +46,7 @@ export interface ChatManagerDeps {
   onDroppedFields?: (error: DroppedFieldError) => void;
   // Where backups of approved edits are kept. Without it, edits cannot be undone.
   edits?: EditBackups;
+  sandboxSensitivePaths?: () => string[];
 }
 
 const SAVE_DELAY_MS = 500;
@@ -463,6 +464,9 @@ export class ChatManager {
           path: settings.sandboxPath,
         };
       },
+      undefined,
+      undefined,
+      this.deps.sandboxSensitivePaths,
     );
   }
 

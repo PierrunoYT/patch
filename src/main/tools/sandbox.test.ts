@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, parse } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   bwrapArgs,
@@ -6,6 +9,8 @@ import {
   decideSandbox,
   describeSandbox,
   seatbeltProfile,
+  systemLaunchEnv,
+  validateSandboxRoot,
   wantsNetwork,
   type LaunchEnv,
   type SandboxConfig,
@@ -14,6 +19,64 @@ import {
 
 const config: SandboxConfig = { mode: 'auto', network: 'off', image: 'node:lts', allowedHosts: 'registry.npmjs.org' };
 const none: SandboxSupport = { bwrap: false, seatbelt: false, appcontainer: null, container: null };
+
+describe('sandbox project root safety (#145)', () => {
+  it('rejects roots containing home and sensitive trees while allowing ordinary children and similar siblings', () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'patch-root-safety-'));
+    try {
+      const home = join(fixture, 'home');
+      const project = join(home, 'work', 'project');
+      const appData = join(home, '.config', 'Patch');
+      const sibling = join(home, '.config', 'Patch-safe');
+      for (const path of [project, appData, sibling]) mkdirSync(path, { recursive: true });
+      expect(validateSandboxRoot(project, home, [appData])).toBe(realpathSync(project));
+      expect(validateSandboxRoot(sibling, home, [appData])).toBe(realpathSync(sibling));
+      expect(() => validateSandboxRoot(home, home, [appData])).toThrow(/narrower project root/);
+      expect(() => validateSandboxRoot(fixture, home, [appData])).toThrow(/narrower project root/);
+      expect(() => validateSandboxRoot(parse(fixture).root, home, [appData])).toThrow(/narrower project root/);
+      expect(() => validateSandboxRoot(appData, home, [appData])).toThrow(/narrower project root/);
+      expect(() => validateSandboxRoot(join(appData, 'projects', 'one'), home, [appData])).toThrow(/narrower/);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it('canonicalizes aliases before checking boundaries', () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'patch-root-alias-'));
+    try {
+      const home = join(fixture, 'home');
+      const appData = join(home, 'app-data');
+      const alias = join(fixture, 'alias');
+      mkdirSync(appData, { recursive: true });
+      symlinkSync(appData, alias, process.platform === 'win32' ? 'junction' : 'dir');
+      expect(() => validateSandboxRoot(alias, home, [appData])).toThrow(/Sandbox refused/);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects before creating a Git reservation', async () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'patch-root-side-effect-'));
+    try {
+      const home = join(fixture, 'home');
+      mkdirSync(home);
+      await expect(
+        systemLaunchEnv({
+          cwd: home,
+          home,
+          tmp: tmpdir(),
+          inner: { file: '/bin/sh', args: ['-c', 'true'] },
+          command: 'true',
+          containerName: 'unused',
+          image: 'unused',
+        }),
+      ).rejects.toThrow(/command was not run/);
+      expect(existsSync(join(home, '.git'))).toBe(false);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+});
 
 const env = (existing: string[] = []): LaunchEnv => ({
   cwd: '/home/u/proj',
@@ -158,6 +221,8 @@ describe('seatbeltProfile', () => {
     expect(profile).toContain('(deny file-write-unlink (literal "/home/u/proj"))');
     expect(profile).toContain('(deny file-write-unlink (literal "/home/u"))');
     expect(profile).toContain('(deny file-write-unlink (literal "/home"))');
+    const writeGrant = profile.split('\n').find((line) => line.startsWith('(allow file-write*'))!;
+    expect(writeGrant).not.toMatch(/subpath "\/(tmp|private\/tmp|private\/var\/folders)"/);
     expect(profile).not.toContain('network');
   });
 

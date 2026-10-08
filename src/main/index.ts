@@ -1,6 +1,6 @@
 import { app, BrowserWindow, crashReporter, dialog, safeStorage, session, shell } from 'electron';
 import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { AGENT_BROWSER_PARTITION, BROWSER_PARTITIONS } from '@shared/panels';
 import { SECRET_NAMES } from '@shared/settings';
 import { ToolErrorLog } from './agent/tool_error_log';
@@ -235,6 +235,11 @@ function start(): void {
     onHistoryChanged: () => send(mainWindow, 'history:changed', chats.list()),
     onDroppedFields: (error) => toolErrorLog.record(error),
     edits: editBackups,
+    sandboxSensitivePaths: () => [
+      app.getPath('appData'),
+      app.getPath('userData'),
+      ...(app.isPackaged ? [dirname(process.resourcesPath)] : []),
+    ],
   });
 
   const openProject = (path: string) => {

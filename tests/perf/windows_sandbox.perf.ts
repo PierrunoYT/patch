@@ -4,7 +4,7 @@
 // otherwise. Not part of `npm test`; run `npm run perf`. Numbers vary by machine, so this prints them rather than
 // asserting limits. Results are recorded in docs/PERFORMANCE.md.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { afterAll, beforeAll, describe, it } from 'vitest';
@@ -23,7 +23,7 @@ describe.skipIf(!helper)('Windows sandbox command overhead in a large project (#
   let root: string;
 
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), 'patch-perf-sbx-'));
+    root = mkdtempSync(join(homedir(), 'patch-perf-sbx-'));
     mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
     for (let folder = 0; folder * PER_FOLDER < FILES; folder++) {
       const directory = join(root, 'node_modules', `package-${Math.floor(folder / 50)}`, `lib-${folder % 50}`);

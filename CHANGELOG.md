@@ -208,6 +208,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- Sandboxed commands now refuse volume roots, the home folder and its ancestors, and overlap with application data or installed Patch files before Git preparation or Windows permission changes. Foreground, background and container commands share this check; explicit unsandboxed approval remains available. macOS temporary files stay inside the project rather than writable system temp trees (fixes #145; required for #144's file-handle boundary).
 - Protected-path approval checks now recognize case variants and Windows 8.3 aliases, including `.GIT/config`. A failed safety check asks rather than allowing the edit in Auto mode or under allow/delegate rules (fixes #143).
 - macOS sandbox: commands with network access can no longer connect to local Unix sockets such as the Docker socket or ssh-agent. TCP/UDP and DNS still work, and Settings now says that network access reaches local network services. The profile rule follows the Codex and Chromium profiles; a real-Seatbelt probe in the macOS CI integration tests checks it (fixes #147).
 - The agent's `browser` tool no longer uses your Browser panel session: it opens pages in its own in-memory session, shown in the panel under an "Agent browser" banner, so pages it loads never carry your cookies or sign-ins. That session is emptied when you start or open a chat or switch projects (fixes #148).

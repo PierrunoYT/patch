@@ -132,10 +132,10 @@ for (const [kind, available] of [
       };
 
       beforeAll(async () => {
-        // Outside /tmp: Seatbelt intentionally allows writes to the system temp directory.
         home = realpathSync(mkdtempSync(join(homedir(), '.patch-sandbox-test-')));
         project = join(home, 'project');
-        temp = realpathSync(mkdtempSync(join(tmpdir(), 'patch-sandbox-temp-')));
+        mkdirSync(project);
+        temp = realpathSync(mkdtempSync(join(kind === 'seatbelt' ? project : tmpdir(), 'patch-sandbox-temp-')));
         hostEnv = {
           ...process.env,
           DATABASE_URL: 'postgres://fixture-user:fixture-password@fixture.invalid/private',

@@ -1609,7 +1609,68 @@ fn mapped_path(path: &str, mappings: &[(String, String)]) -> String {
     path.to_string()
 }
 
+fn path_within(path: &Path, boundary: &Path) -> bool {
+    let path = path
+        .to_string_lossy()
+        .replace('/', "\\")
+        .to_ascii_lowercase();
+    let boundary = boundary
+        .to_string_lossy()
+        .replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_ascii_lowercase();
+    path == boundary || path.starts_with(&format!("{boundary}\\"))
+}
+
+// This is deliberately independent of the Electron caller. It runs before locks, recovery, staging, or ACL work.
+fn validate_project_root(cwd: &str) -> Result<PathBuf> {
+    let project =
+        fs::canonicalize(cwd).map_err(|e| format!("cannot resolve sandbox project root: {e}"))?;
+    if project.parent().is_none() {
+        return Err("sandbox refused a volume root; choose a narrower project root or run with explicitly approved unsandboxed access".into());
+    }
+    let home = std::env::var_os("USERPROFILE")
+        .ok_or_else(|| "USERPROFILE is missing".to_string())
+        .and_then(|path| {
+            fs::canonicalize(path).map_err(|e| format!("cannot resolve USERPROFILE: {e}"))
+        })?;
+    if path_within(&home, &project) {
+        return Err("sandbox refused a project root containing the user profile; choose a narrower project root or run with explicitly approved unsandboxed access".into());
+    }
+    let mut sensitive = Vec::new();
+    for name in ["APPDATA", "LOCALAPPDATA"] {
+        let path = std::env::var_os(name).ok_or_else(|| format!("{name} is missing"))?;
+        sensitive.push(fs::canonicalize(path).map_err(|e| format!("cannot resolve {name}: {e}"))?);
+    }
+    if let Some(path) = std::env::var_os("PATCH_USER_DATA").filter(|path| !path.is_empty()) {
+        sensitive.push(
+            fs::canonicalize(path).map_err(|e| format!("cannot resolve PATCH_USER_DATA: {e}"))?,
+        );
+    }
+    let executable =
+        std::env::current_exe().map_err(|e| format!("cannot resolve helper install path: {e}"))?;
+    let install = executable
+        .parent()
+        .ok_or("helper install path has no parent")?;
+    // Cargo's development helper lives inside the repository; it is not an installed application boundary.
+    let cargo_build = install
+        .parent()
+        .and_then(Path::file_name)
+        .is_some_and(|name| name.eq_ignore_ascii_case("target"));
+    if !cargo_build {
+        sensitive.push(install.parent().unwrap_or(install).to_path_buf());
+    }
+    if sensitive
+        .iter()
+        .any(|boundary| path_within(&project, boundary) || path_within(boundary, &project))
+    {
+        return Err("sandbox refused a project root overlapping application data or installation files; choose a narrower project root or run with explicitly approved unsandboxed access".into());
+    }
+    Ok(project)
+}
+
 fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
+    let _project = validate_project_root(&request.cwd)?;
     let id = request.id;
     let mut package = PSID::default();
     unsafe { ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package) }
@@ -2168,6 +2229,56 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sensitive_path_comparison_is_component_aware_and_case_insensitive() {
+        assert!(path_within(
+            Path::new(r"C:\Users\ME\AppData\project"),
+            Path::new(r"c:\users\me\appdata")
+        ));
+        assert!(!path_within(
+            Path::new(r"C:\Users\me\AppData-safe"),
+            Path::new(r"C:\Users\me\AppData")
+        ));
+    }
+
+    #[test]
+    fn unsafe_roots_are_refused_at_run_entry_without_permission_changes() {
+        let home = fs::canonicalize(std::env::var_os("USERPROFILE").unwrap()).unwrap();
+        let data = fs::canonicalize(std::env::var_os("LOCALAPPDATA").unwrap()).unwrap();
+        let fixture = data.join(profile_name());
+        fs::create_dir(&fixture).unwrap();
+        fs::write(fixture.join("sentinel"), b"unchanged").unwrap();
+        let before = original_inheritance(fixture.to_str().unwrap())
+            .unwrap()
+            .map(|snapshot| snapshot.dacl);
+        let emitter = Emitter(Arc::new(Mutex::new(std::io::stdout())));
+        let jobs: Jobs = Arc::new(Mutex::new(HashMap::new()));
+        let volume = home.ancestors().last().unwrap();
+        for root in [&home, home.parent().unwrap(), volume, &data, &fixture] {
+            let request: Request = serde_json::from_value(serde_json::json!({
+                "id": 7, "command": "not-a-program", "cwd": root,
+                "readWrite": [root]
+            }))
+            .unwrap();
+            assert!(run(&request, &emitter, &jobs)
+                .unwrap_err()
+                .contains("sandbox refused"));
+        }
+        assert!(jobs.lock().unwrap().is_empty());
+        assert_eq!(fs::read(fixture.join("sentinel")).unwrap(), b"unchanged");
+        assert_eq!(
+            original_inheritance(fixture.to_str().unwrap())
+                .unwrap()
+                .map(|snapshot| snapshot.dacl),
+            before
+        );
+        fs::remove_dir_all(fixture).unwrap();
+        let safe = home.join(profile_name());
+        fs::create_dir(&safe).unwrap();
+        assert!(validate_project_root(safe.to_str().unwrap()).is_ok());
+        fs::remove_dir(safe).unwrap();
+    }
 
     #[test]
     fn short_names_are_not_treated_as_reparse_points() {

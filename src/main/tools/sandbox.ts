@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { posix, relative } from 'node:path';
+import { dirname, parse, posix, relative, resolve, sep } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
 import { findHelper } from './sandbox_windows';
@@ -278,9 +278,10 @@ export function seatbeltProfile(
   ];
   const open = [env.cwd, ...HOME_READ_ONLY.map((rel) => `${env.home}/${rel}`).filter((path) => env.exists(path))];
   lines.push(`(allow file-read* ${open.map(subpath).join(' ')})`);
-  const writable = new Set([env.cwd, env.tmp, '/tmp', '/private/tmp', '/private/var/folders']);
+  // A second writable host tree would let a command move an opened file outside the project while a direct-edit
+  // helper still holds its descriptor (#144). Command temp must therefore remain inside the project on macOS.
   lines.push(
-    `(allow file-write* ${[...writable].map(subpath).join(' ')} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
+    `(allow file-write* ${subpath(env.cwd)} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
   );
   lines.push(`(deny file-write* ${env.gitPaths.map(subpath).join(' ')})`);
   // A project in a writable temp tree must not move out from under the pathname-based deny rule.
@@ -466,11 +467,53 @@ export function resetSandboxSupportCache(): void {
 type LaunchBase = Omit<LaunchEnv, 'exists' | 'gitPaths' | 'uid' | 'gid' | 'home' | 'tmp'> & {
   home: string;
   tmp: string;
+  sensitivePaths?: string[];
 };
 
-// Validates the project's Git metadata first (sandbox_git.ts), which fails when it cannot be protected.
+function containsPath(parent: string, child: string): boolean {
+  const prefix = parent.endsWith(sep) ? parent : `${parent}${sep}`;
+  return child === parent || child.startsWith(prefix);
+}
+
+function canonical(path: string): string {
+  const tail: string[] = [];
+  let cursor = resolve(path);
+  while (!existsSync(cursor)) {
+    const parent = dirname(cursor);
+    if (parent === cursor) break;
+    tail.unshift(cursor.slice(parent.length + (parent.endsWith(sep) ? 0 : 1)));
+    cursor = parent;
+  }
+  const real = realpathSync.native(cursor);
+  return resolve(real, ...tail);
+}
+
+export function validateSandboxRoot(cwd: string, home: string, sensitivePaths: string[] = []): string {
+  const project = canonical(cwd);
+  const fold = (path: string) =>
+    process.platform === 'win32' || process.platform === 'darwin' ? path.toLowerCase() : path;
+  const root = parse(project).root;
+  const projectKey = fold(project);
+  const homeKey = fold(canonical(home));
+  const unsafe =
+    projectKey === fold(root) ||
+    containsPath(projectKey, homeKey) ||
+    sensitivePaths.some((path) => {
+      const boundary = fold(canonical(path));
+      return containsPath(projectKey, boundary) || containsPath(boundary, projectKey);
+    });
+  if (unsafe) {
+    throw new Error(
+      'Sandbox refused this project root because it overlaps a sensitive system or application directory. Choose a narrower project root, or request an explicitly approved unsandboxed run. The command was not run.',
+    );
+  }
+  return project;
+}
+
+// Validates the root before Git reservation, then validates metadata (which can create the reservation).
 export async function systemLaunchEnv(base: LaunchBase): Promise<LaunchEnv> {
-  return launchEnvWith(base, await validateSandboxGit(base.cwd));
+  const cwd = validateSandboxRoot(base.cwd, base.home, base.sensitivePaths);
+  return launchEnvWith({ ...base, cwd }, await validateSandboxGit(cwd));
 }
 
 // The launch environment for Git paths that validateSandboxGit returned.

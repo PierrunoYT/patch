@@ -1,5 +1,14 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -35,6 +44,14 @@ const probeSource = String.raw`
 
 int main(int argc, char **argv) {
   if (argc < 2) return 64;
+  if (strcmp(argv[1], "rename") == 0) {
+    if (argc != 4) return 64;
+    errno = 0;
+    int result = rename(argv[2], argv[3]);
+    int saved = errno;
+    printf("{\"entered\":true,\"renamed\":%s,\"error\":%d}\n", result == 0 ? "true" : "false", saved);
+    return 0;
+  }
   if (strcmp(argv[1], "lookup") == 0) {
     if (argc < 3) return 64;
     mach_port_t service = MACH_PORT_NULL;
@@ -161,6 +178,7 @@ type ProbeResult = {
   result?: number;
   opened?: boolean;
   read?: boolean;
+  renamed?: boolean;
   error?: number;
 };
 
@@ -223,13 +241,12 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   };
 
   beforeAll(async () => {
-    // Keep HOME outside the broadly writable system temp paths in the production profile.
     fixture = realpathSync(mkdtempSync(join(homedir(), '.patch-macos-sandbox-')));
     home = join(fixture, 'home');
     project = join(fixture, 'project');
-    temp = realpathSync(mkdtempSync(join(tmpdir(), 'patch-macos-sandbox-temp-')));
     mkdirSync(home);
     mkdirSync(join(project, '.git'), { recursive: true });
+    temp = realpathSync(mkdtempSync(join(project, 'patch-macos-sandbox-temp-')));
 
     const probeFile = join(project, 'sandbox-probe.c');
     probe = join(project, 'sandbox-probe');
@@ -270,6 +287,34 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   afterAll(() => {
     if (fixture) rmSync(fixture, { recursive: true, force: true });
     if (temp) rmSync(temp, { recursive: true, force: true });
+  });
+
+  it.each(['file', 'directory'])('blocks moving an opened %s to same-filesystem host temp', (kind) => {
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'patch-relocation-')));
+    const source = join(project, `relocation-${kind}`);
+    const destination = join(outside, 'moved');
+    try {
+      expect(statSync(project).dev).toBe(statSync(outside).dev);
+      if (kind === 'directory') mkdirSync(source);
+      else writeFileSync(source, 'SENTINEL');
+      // Host controls prove the fixture is movable and the denial is from Seatbelt, not ordinary permissions.
+      expect(runHostProbe('rename', source, destination)).toMatchObject({ entered: true, renamed: true });
+      expect(runHostProbe('rename', destination, source)).toMatchObject({ entered: true, renamed: true });
+      for (const network of [false, true]) {
+        expect(runSandboxedProbe(['rename', source, destination], network)).toMatchObject({
+          entered: true,
+          renamed: false,
+        });
+        expect(existsSync(source)).toBe(true);
+        expect(existsSync(destination)).toBe(false);
+      }
+      const internal = join(project, `relocated-${kind}`);
+      expect(runSandboxedProbe(['rename', source, internal])).toMatchObject({ entered: true, renamed: true });
+      rmSync(internal, { recursive: true });
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+      rmSync(source, { recursive: true, force: true });
+    }
   });
 
   it('blocks the confirmed host LaunchServices Mach service with network both off and on', () => {
@@ -366,7 +411,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
 
   it('keeps a local Unix socket unreachable with the network both off and on', async () => {
     // The socket sits in the sandbox's readable, writable temp folder, so only the network rule can block it.
-    const socketDir = realpathSync(mkdtempSync(join(tmpdir(), 'patch-uds-')));
+    const socketDir = realpathSync(mkdtempSync(join(temp, 'uds-')));
     const socketPath = join(socketDir, 's');
     const messages = join(fixture, 'unix-endpoint-messages');
     writeFileSync(messages, '');
