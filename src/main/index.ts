@@ -13,7 +13,13 @@ import { handle, send } from './ipc';
 import { LlmService } from './llm';
 import { signInWithChatGpt, signOutChatGpt } from './llm/codex_auth';
 import { setPackagedBuild } from './llm/endpoints';
-import { CodeIndex, openRouterEmbedder, openRouterReranker, searchCodeTool } from './search/code_index';
+import {
+  CodeIndex,
+  embeddingSettingsKey,
+  openRouterEmbedder,
+  openRouterReranker,
+  searchCodeTool,
+} from './search/code_index';
 import { buildMenu } from './menu';
 import { ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
@@ -129,8 +135,15 @@ function start(): void {
     return new GitService(project.path);
   };
   const codeIndexes = new Map<string, CodeIndex>();
-  // A changed key or endpoint means new embeddings; drop cached indexes so they are rebuilt with the new client.
-  settings.on('change', () => codeIndexes.clear());
+  // A changed key means a new embedding client; drop cached indexes so they are rebuilt with it. Other changes keep
+  // them, so a running update is not orphaned and duplicated by a second index of the same project.
+  let embeddingKey = embeddingSettingsKey(settings);
+  settings.on('change', () => {
+    const next = embeddingSettingsKey(settings);
+    if (next === embeddingKey) return;
+    embeddingKey = next;
+    codeIndexes.clear();
+  });
 
   const mcpDir = join(userData, 'mcp');
   mkdirSync(mcpDir, { recursive: true });

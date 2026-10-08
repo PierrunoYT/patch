@@ -14,6 +14,9 @@ import { chunkFile } from './chunker';
 const INDEX_VERSION = 1;
 const MAX_FILE_BYTES = 256 * 1024;
 const EMBED_BATCH = 64;
+// The whole index file is rewritten on each save, so a run saves every few batches (about 320 chunks) and once at the
+// end, not after every batch.
+const SAVE_EVERY_BATCHES = 5;
 // Embedding matches handed to the reranker, which picks the final results from them.
 const RERANK_CANDIDATES = 30;
 
@@ -56,6 +59,13 @@ interface IndexedFile {
   chunks: IndexedChunk[];
 }
 
+interface PendingFile {
+  path: string;
+  mtimeMs: number;
+  size: number;
+  content: string;
+}
+
 interface StoredIndex {
   version: number;
   model: string;
@@ -76,12 +86,23 @@ export interface UpdateProgress {
   total: number;
 }
 
+interface UpdateCaller {
+  onProgress?: (progress: UpdateProgress) => void;
+}
+
+// One update shared by every caller waiting for it. `callers` holds the callers that have not stopped.
+interface UpdateRun {
+  controller: AbortController;
+  callers: Set<UpdateCaller>;
+  progress: UpdateProgress | null;
+  promise: Promise<void>;
+}
+
 // Semantic index of one project. Stored in userData/indexes/<hash of project path>.json.
 export class CodeIndex implements CodeSearch {
   private data: StoredIndex;
   private vectors = new Map<string, Float32Array[]>();
-  private updating: Promise<void> | null = null;
-  private progress: UpdateProgress | null = null;
+  private run: UpdateRun | null = null;
 
   constructor(
     private readonly workspace: Workspace,
@@ -100,16 +121,57 @@ export class CodeIndex implements CodeSearch {
 
   private readonly file: string;
 
-  // Re-embeds new and changed files and drops deleted ones. Concurrent callers share one update.
+  // Re-embeds new and changed files and drops deleted ones. Concurrent callers share one update: the run stops only
+  // when every caller waiting for it has stopped, and each caller's promise rejects as soon as its own signal aborts.
   update(signal?: AbortSignal, onProgress?: (progress: UpdateProgress) => void): Promise<void> {
-    this.updating ??= this.runUpdate(signal, (progress) => {
-      this.progress = progress;
-      onProgress?.(progress);
-    }).finally(() => {
-      this.updating = null;
-      this.progress = null;
+    if (signal?.aborted) return Promise.reject(signal.reason);
+    // A run that every caller stopped may still be winding down; a new caller starts a fresh run after it.
+    if (!this.run || this.run.controller.signal.aborted) this.run = this.startRun(this.run?.promise);
+    const run = this.run;
+    const caller: UpdateCaller = { onProgress };
+    run.callers.add(caller);
+    // A caller joining mid-run sees where the run is instead of waiting for the next batch.
+    if (run.progress) onProgress?.(run.progress);
+    if (!signal) return run.promise;
+
+    return new Promise<void>((resolve, reject) => {
+      const stop = () => {
+        run.callers.delete(caller);
+        if (run.callers.size === 0) run.controller.abort(signal.reason);
+        reject(signal.reason);
+      };
+      signal.addEventListener('abort', stop, { once: true });
+      run.promise.then(
+        () => {
+          signal.removeEventListener('abort', stop);
+          resolve();
+        },
+        (error: unknown) => {
+          signal.removeEventListener('abort', stop);
+          reject(error);
+        },
+      );
     });
-    return this.updating;
+  }
+
+  private startRun(previous: Promise<void> | undefined): UpdateRun {
+    const run = {
+      controller: new AbortController(),
+      callers: new Set<UpdateCaller>(),
+      progress: null as UpdateProgress | null,
+    };
+    const promise = (previous ?? Promise.resolve())
+      .catch(() => {})
+      .then(() =>
+        this.runUpdate(run.controller.signal, (progress) => {
+          run.progress = progress;
+          for (const caller of run.callers) caller.onProgress?.(progress);
+        }),
+      )
+      .finally(() => {
+        if (this.run === run) this.run = null;
+      });
+    return Object.assign(run, { promise });
   }
 
   async search(query: string, limit: number, signal: AbortSignal): Promise<SearchHit[]> {
@@ -183,7 +245,7 @@ export class CodeIndex implements CodeSearch {
 
   // Throws away everything indexed so far and embeds the whole project again.
   async rebuild(signal?: AbortSignal, onProgress?: (progress: UpdateProgress) => void): Promise<void> {
-    await this.updating?.catch(() => {});
+    await this.run?.promise.catch(() => {});
     this.data.files = {};
     this.vectors.clear();
     writeJson(this.file, this.data);
@@ -199,73 +261,107 @@ export class CodeIndex implements CodeSearch {
   }
 
   get isUpdating(): boolean {
-    return this.updating !== null;
+    return this.run !== null;
   }
 
   // Chunks embedded so far in the running update; null while idle or still scanning files.
   get updateProgress(): UpdateProgress | null {
-    return this.progress;
+    return this.run?.progress ?? null;
   }
 
-  private async runUpdate(signal?: AbortSignal, onProgress?: (progress: UpdateProgress) => void): Promise<void> {
-    const files = await this.workspace.listFiles(this.workspace.root, this.maxFiles());
-    const current = new Set<string>();
-    const pending: Array<{ path: string; mtimeMs: number; size: number; content: string }> = [];
+  private async runUpdate(signal: AbortSignal, onProgress: (progress: UpdateProgress) => void): Promise<void> {
+    let dirty = false;
+    try {
+      const files = await this.workspace.listFiles(this.workspace.root, this.maxFiles());
+      const current = new Set<string>();
+      const pending: PendingFile[] = [];
 
-    for (const absolute of files) {
-      const path = this.workspace.relative(absolute);
-      current.add(path);
-      const info = await stat(absolute);
-      const existing = this.data.files[path];
-      if (existing && existing.mtimeMs === info.mtimeMs && existing.size === info.size) continue;
-      if (info.size > MAX_FILE_BYTES || info.size === 0 || (await isBinaryFile(absolute))) {
-        delete this.data.files[path];
-        continue;
+      for (const absolute of files) {
+        const path = this.workspace.relative(absolute);
+        current.add(path);
+        const info = await stat(absolute);
+        const existing = this.data.files[path];
+        if (existing && existing.mtimeMs === info.mtimeMs && existing.size === info.size) continue;
+        if (info.size > MAX_FILE_BYTES || info.size === 0 || (await isBinaryFile(absolute))) {
+          if (existing) dirty = this.forget(path) || dirty;
+          continue;
+        }
+        pending.push({ path, mtimeMs: info.mtimeMs, size: info.size, content: await readFile(absolute, 'utf8') });
       }
-      pending.push({ path, mtimeMs: info.mtimeMs, size: info.size, content: await readFile(absolute, 'utf8') });
-    }
 
-    let changed = false;
-    for (const path of Object.keys(this.data.files)) {
-      if (!current.has(path)) {
-        delete this.data.files[path];
-        this.vectors.delete(path);
-        changed = true;
+      for (const path of Object.keys(this.data.files)) {
+        if (!current.has(path)) dirty = this.forget(path) || dirty;
       }
-    }
 
-    const work = pending.flatMap((file) => chunkFile(file.path, file.content).map((chunk) => ({ file, chunk })));
-    const results = new Map<string, IndexedChunk[]>();
-    for (let i = 0; i < work.length; i += EMBED_BATCH) {
-      signal?.throwIfAborted();
-      const batch = work.slice(i, i + EMBED_BATCH);
-      const vectors = await this.embedder.embed(
-        batch.map((item) => item.chunk.text),
-        'document',
-        signal,
-      );
-      batch.forEach((item, j) => {
-        const vector = vectors[j];
-        // A short response would otherwise be saved as if the file were fully indexed, and it would stay
-        // unsearchable until the file changed. Failing leaves it to be retried.
-        if (!vector) throw new Error(`The embedding service returned no vector for ${item.file.path}.`);
-        const list = results.get(item.file.path) ?? [];
-        list.push({
-          startLine: item.chunk.startLine,
-          endLine: item.chunk.endLine,
-          vector: encode(normalize(Float32Array.from(vector))),
+      // A file is committed only once all its chunks are embedded, so an interrupted run leaves every file either
+      // fully old or fully new, and its mtime and size always match its chunks.
+      const results = new Map<string, IndexedChunk[]>();
+      const remaining = new Map<string, number>();
+      const work: Array<{ file: PendingFile; chunk: ReturnType<typeof chunkFile>[number] }> = [];
+      for (const file of pending) {
+        const chunks = chunkFile(file.path, file.content);
+        if (chunks.length === 0) {
+          this.commit(file, []);
+          dirty = true;
+          continue;
+        }
+        results.set(file.path, []);
+        remaining.set(file.path, chunks.length);
+        for (const chunk of chunks) work.push({ file, chunk });
+      }
+
+      let batches = 0;
+      for (let i = 0; i < work.length; i += EMBED_BATCH) {
+        signal.throwIfAborted();
+        const batch = work.slice(i, i + EMBED_BATCH);
+        const vectors = await this.embedder.embed(
+          batch.map((item) => item.chunk.text),
+          'document',
+          signal,
+        );
+        // Check the whole batch first so a short response commits nothing from it.
+        batch.forEach((item, j) => {
+          // A short response would otherwise be saved as if the file were fully indexed, and it would stay
+          // unsearchable until the file changed. Failing leaves it to be retried.
+          if (!vectors[j]) throw new Error(`The embedding service returned no vector for ${item.file.path}.`);
         });
-        results.set(item.file.path, list);
-      });
-      onProgress?.({ embedded: Math.min(i + EMBED_BATCH, work.length), total: work.length });
+        batch.forEach((item, j) => {
+          results.get(item.file.path)!.push({
+            startLine: item.chunk.startLine,
+            endLine: item.chunk.endLine,
+            vector: encode(normalize(Float32Array.from(vectors[j]!))),
+          });
+          const left = remaining.get(item.file.path)! - 1;
+          remaining.set(item.file.path, left);
+          if (left === 0) {
+            this.commit(item.file, results.get(item.file.path)!);
+            results.delete(item.file.path);
+            dirty = true;
+          }
+        });
+        onProgress({ embedded: Math.min(i + EMBED_BATCH, work.length), total: work.length });
+        if (++batches % SAVE_EVERY_BATCHES === 0 && dirty) {
+          writeJson(this.file, this.data);
+          dirty = false;
+        }
+      }
+    } finally {
+      // Also on failure or stop, so the embeddings already paid for are kept.
+      if (dirty) writeJson(this.file, this.data);
     }
+  }
 
-    for (const file of pending) {
-      this.data.files[file.path] = { mtimeMs: file.mtimeMs, size: file.size, chunks: results.get(file.path) ?? [] };
-      this.vectors.delete(file.path);
-      changed = true;
-    }
-    if (changed) writeJson(this.file, this.data);
+  // Replaces the file's entry in one step, so a search running meanwhile sees either the old or the new chunks.
+  private commit(file: PendingFile, chunks: IndexedChunk[]): void {
+    this.data.files[file.path] = { mtimeMs: file.mtimeMs, size: file.size, chunks };
+    this.vectors.delete(file.path);
+  }
+
+  private forget(path: string): boolean {
+    if (!(path in this.data.files)) return false;
+    delete this.data.files[path];
+    this.vectors.delete(path);
+    return true;
   }
 
   private vectorsFor(path: string, file: IndexedFile): Float32Array[] {
@@ -311,6 +407,12 @@ function encode(vector: Float32Array): string {
 function decode(base64: string): Float32Array {
   const buffer = Buffer.from(base64, 'base64');
   return new Float32Array(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+}
+
+// What the cached indexes depend on among the settings: the OpenRouter key builds their embedder and reranker. The
+// file limit is read on every update, so changing it needs no new index. Hashed so the key is not kept around twice.
+export function embeddingSettingsKey(settings: { getSecret(name: 'openrouterApiKey'): string }): string {
+  return createHash('sha256').update(settings.getSecret('openrouterApiKey')).digest('hex');
 }
 
 export function searchCodeTool(index: CodeIndex): AgentTool {

@@ -1,12 +1,14 @@
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SettingsStore, type SecretCipher } from '../settings';
 import { ShellRunner } from '../tools/shell';
 import { Workspace } from '../tools/workspace';
 import { chunkFile } from './chunker';
 import {
   CodeIndex,
+  embeddingSettingsKey,
   searchCodeTool,
   openRouterEmbedder,
   openRouterReranker,
@@ -189,6 +191,177 @@ describe('CodeIndex', () => {
     const index = new CodeIndex(new Workspace(root), new FakeEmbedder(), indexDir, () => 2);
     await index.update();
     expect(index.fileCount).toBe(1);
+  });
+});
+
+describe('CodeIndex updates that fail, stop or are shared', () => {
+  // 70 more one-chunk files, so a full update takes two embedding batches (64 + 8 chunks).
+  const addFiles = () => {
+    mkdirSync(join(root, 'many'));
+    for (let i = 0; i < 70; i++) writeFileSync(join(root, 'many', `f${i}.ts`), `export const value${i} = ${i};\n`);
+  };
+
+  // Each embed call waits until the test releases it, and fails with the stop reason when its signal aborts.
+  class GatedEmbedder extends FakeEmbedder {
+    waiting: Array<{ release: () => void; signal?: AbortSignal }> = [];
+    failCall: number | null = null;
+    private count = 0;
+
+    override async embed(texts: string[], input: EmbeddingInput, signal?: AbortSignal): Promise<number[][]> {
+      const call = ++this.count;
+      await new Promise<void>((resolve, reject) => {
+        const entry = { release: resolve, signal };
+        signal?.addEventListener(
+          'abort',
+          () => {
+            this.waiting = this.waiting.filter((item) => item !== entry);
+            reject(signal.reason);
+          },
+          { once: true },
+        );
+        this.waiting.push(entry);
+      });
+      if (call === this.failCall) throw new Error('OpenRouter embeddings request failed (429)');
+      return super.embed(texts, input);
+    }
+
+    // Waits for the next embed call and lets it finish.
+    async releaseNext(): Promise<AbortSignal | undefined> {
+      await vi.waitFor(() => expect(this.waiting.length).toBeGreaterThan(0));
+      const next = this.waiting.shift()!;
+      next.release();
+      return next.signal;
+    }
+  }
+
+  it('keeps the files of finished batches when a later batch fails, and a retry embeds only the rest', async () => {
+    addFiles();
+    const embedder = new GatedEmbedder();
+    embedder.failCall = 2;
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    const running = index.update();
+    await embedder.releaseNext();
+    await embedder.releaseNext();
+    await expect(running).rejects.toThrow('429');
+    expect(index.fileCount).toBe(64);
+
+    // Saved on disk too: a new instance starts from the 64 files and embeds only the other 8.
+    const retry = new FakeEmbedder();
+    const reloaded = new CodeIndex(new Workspace(root), retry, indexDir, () => 1000);
+    expect(reloaded.fileCount).toBe(64);
+    await reloaded.update();
+    expect(retry.embeddedTexts).toBe(8);
+    expect(reloaded.fileCount).toBe(72);
+  });
+
+  it('keeps a file split across batches out of the index until all its chunks are embedded', async () => {
+    addFiles();
+    // Listed after 60 small files and the two in src, so its three chunks are 62-64: the first two land in the first
+    // batch and the last one in the second.
+    for (let i = 60; i < 70; i++) rmSync(join(root, 'many', `f${i}.ts`));
+    mkdirSync(join(root, 'zz'));
+    writeFileSync(join(root, 'zz', 'big.ts'), Array.from({ length: 130 }, (_, i) => `line ${i + 1}`).join('\n'));
+    const embedder = new GatedEmbedder();
+    embedder.failCall = 2;
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    const running = index.update();
+    await embedder.releaseNext();
+    await embedder.releaseNext();
+    await expect(running).rejects.toThrow('429');
+    const stored = JSON.parse(readFileSync(readdirSync(indexDir).map((name) => join(indexDir, name))[0]!, 'utf8'));
+    expect(Object.keys(stored.files)).toHaveLength(62);
+    expect(Object.keys(stored.files)).not.toContain('zz/big.ts');
+    expect(index.fileCount).toBe(62);
+    expect(index.chunkCount).toBe(62);
+  });
+
+  it('keeps running for a second caller when the first one stops', async () => {
+    const embedder = new GatedEmbedder();
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    const first = new AbortController();
+    const second = new AbortController();
+    const firstRun = index.update(first.signal);
+    const secondRun = index.update(second.signal);
+    await vi.waitFor(() => expect(embedder.waiting).toHaveLength(1));
+
+    first.abort(new Error('first stopped'));
+    await expect(firstRun).rejects.toThrow('first stopped');
+    expect(index.isUpdating).toBe(true);
+
+    const runSignal = await embedder.releaseNext();
+    await secondRun;
+    expect(runSignal?.aborted).toBe(false);
+    expect(index.fileCount).toBe(2);
+  });
+
+  it('stops the run when every caller has stopped, and keeps no partial work', async () => {
+    const embedder = new GatedEmbedder();
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    const first = new AbortController();
+    const second = new AbortController();
+    const firstRun = index.update(first.signal);
+    const secondRun = index.update(second.signal);
+    await vi.waitFor(() => expect(embedder.waiting).toHaveLength(1));
+    const runSignal = embedder.waiting[0]!.signal!;
+
+    second.abort();
+    await expect(secondRun).rejects.toThrow();
+    expect(runSignal.aborted).toBe(false);
+    first.abort();
+    await expect(firstRun).rejects.toThrow();
+    expect(runSignal.aborted).toBe(true);
+    await vi.waitFor(() => expect(index.isUpdating).toBe(false));
+    expect(index.fileCount).toBe(0);
+
+    // The next caller starts a fresh run.
+    const again = index.update();
+    await embedder.releaseNext();
+    await again;
+    expect(index.fileCount).toBe(2);
+  });
+
+  it('sends progress to every caller, and a caller joining mid-run gets the latest progress at once', async () => {
+    addFiles();
+    const embedder = new GatedEmbedder();
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    const first: unknown[] = [];
+    const second: unknown[] = [];
+    const late: unknown[] = [];
+    const runs = [index.update(undefined, (p) => first.push(p)), index.update(signal, (p) => second.push(p))];
+    await embedder.releaseNext();
+    await vi.waitFor(() => expect(index.updateProgress).toEqual({ embedded: 64, total: 72 }));
+
+    runs.push(index.update(undefined, (p) => late.push(p)));
+    expect(late).toEqual([{ embedded: 64, total: 72 }]);
+    await embedder.releaseNext();
+    await Promise.all(runs);
+
+    const expected = [
+      { embedded: 64, total: 72 },
+      { embedded: 72, total: 72 },
+    ];
+    expect(first).toEqual(expected);
+    expect(second).toEqual(expected);
+    expect(late).toEqual(expected);
+  });
+});
+
+describe('embeddingSettingsKey', () => {
+  const cipher: SecretCipher = { isAvailable: () => false, encrypt: (plain) => plain, decrypt: (encoded) => encoded };
+
+  it('changes with the OpenRouter key and not with other settings', () => {
+    const store = new SettingsStore(join(indexDir, 'settings.json'), cipher);
+    const initial = embeddingSettingsKey(store);
+    store.update({ theme: 'light', maxIndexedFiles: 10 });
+    store.setSecret('anthropicApiKey', 'sk-ant-1');
+    expect(embeddingSettingsKey(store)).toBe(initial);
+
+    store.setSecret('openrouterApiKey', 'sk-or-1');
+    const withKey = embeddingSettingsKey(store);
+    expect(withKey).not.toBe(initial);
+    expect(withKey).not.toContain('sk-or-1');
+    store.setSecret('openrouterApiKey', 'sk-or-2');
+    expect(embeddingSettingsKey(store)).not.toBe(withKey);
   });
 });
 
