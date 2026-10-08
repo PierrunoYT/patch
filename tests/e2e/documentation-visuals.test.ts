@@ -92,7 +92,7 @@ describe('documentation visuals and text contrast', () => {
     await running.page.getByText('The preview is ready.', { exact: true }).waitFor({ timeout: 30_000 });
     await running.page.getByLabel('Address').fill('https://preview.example.test');
     await running.page.waitForFunction(() =>
-      (document.querySelector('webview') as any)
+      (document.querySelector('webview[data-session="agent"]') as any)
         ?.executeJavaScript('document.body.innerText')
         .then((text: string) => text.includes('Preview ready')),
     );
@@ -100,13 +100,18 @@ describe('documentation visuals and text contrast', () => {
     if (captureDir) {
       // Chromium does not composite a webview's GPU surface into element screenshots under Xvfb. Capture that real
       // guest surface through Electron, then place it over the webview only for the panel screenshot.
-      const preview = await running.app.evaluate(async ({ webContents }) => {
-        const guest = webContents.getAllWebContents().find((contents) => contents.getType() === 'webview');
+      const preview = await running.app.evaluate(async ({ webContents, session }) => {
+        const guest = webContents
+          .getAllWebContents()
+          .find(
+            (contents) =>
+              contents.getType() === 'webview' && contents.session === session.fromPartition('agent-browser'),
+          );
         if (!guest) throw new Error('Browser guest was not found');
         return (await guest.capturePage()).toDataURL();
       });
       await running.page.evaluate((src) => {
-        const webview = document.querySelector<HTMLElement>('.browser-view');
+        const webview = document.querySelector<HTMLElement>('webview[data-session="agent"]');
         const image = document.createElement('img');
         image.className = 'browser-view e2e-browser-capture';
         image.src = src;

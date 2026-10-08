@@ -33,7 +33,7 @@ const D = {
       desc: 'Screens: transcript, composer with @-mentions, sidebar, terminal/browser/git panels, settings and history dialogs.',
       list: [
         'dialogs.ts (742, untested)',
-        'panels.ts (648, untested)',
+        'panels.ts (708, untested)',
         'transcript.ts (572, untested)',
         'composer.ts (396)',
         'sidebar.ts',
@@ -344,9 +344,9 @@ const D = {
     { a: 'main/agent', f: 11, c: 228, src: 1711, tl: 3559 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
     { a: 'main/tools', f: 24, c: 536, src: 4589, tl: 6824 },
-    { a: 'main/panels', f: 4, c: 71, src: 645, tl: 1057 },
+    { a: 'main/panels', f: 4, c: 73, src: 663, tl: 1083 },
     { a: 'main/other', f: 12, c: 198, src: 2960, tl: 2876 },
-    { a: 'shared', f: 8, c: 84, src: 1261, tl: 901 },
+    { a: 'shared', f: 8, c: 87, src: 1261, tl: 901 },
     { a: 'renderer', f: 4, c: 14, src: 6368, tl: 138 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
   ],
@@ -354,7 +354,7 @@ const D = {
     ['security', 12],
     ['chat', 13],
     ['ui', 12],
-    ['panels', 7],
+    ['panels', 8],
     ['sandbox_approvals', 8],
     ['logging', 5],
     ['compact', 4],
@@ -386,7 +386,7 @@ const D = {
   untested: [
     [826, 'renderer/src/app.ts'],
     [742, 'renderer/src/views/dialogs.ts'],
-    [648, 'renderer/src/views/panels.ts'],
+    [708, 'renderer/src/views/panels.ts'],
     [572, 'renderer/src/views/transcript.ts'],
     [446, 'main/index.ts'],
     [334, 'main/tools/files.ts *'],
@@ -395,7 +395,7 @@ const D = {
   largest: [
     [826, 'renderer/src/app.ts'],
     [742, 'renderer/src/views/dialogs.ts'],
-    [648, 'renderer/src/views/panels.ts'],
+    [708, 'renderer/src/views/panels.ts'],
     [572, 'renderer/src/views/transcript.ts'],
     [531, 'main/agent/agent.ts'],
     [491, 'main/agent/session.ts'],
@@ -547,7 +547,6 @@ const D = {
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
     [149, 'Packaged builds run sandbox-helper.exe without checking its signature', 'sandbox', 'low', 0, '10-07'],
-    [148, 'Browser tool uses the panel’s persistent cookie session', 'security', 'medium', 0, '10-07'],
     [147, 'macOS sandboxed commands with network can reach local Unix sockets', 'sandbox', 'medium', 0, '10-07'],
     [
       145,
@@ -643,9 +642,9 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 97,
+  closedCount: 98,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
-const RENDERER_CSS_LINES = 2766;
+const RENDERER_CSS_LINES = 2797;
 // Source lines of one process (renderer, preload, main, shared), summed from its areas.
 const procLines = (proc) => D.areas.filter((a) => a.proc === proc).reduce((sum, a) => sum + a.lines, 0);

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { diffHunks, parseNumstat } from './panels';
+import {
+  AGENT_BROWSER_PARTITION,
+  allowsWebviewAttach,
+  diffHunks,
+  parseNumstat,
+  USER_BROWSER_PARTITION,
+} from './panels';
 
 describe('git diff parsing', () => {
   it('reads numstat counts, summing repeated paths and skipping binary files', () => {
@@ -35,5 +41,29 @@ describe('git diff parsing', () => {
       { file: 'src/a.ts', header: '@@ -10 +10 @@', lines: ['--- a removed line', '+++ an added line'] },
       { file: 'new.txt', header: '@@ -0,0 +1 @@', lines: ['+hello'] },
     ]);
+  });
+});
+
+describe('browser panel sessions', () => {
+  it('keeps the agent in its own session that is never written to disk', () => {
+    expect(AGENT_BROWSER_PARTITION).not.toBe(USER_BROWSER_PARTITION);
+    // Electron persists a partition only when its name starts with "persist:".
+    expect(AGENT_BROWSER_PARTITION.startsWith('persist:')).toBe(false);
+    expect(USER_BROWSER_PARTITION).toBe('persist:browser');
+  });
+
+  it('attaches webviews only in the two browser sessions', () => {
+    expect(allowsWebviewAttach(USER_BROWSER_PARTITION, 'about:blank')).toBe(true);
+    expect(allowsWebviewAttach(AGENT_BROWSER_PARTITION, 'about:blank')).toBe(true);
+    expect(allowsWebviewAttach(AGENT_BROWSER_PARTITION, undefined)).toBe(true);
+    for (const partition of [undefined, '', 'other', 'persist:other', 'persist:agent-browser']) {
+      expect(allowsWebviewAttach(partition, 'about:blank')).toBe(false);
+    }
+  });
+
+  it('attaches a guest only to about:blank or a web page', () => {
+    expect(allowsWebviewAttach(AGENT_BROWSER_PARTITION, 'https://example.test/')).toBe(true);
+    expect(allowsWebviewAttach(AGENT_BROWSER_PARTITION, 'file:///etc/passwd')).toBe(false);
+    expect(allowsWebviewAttach(USER_BROWSER_PARTITION, 'javascript:alert(1)')).toBe(false);
   });
 });

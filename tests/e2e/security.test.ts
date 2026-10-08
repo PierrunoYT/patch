@@ -79,7 +79,9 @@ describe('window security', () => {
             .getAllWebContents()
             .filter(
               (contents) =>
-                contents.getType() === 'webview' && contents.session !== session.fromPartition('persist:browser'),
+                contents.getType() === 'webview' &&
+                contents.session !== session.fromPartition('persist:browser') &&
+                contents.session !== session.fromPartition('agent-browser'),
             )
             .map((contents) => contents.getURL()),
         ),
@@ -89,7 +91,7 @@ describe('window security', () => {
     }
   });
 
-  it('keeps the browser panel in its isolated session', async () => {
+  it("keeps the browser panel's user and agent pages in separate isolated sessions", async () => {
     const isolated = await launchApp();
     try {
       await isolated.page.getByRole('tab', { name: 'Browser' }).click();
@@ -101,11 +103,18 @@ describe('window security', () => {
               .filter((contents) => contents.getType() === 'webview')
               .map((contents) => ({
                 url: contents.getURL(),
-                isolated: contents.session === session.fromPartition('persist:browser'),
-              })),
+                user: contents.session === session.fromPartition('persist:browser'),
+                agent: contents.session === session.fromPartition('agent-browser'),
+                persistent: contents.session.isPersistent(),
+              }))
+              .sort((a, b) => Number(a.agent) - Number(b.agent)),
           ),
         )
-        .toEqual([{ url: 'about:blank', isolated: true }]);
+        .toEqual([
+          { url: 'about:blank', user: true, agent: false, persistent: true },
+          // The agent's session is kept in memory only.
+          { url: 'about:blank', user: false, agent: true, persistent: false },
+        ]);
     } finally {
       await isolated.close();
     }

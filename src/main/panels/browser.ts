@@ -6,8 +6,10 @@ const LOAD_TIMEOUT_MS = 20_000;
 const MAX_SCREENSHOT_WIDTH = 1280;
 const MAX_CONSOLE_MESSAGES = 200;
 
-// Controls the page shown in the browser panel. The renderer owns the <webview> element; its guest webContents is
-// handed to this class when it attaches, so the agent can load pages, read console output and take screenshots.
+// Controls the agent's page in the browser panel. The renderer owns two <webview> elements: the user's, in their
+// persistent session, and the agent's, in a separate in-memory session. Only the agent's guest webContents is handed to
+// this class when it attaches, so the agent can load pages, read console output and take screenshots without ever
+// using the user's cookies or sign-ins.
 export class BrowserService implements BrowserController {
   private guest: WebContents | null = null;
   private waiters: Array<() => void> = [];
@@ -15,7 +17,11 @@ export class BrowserService implements BrowserController {
   private isNavigationAllowed: ((url: string) => boolean) | null = null;
   private blockedNavigation: string | null = null;
 
-  constructor(private readonly show: () => void) {}
+  constructor(
+    private readonly show: () => void,
+    // Deletes the agent session's cookies, storage and cache.
+    private readonly clearStorage: () => Promise<void> = async () => {},
+  ) {}
 
   attach(guest: WebContents): void {
     this.guest = guest;
@@ -36,12 +42,24 @@ export class BrowserService implements BrowserController {
     for (const resolve of this.waiters.splice(0)) resolve();
   }
 
-  // Asked by the browser session's request filter for every request, frames and sub-resources included: those never
+  // Asked by both panel sessions' request filters for every request, frames and sub-resources included: those never
   // fire will-navigate, so a project page could otherwise show a file from outside the project in an <iframe> and a
   // screenshot would hand it to the model. Only file:// is checked; web pages cannot load file:// themselves.
   allowsRequest(url: string): boolean {
     if (!/^file:/i.test(url) || !this.isNavigationAllowed) return true;
     return this.isNavigationAllowed(url);
+  }
+
+  // A new chat or project starts the agent's browser afresh: no page, no history, no cookies or storage from before.
+  async reset(): Promise<void> {
+    this.isNavigationAllowed = null;
+    this.blockedNavigation = null;
+    const guest = this.available ? this.guest! : null;
+    if (guest) {
+      await guest.loadURL('about:blank').catch(() => {});
+      guest.navigationHistory.clear();
+    }
+    await this.clearStorage();
   }
 
   get available(): boolean {

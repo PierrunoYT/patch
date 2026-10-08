@@ -1,6 +1,7 @@
 import { app, BrowserWindow, crashReporter, dialog, safeStorage, session, shell } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { AGENT_BROWSER_PARTITION, BROWSER_PARTITIONS } from '@shared/panels';
 import { SECRET_NAMES } from '@shared/settings';
 import { ToolErrorLog } from './agent/tool_error_log';
 import { EditBackups } from './tools/edit_backups';
@@ -119,12 +120,26 @@ function start(): void {
   const editBackups = new EditBackups(join(userData, 'edit-backups'));
   const toolErrorLog = new ToolErrorLog(join(userData, 'logs', 'tool-input-errors.jsonl'));
   const llm = new LlmService(settings);
-  const browser = new BrowserService(() => send(mainWindow, 'panel:show', 'browser'));
-  session
-    .fromPartition('persist:browser')
-    .webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) =>
-      callback({ cancel: !browser.allowsRequest(details.url) }),
-    );
+  // The agent browses in its own in-memory session, never the user's persistent one (#148).
+  const agentBrowserSession = session.fromPartition(AGENT_BROWSER_PARTITION);
+  const browser = new BrowserService(
+    () => send(mainWindow, 'panel:show', 'browser'),
+    async () => {
+      await agentBrowserSession.clearStorageData();
+      await agentBrowserSession.clearCache();
+      await agentBrowserSession.clearAuthCache();
+    },
+  );
+  // Both panel sessions filter requests the same way.
+  for (const name of BROWSER_PARTITIONS) {
+    session
+      .fromPartition(name)
+      .webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) =>
+        callback({ cancel: !browser.allowsRequest(details.url) }),
+      );
+  }
+  // A new chat or project gets an empty agent browser. The app starts with one anyway: its session is not saved.
+  const resetAgentBrowser = () => void browser.reset().catch((error: unknown) => appLog.warn('browser', error));
   const terminal = new TerminalService(
     (data) => send(mainWindow, 'terminal:data', data),
     () => send(mainWindow, 'terminal:exit', null),
@@ -229,6 +244,7 @@ function start(): void {
       manager.projectChanged();
       refreshMcp();
       terminal.stop();
+      resetAgentBrowser();
     }
     send(mainWindow, 'project:changed', project);
     return project;
@@ -313,6 +329,7 @@ function start(): void {
       manager.projectChanged();
       refreshMcp();
       terminal.stop();
+      resetAgentBrowser();
     }
     send(mainWindow, 'project:changed', projects.current());
   });
@@ -331,6 +348,7 @@ function start(): void {
       manager.projectChanged();
       refreshMcp();
       terminal.stop();
+      resetAgentBrowser();
     }
     send(mainWindow, 'project:changed', projects.current());
     return projects.list();
@@ -348,7 +366,11 @@ function start(): void {
   // Awaited, unlike send and resume, so a setup problem (no summarizing model, nothing to compact) reaches the UI.
   handle('chat:compact', () => manager.compact());
   handle('edit:undo', (toolId) => manager.undoEdit(typeof toolId === 'string' ? toolId : ''));
-  handle('chat:new', () => manager.newChat());
+  handle('chat:new', () => {
+    const snapshot = manager.newChat();
+    resetAgentBrowser();
+    return snapshot;
+  });
   handle('chat:decide', (approvalId, decision) => manager.decide(approvalId, decision));
   handle('chat:export', () => {
     const chat = manager.snapshot();
@@ -360,7 +382,9 @@ function start(): void {
   handle('history:open', (id) => {
     const before = projects.current()?.path;
     try {
-      return manager.open(id);
+      const snapshot = manager.open(id);
+      resetAgentBrowser();
+      return snapshot;
     } finally {
       if (projects.current()?.path !== before) terminal.stop();
       send(mainWindow, 'project:changed', projects.current());

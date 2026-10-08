@@ -1,6 +1,14 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import { diffHunks, type DiffHunk, type GitFile, type GitStatus, type PanelName } from '@shared/panels';
+import {
+  AGENT_BROWSER_PARTITION,
+  diffHunks,
+  USER_BROWSER_PARTITION,
+  type DiffHunk,
+  type GitFile,
+  type GitStatus,
+  type PanelName,
+} from '@shared/panels';
 import { h, setChildren, sym } from '../dom';
 import { readPreference, writePreference } from '../format';
 
@@ -259,38 +267,63 @@ class TerminalPanel implements Panel {
   }
 }
 
+type Webview = HTMLElement & {
+  loadURL(url: string): Promise<void>;
+  goBack(): void;
+  goForward(): void;
+  reload(): void;
+  openDevTools(): void;
+  getURL(): string;
+};
+
+// Two pages in two sessions: the user's own browsing keeps its cookies and sign-ins, and the agent's browser tool loads
+// pages in a separate in-memory session that never sees them. The panel shows the agent's page while the agent drives
+// it, labelled so the user can tell which session they are looking at, and the user's again when they navigate.
 class BrowserPanel implements Panel {
   readonly element = h('div', { class: 'browser-panel' });
-  private readonly webview: HTMLElement & {
-    src: string;
-    loadURL(url: string): Promise<void>;
-    goBack(): void;
-    goForward(): void;
-    reload(): void;
-    openDevTools(): void;
-    getURL(): string;
-  };
+  private readonly user = createWebview(USER_BROWSER_PARTITION, 'user');
+  private readonly agent = createWebview(AGENT_BROWSER_PARTITION, 'agent');
+  private showingAgent = false;
   private readonly address = h('input', {
     class: 'form-control form-control-sm',
     placeholder: 'http://localhost:3000',
     'aria-label': 'Address',
   });
+  private readonly sessionButton = h('button', {
+    class: 'icon-button',
+    onclick: () => this.showSession(!this.showingAgent),
+  });
+  // Shown above the agent's page so it is never mistaken for the user's own browsing.
+  private readonly agentBanner = h(
+    'div',
+    { class: 'browser-agent-banner', hidden: true },
+    sym('smart_toy'),
+    h('span', {}, h('strong', {}, 'Agent browser'), ': a separate session without your cookies or sign-ins'),
+  );
 
   constructor() {
-    // Created with an isolated session partition. The main process strips Node access from the guest.
-    this.webview = document.createElement('webview') as never;
-    this.webview.setAttribute('partition', 'persist:browser');
-    this.webview.setAttribute('src', 'about:blank');
-    this.webview.className = 'browser-view';
-    this.webview.addEventListener('did-navigate', () => (this.address.value = this.url()));
-    this.webview.addEventListener('did-navigate-in-page', () => (this.address.value = this.url()));
+    for (const webview of [this.user, this.agent]) {
+      const update = () => {
+        if (webview === this.active()) this.address.value = this.url();
+      };
+      webview.addEventListener('did-navigate', update);
+      webview.addEventListener('did-navigate-in-page', update);
+    }
+    // Only the main process navigates the agent's page: show it when the agent opens something, and go back to the
+    // user's page when a new chat or project empties it.
+    this.agent.addEventListener('did-start-navigation', (event) => {
+      const { url, isMainFrame } = event as Event & { url: string; isMainFrame: boolean };
+      if (isMainFrame) this.showSession(url !== 'about:blank');
+    });
 
     this.address.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
       let url = this.address.value.trim();
       if (!url) return;
       if (!/^[a-z]+:\/\//i.test(url)) url = `http://${url}`;
-      void this.webview.loadURL(url).catch(() => {});
+      // Typing an address is the user browsing, in their own session.
+      this.showSession(false);
+      void this.user.loadURL(url).catch(() => {});
     });
 
     const button = (name: string, title: string, action: () => void) =>
@@ -300,28 +333,55 @@ class BrowserPanel implements Panel {
       h(
         'div',
         { class: 'browser-toolbar' },
-        button('arrow_back', 'Back', () => this.webview.goBack()),
-        button('arrow_forward', 'Forward', () => this.webview.goForward()),
-        button('refresh', 'Reload', () => this.webview.reload()),
+        button('arrow_back', 'Back', () => this.active().goBack()),
+        button('arrow_forward', 'Forward', () => this.active().goForward()),
+        button('refresh', 'Reload', () => this.active().reload()),
         this.address,
-        button('bug_report', 'Developer tools', () => this.webview.openDevTools()),
+        this.sessionButton,
+        button('bug_report', 'Developer tools', () => this.active().openDevTools()),
       ),
-      this.webview,
+      this.agentBanner,
+      h('div', { class: 'browser-views' }, this.user, this.agent),
     );
+    this.showSession(false);
   }
 
   shown(): void {}
 
   projectChanged(): void {}
 
+  private active(): Webview {
+    return this.showingAgent ? this.agent : this.user;
+  }
+
+  private showSession(agent: boolean): void {
+    this.showingAgent = agent;
+    this.user.classList.toggle('inactive', agent);
+    this.agent.classList.toggle('inactive', !agent);
+    this.agentBanner.hidden = !agent;
+    this.sessionButton.title = agent ? 'Show your browser' : "Show the agent's browser";
+    this.sessionButton.replaceChildren(sym(agent ? 'person' : 'smart_toy'));
+    this.address.value = this.url();
+  }
+
   private url(): string {
     try {
-      const url = this.webview.getURL();
+      const url = this.active().getURL();
       return url === 'about:blank' ? '' : url;
     } catch {
       return '';
     }
   }
+}
+
+// Created with an isolated session partition. The main process strips Node access from the guest.
+function createWebview(partition: string, name: string): Webview {
+  const webview = document.createElement('webview') as Webview;
+  webview.setAttribute('partition', partition);
+  webview.setAttribute('src', 'about:blank');
+  webview.className = 'browser-view';
+  webview.dataset.session = name;
+  return webview;
 }
 
 const STATUS_LETTERS: Record<GitFile['status'], string> = {

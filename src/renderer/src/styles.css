@@ -2321,9 +2321,40 @@ body {
   font-size: 11px;
 }
 
-.browser-view {
+/* The user's page and the agent's page are stacked; the hidden one keeps rendering so it stays attached and can be
+   captured. */
+.browser-views {
+  position: relative;
   flex: 1;
+}
+
+.browser-view {
+  position: absolute;
+  inset: 0;
   background: #fff;
+}
+
+.browser-view.inactive {
+  visibility: hidden;
+}
+
+/* Marks the agent's page, so the user can tell it from their own browsing. */
+.browser-agent-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--patch-accent);
+  color: var(--patch-accent-ink);
+  font-size: 11px;
+}
+
+.browser-agent-banner[hidden] {
+  display: none;
+}
+
+.browser-agent-banner .sym {
+  font-size: 16px;
 }
 
 /* Git panel */

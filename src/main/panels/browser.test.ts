@@ -15,6 +15,7 @@ class FakeGuest extends EventEmitter {
   getURL = () => this.url;
   getTitle = () => 'Title';
   capturePage = vi.fn();
+  navigationHistory = { clear: vi.fn() };
 }
 
 function attach(service: BrowserService, guest: FakeGuest): void {
@@ -150,6 +151,31 @@ describe('BrowserService', () => {
     attach(service, guest);
     expect(await service.screenshot()).toBe(Buffer.from('small').toString('base64'));
     expect(resize).toHaveBeenCalledWith({ width: 1280 });
+  });
+
+  it('empties the agent page, its history, policy and storage on reset', async () => {
+    const clearStorage = vi.fn(async () => {});
+    const service = new BrowserService(() => {}, clearStorage);
+    const guest = new FakeGuest();
+    attach(service, guest);
+    await service.open('file:///project/page.html', new AbortController().signal, (url) =>
+      url.startsWith('file:///project/'),
+    );
+    expect(service.allowsRequest('file:///home/me/.ssh/id_rsa')).toBe(false);
+
+    await service.reset();
+    expect(guest.loadURL).toHaveBeenLastCalledWith('about:blank');
+    expect(guest.navigationHistory.clear).toHaveBeenCalled();
+    expect(clearStorage).toHaveBeenCalledTimes(1);
+    // The next chat's agent starts without the previous page's policy, on an empty page.
+    expect(service.allowsRequest('file:///home/me/.ssh/id_rsa')).toBe(true);
+  });
+
+  it('clears the agent storage on reset even before the panel has opened', async () => {
+    const clearStorage = vi.fn(async () => {});
+    const service = new BrowserService(() => {}, clearStorage);
+    await service.reset();
+    expect(clearStorage).toHaveBeenCalledTimes(1);
   });
 
   it('fails when no page is attached in time', async () => {

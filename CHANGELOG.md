@@ -206,6 +206,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- The agent's `browser` tool no longer uses your Browser panel session: it opens pages in its own in-memory session, shown in the panel under an "Agent browser" banner, so pages it loads never carry your cookies or sign-ins. That session is emptied when you start or open a chat or switch projects (fixes #148).
 - `fetch_url` and `browser` ask even in Auto mode before reaching a local or private address (localhost, LAN, link-local cloud metadata, carrier-grade NAT, IPv4-mapped forms, or a name resolving to one) unless the host is in the network allow-list. `fetch_url` connects only to the address it checked, so DNS rebinding cannot switch it, and redirects can no longer change the port or scheme (fixes #146).
 - Build-only dependencies: `http-cache-semantics` 4.3.0 and `source-map-js` 1.2.2 in the lockfile clear both high `npm audit` advisories. The moderate `sprintf-js` chain under `electron-builder` stays until a fixed release exists; the shipped app's dependencies had no advisories (refs #211).
 - Packaged Windows builds only use the `sandbox-helper.exe` bundled with the app. The `PATCH_SANDBOX_HELPER` override, the working directory and development build paths are ignored, so neither an environment variable nor a file in the project can replace the binary every sandboxed command runs through. Checking the helper's signature before running it is still open (refs #149).

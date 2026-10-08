@@ -1,5 +1,19 @@
 export type PanelName = 'terminal' | 'browser' | 'git';
 
+// The user's own browsing in the Browser panel. It keeps cookies and sign-ins across restarts.
+export const USER_BROWSER_PARTITION = 'persist:browser';
+// Pages the agent's browser tool opens. Without the "persist:" prefix Electron keeps this session in memory only, so
+// the agent never sees the user's cookies or sign-ins and nothing it collects is written to disk.
+export const AGENT_BROWSER_PARTITION = 'agent-browser';
+export const BROWSER_PARTITIONS: readonly string[] = [USER_BROWSER_PARTITION, AGENT_BROWSER_PARTITION];
+
+// Whether the app window may attach a <webview> with these attributes. Only the Browser panel's two sessions are
+// allowed, and a guest starts on about:blank or a web page; the app navigates it from there.
+export function allowsWebviewAttach(partition: string | undefined, src: string | undefined): boolean {
+  if (!partition || !BROWSER_PARTITIONS.includes(partition)) return false;
+  return !src || src === 'about:blank' || /^https?:\/\//i.test(src);
+}
+
 export type GitFileStatus = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'conflicted';
 
 export interface GitFile {

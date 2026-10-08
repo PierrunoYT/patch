@@ -1,5 +1,6 @@
 import { app, BrowserWindow, screen, session, shell, type WebContents } from 'electron';
 import { join } from 'node:path';
+import { AGENT_BROWSER_PARTITION, allowsWebviewAttach, BROWSER_PARTITIONS } from '@shared/panels';
 import { appLog } from './app_log';
 import { devRendererUrl } from './renderer_url';
 
@@ -10,7 +11,9 @@ import { devRendererUrl } from './renderer_url';
 const quietTestRun = process.env.PATCH_E2E_QUIET === '1';
 const transparentTestWindow = quietTestRun && process.platform !== 'linux';
 
-export function createMainWindow(onBrowserAttached: (guest: WebContents) => void): BrowserWindow {
+// `onAgentBrowserAttached` receives the guest of the Browser panel's agent session; the user's own guest is never
+// handed to the agent.
+export function createMainWindow(onAgentBrowserAttached: (guest: WebContents) => void): BrowserWindow {
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
 
   const window = new BrowserWindow({
@@ -35,11 +38,11 @@ export function createMainWindow(onBrowserAttached: (guest: WebContents) => void
     },
   });
 
-  hardenWebContents(window, onBrowserAttached);
+  hardenWebContents(window, onAgentBrowserAttached);
   logWindowProblems(window);
   // Electron grants every permission request (camera, microphone, location, notifications) unless told otherwise.
-  // Neither the app page nor pages in the browser panel need any.
-  for (const target of [session.defaultSession, session.fromPartition('persist:browser')]) {
+  // Neither the app page nor pages in the browser panel (the user's session and the agent's) need any.
+  for (const target of [session.defaultSession, ...BROWSER_PARTITIONS.map((name) => session.fromPartition(name))]) {
     target.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
     target.setPermissionCheckHandler(() => false);
   }
@@ -68,7 +71,7 @@ function logWindowProblems(window: BrowserWindow): void {
 
 // The app page is the only content the main window may show. Links open in the system browser, and pages
 // loaded in the built-in browser (<webview>) never get a preload script or Node access.
-function hardenWebContents(window: BrowserWindow, onBrowserAttached: (guest: WebContents) => void): void {
+function hardenWebContents(window: BrowserWindow, onAgentBrowserAttached: (guest: WebContents) => void): void {
   const openExternally = ({ url }: { url: string }) => {
     if (/^https?:\/\//i.test(url)) {
       shell.openExternal(url);
@@ -86,12 +89,8 @@ function hardenWebContents(window: BrowserWindow, onBrowserAttached: (guest: Web
   });
 
   window.webContents.on('will-attach-webview', (event, webPreferences, params) => {
-    if (params.partition !== 'persist:browser') {
-      event.preventDefault();
-      return;
-    }
-    // The panel starts on about:blank and the app navigates it itself; never attach a guest to anything else.
-    if (params.src && params.src !== 'about:blank' && !/^https?:\/\//i.test(params.src)) {
+    // Only the panel's two sessions, starting on about:blank (the app navigates them itself).
+    if (!allowsWebviewAttach(params.partition, params.src)) {
       event.preventDefault();
       return;
     }
@@ -107,6 +106,6 @@ function hardenWebContents(window: BrowserWindow, onBrowserAttached: (guest: Web
     // Programmatic loadURL bypasses will-navigate. Deny popups rather than letting a page escape the
     // browser tool's approved-host policy through window.open or a target=_blank link.
     guest.setWindowOpenHandler(() => ({ action: 'deny' }));
-    onBrowserAttached(guest);
+    if (guest.session === session.fromPartition(AGENT_BROWSER_PARTITION)) onAgentBrowserAttached(guest);
   });
 }

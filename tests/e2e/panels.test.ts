@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer, type IncomingHttpHeaders } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -145,9 +147,14 @@ describe('side panels', () => {
       await running.page.getByLabel('Message', { exact: true }).press('Enter');
       await running.page.getByText('Frames checked.', { exact: true }).waitFor({ timeout: 30_000 });
 
-      // Every frame of the browser panel's page, read from the main process.
-      const texts = await running.app.evaluate(async ({ webContents }) => {
-        const guest = webContents.getAllWebContents().find((contents) => contents.getType() === 'webview')!;
+      // Every frame of the agent's page in the browser panel, read from the main process.
+      const texts = await running.app.evaluate(async ({ webContents, session }) => {
+        const guest = webContents
+          .getAllWebContents()
+          .find(
+            (contents) =>
+              contents.getType() === 'webview' && contents.session === session.fromPartition('agent-browser'),
+          )!;
         return Promise.all(
           guest.mainFrame.framesInSubtree.map((frame) =>
             frame.executeJavaScript('document.body ? document.body.innerText : ""').catch(() => ''),
@@ -161,11 +168,77 @@ describe('side panels', () => {
     }
   });
 
-  it('keeps the browser guest away from Node', async () => {
+  it("never sends the user's browser cookies with the agent's page loads", async () => {
+    const requests: Array<{ path: string; headers: IncomingHttpHeaders }> = [];
+    const server = createServer((request, response) => {
+      requests.push({ path: request.url ?? '', headers: request.headers });
+      const cookie = request.headers.cookie ?? '';
+      if (request.url === '/login') {
+        // A lasting sign-in, as a site sets when the user logs in in their own browser.
+        response.setHeader('Set-Cookie', 'patch_user_session=secret-148; Path=/; Max-Age=3600; HttpOnly');
+      } else if (request.url === '/whoami') {
+        response.setHeader('Set-Cookie', 'patch_agent_seen=1; Path=/; Max-Age=3600');
+      }
+      response.setHeader('Content-Type', 'text/html');
+      response.end(`<!doctype html><title>${cookie.includes('secret-148') ? 'Signed in' : 'Signed out'}</title>`);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const agentBanner = running.page.locator('.browser-agent-banner');
+    const cookieNames = (partition: string) =>
+      running.app.evaluate(
+        async ({ session }, name) => (await session.fromPartition(name).cookies.get({})).map((cookie) => cookie.name),
+        partition,
+      );
+    try {
+      await running.page.getByRole('tab', { name: 'Browser' }).click();
+      // The user signs in with their own browser in the panel.
+      await running.page.getByLabel('Address').fill(`${origin}/login`);
+      await running.page.getByLabel('Address').press('Enter');
+      await expect.poll(() => cookieNames('persist:browser')).toContain('patch_user_session');
+
+      await running.page.evaluate(() => window.api.invoke('settings:update', { allowedNetworkHosts: '127.0.0.1' }));
+      claude.script(
+        {
+          blocks: [{ type: 'tool_use', id: 'toolu_cookie', name: 'browser', input: { url: `${origin}/whoami` } }],
+          stopReason: 'tool_use',
+        },
+        { blocks: [{ type: 'text', text: 'Checked who I am.' }], stopReason: 'end_turn' },
+      );
+      await running.page.getByLabel('Message', { exact: true }).fill('Who am I on the test site?');
+      await running.page.getByLabel('Message', { exact: true }).press('Enter');
+      await running.page.getByText('Checked who I am.', { exact: true }).waitFor({ timeout: 30_000 });
+
+      const agentLoad = requests.find((request) => request.path === '/whoami');
+      expect(agentLoad).toBeDefined();
+      expect(agentLoad!.headers.cookie ?? '').not.toContain('secret-148');
+      const result = claude.agentRequests.at(-1).messages.at(-1).content[0];
+      expect(result.content.find((block: any) => block.type === 'text').text).toContain('Title: Signed out');
+      // The panel shows the agent's page, labelled as the agent's session.
+      await expect(agentBanner.isVisible()).resolves.toBe(true);
+      await expect(agentBanner.textContent()).resolves.toContain('Agent browser');
+      expect(await cookieNames('agent-browser')).toEqual(['patch_agent_seen']);
+      expect(await cookieNames('persist:browser')).toEqual(['patch_user_session']);
+
+      // A new chat empties the agent's browser and shows the user's again; the user's sign-in stays.
+      await running.page.evaluate(() => window.api.invoke('chat:new'));
+      await expect.poll(() => cookieNames('agent-browser')).toEqual([]);
+      await expect.poll(() => agentBanner.isVisible()).toBe(false);
+      expect(await cookieNames('persist:browser')).toEqual(['patch_user_session']);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it('keeps both browser guests away from Node', async () => {
     const guestGlobals = await running.page.evaluate(() =>
-      (document.querySelector('webview') as any).executeJavaScript('typeof require + "/" + typeof process'),
+      Promise.all(
+        [...document.querySelectorAll('webview')].map((webview) =>
+          (webview as any).executeJavaScript('typeof require + "/" + typeof process'),
+        ),
+      ),
     );
-    expect(guestGlobals).toBe('undefined/undefined');
+    expect(guestGlobals).toEqual(['undefined/undefined', 'undefined/undefined']);
   });
 
   it('runs without renderer errors', () => {
