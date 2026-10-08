@@ -17,12 +17,14 @@ type Step = Partial<TurnResult> | ((request: TurnRequest) => Promise<Partial<Tur
 // Same idea as the agent loop tests: a conversation that replays scripted turns.
 class ScriptedConversation implements Conversation {
   readonly provider = 'anthropic' as const;
-  readonly model = 'test-model';
   readonly users: UserInput[] = [];
   readonly requests: TurnRequest[] = [];
   turns = 0;
 
-  constructor(private readonly steps: Step[]) {}
+  constructor(
+    private readonly steps: Step[],
+    readonly model: string = 'test-model',
+  ) {}
 
   addUserMessage(input: UserInput): void {
     this.users.push(input);
@@ -335,15 +337,15 @@ describe('task tool (subagent)', () => {
   });
 
   it('adds the subagent usage to the chat totals', async () => {
-    const recorded: number[] = [];
+    const recorded: string[] = [];
     const taskTool = createTaskTool({
       createConversation: () => new ScriptedConversation([{ text: 'Done.' }]),
       system: 'system prompt',
       tools: () => [],
-      recordUsage: (usage) => recorded.push(usage.inputTokens),
+      recordUsage: (usage, model) => recorded.push(`${usage.inputTokens} on ${model}`),
     });
     await taskTool.run({ task: 'Look around' }, context());
-    expect(recorded).toEqual([2]);
+    expect(recorded).toEqual(['2 on test-model']);
   });
 
   it('counts the usage of the turns that ran when the subagent fails', async () => {
@@ -477,6 +479,21 @@ describe('finder and oracle', () => {
     const tool = createFinderTool(options({ chat }));
     expect((await tool.run(tool.schema!.parse({ query: 'x' }), context())).content).toContain('found it');
     expect(chat.turns).toBe(1);
+  });
+
+  it('records the finder usage under the small model it ran on', async () => {
+    const recorded: { inputTokens: number; model: string }[] = [];
+    const chat = new ScriptedConversation([], 'claude-opus-5-5');
+    const finder = new ScriptedConversation([{ text: 'src/lexer.ts:10' }], 'claude-haiku-5-5');
+    const tool = createFinderTool({
+      ...options({ chat, finder }),
+      chatModel: chat.model,
+      recordUsage: (usage, model) => recorded.push({ inputTokens: usage.inputTokens, model }),
+    });
+
+    await tool.run(tool.schema!.parse({ query: 'where is the lexer' }), context());
+
+    expect(recorded).toEqual([{ inputTokens: 2, model: 'claude-haiku-5-5' }]);
   });
 
   it('oracle advises on the chat conversation and stays read-only', async () => {

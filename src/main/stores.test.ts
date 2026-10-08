@@ -350,6 +350,19 @@ describe('ChatStore', () => {
     expect(new ChatStore(join(dir, 'chats')).list()[0]!.cost).toBeCloseTo(6);
   });
 
+  it('prices subagent usage on another model at that model in the list', () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    const haiku = { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, requests: 1 };
+    store.save({
+      ...chat(idA, '2026-01-01T00:00:00Z'),
+      usage: { ...haiku, inputTokens: 2_000_000, requests: 2, byModel: { 'claude-haiku-5-5': haiku } },
+      conversation: { provider: 'anthropic', model: 'claude-opus-5-5', messages: [] },
+    });
+    // 1M chat tokens at Opus's $4 plus 1M finder tokens at Haiku 5.5's $0.10; the token count stays the total.
+    expect(new ChatStore(join(dir, 'chats')).list()[0]).toMatchObject({ tokens: 2_000_000 });
+    expect(new ChatStore(join(dir, 'chats')).list()[0]!.cost).toBeCloseTo(4.1);
+  });
+
   it('lists no cost for unknown models and custom endpoints', () => {
     const store = new ChatStore(join(dir, 'chats'));
     const usage = { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };

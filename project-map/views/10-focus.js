@@ -18,7 +18,7 @@ builders.focus = () => {
       'A full code review found no critical bug. The high findings sat in lifecycle and state handling across modules, not in single functions, and are fixed.',
       [
         '#162 and #163 are fixed: a failed start closes the Windows helper’s input, so it no longer leaks an idle helper, and one recovery record that can’t be undone (such as for an unreadable PATH folder) is skipped and later quarantined instead of stopping every helper start',
-        '#165 to #178 (medium), #180 to #196 (low) and #197 to #206 (improvements): orphaned processes, MCP reconnects, stale ignore rules, settings recovery and more. Already fixed: #159 (non-UTF-8 file protection), #160 (same-project navigation), #161 (failed chat restoration), #162 (leaked helper after a failed start), #164 (output decoding), #179, #181, #183, #186 (the code index) and #203',
+        'Medium still open: #176 and #177 (Windows sandbox locks and drive letters) and #178 (permission delegates on Windows). Low: #180 to #196 and improvements #197 to #206. Already fixed: #159 (non-UTF-8 file protection), #160 (same-project navigation), #161 (failed chat restoration), #162 (leaked helper after a failed start), #164 (output decoding), #166 (MCP reconnects), #167 (stale write_file), #169 (ignore rules), #170 (code index runs), #171 to #175, #179, #181, #183, #186 (the code index) and #203',
       ],
       'The recurring causes: side effects on every change event without comparing old and new state, state changed before validation, and error paths that do less cleanup than success paths.',
     ],

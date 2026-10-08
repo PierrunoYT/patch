@@ -336,7 +336,7 @@ export class ChatManager {
       system,
       tools: sessionTools,
       chatModel: conversation.model,
-      recordUsage: (usage: UsageTotals) => session.recordUsage(usage),
+      recordUsage: (usage: UsageTotals, model: string) => session.recordUsage(usage, model),
       decidePermission: (name: string, input: Record<string, unknown>) =>
         decidePermission(this.deps.settings.get().permissionRules, name, input, 'subagent'),
     };

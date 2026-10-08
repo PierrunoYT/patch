@@ -1,3 +1,5 @@
+import type { UsageTotals } from './chat';
+
 export type Provider = 'anthropic' | 'openai';
 
 export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -155,6 +157,30 @@ export function estimateCost(
         long.cacheWriteTokens * longPrice.cacheWrite
       : 0;
   return (shortCost + longCost) / 1_000_000;
+}
+
+// Estimated cost in dollars of a whole chat: the usage subagents spent on other models (usage.byModel) at those models'
+// rates, and the rest at the chat model's. Null when any part's price is not known, like estimateCost.
+export function estimateChatCost(chatModel: string, usage: UsageTotals, officialProvider = true): number | null {
+  const own = { ...usage, longContext: usage.longContext ? { ...usage.longContext } : undefined };
+  let others = 0;
+  for (const [model, part] of Object.entries(usage.byModel ?? {})) {
+    const cost = estimateCost(model, part, officialProvider);
+    if (cost === null) return null;
+    others += cost;
+    own.inputTokens -= part.inputTokens;
+    own.outputTokens -= part.outputTokens;
+    own.cacheReadTokens -= part.cacheReadTokens;
+    own.cacheWriteTokens = (own.cacheWriteTokens ?? 0) - (part.cacheWriteTokens ?? 0);
+    if (own.longContext && part.longContext) {
+      own.longContext.inputTokens -= part.longContext.inputTokens;
+      own.longContext.outputTokens -= part.longContext.outputTokens;
+      own.longContext.cacheReadTokens -= part.longContext.cacheReadTokens;
+      own.longContext.cacheWriteTokens -= part.longContext.cacheWriteTokens;
+    }
+  }
+  const cost = estimateCost(chatModel, own, officialProvider);
+  return cost === null ? null : cost + others;
 }
 
 export function formatCost(dollars: number): string {

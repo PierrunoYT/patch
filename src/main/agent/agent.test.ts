@@ -1158,6 +1158,23 @@ describe('agent loop', () => {
     });
   });
 
+  it("keeps subagent usage on another model in that model's share, and in the totals", () => {
+    const { session } = setup([], { usage: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, requests: 1 } });
+    const finder = { inputTokens: 40, outputTokens: 4, cacheReadTokens: 2, cacheWriteTokens: 1, requests: 2 };
+    session.recordUsage(finder, 'claude-haiku-5-5');
+    session.recordUsage(finder, 'claude-haiku-5-5');
+    session.recordUsage({ inputTokens: 5, outputTokens: 1, cacheReadTokens: 0, requests: 1 }, 'test-model');
+    const usage = session.snapshot().usage;
+    expect(usage).toMatchObject({ inputTokens: 185, outputTokens: 19, cacheReadTokens: 4, cacheWriteTokens: 2 });
+    expect(usage.requests).toBe(6);
+    expect(usage.byModel).toEqual({
+      'claude-haiku-5-5': { inputTokens: 80, outputTokens: 8, cacheReadTokens: 4, cacheWriteTokens: 2, requests: 4 },
+    });
+    // The breakdown survives saving and reopening the chat.
+    const restored = setup([], { usage: session.serialize().usage });
+    expect(restored.session.snapshot().usage).toEqual(usage);
+  });
+
   it('accumulates multiple long requests without mutating earlier snapshots', async () => {
     const usage = {
       inputTokens: 280_000,

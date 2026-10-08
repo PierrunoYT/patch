@@ -19,7 +19,8 @@ export interface TaskToolOptions {
   // requests start with the prefix the chat already cached instead of writing a new one (#77).
   chatModel?: string;
   // Adds the subagent's token usage to the chat totals, so the status bar and cost estimate include delegated work.
-  recordUsage?: (usage: UsageTotals) => void;
+  // `model` is the model the subagent ran on, so its tokens are priced at that model's rates.
+  recordUsage?: (usage: UsageTotals, model: string) => void;
   // Permission rules for the subagent's own tool calls (rules with context "subagent" apply).
   decidePermission?: AgentOptions['decidePermission'];
 }
@@ -185,7 +186,7 @@ async function runSubagent(
     throw new ToolError(`The subagent failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
     // Also after a failure: the turns that did run were billed.
-    options.recordUsage?.(agent.totals);
+    options.recordUsage?.(agent.totals, conversation.model);
   }
   const usage = agent.totals;
   const usageLine = `(Subagent token usage: ${usage.inputTokens} in / ${usage.outputTokens} out.)`;

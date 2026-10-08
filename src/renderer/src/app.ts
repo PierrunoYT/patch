@@ -5,7 +5,7 @@ import {
   acceptsImages,
   COMPACT_SUGGESTED_TOKENS,
   contextWindow,
-  estimateCost,
+  estimateChatCost,
   formatCost,
   imagesNotSupportedMessage,
   MODEL_OPTIONS,
@@ -451,7 +451,7 @@ export class App {
       (providerForModel(model) === 'anthropic'
         ? !this.settings.anthropicBaseUrl.trim()
         : !this.settings.openaiBaseUrl.trim());
-    const cost = estimateCost(model, this.chat.usage, officialProvider);
+    const cost = estimateChatCost(model, this.chat.usage, officialProvider);
     this.tokensLabel.replaceChildren(sym('toll'), `Tokens: ${formatTokens(total)}`);
     this.tokensLabel.title = `${formatTokens(inputTokens)} in · ${formatTokens(cacheReadTokens)} cache read · ${formatTokens(cacheWriteTokens)} cache written · ${formatTokens(outputTokens)} out`;
     this.costLabel.hidden = cost === null;

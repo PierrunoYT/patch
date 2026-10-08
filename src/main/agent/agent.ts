@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { ApprovalDecision, ChatEvent, UsageTotals } from '@shared/chat';
+import type { ApprovalDecision, ChatEvent, ModelUsage, UsageTotals } from '@shared/chat';
 import type { ApprovalMode } from '@shared/settings';
 import type { Conversation, ToolCall, ToolResult, UserInput } from '../llm/types';
 import { PLAN_MODE_OFF_RESULT } from '../tools/plan';
@@ -63,6 +63,16 @@ export interface AgentOptions {
   random?: () => number;
 }
 
+// A deep copy, so a caller changing the copy it was given cannot change the agent's totals.
+function cloneByModel(byModel: Record<string, ModelUsage>): Record<string, ModelUsage> {
+  return Object.fromEntries(
+    Object.entries(byModel).map(([model, part]) => [
+      model,
+      { ...part, ...(part.longContext ? { longContext: { ...part.longContext } } : {}) },
+    ]),
+  );
+}
+
 // Runs the model/tool loop for one user message: call the model, run the tools it asks for (with approval where
 // needed), send the results back, and repeat until the model answers without tool calls.
 export class Agent {
@@ -72,7 +82,12 @@ export class Agent {
   constructor(private readonly options: AgentOptions) {}
 
   get totals(): UsageTotals {
-    return { ...this.usage, ...(this.usage.longContext ? { longContext: { ...this.usage.longContext } } : {}) };
+    const { longContext, byModel } = this.usage;
+    return {
+      ...this.usage,
+      ...(longContext ? { longContext: { ...longContext } } : {}),
+      ...(byModel ? { byModel: cloneByModel(byModel) } : {}),
+    };
   }
 
   set totals(value: UsageTotals) {

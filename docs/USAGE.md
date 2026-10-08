@@ -290,4 +290,4 @@ Before a repository's first commit, the diff includes staged additions and any l
 
 ## Costs
 
-The status bar shows token totals and, for the built-in Claude and GPT-6 models, an estimated cost including cache reads and writes. Custom OpenAI-compatible endpoints have no official price, so no estimate is shown. A request that fails part-way and is retried can be billed for the part that was already generated.
+The status bar shows token totals and, for the built-in Claude and GPT-6 models, an estimated cost including cache reads and writes. Tokens that subagents (`task`, `finder`, `oracle`) spend on another model are priced at that model's rates. Custom OpenAI-compatible endpoints have no official price, so no estimate is shown. A request that fails part-way and is retried can be billed for the part that was already generated.

@@ -6,6 +6,7 @@ import {
   type ChatEvent,
   type ChatSnapshot,
   type TranscriptItem,
+  type ModelUsage,
   type UsageTotals,
   type UserMessage,
 } from '@shared/chat';
@@ -160,20 +161,17 @@ export class ChatSession {
 
   // Adds token usage that happened outside the chat's own turns (a subagent's requests) to the totals the status bar
   // and the cost estimate show. The context size stays the chat's own: a subagent's prompt does not fill this chat.
-  recordUsage(usage: UsageTotals): void {
+  // Usage on another model than the chat's is also kept under that model, so it is priced at that model's rates.
+  recordUsage(usage: UsageTotals, model = this.options.conversation.model): void {
     const totals = this.agent.totals;
-    totals.inputTokens += usage.inputTokens;
-    totals.outputTokens += usage.outputTokens;
-    totals.cacheReadTokens += usage.cacheReadTokens;
-    totals.cacheWriteTokens = (totals.cacheWriteTokens ?? 0) + (usage.cacheWriteTokens ?? 0);
-    totals.requests = (totals.requests ?? 0) + (usage.requests ?? 0);
-    if (usage.longContext) {
-      const long = totals.longContext ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
-      long.inputTokens += usage.longContext.inputTokens;
-      long.outputTokens += usage.longContext.outputTokens;
-      long.cacheReadTokens += usage.longContext.cacheReadTokens;
-      long.cacheWriteTokens += usage.longContext.cacheWriteTokens;
-      totals.longContext = long;
+    addUsage(totals, usage);
+    if (model !== this.options.conversation.model) {
+      const byModel = totals.byModel ?? {};
+      byModel[model] = addUsage(
+        byModel[model] ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, requests: 0 },
+        usage,
+      );
+      totals.byModel = byModel;
     }
     this.agent.totals = totals;
     this.emit({ type: 'usage', totals: this.agent.totals });
@@ -496,4 +494,23 @@ function closeStaleRows(items: TranscriptItem[]): TranscriptItem[] {
       output: item.output ?? 'Interrupted by an app restart before this action finished.',
     };
   });
+}
+
+// Adds one usage's token counts and requests to `totals` (changed in place and returned). Context size and the
+// per-model breakdown are left alone.
+function addUsage<T extends ModelUsage>(totals: T, usage: ModelUsage): T {
+  totals.inputTokens += usage.inputTokens;
+  totals.outputTokens += usage.outputTokens;
+  totals.cacheReadTokens += usage.cacheReadTokens;
+  totals.cacheWriteTokens = (totals.cacheWriteTokens ?? 0) + (usage.cacheWriteTokens ?? 0);
+  totals.requests = (totals.requests ?? 0) + (usage.requests ?? 0);
+  if (usage.longContext) {
+    const long = totals.longContext ?? { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    long.inputTokens += usage.longContext.inputTokens;
+    long.outputTokens += usage.longContext.outputTokens;
+    long.cacheReadTokens += usage.longContext.cacheReadTokens;
+    long.cacheWriteTokens += usage.longContext.cacheWriteTokens;
+    totals.longContext = long;
+  }
+  return totals;
 }

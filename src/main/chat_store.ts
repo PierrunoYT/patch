@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { searchSnippet, transcriptSearchText, type ChatSummary } from '@shared/chat';
-import { estimateCost } from '@shared/models';
+import { estimateChatCost } from '@shared/models';
 import type { SavedChat } from './agent/session';
 import { appLog } from './app_log';
 import { cancelJsonWrite, readJson, writeJson, writeJsonLater } from './storage/json_file';
@@ -176,7 +176,7 @@ export function summarize(chat: SavedChat): ChatSummary {
     title: chat.title,
     projectPath: chat.projectPath,
     updatedAt: chat.updatedAt,
-    cost: usage ? estimateCost(chat.conversation.model, usage, official) : null,
+    cost: usage ? estimateChatCost(chat.conversation.model, usage, official) : null,
     tokens: usage ? usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + (usage.cacheWriteTokens ?? 0) : 0,
   };
 }

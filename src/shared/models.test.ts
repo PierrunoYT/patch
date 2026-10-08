@@ -6,6 +6,7 @@ import {
   DEFAULT_SUBAGENT_EFFORT,
   DEFAULT_SUBAGENT_MODEL,
   effortForSubagent,
+  estimateChatCost,
   estimateCost,
   formatCost,
   imagesNotSupportedMessage,
@@ -182,5 +183,51 @@ describe('subagent model and effort', () => {
     expect(effortForSubagent('task', 'max', 'scaled')).toBe('medium');
     expect(effortForSubagent('oracle', 'max', 'scaled')).toBe('max');
     expect(effortForSubagent('oracle', 'low', 'scaled')).toBe('low');
+  });
+});
+
+describe('estimateChatCost', () => {
+  it('prices subagent usage on another model at that model, and the rest at the chat model', () => {
+    const haiku = { inputTokens: 1_000_000, outputTokens: 100_000, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const usage = {
+      inputTokens: 3_000_000,
+      outputTokens: 300_000,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      byModel: { 'claude-haiku-5-5': haiku },
+    };
+    const chatPart = { inputTokens: 2_000_000, outputTokens: 200_000, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const expected = estimateCost('claude-opus-5-5', chatPart)! + estimateCost('claude-haiku-5-5', haiku)!;
+    expect(estimateChatCost('claude-opus-5-5', usage)).toBeCloseTo(expected);
+    expect(estimateChatCost('claude-opus-5-5', usage)).toBeCloseTo(12.15);
+  });
+
+  it('splits long-context tokens per model', () => {
+    const long = { inputTokens: 300_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const luna = { inputTokens: 300_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, longContext: long };
+    const usage = { ...luna, inputTokens: 1_300_000, longContext: { ...long }, byModel: { 'gpt-6-luna': luna } };
+    // The chat's own 1M tokens at Astra's list price, the finder's 300K long-context tokens at Luna's long rate.
+    expect(estimateChatCost('gpt-6-astra', usage)).toBeCloseTo(10 + 0.06);
+  });
+
+  it('prices usage without a breakdown exactly like estimateCost', () => {
+    const usage = {
+      inputTokens: 400_000,
+      outputTokens: 10_000,
+      cacheReadTokens: 50_000,
+      cacheWriteTokens: 1_000,
+      longContext: { inputTokens: 300_000, outputTokens: 5_000, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    };
+    expect(estimateChatCost('gpt-6-astra', usage)).toBe(estimateCost('gpt-6-astra', usage));
+    expect(estimateChatCost('claude-opus-5-5', { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0 })).toBe(
+      estimateCost('claude-opus-5-5', { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0 }),
+    );
+  });
+
+  it('has no estimate when a model in the breakdown has no known price or the provider is unofficial', () => {
+    const part = { inputTokens: 1, outputTokens: 0, cacheReadTokens: 0 };
+    const usage = { inputTokens: 2, outputTokens: 0, cacheReadTokens: 0, byModel: { 'claude-custom': part } };
+    expect(estimateChatCost('claude-opus-5-5', usage)).toBeNull();
+    expect(estimateChatCost('claude-opus-5-5', { ...usage, byModel: { 'claude-haiku-5-5': part } }, false)).toBeNull();
   });
 });

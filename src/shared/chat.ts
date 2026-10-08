@@ -62,7 +62,14 @@ export interface UsageTotals {
     cacheReadTokens: number;
     cacheWriteTokens: number;
   };
+  // The part of the totals above that subagents spent on models other than the chat's, by model id, so each part is
+  // priced at its own model's rates. Missing in chats saved by older versions and when every request used the chat's
+  // model.
+  byModel?: Record<string, ModelUsage>;
 }
+
+// One model's share of a chat's usage: the token counts, without the chat-level context size and breakdown.
+export type ModelUsage = Omit<UsageTotals, 'contextTokens' | 'byModel'>;
 
 export type ChatEvent =
   | { type: 'user'; id: string; text: string; imageCount: number }
