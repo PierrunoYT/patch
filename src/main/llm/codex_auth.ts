@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import OpenAI from 'openai';
 import type { SettingsStore, ChatGptSession } from '../settings';
 import { appLog } from '../app_log';
@@ -20,6 +20,8 @@ import {
 export const CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 export const CODEX_AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize';
 export const CODEX_TOKEN_URL = 'https://auth.openai.com/oauth/token';
+// The redirect URI says localhost, which a browser may resolve to either loopback address, so listen on both.
+export const CODEX_CALLBACK_HOSTS = ['127.0.0.1', '::1'] as const;
 export const CODEX_REDIRECT_URI = 'http://localhost:1455/auth/callback';
 export const CODEX_CALLBACK_PORT = 1455;
 export const CODEX_CALLBACK_PATH = '/auth/callback';
@@ -168,9 +170,11 @@ function listenForCodexCallback(options: CodexLoginOptions): Promise<ChatGptSess
     const done = new Promise<void>((resolveDone) => {
       closeDone = resolveDone;
     });
-    const server = createServer((request, response) => {
-      void onRequest(request, response);
-    });
+    const servers = CODEX_CALLBACK_HOSTS.map(() =>
+      createServer((request, response) => {
+        void onRequest(request, response);
+      }),
+    );
     const timer = setTimeout(() => {
       settle(new Error('Sign in with ChatGPT was not finished. Try again.'));
     }, timeoutMs);
@@ -180,7 +184,7 @@ function listenForCodexCallback(options: CodexLoginOptions): Promise<ChatGptSess
       settled = true;
       if (pendingLogin?.done === done) pendingLogin = null;
       clearTimeout(timer);
-      server.close(() => {
+      void Promise.all(servers.map(closeServer)).then(() => {
         closeDone();
         if (error) reject(error);
         else if (session) resolve(session);
@@ -233,19 +237,37 @@ function listenForCodexCallback(options: CodexLoginOptions): Promise<ChatGptSess
       }
     };
 
-    server.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.code === 'EADDRINUSE') {
-        settle(new Error('Sign in with ChatGPT needs port 1455 on localhost, and that port is already in use.'));
-        return;
+    // Every address is bound before the browser opens. A taken port fails the sign-in; a host without IPv6 skips ::1.
+    let waiting = servers.length;
+    const bound = () => {
+      if (--waiting === 0 && !settled) {
+        Promise.resolve(options.openUrl(authorize)).catch((error: unknown) => {
+          settle(error instanceof Error ? error : new Error('Could not open the ChatGPT sign-in page.'));
+        });
       }
-      settle(new Error('Sign in with ChatGPT could not listen for the browser.'));
-    });
-
-    server.listen(CODEX_CALLBACK_PORT, '127.0.0.1', () => {
-      Promise.resolve(options.openUrl(authorize)).catch((error: unknown) => {
-        settle(error instanceof Error ? error : new Error('Could not open the ChatGPT sign-in page.'));
+    };
+    servers.forEach((server, index) => {
+      const host = CODEX_CALLBACK_HOSTS[index];
+      server.on('error', (error: NodeJS.ErrnoException) => {
+        if (error.code === 'EADDRINUSE') {
+          settle(new Error('Sign in with ChatGPT needs port 1455 on localhost, and that port is already in use.'));
+          return;
+        }
+        if (host === '::1' && (error.code === 'EADDRNOTAVAIL' || error.code === 'EAFNOSUPPORT')) {
+          bound();
+          return;
+        }
+        settle(new Error('Sign in with ChatGPT could not listen for the browser.'));
       });
+      server.listen(CODEX_CALLBACK_PORT, host, bound);
     });
+  });
+}
+
+function closeServer(server: Server): Promise<void> {
+  return new Promise((resolve) => {
+    if (!server.listening) resolve();
+    else server.close(() => resolve());
   });
 }
 

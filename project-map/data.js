@@ -532,7 +532,6 @@ const D = {
   issues: [
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
-    [210, 'ChatGPT sign-in: redirect says localhost, server binds only 127.0.0.1', 'security', 'low', 0, '10-07'],
     [209, 'openInEditor runs the editor command through a shell', 'security', 'low', 0, '10-07'],
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
@@ -650,7 +649,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 112,
+  closedCount: 113,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

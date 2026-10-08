@@ -299,6 +299,53 @@ describe('ChatGPT Codex login', () => {
     }
   });
 
+  it('also refuses to start when only ::1 on port 1455 is taken', async () => {
+    const blocker = createServer((_req, res) => {
+      res.writeHead(200).end('busy');
+    });
+    const bound = await new Promise<boolean>((resolve) => {
+      blocker.once('error', () => resolve(false));
+      blocker.listen(CODEX_CALLBACK_PORT, '::1', () => resolve(true));
+    });
+    if (!bound) return; // This host has no IPv6 loopback.
+    try {
+      const opened = vi.fn();
+      await expect(signInWithChatGpt(store(), { tokenUrl, timeoutMs: 2_000, openUrl: opened })).rejects.toThrow(/1455/);
+      expect(opened).not.toHaveBeenCalled();
+      expect(tokens.requests).toHaveLength(0);
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    }
+  });
+
+  it('accepts the callback on ::1 as well as 127.0.0.1', async () => {
+    const probe = createServer();
+    const hasIpv6 = await new Promise<boolean>((resolve) => {
+      probe.once('error', () => resolve(false));
+      probe.listen(0, '::1', () => probe.close(() => resolve(true)));
+    });
+    if (!hasIpv6) return;
+    tokens.queueJson(200, {
+      access_token: 'codex-access-ipv6',
+      refresh_token: 'codex-refresh-ipv6',
+      expires_in: 3600,
+      token_type: 'Bearer',
+      id_token: jwt({ chatgpt_account_id: 'acct-ipv6' }),
+    });
+    const settings = store();
+    await signInWithChatGpt(settings, {
+      tokenUrl,
+      timeoutMs: 5_000,
+      openUrl: async (url) => {
+        const state = new URL(url).searchParams.get('state');
+        const response = await fetch(`http://[::1]:${CODEX_CALLBACK_PORT}/auth/callback?code=ipv6-code&state=${state}`);
+        expect(response.status).toBe(200);
+      },
+    });
+    expect(settings.getChatGptSession()?.accessToken).toBe('codex-access-ipv6');
+    expect(CODEX_REDIRECT_URI).toContain('localhost');
+  });
+
   it('wires Sign in with ChatGPT and sign-out without placing tokens in the dialog', () => {
     const dialogs = readFileSync(join(process.cwd(), 'src/renderer/src/views/dialogs.ts'), 'utf8');
     const app = readFileSync(join(process.cwd(), 'src/renderer/src/app.ts'), 'utf8');
