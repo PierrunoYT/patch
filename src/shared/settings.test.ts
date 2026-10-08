@@ -99,6 +99,8 @@ describe('parsePermissionRules', () => {
     const rules = [
       { tool: 'run_command', matches: { command: ['git push*', 'rm *'] }, action: 'reject', message: 'no' },
       { tool: ['a', 'b'], action: 'delegate', to: 'check', context: 'subagent' },
+      { tool: 'x', action: 'delegate', to: 'C:\\Program Files\\check.exe' },
+      { tool: 'x', action: 'delegate', to: ['node', 'check.js', '--strict'] },
     ];
     expect(parsePermissionRules(JSON.stringify(rules))).toEqual(rules);
   });
@@ -109,6 +111,10 @@ describe('parsePermissionRules', () => {
     ['bad action', '[{"tool":"x","action":"maybe"}]'],
     ['missing tool', '[{"action":"allow"}]'],
     ['delegate without program', '[{"tool":"x","action":"delegate"}]'],
+    ['delegate with an empty program', '[{"tool":"x","action":"delegate","to":"  "}]'],
+    ['delegate with an empty list', '[{"tool":"x","action":"delegate","to":[]}]'],
+    ['delegate with an empty argument', '[{"tool":"x","action":"delegate","to":["node",""]}]'],
+    ['delegate with a non-text argument', '[{"tool":"x","action":"delegate","to":["node",1]}]'],
     ['bad matches', '[{"tool":"x","action":"ask","matches":{"a":1}}]'],
     ['bad context', '[{"tool":"x","action":"ask","context":"main"}]'],
   ])('rejects %s', (_name, text) => {

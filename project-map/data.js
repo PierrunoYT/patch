@@ -340,12 +340,12 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 217, src: 1651, tl: 3451 },
+    { a: 'main/agent', f: 11, c: 227, src: 1711, tl: 3522 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
     { a: 'main/tools', f: 24, c: 463, src: 4389, tl: 6493 },
     { a: 'main/panels', f: 4, c: 71, src: 645, tl: 1057 },
-    { a: 'main/other', f: 12, c: 197, src: 2960, tl: 2876 },
-    { a: 'shared', f: 8, c: 80, src: 1261, tl: 901 },
+    { a: 'main/other', f: 12, c: 198, src: 2960, tl: 2876 },
+    { a: 'shared', f: 8, c: 84, src: 1261, tl: 901 },
     { a: 'renderer', f: 4, c: 14, src: 6368, tl: 138 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
   ],
@@ -530,7 +530,6 @@ const D = {
     [184, 'Settings validation gaps (max indexed files 1, base URL, MCP values)', 'other', 'low', 0, '10-07'],
     [182, 'Mixed line endings: apply_patch rewrites LF as CRLF; edit_file misses', 'tools', 'low', 0, '10-07'],
     [180, 'Exhausted pause_turn continuations end the turn silently', 'other', 'low', 0, '10-07'],
-    [178, 'Permission delegates fail on Windows for .cmd/.bat and take no arguments', 'security', 'medium', 0, '10-07'],
     [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
@@ -652,7 +651,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 95,
+  closedCount: 96,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

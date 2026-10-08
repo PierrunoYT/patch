@@ -1,5 +1,6 @@
 import type { ProjectInfo, ProjectSettings } from '@shared/project';
 import type { McpServerConfig, Settings } from '@shared/settings';
+import { delegateLabel } from './agent/permissions';
 
 // Settings changes that let the app run programs, let the agent act without asking, or send an API key to another
 // host. The main process asks the user with a native dialog before applying them, so a compromised renderer cannot
@@ -110,7 +111,7 @@ export function changesToConfirm(
       changes.push(
         rule.action === 'allow'
           ? `Allow ${tools} without asking (permission rule).`
-          : `Let the program "${rule.to}" decide calls to ${tools} (permission rule).`,
+          : `Let the program "${delegateLabel(rule.to ?? '')}" decide calls to ${tools} (permission rule).`,
       );
     }
     // First match wins: changing any part of the prefix through an ask/reject rule can bypass its protection,

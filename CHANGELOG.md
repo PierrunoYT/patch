@@ -65,6 +65,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Permission rules that delegate to a program accept arguments (`"to": ["node", "check.js"]`), and `.cmd`/`.bat` programs such as `npx` work on Windows instead of failing with `spawn EINVAL` (fixes #178).
 - The estimated cost no longer prices subagent tokens at the chat model's rates: tokens a subagent spends on another model (finder on the small model, task on the subagent model) are priced at that model's rates, including its long-context rates, in the status bar and the chat list (fixes #172).
 - The code index keeps the embeddings it already made when an update fails or is stopped, saving them every few batches, so the next search embeds only the rest. Stopping one of several searches waiting for the same index update no longer cancels it for the others, and changing settings other than the OpenRouter key no longer starts a second, duplicate indexing run (fixes #170).
 - `grep`, `glob`, `list_directory`, `search_code` and the code index respect nested `.gitignore` files and `.git/info/exclude`, and pick up ignore-file changes made by `edit_file`, Undo, commands or the user without a restart (fixes #169).

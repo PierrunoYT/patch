@@ -64,7 +64,8 @@ export interface PermissionRule {
   // delegate: the program in `to` gets {tool,input,context} as JSON on stdin and prints allow, reject or ask.
   action: 'allow' | 'reject' | 'ask' | 'delegate';
   message?: string;
-  to?: string;
+  // One program (a path or name, never split at spaces) or [program, ...args]. It runs without a shell.
+  to?: string | string[];
   // Only calls made by the chat itself or only by its subagents.
   context?: 'thread' | 'subagent';
 }
@@ -198,6 +199,12 @@ export function sanitizeMcpServers(servers: unknown): McpServerConfig[] {
 const globs = (value: unknown): boolean =>
   typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
 
+// A program name, or [program, ...args] of non-empty strings.
+const delegateTarget = (value: unknown): boolean =>
+  typeof value === 'string'
+    ? value.trim() !== ''
+    : Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string' && item.trim() !== '');
+
 function permissionRuleError(entry: unknown): string | null {
   if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return 'every entry must be an object';
   const rule = entry as Record<string, unknown>;
@@ -211,10 +218,11 @@ function permissionRuleError(entry: unknown): string | null {
       return '"matches" must be an object of globs';
     if (!Object.values(matches).every(globs)) return '"matches" values must be globs or lists of globs';
   }
-  if (rule.action === 'delegate' && (typeof rule.to !== 'string' || !rule.to.trim()))
-    return 'delegate rules need "to", the program to ask';
+  if (rule.action === 'delegate' && rule.to === undefined) return 'delegate rules need "to", the program to ask';
   if (rule.message !== undefined && typeof rule.message !== 'string') return '"message" must be text';
-  if (rule.to !== undefined && typeof rule.to !== 'string') return '"to" must be text';
+  if (rule.action === 'delegate' && !delegateTarget(rule.to))
+    return '"to" must be a program, or a list of the program and its arguments';
+  if (rule.to !== undefined && !globs(rule.to)) return '"to" must be text or a list of texts';
   if (rule.context !== undefined && rule.context !== 'thread' && rule.context !== 'subagent')
     return '"context" must be thread or subagent';
   return null;

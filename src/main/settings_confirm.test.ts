@@ -214,6 +214,21 @@ describe('changesToConfirm', () => {
     expect(changesToConfirm(withAllow, { permissionRules: [allow] }, false)).toEqual([]);
   });
 
+  it('shows the whole command of a delegate and asks again when one of its arguments changes', () => {
+    const delegate = { tool: 'fetch_url', action: 'delegate' as const, to: ['node', 'check.js', '--strict'] };
+    expect(changesToConfirm(current, { permissionRules: [delegate] }, false)).toEqual([
+      'Let the program "node check.js --strict" decide calls to fetch_url (permission rule).',
+    ]);
+    const configured: Settings = { ...current, permissionRules: [delegate] };
+    expect(changesToConfirm(configured, { permissionRules: [{ ...delegate, to: [...delegate.to] }] }, false)).toEqual(
+      [],
+    );
+    const changed = { ...delegate, to: ['node', 'check.js', '--lenient'] };
+    expect(changesToConfirm(configured, { permissionRules: [changed] }, false)).toEqual([
+      'Let the program "node check.js --lenient" decide calls to fetch_url (permission rule).',
+    ]);
+  });
+
   it.each(['ask', 'reject'] as const)(
     'asks before removing an existing %s rule, even after Auto was confirmed',
     (action) => {

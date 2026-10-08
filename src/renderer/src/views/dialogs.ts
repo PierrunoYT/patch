@@ -416,7 +416,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field(
       'Permission rules (JSON)',
       permissionRules,
-      'Rules decide tool calls before the normal approval: action "allow", "reject", "ask" (also in Auto mode) or "delegate" (a program in "to" answers allow, reject or ask). "tool" and the "matches" values are globs on the tool name and its input, e.g. {"tool":"run_command","matches":{"command":"git push*"},"action":"reject"}. The first matching rule wins. Allow and delegate rules ask for confirmation when saved.',
+      'Rules decide tool calls before the normal approval: action "allow", "reject", "ask" (also in Auto mode) or "delegate" (the program in "to", a path or ["program", "arg", ...], answers allow, reject or ask). "tool" and the "matches" values are globs on the tool name and its input, e.g. {"tool":"run_command","matches":{"command":"git push*"},"action":"reject"}. The first matching rule wins. Allow and delegate rules ask for confirmation when saved.',
     ),
     h('h3', { class: 'h6 text-body-secondary mt-4' }, 'Command sandbox'),
     field(

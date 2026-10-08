@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PermissionRule } from '@shared/settings';
-import { decidePermission, globMatch, ruleMatches } from './permissions';
+import { decidePermission, delegateCommand, globMatch, ruleMatches } from './permissions';
 
 describe('globMatch', () => {
   it('matches * across any text and ? for one character', () => {
@@ -87,5 +87,76 @@ describe('decidePermission', () => {
     );
     // node with no script and piped stdin evaluates the JSON as code and fails, which must reject.
     expect(decision?.action).toBe('reject');
+  });
+
+  it('runs a program with arguments given as [program, ...args]', async () => {
+    // The script reads the JSON call from stdin and allows only fetch_url calls in a thread.
+    const script =
+      "let s='';process.stdin.on('data',(c)=>s+=c).on('end',()=>{const c=JSON.parse(s);" +
+      "process.stdout.write(c.tool==='fetch_url'&&c.context===process.argv[1]?'allow\\n':'reject\\n')})";
+    const rule: PermissionRule = { tool: '*', action: 'delegate', to: [process.execPath, '-e', script, 'thread'] };
+    expect(await decidePermission([rule], 'fetch_url', { url: 'x' }, 'thread')).toEqual({ action: 'allow' });
+    expect(await decidePermission([rule], 'grep', {}, 'thread')).toMatchObject({ action: 'reject' });
+  });
+
+  it('treats a string "to" as one program name, never split at spaces', async () => {
+    const decision = await decidePermission(
+      [{ tool: '*', action: 'delegate', to: `${process.execPath} -e "console.log('allow')"` }],
+      'x',
+      {},
+      'thread',
+    );
+    expect(decision?.action).toBe('reject');
+  });
+
+  it('names the whole command line when the program fails', async () => {
+    const failing = async () => {
+      throw new Error('boom');
+    };
+    const rule: PermissionRule = { tool: '*', action: 'delegate', to: ['node', 'check.js', 'a b'] };
+    expect(await decidePermission([rule], 'x', {}, 'thread', failing)).toEqual({
+      action: 'reject',
+      message: 'The permission program "node check.js "a b"" failed: boom',
+    });
+  });
+});
+
+describe('delegateCommand', () => {
+  const options = { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true };
+
+  it('spawns the program directly with its arguments', () => {
+    expect(delegateCommand(['node', 'check.js', '--strict'], 'linux')).toEqual({
+      file: 'node',
+      args: ['check.js', '--strict'],
+      options,
+    });
+    expect(delegateCommand('C:\\Program Files\\check.exe', 'win32')).toEqual({
+      file: 'C:\\Program Files\\check.exe',
+      args: [],
+      options,
+    });
+    expect(delegateCommand('/opt/my tools/check', 'linux')).toEqual({ file: '/opt/my tools/check', args: [], options });
+  });
+
+  it('runs .cmd and .bat programs through cmd.exe on Windows, quoting every part', () => {
+    expect(delegateCommand(['C:\\tools\\check.cmd', 'a b', 'x&y'], 'win32', undefined, {})).toEqual({
+      file: 'cmd.exe',
+      args: ['/d', '/s', '/c', '""C:\\tools\\check.cmd" "a b" "x&y""'],
+      options: { ...options, windowsVerbatimArguments: true },
+    });
+    // A bare name is looked up first, so `npx` is recognised as npx.cmd.
+    const resolve = (program: string) => (program === 'npx' ? 'C:\\node\\npx.cmd' : program);
+    expect(delegateCommand(['npx', 'checker'], 'win32', resolve, { ComSpec: 'C:\\Windows\\cmd.exe' })).toEqual({
+      file: 'C:\\Windows\\cmd.exe',
+      args: ['/d', '/s', '/c', '""C:\\node\\npx.cmd" "checker""'],
+      options: { ...options, windowsVerbatimArguments: true },
+    });
+    expect(delegateCommand('check.BAT', 'win32', undefined, {}).args).toEqual(['/d', '/s', '/c', '""check.BAT""']);
+    // Elsewhere a .cmd name is just a program.
+    expect(delegateCommand(['x.cmd', 'a'], 'linux').file).toBe('x.cmd');
+  });
+
+  it.each(['50%', '!x!', 'say "hi"', 'a\nb', 'a\rb'])('refuses to pass %j to a .cmd program', (arg) => {
+    expect(() => delegateCommand(['check.cmd', arg], 'win32')).toThrow(/cmd\.exe cannot pass/);
   });
 });
