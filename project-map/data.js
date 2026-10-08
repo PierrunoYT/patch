@@ -35,7 +35,7 @@ const D = {
         'dialogs.ts (742, untested)',
         'panels.ts (648, untested)',
         'transcript.ts (572, untested)',
-        'composer.ts (395)',
+        'composer.ts (396)',
         'sidebar.ts',
       ],
     },
@@ -361,7 +361,7 @@ const D = {
     ['project_switching', 7],
     ['settings', 7],
     ['undo', 4],
-    ['images', 3],
+    ['images', 4],
     ['projects', 3],
     ['retry', 3],
     ['transcript_view', 3],
@@ -407,7 +407,7 @@ const D = {
     [446, 'main/index.ts'],
     [448, 'main/llm/anthropic.ts'],
     [411, 'main/search/code_index.ts'],
-    [395, 'renderer/src/views/composer.ts'],
+    [396, 'renderer/src/views/composer.ts'],
   ],
   docs: [
     ['docs/PERFORMANCE.md', 461],
@@ -534,7 +534,6 @@ const D = {
     [178, 'Permission delegates fail on Windows for .cmd/.bat and take no arguments', 'security', 'medium', 0, '10-07'],
     [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
-    [175, 'Pasting text that also carries an image drops the text', 'ui', 'medium', 0, '10-07'],
     [174, 'Git panel diff and Discard fail when the project is a repo subfolder', 'ui', 'medium', 0, '10-07'],
     [173, 'Anthropic: mid-stream connection drops are retried at once, without notice', 'other', 'medium', 0, '10-07'],
     [172, 'Subagent token usage is priced at the chat model’s rate', 'other', 'medium', 0, '10-07'],
@@ -663,7 +662,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 84,
+  closedCount: 85,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
