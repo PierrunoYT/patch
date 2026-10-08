@@ -32,6 +32,9 @@ const DEFAULT_TIMEOUT_SECONDS = 120;
 const MAX_TIMEOUT_SECONDS = 600;
 const MAX_BUFFERED_CHARS = 1_000_000;
 const EXIT_DRAIN_MS = 500;
+// Finished background commands whose output was never fully read are kept for a later command_output, newest first.
+const MAX_FINISHED_BACKGROUND = 5;
+const SHARED_OWNER = '';
 
 export interface CommandResult {
   exitCode: number | null;
@@ -52,7 +55,12 @@ export interface CommandProcess extends EventEmitter {
 }
 
 interface BackgroundCommand {
+  // Numbered per owner (1, 2, ...), as the owning chat sees it.
   id: number;
+  // Unique across the runner.
+  key: number;
+  // The chat that started it (see ToolContext.chatId).
+  owner: string;
   command: string;
   process: CommandProcess;
   output: string;
@@ -110,7 +118,8 @@ function shellCommand(command: string, sandboxed = false): { file: string; args:
 // Runs agent commands in the project directory. Each command gets a fresh shell, so `cd` does not persist.
 export class ShellRunner {
   private readonly background = new Map<number, BackgroundCommand>();
-  private nextId = 1;
+  private nextKey = 1;
+  private readonly nextIds = new Map<string, number>();
 
   constructor(
     private readonly cwd: () => string,
@@ -229,12 +238,21 @@ export class ShellRunner {
     });
   }
 
-  async startBackground(command: string, signal?: AbortSignal, access: CommandAccess = {}): Promise<BackgroundCommand> {
+  async startBackground(
+    command: string,
+    signal?: AbortSignal,
+    access: CommandAccess = {},
+    owner: string = SHARED_OWNER,
+  ): Promise<BackgroundCommand> {
     signal?.throwIfAborted();
     const { child } = await this.spawn(command, access, signal);
-    const onAbort = () => this.stopBackground(entry.id);
+    const onAbort = () => this.stopBackground(entry.id, owner);
+    const id = this.nextIds.get(owner) ?? 1;
+    this.nextIds.set(owner, id + 1);
     const entry: BackgroundCommand = {
-      id: this.nextId++,
+      id,
+      key: this.nextKey++,
+      owner,
       command,
       process: child,
       output: '',
@@ -251,36 +269,51 @@ export class ShellRunner {
     child.on('close', (code) => {
       entry.exitCode = code;
       entry.detachAbort();
+      this.pruneFinished(owner);
     });
     child.on('error', (error) => {
       append(`\n${error.message}`);
       entry.exitCode = null;
       entry.detachAbort();
+      this.pruneFinished(owner);
     });
-    this.background.set(entry.id, entry);
+    this.background.set(entry.key, entry);
     signal?.addEventListener('abort', onAbort, { once: true });
     // An abort during spawning must not leave an untracked command alive.
     if (signal?.aborted) onAbort();
     return entry;
   }
 
-  getBackground(id: number): BackgroundCommand | undefined {
-    return this.background.get(id);
+  getBackground(id: number, owner: string = SHARED_OWNER): BackgroundCommand | undefined {
+    for (const entry of this.background.values()) if (entry.owner === owner && entry.id === id) return entry;
+    return undefined;
   }
 
-  stopBackground(id: number): boolean {
-    const entry = this.background.get(id);
+  stopBackground(id: number, owner: string = SHARED_OWNER): boolean {
+    const entry = this.getBackground(id, owner);
     if (!entry) return false;
     entry.detachAbort();
     if (entry.exitCode === undefined) killTree(entry.process);
     else killLeftovers(entry.process);
-    this.background.delete(id);
+    this.background.delete(entry.key);
     return true;
+  }
+
+  // Drops a command that has ended and whose output has been read: its buffers are no longer needed.
+  releaseIfRead(entry: BackgroundCommand): void {
+    if (entry.exitCode !== undefined && entry.unread === '') this.stopBackground(entry.id, entry.owner);
+  }
+
+  // Keeps only the newest finished commands of a chat whose output was never read to the end.
+  private pruneFinished(owner: string): void {
+    const finished = [...this.background.values()].filter((e) => e.owner === owner && e.exitCode !== undefined);
+    for (const entry of finished.slice(0, Math.max(0, finished.length - MAX_FINISHED_BACKGROUND)))
+      this.stopBackground(entry.id, owner);
   }
 
   // Called on Stop, when a chat/project closes, or when the app quits.
   stopAll(): void {
-    for (const id of [...this.background.keys()]) this.stopBackground(id);
+    for (const entry of [...this.background.values()]) this.stopBackground(entry.id, entry.owner);
   }
 
   // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then. The Git
@@ -389,7 +422,7 @@ export class ShellRunner {
       }
     };
     const request = buildHelperRequest({
-      id: this.nextId,
+      id: this.nextKey,
       shell: inner,
       cwd: launchEnv.cwd,
       env: {
@@ -574,7 +607,7 @@ export const runCommandTool = defineTool({
       let entry: BackgroundCommand;
       try {
         await context.shell.prepare(access);
-        entry = await context.shell.startBackground(command, context.signal, access);
+        entry = await context.shell.startBackground(command, context.signal, access, context.chatId);
       } catch (error) {
         if (context.signal.aborted) throw error;
         return { content: (error as Error).message, isError: true, summary: `Could not start \`${command}\`` };
@@ -583,8 +616,11 @@ export const runCommandTool = defineTool({
       // has already ended has nothing more to show, so it does not wait.
       await waitForStartup(entry, context.signal);
       const status = entry.exitCode === undefined ? 'still running' : `exited with code ${entry.exitCode}`;
+      const content = `Started background command ${entry.id} (${status}).\n${truncateOutput(stripAnsi(takeUnread(entry))) || '(no output yet)'}`;
+      // Already ended and fully shown: nothing is left to poll.
+      context.shell.releaseIfRead(entry);
       return {
-        content: `Started background command ${entry.id} (${status}).\n${truncateOutput(stripAnsi(takeUnread(entry))) || '(no output yet)'}`,
+        content,
         summary: `Started \`${command}\` in the background`,
       };
     }
@@ -612,14 +648,16 @@ export const commandOutputTool = defineTool({
   }),
   requiresApproval: false,
   async run({ id, stop, full }, context) {
-    const entry = context.shell.getBackground(id);
+    const entry = context.shell.getBackground(id, context.chatId);
     if (!entry) return { content: `No background command with id ${id}.`, isError: true };
     const status = entry.exitCode === undefined ? 'running' : `exited with code ${entry.exitCode}`;
     const unread = takeUnread(entry);
     const output = full
       ? truncateOutput(stripAnsi(entry.output).trim()) || '(no output)'
       : truncateOutput(stripAnsi(unread).trim()) || '(no new output since your last read)';
-    if (stop) context.shell.stopBackground(id);
+    if (stop) context.shell.stopBackground(id, entry.owner);
+    // An ended command whose output is now fully read is dropped from memory.
+    else context.shell.releaseIfRead(entry);
     return {
       content: `Command ${id}: ${entry.command}\nStatus: ${stop ? 'stopped' : status}\n${output}`,
       summary: `${stop ? 'Stopped' : 'Checked'} background command ${id}`,

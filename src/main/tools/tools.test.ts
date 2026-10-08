@@ -807,6 +807,87 @@ describe('shell tools', () => {
       shell.stopAll();
     }
   }, 30_000);
+
+  // #187: a finished command whose output was read is released; another chat cannot see a chat's commands.
+  it('drops a finished background command once its output has been read', async () => {
+    const shell = new ShellRunner(() => root);
+    const ctx = { ...context, shell, chatId: 'chat-a' };
+    try {
+      const started = await call(runCommandTool, { command: 'node -e "console.log(1)"', background: true }, ctx);
+      expect(started.content).toContain('exited with code 0');
+      expect(shell.getBackground(1, 'chat-a')).toBeUndefined();
+      const gone = await call(commandOutputTool, { id: 1 }, ctx);
+      expect(gone.isError).toBe(true);
+    } finally {
+      shell.stopAll();
+    }
+  }, 20_000);
+
+  it('keeps a finished background command until its unread output is read, then drops it', async () => {
+    const shell = new ShellRunner(() => root);
+    const ctx = { ...context, shell, chatId: 'chat-a' };
+    try {
+      const entry = await shell.startBackground('node -e "console.log(2)"', undefined, {}, 'chat-a');
+      await new Promise((resolve) => entry.process.once('close', resolve));
+      expect(shell.getBackground(entry.id, 'chat-a')).toBe(entry);
+      const read = await call(commandOutputTool, { id: entry.id }, ctx);
+      expect(read.content).toContain('exited with code 0');
+      expect(shell.getBackground(entry.id, 'chat-a')).toBeUndefined();
+    } finally {
+      shell.stopAll();
+    }
+  }, 20_000);
+
+  it('keeps only the newest finished background commands that were never read', async () => {
+    const shell = new ShellRunner(() => root);
+    try {
+      const entries = [];
+      for (let i = 0; i < 7; i++) {
+        const entry = await shell.startBackground('node -e "console.log(3)"', undefined, {}, 'chat-a');
+        await new Promise((resolve) => entry.process.once('close', resolve));
+        entries.push(entry);
+      }
+      expect(entries.map((e) => shell.getBackground(e.id, 'chat-a') !== undefined)).toEqual([
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+      ]);
+    } finally {
+      shell.stopAll();
+    }
+  }, 30_000);
+
+  it('scopes background command ids to the chat that started them', async () => {
+    const shell = new ShellRunner(() => root);
+    const command = process.platform === 'win32' ? 'Start-Sleep -Seconds 30' : 'sleep 30';
+    const a = await shell.startBackground(command, undefined, {}, 'chat-a');
+    const b = await shell.startBackground(command, undefined, {}, 'chat-b');
+    try {
+      expect([a.id, b.id]).toEqual([1, 1]);
+      expect(shell.getBackground(1, 'chat-a')).toBe(a);
+      expect(shell.getBackground(1, 'chat-b')).toBe(b);
+      expect(shell.getBackground(1, 'chat-c')).toBeUndefined();
+      expect(shell.getBackground(1)).toBeUndefined();
+
+      const other = await call(commandOutputTool, { id: 1, stop: true }, { ...context, shell, chatId: 'chat-c' });
+      expect(other.isError).toBe(true);
+      expect(shell.stopBackground(1, 'chat-c')).toBe(false);
+      expect(a.exitCode).toBeUndefined();
+
+      expect(shell.stopBackground(1, 'chat-a')).toBe(true);
+      expect(shell.getBackground(1, 'chat-b')).toBe(b);
+    } finally {
+      shell.stopAll();
+      // The folder is removed next; wait until the stopped shells have released it.
+      await Promise.all(
+        [a, b].map((entry) => (entry.exitCode === undefined ? new Promise((r) => entry.process.once('close', r)) : 0)),
+      );
+    }
+  }, 20_000);
 });
 
 describe('helpers', () => {

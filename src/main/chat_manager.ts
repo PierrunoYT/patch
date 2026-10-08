@@ -408,6 +408,7 @@ export class ChatManager {
           ...base,
           workspace,
           shell,
+          chatId: session.id,
           browser,
           codeSearch: codeSearch?.search ?? null,
           webSearch,

@@ -58,6 +58,9 @@ export interface ToolContext {
   // or edited, so the model never changes code it has not seen; write_file also refuses when the hash no longer matches.
   readFiles: Map<string, string | null>;
   shell: ShellRunner;
+  // The chat this call belongs to. Background commands are scoped to it, so another chat that shares the runner
+  // cannot read or stop them. Absent (tests): one shared scope.
+  chatId?: string;
   browser: BrowserController | null;
   codeSearch: CodeSearch | null;
   webSearch: WebSearchConfig | null;
