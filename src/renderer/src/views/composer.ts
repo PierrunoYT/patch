@@ -225,7 +225,8 @@ export class Composer {
     if (this.busy || (!text && this.images.length === 0 && this.mentions.length === 0)) return;
     const version = this.draftVersion;
     const sent = await this.actions.send(messageWithMentions(text, this.mentions), this.images);
-    if (sent && version === this.draftVersion) {
+    // Keep anything the user typed while the message was being sent.
+    if (sent && version === this.draftVersion && this.input.value.trim() === text) {
       this.input.value = '';
       this.images = [];
       this.mentions = [];
@@ -242,8 +243,10 @@ export class Composer {
       return;
     }
     const version = this.draftVersion;
-    this.files ??= this.actions.listFiles();
-    const files = await this.files;
+    const list = (this.files ??= this.actions.listFiles());
+    const files = await list;
+    // Do not remember a failed or empty listing for the whole session.
+    if (files.length === 0 && this.files === list) this.files = null;
     // The text may have changed while the list was read.
     const current = mentionAt(this.input.value, this.input.selectionStart ?? this.input.value.length);
     if (version !== this.draftVersion || current?.query !== mention.query) return;

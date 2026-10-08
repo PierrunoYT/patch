@@ -8,6 +8,14 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Fixed
+
+- The editor command (Settings) is split into a program and arguments and started without a shell on macOS and Linux; on Windows only cmd.exe runs it, as one quoted program, and `& | < > ^ %` in it are refused (fixes #209).
+- The code indexer reads files through `Workspace.resolve`, so a file swapped for a link to outside the project is no longer embedded (fixes #154).
+- The terminal panel keeps keys typed while the shell starts and sends them once it is ready, and asks a reattached shell to redraw (fixes #191).
+- Removing a secret and deleting or clearing chat history show an error instead of failing silently, and a second Commit is ignored while one runs (fixes #193).
+- A generated commit message no longer overwrites text typed meanwhile or lands in another project, the composer keeps text typed while a message is sent, and a failed file listing is not cached for @-mentions (part of #194).
+
 ### Test maintenance
 
 - The chat manager unit tests wait for background chat checkpoint writes (`flushJsonWrites` in `storage/json_file.ts`) before deleting their temporary folder, so they no longer fail now and then on macOS with `ENOTEMPTY` (fixes #220).

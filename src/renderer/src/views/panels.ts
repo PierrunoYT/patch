@@ -214,6 +214,9 @@ class TerminalPanel implements Panel {
   });
   private readonly fit = new FitAddon();
   private started = false;
+  private starting = false;
+  // Keys typed while the shell is starting, sent once it is ready.
+  private pendingInput = '';
   private noProjectShown = false;
 
   constructor(private readonly hasProject: () => boolean) {
@@ -221,6 +224,7 @@ class TerminalPanel implements Panel {
     this.terminal.open(this.element);
     this.terminal.onData((data) => {
       if (this.started) void api.invoke('terminal:write', data);
+      else if (this.starting) this.pendingInput += data;
       else if (data === '\r') this.start();
     });
     api.on('terminal:data', (data) => this.terminal.write(data));
@@ -252,11 +256,23 @@ class TerminalPanel implements Panel {
       this.noProjectShown = true;
       return;
     }
+    if (this.starting) return;
+    this.starting = true;
     this.fit.fit();
     api.invoke('terminal:start', this.terminal.cols, this.terminal.rows).then(
-      () => (this.started = true),
-      // Shown in the terminal rather than as an error toast.
-      (error) => this.terminal.write(`${error instanceof Error ? error.message.replace(/^.*Error: /, '') : error}\r\n`),
+      () => {
+        this.starting = false;
+        this.started = true;
+        const pending = this.pendingInput;
+        this.pendingInput = '';
+        if (pending) void api.invoke('terminal:write', pending);
+      },
+      (error) => {
+        this.starting = false;
+        this.pendingInput = '';
+        // Shown in the terminal rather than as an error toast.
+        this.terminal.write(`${error instanceof Error ? error.message.replace(/^.*Error: /, '') : error}\r\n`);
+      },
     );
   }
 
@@ -418,6 +434,8 @@ class GitPanel implements Panel {
   private hunks: DiffHunk[] = [];
   private hunk = 0;
   private refreshGeneration = 0;
+  private projectGeneration = 0;
+  private committing = false;
 
   constructor(
     private readonly onError: (error: unknown) => void,
@@ -439,6 +457,7 @@ class GitPanel implements Panel {
   projectChanged(): void {
     this.selected = null;
     this.message.value = '';
+    this.projectGeneration++;
   }
 
   private async refresh(): Promise<void> {
@@ -481,7 +500,7 @@ class GitPanel implements Panel {
 
     const changed = status.files.length;
     const pushOnly = changed === 0 && status.canPush && status.ahead > 0;
-    this.commitButton.disabled = changed === 0 && !pushOnly;
+    this.commitButton.disabled = this.committing || (changed === 0 && !pushOnly);
     this.commitButton.replaceChildren(
       sym(status.canPush ? 'cloud_upload' : 'check'),
       h(
@@ -656,9 +675,15 @@ class GitPanel implements Panel {
   private async generate(): Promise<void> {
     this.generateButton.disabled = true;
     this.generateButton.classList.add('busy');
+    const project = this.projectGeneration;
+    const before = this.message.value;
     try {
-      this.message.value = await api.invoke('git:suggest-message');
-      this.message.focus();
+      const suggestion = await api.invoke('git:suggest-message');
+      // Drop the answer if the project changed or the user typed while it was being written.
+      if (project === this.projectGeneration && this.message.value === before) {
+        this.message.value = suggestion;
+        this.message.focus();
+      }
     } catch (error) {
       this.onError(error);
     } finally {
@@ -669,13 +694,14 @@ class GitPanel implements Panel {
 
   private async commit(): Promise<void> {
     const status = this.status;
-    if (!status?.isRepo) return;
+    if (!status?.isRepo || this.committing) return;
     const pushOnly = status.files.length === 0 && status.canPush && status.ahead > 0;
     const message = this.message.value.trim();
     if (!pushOnly && !message) {
       this.message.focus();
       return;
     }
+    this.committing = true;
     this.commitButton.disabled = true;
     try {
       if (!pushOnly) {
@@ -695,6 +721,8 @@ class GitPanel implements Panel {
       }
     } catch (error) {
       this.onError(error);
+    } finally {
+      this.committing = false;
     }
     void this.refresh();
   }

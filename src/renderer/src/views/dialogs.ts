@@ -94,9 +94,14 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
             type: 'button',
             class: 'btn btn-outline-danger',
             onclick: async () => {
-              await actions.setSecret(name, '');
-              input.placeholder = 'Not set';
-              remove?.remove();
+              error.textContent = '';
+              try {
+                await actions.setSecret(name, '');
+                input.placeholder = 'Not set';
+                remove?.remove();
+              } catch (err) {
+                error.textContent = err instanceof Error ? err.message : String(err);
+              }
             },
           },
           'Remove',
@@ -588,6 +593,7 @@ const SEARCH_DELAY_MS = 250;
 
 export function openHistoryDialog(chats: ChatSummary[], actions: HistoryDialogActions): void {
   const list = h('div', { class: 'list-group history-list' });
+  const error = h('div', { class: 'text-danger small mb-2' });
   const search = h('input', {
     type: 'search',
     class: 'form-control mb-2',
@@ -650,9 +656,15 @@ export function openHistoryDialog(chats: ChatSummary[], actions: HistoryDialogAc
                   class: 'btn btn-sm btn-outline-secondary',
                   title: 'Delete',
                   onclick: async () => {
-                    found = null;
-                    render(await actions.delete(chat.id));
-                    scheduleSearch();
+                    error.textContent = '';
+                    try {
+                      const next = await actions.delete(chat.id);
+                      found = null;
+                      render(next);
+                      scheduleSearch();
+                    } catch (err) {
+                      error.textContent = err instanceof Error ? err.message : String(err);
+                    }
                   },
                 },
                 icon('trash'),
@@ -696,14 +708,20 @@ export function openHistoryDialog(chats: ChatSummary[], actions: HistoryDialogAc
       class: 'btn btn-outline-danger',
       onclick: async () => {
         if (!confirm('Delete all saved chats?')) return;
-        found = null;
-        render(await actions.clear());
+        error.textContent = '';
+        try {
+          const next = await actions.clear();
+          found = null;
+          render(next);
+        } catch (err) {
+          error.textContent = err instanceof Error ? err.message : String(err);
+        }
       },
     },
     icon('trash'),
     ' Delete all',
   );
-  const element = dialog('Chat history', h('div', {}, search, list), clearButton);
+  const element = dialog('Chat history', h('div', {}, search, error, list), clearButton);
   element.addEventListener('close', () => clearTimeout(searchTimer));
   search.focus();
 }

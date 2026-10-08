@@ -19,6 +19,8 @@ export class TerminalService {
   start(cwd: string, cols: number, rows: number): void {
     if (this.pty && this.cwd === cwd) {
       this.resize(cols, rows);
+      // A new window has an empty screen (the shell survives a closed window on macOS): ask the shell to redraw.
+      this.pty.write('\x0c');
       return;
     }
     this.stop();
