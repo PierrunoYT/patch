@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -239,6 +239,77 @@ describe('switching between open projects (mock Claude API)', () => {
     } finally {
       await running.page.evaluate(() => window.api.invoke('terminal:write', '\u0003'));
     }
+    expect(running.errors).toEqual([]);
+  });
+
+  it('keeps Alpha active after a missing-key history error and binds a successful restore to Beta', async () => {
+    const before = await snapshot();
+    const commitDraft = await running.page.getByLabel('Commit message').inputValue();
+    await message().fill('Keep the Alpha draft');
+    await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', ''));
+    try {
+      await running.page.locator('.sidebar-item').filter({ hasText: 'Beta' }).first().click();
+      await running.page.locator('.app-toast', { hasText: 'Add your Anthropic API key' }).first().waitFor();
+      expect((await current())?.path).toBe(alpha);
+      expect((await snapshot()).id).toBe(before.id);
+      expect(await tab('Alpha').getAttribute('aria-pressed')).toBe('true');
+      expect(await tab('Beta').count()).toBe(0);
+      expect(await message().inputValue()).toBe('Keep the Alpha draft');
+      expect(await running.page.getByLabel('Commit message').inputValue()).toBe(commitDraft);
+    } finally {
+      await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-e2e'));
+    }
+    claude.script(
+      {
+        blocks: [
+          {
+            type: 'tool_use',
+            id: 'write-alpha',
+            name: 'write_file',
+            input: { path: 'after-failed-open.txt', content: 'still Alpha\n' },
+          },
+        ],
+        stopReason: 'tool_use',
+      },
+      { blocks: [{ type: 'text', text: 'Continued in Alpha.' }], stopReason: 'end_turn' },
+    );
+    await message().fill('Continue in the current project');
+    await message().press('Enter');
+    await waitFor(
+      (chat) =>
+        !chat.busy && chat.transcript.some((item) => item.kind === 'assistant' && item.text === 'Continued in Alpha.'),
+    );
+    expect((await snapshot()).id).toBe(before.id);
+    expect(readFileSync(join(alpha, 'after-failed-open.txt'), 'utf8')).toBe('still Alpha\n');
+    expect(existsSync(join(beta, 'after-failed-open.txt'))).toBe(false);
+
+    await running.page.evaluate((id) => window.api.invoke('history:open', id), betaChatId);
+    await waitFor((chat) => chat.id === betaChatId);
+    expect((await current())?.path).toBe(beta);
+    claude.script(
+      {
+        blocks: [
+          {
+            type: 'tool_use',
+            id: 'write-beta',
+            name: 'write_file',
+            input: { path: 'after-successful-open.txt', content: 'restored Beta\n' },
+          },
+        ],
+        stopReason: 'tool_use',
+      },
+      { blocks: [{ type: 'text', text: 'Continued in Beta.' }], stopReason: 'end_turn' },
+    );
+    await message().fill('Continue the restored chat');
+    await message().press('Enter');
+    await waitFor(
+      (chat) =>
+        !chat.busy && chat.transcript.some((item) => item.kind === 'assistant' && item.text === 'Continued in Beta.'),
+    );
+    expect(readFileSync(join(beta, 'after-successful-open.txt'), 'utf8')).toBe('restored Beta\n');
+    expect(existsSync(join(alpha, 'after-successful-open.txt'))).toBe(false);
+    await tab('Alpha').click();
+    await waitFor((chat) => chat.id === before.id);
     expect(running.errors).toEqual([]);
   });
 

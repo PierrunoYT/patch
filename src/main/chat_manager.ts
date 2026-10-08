@@ -100,6 +100,7 @@ export class ChatManager {
     if (message.images?.length && !acceptsImages(model)) throw new Error(imagesNotSupportedMessage(model));
     if (!this.session) {
       this.session = this.createSession();
+      this.liveSessions.add(this.session);
       this.deps.onSnapshot(this.session.snapshot());
     }
     return this.session.send(message);
@@ -166,11 +167,31 @@ export class ChatManager {
     const saved = this.deps.chats.load(id);
     if (!saved) throw new Error('That chat could not be found.');
     if (!saved.projectPath) throw new Error('That chat has no project.');
-    this.deps.projects.open(saved.projectPath);
+    const resolved = new Workspace(saved.projectPath);
+    const current = resolved.root === this.projectPath;
+    const retained = this.parked.get(resolved.root);
+    const existing = current ? this.session : retained?.session;
+    if (existing?.id === id) {
+      this.deps.projects.open(resolved.root);
+      this.projectChanged();
+      return this.snapshot();
+    }
+    const workspace = (current ? this.workspace : retained?.workspace) ?? resolved;
+    const shell = (current ? this.shell : retained?.shell) ?? this.createShell(workspace);
+    // Preparing a restored chat must not mutate the active project, session or workspace-bound resources.
+    const next = this.createSession(saved, { workspace, shell });
+    try {
+      this.deps.projects.open(workspace.root);
+    } catch (error) {
+      next.dispose();
+      throw error;
+    }
     this.projectChanged();
-    if (this.session?.id === id) return this.snapshot();
     this.closeSession();
-    this.session = this.createSession(saved);
+    this.workspace = workspace;
+    this.shell = shell;
+    this.session = next;
+    this.liveSessions.add(next);
     const snapshot = this.session.snapshot();
     this.deps.onSnapshot(snapshot);
     return snapshot;
@@ -232,11 +253,11 @@ export class ChatManager {
     this.saveTimers.clear();
   }
 
-  private createSession(saved?: SavedChat): ChatSession {
-    const project = this.deps.projects.current();
-    if (!project) throw new Error('Open a project folder first (File → Open Project).');
-    const workspace = this.currentWorkspace(project.path);
-    const shell = this.currentShell(workspace);
+  private createSession(saved?: SavedChat, resources?: { workspace: Workspace; shell: ShellRunner }): ChatSession {
+    const path = resources?.workspace.root ?? this.deps.projects.current()?.path;
+    if (!path) throw new Error('Open a project folder first (File → Open Project).');
+    const workspace = resources?.workspace ?? this.currentWorkspace(path);
+    const shell = resources?.shell ?? this.currentShell(workspace);
     // Read again on every turn: keys and panels can change while a chat is open.
     const capabilities = () => {
       const settings = this.deps.settings.get();
@@ -262,7 +283,7 @@ export class ChatManager {
         shell: shellName(this.deps.settings.get().sandboxMode === 'container'),
         platform: platform(),
         date: new Date().toISOString().slice(0, 10),
-        customInstructions: project.instructions,
+        customInstructions: this.deps.projects.get(workspace.root)?.instructions ?? '',
         agentFile,
         skills: listSkills(workspace),
       });
@@ -327,7 +348,7 @@ export class ChatManager {
       id: saved?.id,
       title: saved?.title,
       createdAt: saved?.createdAt,
-      projectPath: project.path,
+      projectPath: workspace.root,
       conversation,
       officialPricing:
         saved?.officialPricing ??
@@ -350,7 +371,7 @@ export class ChatManager {
       isPreApproved: (toolName, input) => {
         // The global lists plus this project's own, read on every call so a change applies at once.
         const settings = this.deps.settings.get();
-        const own = this.deps.projects.get(project.path);
+        const own = this.deps.projects.get(workspace.root);
         if (toolName === 'run_command' && typeof (input as { command?: unknown })?.command === 'string') {
           return isCommandAllowed(
             (input as { command: string }).command,
@@ -385,7 +406,6 @@ export class ChatManager {
       onEvent: (event) => this.deps.emit(event, session.id),
       onChange: (immediate, checkpoint) => (immediate ? this.save(session, checkpoint) : this.scheduleSave(session)),
     });
-    this.liveSessions.add(session);
     return session;
   }
 
@@ -410,7 +430,12 @@ export class ChatManager {
   }
 
   private currentShell(workspace: Workspace): ShellRunner {
-    this.shell ??= new ShellRunner(
+    this.shell ??= this.createShell(workspace);
+    return this.shell;
+  }
+
+  private createShell(workspace: Workspace): ShellRunner {
+    return new ShellRunner(
       () => workspace.root,
       () => {
         const settings = this.deps.settings.get();
@@ -425,7 +450,6 @@ export class ChatManager {
         };
       },
     );
-    return this.shell;
   }
 
   private scheduleSave(session: ChatSession): void {
