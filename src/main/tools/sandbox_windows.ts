@@ -269,10 +269,17 @@ export function findHelper(): string | null {
   );
 }
 
+export const REVOKE_TIMEOUT_MS = 15_000;
+
 // The helper grants each project's sandbox write access once, to a capability derived from the project path, and
 // keeps it across commands (#103). This removes it when the user closes or removes the project; quitting keeps it.
 // Resolves to the helper's error, or null. The helper refuses while a sandboxed command still runs in the project.
-export function revokeProjectGrant(project: string, helper: string | null = findHelper()): Promise<string | null> {
+// A helper that hangs is killed after timeoutMs and reported as an error.
+export function revokeProjectGrant(
+  project: string,
+  helper: string | null = findHelper(),
+  timeoutMs = REVOKE_TIMEOUT_MS,
+): Promise<string | null> {
   if (!helper || process.platform !== 'win32') return Promise.resolve(null);
   let cwd = project;
   try {
@@ -284,10 +291,19 @@ export function revokeProjectGrant(project: string, helper: string | null = find
   return new Promise((resolve) => {
     const child = spawn(helper, [], { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
     let output = '';
+    // A helper stuck on the permission mutex would otherwise leave this, and the retry loop above it, waiting forever.
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve('The sandbox helper did not answer in time.');
+    }, timeoutMs);
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', (chunk: string) => (output += chunk));
-    child.on('error', (error) => resolve(error.message));
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      resolve(error.message);
+    });
     child.on('close', () => {
+      clearTimeout(timer);
       let error: string | null = null;
       for (const event of output.split('\n').map(parseHelperEvent)) {
         if (event?.type === 'log') logHelperEvent(event);

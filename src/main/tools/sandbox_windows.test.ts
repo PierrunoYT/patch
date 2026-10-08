@@ -1,5 +1,5 @@
 import { once } from 'node:events';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -12,6 +12,7 @@ import {
   isPackagedElectron,
   parseHelperEvent,
   releaseProjectGrant,
+  revokeProjectGrant,
   windowsPolicy,
   type HelperRequest,
 } from './sandbox_windows';
@@ -179,6 +180,36 @@ describe('releaseProjectGrant (#103)', () => {
     let calls = 0;
     expect(await releaseProjectGrant(cwd, async () => (calls++, 'refused'), 3, 0)).toBe(false);
     expect(calls).toBe(3);
+  });
+});
+
+describe('revokeProjectGrant timeout (#188)', () => {
+  it.skipIf(process.platform !== 'win32')('kills a hung helper and resolves with an error', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'patch-revoke-hang-'));
+    try {
+      // A copy of node.exe stands in for the helper; the preload keeps it alive so it never answers.
+      const helper = join(dir, 'hang.exe');
+      copyFileSync(process.execPath, helper);
+      const hang = join(dir, 'hang.js');
+      writeFileSync(
+        hang,
+        'setInterval(() => {}, 1000);\nprocess.on("uncaughtException", () => {});\nprocess.exit = () => undefined;\n',
+      );
+      const previous = process.env.NODE_OPTIONS;
+      process.env.NODE_OPTIONS = `--require ${JSON.stringify(hang)}`;
+      let error: string | null;
+      const started = Date.now();
+      try {
+        error = await revokeProjectGrant(dir, helper, 300);
+      } finally {
+        if (previous === undefined) delete process.env.NODE_OPTIONS;
+        else process.env.NODE_OPTIONS = previous;
+      }
+      expect(error).toMatch(/did not answer in time/);
+      expect(Date.now() - started).toBeLessThan(10_000);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

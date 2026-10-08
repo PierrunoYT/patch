@@ -133,11 +133,17 @@ export class BrowserService implements BrowserController {
   private waitForGuest(): Promise<WebContents> {
     if (this.available) return Promise.resolve(this.guest!);
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('The browser panel did not open.')), 5000);
-      this.waiters.push(() => {
+      const waiter = () => {
         clearTimeout(timer);
         resolve(this.guest!);
-      });
+      };
+      const timer = setTimeout(() => {
+        // Drop the waiter so a failed wait leaks no closure and a later attach has nothing stale to resolve.
+        const index = this.waiters.indexOf(waiter);
+        if (index !== -1) this.waiters.splice(index, 1);
+        reject(new Error('The browser panel did not open.'));
+      }, 5000);
+      this.waiters.push(waiter);
     });
   }
 }

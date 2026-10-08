@@ -190,4 +190,41 @@ describe('BrowserService', () => {
       vi.useRealTimers();
     }
   });
+
+  it('removes a timed-out waiter so a later attach has nothing stale to resolve (#188)', async () => {
+    vi.useFakeTimers();
+    try {
+      const service = new BrowserService(() => {});
+      const waiters = (service as unknown as { waiters: unknown[] }).waiters;
+      const assertion = expect(service.screenshot()).rejects.toThrow('The browser panel did not open.');
+      expect(waiters).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(5000);
+      await assertion;
+      expect(waiters).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps other pending waiters when one times out', async () => {
+    vi.useFakeTimers();
+    try {
+      const service = new BrowserService(() => {});
+      const waiters = (service as unknown as { waiters: unknown[] }).waiters;
+      const first = expect(service.screenshot()).rejects.toThrow('The browser panel did not open.');
+      await vi.advanceTimersByTimeAsync(3000);
+      const guest = new FakeGuest();
+      guest.capturePage.mockResolvedValue({ getSize: () => ({ width: 10 }), toPNG: () => Buffer.from('png') });
+      const second = service.screenshot();
+      expect(waiters).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(2000);
+      await first;
+      expect(waiters).toHaveLength(1);
+      attach(service, guest);
+      expect(await second).toBe(Buffer.from('png').toString('base64'));
+      expect(waiters).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
