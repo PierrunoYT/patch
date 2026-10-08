@@ -501,6 +501,7 @@ const D = {
     ['7778e01', 'fix: keep Windows sandbox toolchain copies across commands'],
   ],
   issues: [
+    [220, 'chat_manager.test.ts: temp folder cleanup fails with ENOTEMPTY on macOS CI', 'tests', 'low', 0, '10-08'],
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [210, 'ChatGPT sign-in: redirect says localhost, server binds only 127.0.0.1', 'security', 'low', 0, '10-07'],
@@ -587,6 +588,14 @@ const D = {
       '10-07',
     ],
     [139, 'Windows sandbox: .git permissions are still walked several times per command', 'sandbox', 'low', 0, '10-07'],
+    [
+      138,
+      'e2e: crash_kill approval test stalls on CI (chat save and Local State never written)',
+      'tests',
+      'medium',
+      0,
+      '10-07',
+    ],
     [135, 'Agent benchmark: a current baseline, more runs per task and regression checks', 'tests', 'low', 0, '10-06'],
     [
       133,
@@ -654,7 +663,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 85,
+  closedCount: 84,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
