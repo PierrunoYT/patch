@@ -1,5 +1,8 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { retryDecision } from '../agent/retry';
 import { appLog } from '../app_log';
 import { editFileTool } from '../tools/files';
 import { toToolSpecs } from '../tools/registry';
@@ -546,6 +549,84 @@ describe('AnthropicConversation', () => {
     });
     conversation.addUserMessage({ text: 'hi' });
     await expect(conversation.runTurn(request())).rejects.toThrow(/invalid x-api-key/);
+  });
+
+  it('re-asks at once when a streamed tool input is not valid JSON', async () => {
+    const broken = anthropicStream(
+      [{ type: 'tool_use', id: 'toolu_bad', name: 'read_file', input: { path: 'a.ts' } }],
+      'tool_use',
+    ).map((event) =>
+      (event.data as { delta?: { type?: string } }).delta?.type === 'input_json_delta'
+        ? {
+            ...event,
+            data: {
+              type: 'content_block_delta',
+              index: 0,
+              delta: { type: 'input_json_delta', partial_json: '{"path": "a.ts",,}' },
+            },
+          }
+        : event,
+    );
+    server.queueSse(broken);
+    server.queueSse(
+      anthropicStream([{ type: 'tool_use', id: 'toolu_ok', name: 'read_file', input: { path: 'a.ts' } }], 'tool_use'),
+    );
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-opus-5-5',
+      effort: 'high',
+    });
+    conversation.addUserMessage({ text: 'Read a.ts' });
+    const onRestart = vi.fn();
+    const req = request();
+    req.callbacks.onRestart = onRestart;
+
+    const result = await conversation.runTurn(req);
+    expect(onRestart).toHaveBeenCalledTimes(1);
+    expect(server.requests).toHaveLength(2);
+    expect(result.toolCalls).toEqual([{ id: 'toolu_ok', name: 'read_file', input: { path: 'a.ts' } }]);
+  });
+
+  it('leaves a connection dropped mid-stream to the agent loop instead of re-asking at once', async () => {
+    // The socket closes after part of the stream, which the SDK reports as an AnthropicError caused by UND_ERR_SOCKET.
+    let requests = 0;
+    const dropping = createServer((req, res) => {
+      requests++;
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        for (const { event, data } of anthropicStream([{ type: 'text', text: 'Partial' }], 'end_turn').slice(0, 3)) {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        }
+        setTimeout(() => res.socket?.destroy(), 20);
+      });
+    });
+    await new Promise<void>((resolve) => dropping.listen(0, '127.0.0.1', resolve));
+    try {
+      const url = `http://127.0.0.1:${(dropping.address() as AddressInfo).port}`;
+      const conversation = new AnthropicConversation(createAnthropicClient('sk-test', url), {
+        model: 'claude-opus-5-5',
+        effort: 'high',
+      });
+      conversation.addUserMessage({ text: 'hi' });
+      const before = structuredClone(conversation.serialize());
+      const onRestart = vi.fn();
+      const req = request();
+      req.callbacks.onRestart = onRestart;
+
+      const error = await conversation.runTurn(req).then(
+        () => null,
+        (caught: unknown) => caught,
+      );
+      expect(error).toBeInstanceOf(Error);
+      expect((error as { cause?: { cause?: { code?: string } } }).cause?.cause?.code).toBe('UND_ERR_SOCKET');
+      expect(retryDecision(error, 0)).not.toBeNull();
+      expect(onRestart).not.toHaveBeenCalled();
+      expect(requests).toBe(1);
+      expect(conversation.serialize()).toEqual(before);
+    } finally {
+      dropping.closeAllConnections();
+      await new Promise((resolve) => dropping.close(resolve));
+    }
   });
 
   it('closes tool calls left pending by an interrupted task when the next message is added', async () => {

@@ -58,6 +58,13 @@ export interface AnthropicConversationOptions {
 
 const isToolResult = (block: ContentBlockParam) => block.type === 'tool_result';
 
+// The SDK's message stream rejects with this AnthropicError (no cause) when a tool_use block's streamed input JSON
+// does not parse. Other stream failures, such as a dropped socket, are also plain AnthropicErrors but carry a cause.
+const isToolInputParseError = (error: unknown) =>
+  error instanceof Anthropic.AnthropicError &&
+  !(error instanceof Anthropic.APIError) &&
+  error.message.startsWith('Unable to parse tool parameter JSON');
+
 // A cut is safe before an assistant message (the user message before it holds the results of the calls it follows)
 // and before a user message that answers no tool call. It is never safe before a message of tool results.
 const compactionAdapter: CompactionAdapter<MessageParam> = {
@@ -203,8 +210,9 @@ export class AnthropicConversation implements Conversation {
       try {
         message = await stream.finalMessage();
       } catch (error) {
-        // Only an unparseable streamed tool input is retried; API and abort errors propagate.
-        if (error instanceof Anthropic.APIError || request.signal.aborted || jsonRetries++ >= MAX_JSON_RETRIES) {
+        // Only an unparseable streamed tool input is re-asked here. Everything else propagates, including a connection
+        // dropped mid-stream (the SDK wraps it as a plain AnthropicError), so the agent loop retries it with backoff.
+        if (!isToolInputParseError(error) || request.signal.aborted || jsonRetries++ >= MAX_JSON_RETRIES) {
           throw error;
         }
         request.callbacks.onRestart?.();
