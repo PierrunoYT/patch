@@ -23,6 +23,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'e2e',
+          setupFiles: ['tests/real_tmpdir.ts'],
           include: ['tests/e2e/**/*.test.ts'],
           testTimeout: 60_000,
           hookTimeout: 60_000,
