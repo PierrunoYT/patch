@@ -134,7 +134,7 @@ const D = {
         'registry.ts',
         'shell.ts (559; streaming UTF-8 output, #164; kills the programs a finished command left running, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'shell_leftovers.ts (113; finds and kills what a Windows shell left running through its parent pid, #165)',
-        'sandbox_windows.ts (417, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
+        'sandbox_windows.ts (434, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
         'web.ts (226, no own test)',
@@ -342,7 +342,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
-    { a: 'main/tools', f: 24, c: 448, src: 4295, tl: 6323 },
+    { a: 'main/tools', f: 24, c: 450, src: 4295, tl: 6323 },
     { a: 'main/panels', f: 4, c: 64, src: 608, tl: 947 },
     { a: 'main/other', f: 12, c: 188, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
@@ -553,7 +553,7 @@ const D = {
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
-    [149, 'Packaged builds look for sandbox-helper.exe in dev paths and the cwd', 'sandbox', 'low', 0, '10-07'],
+    [149, 'Packaged builds run sandbox-helper.exe without checking its signature', 'sandbox', 'low', 0, '10-07'],
     [148, 'Browser tool uses the panel’s persistent cookie session', 'security', 'medium', 0, '10-07'],
     [147, 'macOS sandboxed commands with network can reach local Unix sockets', 'sandbox', 'medium', 0, '10-07'],
     [

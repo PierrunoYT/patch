@@ -9,6 +9,7 @@ import {
   exceedsEntryLimit,
   helperCandidates,
   HelperProcess,
+  isPackagedElectron,
   parseHelperEvent,
   releaseProjectGrant,
   windowsPolicy,
@@ -254,13 +255,30 @@ describe('buildHelperRequest', () => {
 
 describe('helper discovery and events', () => {
   it('prefers an override, then the packaged resources, then the Cargo output', () => {
-    expect(helperCandidates('C:\\app\\resources', 'C:\\app\\out\\main', 'C:\\dev', 'X:\\h.exe')).toEqual([
+    expect(helperCandidates('C:\\app\\resources', 'C:\\app\\out\\main', 'C:\\dev', 'X:\\h.exe', false)).toEqual([
       'X:\\h.exe',
       'C:\\app\\resources\\sandbox-helper.exe',
       'C:\\app\\native\\sandbox-helper\\target\\release\\sandbox-helper.exe',
       'C:\\dev\\native\\sandbox-helper\\target\\release\\sandbox-helper.exe',
     ]);
-    expect(helperCandidates(undefined, 'C:\\a\\out\\main', 'C:\\dev')).toHaveLength(2);
+    expect(helperCandidates(undefined, 'C:\\a\\out\\main', 'C:\\dev', undefined, false)).toHaveLength(2);
+  });
+
+  it('only trusts the bundled helper in a packaged build (#149)', () => {
+    expect(helperCandidates('C:\\app\\resources', 'C:\\app\\out\\main', 'C:\\dev', 'X:\\h.exe', true)).toEqual([
+      'C:\\app\\resources\\sandbox-helper.exe',
+    ]);
+    expect(helperCandidates(undefined, 'C:\\app\\out\\main', 'C:\\dev', 'X:\\h.exe', true)).toEqual([]);
+  });
+
+  it('detects a packaged build the way Electron does', () => {
+    expect(isPackagedElectron(undefined, 'C:\\Program Files\\nodejs\\node.exe', 'win32')).toBe(false);
+    expect(isPackagedElectron('38.0.0', 'C:\\proj\\node_modules\\electron\\dist\\electron.exe', 'win32')).toBe(false);
+    expect(isPackagedElectron('38.0.0', 'C:\\Users\\me\\AppData\\Local\\Programs\\Patch\\Patch.exe', 'win32')).toBe(
+      true,
+    );
+    expect(isPackagedElectron('38.0.0', '/proj/node_modules/electron/dist/electron', 'linux')).toBe(false);
+    expect(isPackagedElectron('38.0.0', '/opt/Patch/patch', 'linux')).toBe(true);
   });
 
   it('parses events and ignores noise', () => {

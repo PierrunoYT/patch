@@ -2,7 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, readdirSync, realpathSync, type Dirent } from 'node:fs';
 import { PassThrough } from 'node:stream';
-import { join, win32 } from 'node:path';
+import { basename, join, win32 } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { appLog } from '../app_log';
 
@@ -228,13 +228,17 @@ export function parseHelperEvent(line: string): HelperEvent | null {
   }
 }
 
-// Where sandbox-helper.exe lives: next to the app resources when packaged, in the Cargo output when developing.
+// Where sandbox-helper.exe lives: next to the app resources when packaged, in the Cargo output when developing. A
+// packaged build only trusts its bundled helper, so an environment variable or a file in the working directory can't
+// pick the binary that every sandboxed command runs through (#149). If that helper is missing, there is no sandbox.
 export function helperCandidates(
   resourcesPath: string | undefined,
   dirname: string,
   cwd: string,
-  override?: string,
+  override: string | undefined,
+  packaged: boolean,
 ): string[] {
+  if (packaged) return resourcesPath ? [win32.join(resourcesPath, HELPER_NAME)] : [];
   return [
     override,
     resourcesPath ? win32.join(resourcesPath, HELPER_NAME) : undefined,
@@ -243,10 +247,23 @@ export function helperCandidates(
   ].filter((path): path is string => Boolean(path));
 }
 
+// The same rule as Electron's app.isPackaged, without importing electron: this module also runs under plain Node in
+// tests and perf runs, which count as development.
+export function isPackagedElectron(
+  electronVersion: string | undefined,
+  execPath: string,
+  platform: NodeJS.Platform,
+): boolean {
+  if (!electronVersion) return false;
+  const exe = (platform === 'win32' ? win32.basename(execPath) : basename(execPath)).toLowerCase();
+  return exe !== (platform === 'win32' ? 'electron.exe' : 'electron');
+}
+
 export function findHelper(): string | null {
   const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+  const packaged = isPackagedElectron(process.versions.electron, process.execPath, process.platform);
   return (
-    helperCandidates(resources, __dirname, process.cwd(), process.env.PATCH_SANDBOX_HELPER).find((path) =>
+    helperCandidates(resources, __dirname, process.cwd(), process.env.PATCH_SANDBOX_HELPER, packaged).find((path) =>
       existsSync(path),
     ) ?? null
   );
