@@ -182,9 +182,11 @@ export class Panels {
       const stop = () => {
         handle.removeEventListener('pointermove', move);
         handle.removeEventListener('pointerup', stop);
+        handle.removeEventListener('pointercancel', stop);
       };
       handle.addEventListener('pointermove', move);
       handle.addEventListener('pointerup', stop);
+      handle.addEventListener('pointercancel', stop);
     });
     handle.addEventListener('keydown', (event) => {
       const host = this.element.parentElement;

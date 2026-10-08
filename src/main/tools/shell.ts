@@ -217,10 +217,12 @@ export class ShellRunner {
       if (signal?.aborted) onAbort();
 
       let finished = false;
+      let drainTimer: ReturnType<typeof setTimeout> | undefined;
       const finish = (exitCode: number | null) => {
         if (finished) return;
         finished = true;
         clearTimeout(timer);
+        clearTimeout(drainTimer);
         signal?.removeEventListener('abort', onAbort);
         killLeftovers(child);
         child.stdout?.destroy();
@@ -233,7 +235,7 @@ export class ShellRunner {
       });
       // 'close' waits for the output pipes, which a leftover child (a test worker, a dev server the command started)
       // can hold open long after the command itself ended. Give the pipes a moment to drain, then stop waiting.
-      child.on('exit', (code) => setTimeout(() => finish(code), EXIT_DRAIN_MS));
+      child.on('exit', (code) => (drainTimer = setTimeout(() => finish(code), EXIT_DRAIN_MS)));
       child.on('close', (code) => finish(code));
     });
   }

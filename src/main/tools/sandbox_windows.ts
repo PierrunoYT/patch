@@ -339,7 +339,6 @@ export class HelperProcess extends EventEmitter {
   readonly stderr = new PassThrough();
   pid: number | undefined;
   exitCode: number | null = null;
-  timedOut = false;
   private done = false;
   private buffer = '';
   private readonly helper: ChildProcess;
@@ -387,7 +386,6 @@ export class HelperProcess extends EventEmitter {
         this.stderr.write(event.data);
         break;
       case 'exit':
-        this.timedOut = event.timedOut;
         this.finish(event.exitCode);
         break;
       case 'error':
