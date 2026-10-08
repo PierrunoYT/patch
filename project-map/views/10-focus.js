@@ -41,7 +41,6 @@ builders.focus = () => {
         '#114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #116 provider failure text kept out of local logs, #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
         '#73: web_search still sends queries without approval',
         '#125: two transcript_view e2e tests fail intermittently in full runs',
-        '#138: the crash_kill approval e2e test stalls intermittently on CI; asynchronous sandbox probes (#112) may fix it, to be confirmed over more runs',
       ],
       'The known protective-rule confirmation gap is closed (#114), including reorders that leave the protective rule at the same index. Continue with contained fixes and regression tests for the remaining findings.',
     ],
@@ -132,7 +131,7 @@ builders.focus = () => {
         h(
           'li',
           null,
-          'CI is green on Windows, Linux and macOS again since #137. The crash_kill approval e2e test still stalls intermittently on Windows and macOS (#138); queued jobs sometimes time out waiting for a hosted runner and need a re-run.',
+          'CI is green on Windows, Linux and macOS again since #137. The crash_kill approval e2e test that stalled intermittently (#138) has stayed green since the sandbox probes became asynchronous; queued jobs sometimes time out waiting for a hosted runner and need a re-run.',
         ),
       ),
     ),

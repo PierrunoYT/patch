@@ -587,14 +587,6 @@ const D = {
       '10-07',
     ],
     [139, 'Windows sandbox: .git permissions are still walked several times per command', 'sandbox', 'low', 0, '10-07'],
-    [
-      138,
-      'e2e: crash_kill approval test stalls on CI (chat save and Local State never written)',
-      'tests',
-      'medium',
-      0,
-      '10-07',
-    ],
     [135, 'Agent benchmark: a current baseline, more runs per task and regression checks', 'tests', 'low', 0, '10-06'],
     [
       133,
@@ -662,7 +654,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 84,
+  closedCount: 85,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
