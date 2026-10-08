@@ -109,6 +109,32 @@ describe('AnthropicConversation', () => {
     expect(JSON.stringify(conversation.serialize().messages)).not.toContain('cache_control');
   });
 
+  it('retains the Haiku long tier for idle cache reads', async () => {
+    server.queueSse(anthropicStream([{ type: 'text', text: 'done' }], 'end_turn'));
+    server.queueJson(200, {
+      id: 'msg_keep',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-haiku-5-5',
+      content: [],
+      stop_reason: 'max_tokens',
+      stop_sequence: null,
+      usage: { input_tokens: 1, output_tokens: 0, cache_read_input_tokens: 100_000, cache_creation_input_tokens: 0 },
+    });
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-haiku-5-5',
+      effort: 'low',
+    });
+    conversation.addUserMessage({ text: 'hi' });
+    await conversation.runTurn(request());
+    expect((await conversation.keepCacheWarm(new AbortController().signal))?.longContext).toEqual({
+      inputTokens: 1,
+      outputTokens: 0,
+      cacheReadTokens: 100_000,
+      cacheWriteTokens: 0,
+    });
+  });
+
   it('does not keep the cache warm while tool calls are waiting for their results', async () => {
     server.queueSse(
       anthropicStream([{ type: 'tool_use', id: 'toolu_1', name: 'read_file', input: { path: 'a.ts' } }], 'tool_use'),
@@ -169,6 +195,7 @@ describe('AnthropicConversation', () => {
   it.each([
     'claude-opus-5-5',
     'claude-sonnet-5-5',
+    'claude-haiku-5-5',
     'claude-haiku-4-5',
     'claude-opus-5',
     'claude-fable-5-1',
@@ -234,7 +261,42 @@ describe('AnthropicConversation', () => {
     expect(mcp).not.toHaveProperty('strict');
   });
 
-  it('omits thinking, compaction and fallback for Haiku', async () => {
+  it.each([100_000, 100_001])('tracks Haiku pricing at %i prompt tokens across continuations', async (tokens) => {
+    const first = anthropicStream([{ type: 'text', text: 'continue' }], 'pause_turn');
+    (first[0]!.data as any).message.usage = {
+      input_tokens: tokens - 70_000,
+      output_tokens: 0,
+      cache_read_input_tokens: 40_000,
+      cache_creation_input_tokens: 30_000,
+    };
+    server.queueSse(first);
+    server.queueSse(anthropicStream([{ type: 'text', text: 'done' }], 'end_turn'));
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-haiku-5-5',
+      effort: 'medium',
+    });
+    conversation.addUserMessage({ text: 'hi' });
+    const result = await conversation.runTurn(request());
+    expect(result.contextTokens).toBe(17);
+    expect(result.usage.inputTokens).toBe(tokens - 70_000 + 10);
+    expect(result.usage.longContext).toEqual(
+      tokens > 100_000
+        ? {
+            inputTokens: tokens - 70_000,
+            outputTokens: 7,
+            cacheReadTokens: 40_000,
+            cacheWriteTokens: 30_000,
+          }
+        : undefined,
+    );
+    const { body, headers } = server.requests[0]!;
+    expect(body.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+    expect(body.output_config).toEqual({ effort: 'medium' });
+    expect(headers['anthropic-beta']).toContain('compact-2026-01-12');
+    expect(body.fallbacks).toBeUndefined();
+  });
+
+  it('omits thinking, compaction and fallback for legacy Haiku', async () => {
     server.queueSse(anthropicStream([{ type: 'text', text: 'ok' }], 'end_turn'));
     const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
       model: 'claude-haiku-4-5',
@@ -535,26 +597,31 @@ describe('AnthropicConversation', () => {
 });
 
 describe('AnthropicCompletionClient', () => {
-  it('returns schema-validated structured output without forcing a tool', async () => {
-    const server = new MockApiServer();
-    const baseURL = await server.start();
-    server.queueJson(200, {
-      id: 'msg_1',
-      type: 'message',
-      role: 'assistant',
-      model: 'claude-haiku-4-5',
-      content: [{ type: 'text', text: '{"title":"Fix login bug"}' }],
-      stop_reason: 'end_turn',
-      stop_sequence: null,
-      usage: { input_tokens: 5, output_tokens: 5 },
-    });
-    const client = new AnthropicCompletionClient(createAnthropicClient('sk-test', baseURL), 'claude-haiku-4-5');
-    const result = await client.complete('Title?', z.object({ title: z.string() }));
-    await server.stop();
+  it.each(['claude-haiku-4-5', 'claude-haiku-5-5'])(
+    'returns structured output without forcing a tool on %s',
+    async (model) => {
+      const server = new MockApiServer();
+      const baseURL = await server.start();
+      server.queueJson(200, {
+        id: 'msg_1',
+        type: 'message',
+        role: 'assistant',
+        model,
+        content: [{ type: 'text', text: '{"title":"Fix login bug"}' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 5, output_tokens: 5 },
+      });
+      const client = new AnthropicCompletionClient(createAnthropicClient('sk-test', baseURL), model);
+      const result = await client.complete('Title?', z.object({ title: z.string() }));
+      await server.stop();
 
-    expect(result).toEqual({ title: 'Fix login bug' });
-    const body = server.requests[0]!.body;
-    expect(body.output_config.format.type).toBe('json_schema');
-    expect(body.tool_choice).toBeUndefined();
-  });
+      expect(result).toEqual({ title: 'Fix login bug' });
+      const body = server.requests[0]!.body;
+      expect(body.output_config.format.type).toBe('json_schema');
+      expect(body.tool_choice).toBeUndefined();
+      expect(body.thinking).toEqual(model === 'claude-haiku-5-5' ? { type: 'adaptive' } : undefined);
+      expect(body.output_config.effort).toBe(model === 'claude-haiku-5-5' ? 'low' : undefined);
+    },
+  );
 });

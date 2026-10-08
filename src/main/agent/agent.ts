@@ -133,10 +133,11 @@ export class Agent {
               cacheReadTokens: 0,
               cacheWriteTokens: 0,
             };
-        long.inputTokens += result.usage.inputTokens;
-        long.outputTokens += result.usage.outputTokens;
-        long.cacheReadTokens += result.usage.cacheReadTokens;
-        long.cacheWriteTokens += result.usage.cacheWriteTokens ?? 0;
+        const tierUsage = typeof result.usage.longContext === 'object' ? result.usage.longContext : result.usage;
+        long.inputTokens += tierUsage.inputTokens;
+        long.outputTokens += tierUsage.outputTokens;
+        long.cacheReadTokens += tierUsage.cacheReadTokens;
+        long.cacheWriteTokens += tierUsage.cacheWriteTokens ?? 0;
         this.usage.longContext = long;
       }
       emit({ type: 'usage', totals: this.totals });

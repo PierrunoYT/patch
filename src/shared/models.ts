@@ -13,8 +13,11 @@ export interface ModelOption {
 export const MODEL_OPTIONS: ModelOption[] = [
   { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', provider: 'anthropic', contextWindow: 1_000_000 },
   { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', provider: 'anthropic', contextWindow: 1_000_000 },
+  { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', provider: 'anthropic', contextWindow: 1_000_000 },
+  { id: 'claude-fable-5-1', label: 'Claude Fable 5.1', provider: 'anthropic', contextWindow: 1_000_000 },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic', contextWindow: 200_000 },
   { id: 'gpt-6-astra', label: 'GPT-6 Astra', provider: 'openai', contextWindow: 1_050_000 },
+  { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', provider: 'openai', contextWindow: 1_050_000 },
   { id: 'gpt-6-sol', label: 'GPT-6 Sol', provider: 'openai', contextWindow: 1_050_000 },
   { id: 'gpt-6-luna', label: 'GPT-6 Luna', provider: 'openai', contextWindow: 1_050_000 },
 ];
@@ -28,14 +31,14 @@ export const DEFAULT_MODEL = 'claude-opus-5-5';
 
 // Cheap model used for background work (chat titles, Compact chat summaries, commit messages) and the finder subagent.
 export const SMALL_MODELS: Record<Provider, string> = {
-  anthropic: 'claude-haiku-4-5',
+  anthropic: 'claude-haiku-5-5',
   openai: 'gpt-6-luna',
 };
 
 // Mid-size model the task subagent can use. Always the chat's own provider.
 export const MID_MODELS: Record<Provider, string> = {
   anthropic: 'claude-sonnet-5-5',
-  openai: 'gpt-6-sol',
+  openai: 'gpt-6.1-sol',
 };
 
 export type SubagentModelChoice = 'same' | 'mid' | 'small';
@@ -70,7 +73,7 @@ export function effortForSubagent(
   return chatEffort;
 }
 
-// US dollars per million tokens at the providers' standard list prices (September 2026). Custom ids get no estimate.
+// US dollars per million tokens at the providers' standard list prices (October 2026). Custom ids get no estimate.
 export interface ModelPricing {
   input: number;
   output: number;
@@ -82,6 +85,14 @@ export interface ModelPricing {
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
   'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+  'claude-haiku-5-5': {
+    input: 0.1,
+    output: 0.5,
+    cacheRead: 0.01,
+    cacheWrite: 0.125,
+    longContext: { input: 0.5, output: 2.5, cacheRead: 0.05, cacheWrite: 0.625 },
+  },
+  'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
   'gpt-6-astra': {
     input: 10,
@@ -89,6 +100,13 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheRead: 1,
     cacheWrite: 12.5,
     longContext: { input: 20, output: 75, cacheRead: 2, cacheWrite: 25 },
+  },
+  'gpt-6.1-sol': {
+    input: 2,
+    output: 10,
+    cacheRead: 0.1,
+    cacheWrite: 2.5,
+    longContext: { input: 4, output: 15, cacheRead: 0.2, cacheWrite: 5 },
   },
   'gpt-6-sol': {
     input: 2,
@@ -173,11 +191,11 @@ export interface ClaudeCapabilities {
 }
 
 // Claude models known to accept images. A custom Claude id is not assumed to, since an image it cannot take is a 400.
-const IMAGE_MODELS = /^claude-(opus-5-5|sonnet-5-5|haiku-4-5|opus-5|fable-5-1|fable-5)$/;
+const IMAGE_MODELS = /^claude-(opus-5-5|sonnet-5-5|haiku-5-5|haiku-4-5|opus-5|fable-5-1|fable-5)$/;
 
 // Request features differ per Claude model and sending an unsupported one is a 400, so features are enabled
 // only for models known to support them. Unknown (custom) Claude ids get a plain request.
-const CURRENT_GENERATION = /^claude-(opus-5-5|sonnet-5-5|opus-5|fable-5-1|fable-5)$/;
+const CURRENT_GENERATION = /^claude-(opus-5-5|sonnet-5-5|haiku-5-5|opus-5|fable-5-1|fable-5)$/;
 
 export function claudeCapabilities(model: string): ClaudeCapabilities {
   const current = CURRENT_GENERATION.test(model);

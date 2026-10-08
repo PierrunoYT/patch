@@ -51,7 +51,9 @@ export interface TurnUsage {
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens?: number;
-  longContext?: boolean;
+  // A bucket allows a provider turn with continuations to mix short and long requests.
+  longContext?:
+    boolean | { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number };
 }
 
 export type StopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'refusal' | 'context_exceeded' | 'other';

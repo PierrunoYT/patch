@@ -26,6 +26,7 @@ import type {
   ToolResult,
   TurnRequest,
   TurnResult,
+  TurnUsage,
   UserInput,
 } from './types';
 import { INTERRUPTED_TOOL_RESULT } from './types';
@@ -185,7 +186,7 @@ export class AnthropicConversation implements Conversation {
     // Continuations belong to this attempt until the entire turn succeeds. They must be sent back to
     // Claude, but must not leak into saved history if a later request fails or is aborted.
     const pending: MessageParam[] = [];
-    const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const usage: TurnUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
     let jsonRetries = 0;
     let continuations = 0;
 
@@ -210,10 +211,27 @@ export class AnthropicConversation implements Conversation {
         continue;
       }
 
-      usage.inputTokens += message.usage.input_tokens;
-      usage.outputTokens += message.usage.output_tokens;
-      usage.cacheReadTokens += message.usage.cache_read_input_tokens ?? 0;
-      usage.cacheWriteTokens += message.usage.cache_creation_input_tokens ?? 0;
+      const requestUsage = this.messageUsage(message.usage);
+      usage.inputTokens += requestUsage.inputTokens;
+      usage.outputTokens += requestUsage.outputTokens;
+      usage.cacheReadTokens += requestUsage.cacheReadTokens;
+      usage.cacheWriteTokens = (usage.cacheWriteTokens ?? 0) + (requestUsage.cacheWriteTokens ?? 0);
+      if (typeof requestUsage.longContext === 'object') {
+        const long =
+          typeof usage.longContext === 'object'
+            ? usage.longContext
+            : {
+                inputTokens: 0,
+                outputTokens: 0,
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+              };
+        long.inputTokens += requestUsage.longContext.inputTokens;
+        long.outputTokens += requestUsage.longContext.outputTokens;
+        long.cacheReadTokens += requestUsage.longContext.cacheReadTokens;
+        long.cacheWriteTokens += requestUsage.longContext.cacheWriteTokens;
+        usage.longContext = long;
+      }
       pending.push({ role: 'assistant', content: message.content as ContentBlockParam[] });
 
       for (const block of message.content) {
@@ -282,24 +300,28 @@ export class AnthropicConversation implements Conversation {
       { ...rest, messages, max_tokens: 0, stream: false },
       { signal },
     );
-    const usage = {
-      inputTokens: message.usage.input_tokens,
-      outputTokens: message.usage.output_tokens,
-      cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
-      cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
-    };
+    const usage = this.messageUsage(message.usage);
     appLog.info('llm', 'anthropic keep-alive', {
       cacheRead: usage.cacheReadTokens,
-      cacheWrite: usage.cacheWriteTokens,
+      cacheWrite: usage.cacheWriteTokens ?? 0,
       input: usage.inputTokens,
     });
     return usage;
   }
 
-  private logCache(
-    request: Pick<TurnRequest, 'system' | 'tools'>,
-    usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number },
-  ): void {
+  private messageUsage(raw: Anthropic.Beta.BetaUsage): TurnUsage {
+    const usage = {
+      inputTokens: raw.input_tokens,
+      outputTokens: raw.output_tokens,
+      cacheReadTokens: raw.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: raw.cache_creation_input_tokens ?? 0,
+    };
+    const long =
+      this.model === 'claude-haiku-5-5' && usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens > 100_000;
+    return { ...usage, ...(long ? { longContext: { ...usage } } : {}) };
+  }
+
+  private logCache(request: Pick<TurnRequest, 'system' | 'tools'>, usage: TurnUsage): void {
     const toolNamesHash = hashText(request.tools.map((tool) => tool.name).join('\n'));
     const systemHash = hashText(request.system);
     const toolsChanged = this.toolNamesHash === toolNamesHash ? 0 : 1;
@@ -308,7 +330,7 @@ export class AnthropicConversation implements Conversation {
     this.systemHash = systemHash;
     appLog.info('llm', 'anthropic request', {
       cacheRead: usage.cacheReadTokens,
-      cacheWrite: usage.cacheWriteTokens,
+      cacheWrite: usage.cacheWriteTokens ?? 0,
       input: usage.inputTokens,
       output: usage.outputTokens,
       tools: request.tools.length,
@@ -410,7 +432,11 @@ export class AnthropicCompletionClient implements CompletionClient {
         model: this.model,
         max_tokens: 4096,
         messages: [{ role: 'user', content: prompt }],
-        output_config: { format: zodOutputFormat(schema) },
+        ...(claudeCapabilities(this.model).adaptiveThinking ? { thinking: { type: 'adaptive' as const } } : {}),
+        output_config: {
+          format: zodOutputFormat(schema),
+          ...(claudeCapabilities(this.model).adaptiveThinking ? { effort: 'low' as const } : {}),
+        },
       },
       { signal },
     );
