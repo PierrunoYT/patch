@@ -555,6 +555,16 @@ describe('applyEdit', () => {
     expect(applyEdit('a\r\nb\r\n', { old_string: 'a\nb', new_string: 'c\nd' })).toBe('c\r\nd\r\n');
   });
 
+  it('edits the LF part of a file with mixed line endings and keeps each ending', () => {
+    const mixed = 'a\r\nb\r\nc\nd\ne\n';
+    expect(applyEdit(mixed, { old_string: 'c\nd', new_string: 'C\nx\nD' })).toBe('a\r\nb\r\nC\nx\nD\ne\n');
+    expect(applyEdit(mixed, { old_string: 'a\nb', new_string: 'A\nB' })).toBe('A\r\nB\r\nc\nd\ne\n');
+  });
+
+  it('keeps CRLF when a single-line match in a CRLF file gains lines', () => {
+    expect(applyEdit('a\r\nb\r\n', { old_string: 'b', new_string: 'b\nc' })).toBe('a\r\nb\r\nc\r\n');
+  });
+
   it('does not interpret $ patterns in the replacement', () => {
     expect(applyEdit('price', { old_string: 'price', new_string: '$&$1' })).toBe('$&$1');
   });

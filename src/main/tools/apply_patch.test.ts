@@ -91,6 +91,16 @@ describe('applyHunks', () => {
     expect(applyHunks('a\r\nb\r\n', [hunk(null, '-b', '+B')], 'f')).toBe('a\r\nB\r\n');
   });
 
+  it('keeps each line ending in a file that mixes CRLF and LF', () => {
+    expect(applyHunks('a\r\nb\nc\n', [hunk(null, '-b', '+B')], 'f')).toBe('a\r\nB\nc\n');
+    expect(applyHunks('a\r\nb\nc\r\n', [hunk(null, ' a', '+x', ' b', '+y', ' c')], 'f')).toBe('a\r\nx\r\nb\ny\nc\r\n');
+    expect(applyHunks('a\nb\r\n', [hunk(null, ' b', '+c')], 'f')).toBe('a\nb\r\nc\r\n');
+  });
+
+  it('keeps a missing final newline when lines are added after the last line', () => {
+    expect(applyHunks('a\r\nb', [hunk(null, ' b', '+c')], 'f')).toBe('a\r\nb\r\nc');
+  });
+
   it('uses an anchor to choose between repeated blocks', () => {
     const content = 'fn a\nx\nfn b\nx\n';
     expect(applyHunks(content, [hunk('fn b', '-x', '+y')], 'f')).toBe('fn a\nx\nfn b\ny\n');

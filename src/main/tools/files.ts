@@ -356,8 +356,13 @@ export function applyEdit(
 ): string {
   refuseRedacted(old_string, new_string);
   const eol = detectEol(content);
-  const find = eol === '\r\n' ? old_string.replace(/\r?\n/g, '\r\n') : old_string;
-  const replacement = eol === '\r\n' ? new_string.replace(/\r?\n/g, '\r\n') : new_string;
+  // The literal text first, so an edit inside the LF part of a file that mixes CRLF and LF still matches; then the
+  // text with CRLF endings. The replacement takes the line ending of the text that matched.
+  const candidates = [old_string];
+  if (eol === '\r\n') candidates.push(old_string.replace(/\r?\n/g, '\r\n'));
+  const find = candidates.find((candidate) => content.includes(candidate)) ?? old_string;
+  const matchedEol = find.includes('\r\n') ? '\r\n' : find.includes('\n') ? '\n' : eol;
+  const replacement = new_string.replace(/\r?\n/g, matchedEol);
 
   const count = content.split(find).length - 1;
   if (count === 0) {

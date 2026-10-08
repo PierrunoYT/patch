@@ -4,7 +4,7 @@ import { unifiedDiff } from './files';
 import { changeProjectFiles, readProjectFile } from './file_operations';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
-import { requireUtf8ForEdit, isBinaryFile, sha256 } from './text_files';
+import { detectEol, requireUtf8ForEdit, isBinaryFile, sha256 } from './text_files';
 import { defineTool, ToolError, type ToolContext } from './types';
 
 // The patch format of OpenAI's Codex CLI:
@@ -90,11 +90,23 @@ export function parsePatch(patchText: string): PatchOp[] {
 
 // Applies the hunks of one file in order and returns the new content. Each hunk is searched for after the previous
 // one, so repeated lines are resolved by position; an @@ anchor moves the search start to the line holding that text.
+// Every line keeps its own ending, so a file that mixes CRLF and LF keeps both; an added line takes the ending of the
+// line it replaces or follows.
 export function applyHunks(content: string, hunks: Hunk[], label: string): string {
-  const eol = content.includes('\r\n') ? '\r\n' : '\n';
-  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const eol = detectEol(content);
+  // Splitting with a capture group alternates line text and its ending: [line, end, line, end, ..., rest].
+  const parts = content.split(/(\r\n|\n)/);
+  const lines: string[] = [];
+  const ends: string[] = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    lines.push(parts[i]!);
+    ends.push(parts[i + 1] ?? '');
+  }
   const endsWithNewline = lines[lines.length - 1] === '';
-  if (endsWithNewline) lines.pop();
+  if (endsWithNewline) {
+    lines.pop();
+    ends.pop();
+  }
 
   let cursor = 0;
   for (const hunk of hunks) {
@@ -135,11 +147,28 @@ export function applyHunks(content: string, hunks: Hunk[], label: string): strin
         );
       }
     }
+    ends.splice(start, before.length, ...hunkEnds(hunk, ends, start, eol));
     lines.splice(start, before.length, ...after);
     cursor = start + after.length;
   }
-  const text = lines.join(eol);
-  return lines.length > 0 && endsWithNewline ? text + eol : text;
+  return lines.map((line, i) => (i === lines.length - 1 && !endsWithNewline ? line : line + (ends[i] || eol))).join('');
+}
+
+// The endings of the lines a hunk leaves in place of the lines at `start`: a context line keeps its own, and an added
+// line borrows the ending of the line it replaces or follows (or, at the top of the file, of the line after it).
+function hunkEnds(hunk: Hunk, ends: string[], start: number, eol: string): string[] {
+  const result: string[] = [];
+  let index = start;
+  let previous = ends[start - 1];
+  for (const line of hunk.lines) {
+    if (line.prefix === '+') {
+      result.push(previous || ends[index] || eol);
+      continue;
+    }
+    previous = ends[index++];
+    if (line.prefix === ' ') result.push(previous ?? eol);
+  }
+  return result;
 }
 
 const normalizeExact = (line: string) => line;
