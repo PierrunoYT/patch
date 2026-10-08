@@ -15,14 +15,13 @@ builders.focus = () => {
       'Fix #142 next: it is the same planted-program problem through cross-spawn, which searches the working directory itself. Each fix needs a regression test that plants the file or link it guards against.',
     ],
     [
-      'Fix the high-severity bugs from the Oct 7 code review: #159 to #163',
+      'Fix the high-severity bugs from the Oct 7 code review: #160 to #163',
       'A full code review found no critical bug. The high findings sit in lifecycle and state handling across modules, not in single functions.',
       [
-        '#159: edit_file and apply_patch rewrite a non-UTF-8 file as UTF-8, replacing bytes far from the edit (confirmed)',
         '#160: opening a chat or clicking the active project tab kills the terminal shell and clears the commit message',
         '#161: a chat that cannot be restored still switches the main process to its project, so the next message runs where the UI is not',
         '#162, #163: the Windows sandbox leaks a helper process per failed start, and one unreadable PATH folder stops every later start',
-        '#165 to #178 (medium), #180 to #196 (low) and #197 to #206 (improvements): orphaned processes, MCP reconnects, stale ignore rules, settings recovery and more. Already fixed: #164 (output decoding), #179, #181, #183, #186 (the code index) and #203',
+        '#165 to #178 (medium), #180 to #196 (low) and #197 to #206 (improvements): orphaned processes, MCP reconnects, stale ignore rules, settings recovery and more. Already fixed: #159 (non-UTF-8 file protection), #164 (output decoding), #179, #181, #183, #186 (the code index) and #203',
       ],
       'The recurring causes: side effects on every change event without comparing old and new state, state changed before validation, and error paths that do less cleanup than success paths.',
     ],

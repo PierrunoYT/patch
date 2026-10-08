@@ -3,7 +3,15 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { z } from 'zod';
-import { detectEol, fileSize, isBinaryFile, MAX_READ_BYTES, sha256, withLineNumbers } from './text_files';
+import {
+  requireUtf8ForEdit,
+  detectEol,
+  fileSize,
+  isBinaryFile,
+  MAX_READ_BYTES,
+  sha256,
+  withLineNumbers,
+} from './text_files';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
 import { RegexWorker } from './regex_worker';
@@ -203,7 +211,7 @@ export const writeFileTool = defineTool({
     refuseRedacted(content);
     const file = context.workspace.resolve(path);
     if (existsSync(file)) requireRead(file, path, context);
-    const before = existsSync(file) ? await readFile(file, 'utf8') : '';
+    const before = existsSync(file) ? requireUtf8ForEdit(await readFile(file), path).toString('utf8') : '';
     const rel = context.workspace.relative(file);
     return { title: existsSync(file) ? `Overwrite ${rel}` : `Create ${rel}`, diff: unifiedDiff(rel, before, content) };
   },
@@ -212,8 +220,9 @@ export const writeFileTool = defineTool({
     const file = context.workspace.resolve(path);
     const exists = existsSync(file);
     if (exists) requireRead(file, path, context);
-    // The exact bytes, so undoing restores the file as it was even if it was not valid UTF-8.
+    // Keep the exact previous bytes for Undo.
     const previous = exists ? await readFile(file) : null;
+    if (previous !== null) requireUtf8ForEdit(previous, path);
     await mkdir(dirname(file), { recursive: true });
     await writeFile(file, content, 'utf8');
     context.readFiles.add(file);
@@ -246,7 +255,7 @@ export const editFileTool = defineTool({
     const rel = context.workspace.relative(file);
     // Fail before asking for approval, not after the user has approved a diff that cannot be applied.
     requireRead(file, input.path, context);
-    const before = await readFile(file, 'utf8');
+    const before = requireUtf8ForEdit(await readFile(file), input.path).toString('utf8');
     return { title: `Edit ${rel}`, diff: unifiedDiff(rel, before, applyEdit(before, input)) };
   },
   async run(input, context) {
@@ -254,7 +263,7 @@ export const editFileTool = defineTool({
     if (!existsSync(file)) throw new ToolError(`File not found: ${input.path}`);
     requireRead(file, input.path, context);
     const bytes = await readFile(file);
-    const before = bytes.toString('utf8');
+    const before = requireUtf8ForEdit(bytes, input.path).toString('utf8');
     const after = applyEdit(before, input);
     await writeFile(file, after, 'utf8');
     const rel = context.workspace.relative(file);

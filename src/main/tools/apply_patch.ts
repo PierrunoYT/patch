@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { unifiedDiff } from './files';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
-import { isBinaryFile } from './text_files';
+import { requireUtf8ForEdit, isBinaryFile } from './text_files';
 import { defineTool, ToolError, type ToolContext } from './types';
 
 // The patch format of OpenAI's Codex CLI:
@@ -200,7 +200,9 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
       );
     }
     if (await isBinaryFile(absolute)) throw new ToolError(`${rel} is a binary file.`);
-    const before = await readFile(absolute, 'utf8');
+    const bytes = await readFile(absolute);
+    if (op.kind === 'update') requireUtf8ForEdit(bytes, rel);
+    const before = bytes.toString('utf8');
     if (op.kind === 'delete') {
       changes.push({ rel, absolute, before, after: null });
       continue;

@@ -127,15 +127,15 @@ const D = {
       proc: 'main',
       files: 23,
       tests: 23,
-      lines: 3978,
-      testLines: 5792,
+      lines: 4005,
+      testLines: 5953,
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
       list: [
         'registry.ts',
         'shell.ts (504; streaming UTF-8 output, #164; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'sandbox_windows.ts (402, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
-        'files.ts (340; read_file counts terminated lines and reports offsets past EOF, #181)',
+        'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
         'web.ts (226, no own test)',
         'sandbox_windows.integration.test.ts (real AppContainer temp/cache writes, Node/npm tests and upstream skips, toolchains, overlapping project-drive and ACL recovery)',
         'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
@@ -143,7 +143,7 @@ const D = {
         'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees, metadata write and hard-link denial)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
-        'apply_patch.ts (same-path moves are updates; unanchored additions append, #183)',
+        'apply_patch.ts (286; same-path moves, #183; rejects non-UTF-8 updates before any write, #159)',
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process)',
         'browser.ts',
@@ -335,7 +335,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 213, src: 1609, tl: 3366 },
     { a: 'main/llm', f: 8, c: 97, src: 2134, tl: 2769 },
-    { a: 'main/tools', f: 23, c: 428, src: 3986, tl: 5896 },
+    { a: 'main/tools', f: 23, c: 434, src: 4005, tl: 5953 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 914 },
     { a: 'main/other', f: 12, c: 178, src: 2923, tl: 2790 },
     { a: 'shared', f: 8, c: 73, src: 1243, tl: 852 },
@@ -425,11 +425,11 @@ const D = {
     ['2026-10-05', 17],
     ['2026-10-06', 43],
     ['2026-10-07', 20],
-    ['2026-10-08', 4],
+    ['2026-10-08', 5],
   ],
   types: [
     ['fix', 118],
-    ['docs', 70],
+    ['docs', 71],
     ['feat', 60],
     ['test', 41],
     ['chore', 27],
@@ -441,7 +441,7 @@ const D = {
     ['security', 1],
   ],
   authors: [
-    ['PierrunoYT', 288],
+    ['PierrunoYT', 289],
     ['Amp', 28],
     ['StepUpGaming', 23],
     ['Claude', 7],
@@ -451,10 +451,10 @@ const D = {
     ['patchmote[bot]', 1],
   ],
   churn: [
-    ['CHANGELOG.md', 214],
+    ['CHANGELOG.md', 215],
     ['docs/ARCHITECTURE.md', 136],
     ['docs/DEVELOPMENT.md', 119],
-    ['README.md', 110],
+    ['README.md', 111],
     ['TASKS.md (no longer tracked)', 83],
     ['docs/USAGE.md', 55],
     ['patch-overview.html (now project-map/)', 52],
@@ -473,6 +473,7 @@ const D = {
     ['src/main/agent/agent.test.ts', 22],
   ],
   recent: [
+    ['ec64562', 'docs: tidy the changelog and README after merging #212-#217'],
     ['04ea96f', 'fix: preserve the chat model for finder on custom Anthropic endpoints (#217)'],
     ['dce78c4', 'fix: report malformed tool-call JSON before schema validation (#216)'],
     ['c2fd198', 'fix: decode command output across UTF-8 chunk boundaries (#215)'],
@@ -538,7 +539,6 @@ const D = {
     [162, 'Windows sandbox: a command failing before start leaves the helper running', 'sandbox', 'high', 0, '10-07'],
     [161, 'Failed history:open moves the main process to another project than the UI', 'other', 'high', 0, '10-07'],
     [160, 'Opening a chat or the active project tab kills the terminal shell', 'ui', 'high', 0, '10-07'],
-    [159, 'edit_file and apply_patch corrupt every non-UTF-8 byte in the file', 'tools', 'high', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -661,7 +661,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 75,
+  closedCount: 76,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

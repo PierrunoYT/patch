@@ -108,6 +108,35 @@ describe('applyHunks', () => {
 });
 
 describe('apply_patch tool', () => {
+  it.each([false, true])('rejects non-UTF-8 updates (move=%s) before applying any file', async (move) => {
+    const file = join(root, 'src', 'b.ts');
+    const bytes = Buffer.from('caf\xe9\nalpha\n', 'latin1');
+    writeFileSync(file, bytes);
+    const text = patch(
+      '*** Update File: src/a.ts',
+      '@@',
+      '-one',
+      '+ONE',
+      '*** Update File: src/b.ts',
+      ...(move ? ['*** Move to: src/c.ts'] : []),
+      '@@',
+      '-alpha',
+      '+ALPHA',
+    );
+    await expect(applyPatchTool.preview!({ patch: text }, context)).rejects.toThrow('src/b.ts is not UTF-8');
+    await expect(run(text)).rejects.toThrow('editing it would rewrite other bytes');
+    expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
+    expect(readFileSync(file)).toEqual(bytes);
+    expect(existsSync(join(root, 'src', 'c.ts'))).toBe(false);
+  });
+
+  it('preserves valid UTF-8 outside an updated hunk', async () => {
+    const before = '\uFEFFcafé 日本語 😀 \uFFFD\nalpha\n';
+    writeFileSync(join(root, 'src', 'b.ts'), before);
+    await run(patch('*** Update File: src/b.ts', '@@', '-alpha', '+ALPHA'));
+    expect(readFileSync(join(root, 'src', 'b.ts'))).toEqual(Buffer.from(before.replace('alpha', 'ALPHA')));
+  });
+
   it('changes several files at once', async () => {
     const result = await run(
       patch(

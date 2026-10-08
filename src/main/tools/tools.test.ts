@@ -153,6 +153,42 @@ describe('Workspace', () => {
 });
 
 describe('file tools', () => {
+  it.each([editFileTool, writeFileTool])(
+    '$name refuses non-UTF-8 previews and writes without changing bytes',
+    async (tool) => {
+      const bytes = Buffer.from('name=caf\xe9\nvalue=old\n', 'latin1');
+      const file = join(root, 'legacy.properties');
+      writeFileSync(file, bytes);
+      await call(readFileTool, { path: 'legacy.properties' });
+      const input =
+        tool === editFileTool
+          ? { path: 'legacy.properties', old_string: 'value=old', new_string: 'value=new' }
+          : { path: 'legacy.properties', content: 'value=new\n' };
+      await expect(tool.preview!(input as never, context)).rejects.toThrow('legacy.properties is not UTF-8');
+      await expect(call(tool, input)).rejects.toThrow('editing it would rewrite other bytes');
+      expect(readFileSync(file)).toEqual(bytes);
+    },
+  );
+
+  it.each([editFileTool, writeFileTool])(
+    '$name preserves valid UTF-8 including BOM and replacement characters',
+    async (tool) => {
+      const file = join(root, 'unicode.txt');
+      const before = '\uFEFFcafé 日本語 😀 \uFFFD\nvalue=old\n';
+      writeFileSync(file, before);
+      await call(readFileTool, { path: 'unicode.txt' });
+      const after = before.replace('value=old', 'value=new');
+      const input =
+        tool === editFileTool
+          ? { path: 'unicode.txt', old_string: 'value=old', new_string: 'value=new' }
+          : { path: 'unicode.txt', content: after };
+      await tool.preview!(input as never, context);
+      const result = await call(tool, input);
+      expect(readFileSync(file)).toEqual(Buffer.from(after));
+      expect(result.undo?.before).toEqual(Buffer.from(before));
+    },
+  );
+
   it('reads with line numbers and ranges', async () => {
     const full = await call(readFileTool, { path: 'src/app.ts' });
     expect(full.content).toContain('1\tconst a = 1;');
@@ -345,14 +381,6 @@ describe('file tools', () => {
     await call(readFileTool, { path: 'src/app.ts' });
     const replaced = await call(writeFileTool, { path: 'src/app.ts', content: 'replaced\n' });
     expect(replaced.undo?.before).toEqual(original);
-  });
-
-  it('keeps the exact bytes of a file that is not valid UTF-8', async () => {
-    const bytes = Buffer.from([0x63, 0x6f, 0x6e, 0xff, 0xfe, 0x0d, 0x0a, 0x73, 0x74]);
-    writeFileSync(join(root, 'legacy.txt'), bytes);
-    await call(readFileTool, { path: 'legacy.txt' });
-    const result = await call(writeFileTool, { path: 'legacy.txt', content: 'utf8 now\n' });
-    expect(result.undo?.before?.equals(bytes)).toBe(true);
   });
 
   it('previews writes as a diff', async () => {
