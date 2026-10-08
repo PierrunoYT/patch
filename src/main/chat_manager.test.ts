@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { createServer, type AddressInfo, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -294,6 +295,46 @@ describe('project chat retention', () => {
     expect(manager.snapshot()).toEqual(beta);
     expect(chats.load(alpha.id)?.transcript[0]).toMatchObject({ text: 'Alpha task' });
   });
+
+  it.each(['alpha', 'beta'])(
+    'a missing provider key leaves the active chat and projects unchanged when restoring %s',
+    async (target) => {
+      open('alpha');
+      await manager.send({ text: 'Keep the active Alpha chat' });
+      const before = manager.snapshot();
+      const saved = chats.load(before.id)!;
+      const id = randomUUID();
+      chats.save({
+        ...saved,
+        id,
+        projectPath: join(root, target),
+        conversation: { provider: 'openai', model: SMALL_MODELS.openai, api: 'responses', messages: [] },
+      });
+      const current = projects.current();
+      const opened = projects.opened();
+      const recent = projects.list();
+      vi.mocked(llm.restoreConversation).mockRestore();
+      expect(() => manager.open(id)).toThrow(/OpenAI/);
+      expect(projects.current()).toEqual(current);
+      expect(projects.opened()).toEqual(opened);
+      expect(projects.list()).toEqual(recent);
+      expect(manager.snapshot()).toEqual(before);
+      await manager.send({ text: 'Continue the original chat' });
+      expect(manager.snapshot().id).toBe(before.id);
+      expect(
+        chats
+          .load(before.id)
+          ?.transcript.filter((item) => item.kind === 'user')
+          .map((item) => item.text),
+      ).toEqual(['Keep the active Alpha chat', 'Continue the original chat']);
+      expect(chats.load(id)).toEqual({
+        ...saved,
+        id,
+        projectPath: join(root, target),
+        conversation: { provider: 'openai', model: SMALL_MODELS.openai, api: 'responses', messages: [] },
+      });
+    },
+  );
 
   it('closing an inactive project does not alter the active chat and history can reopen it', async () => {
     open('alpha');

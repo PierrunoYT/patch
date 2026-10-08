@@ -332,10 +332,12 @@ function start(): void {
   handle('history:list', () => chats.list());
   handle('history:open', (id) => {
     const before = projects.current()?.path;
-    const snapshot = manager.open(id);
-    if (projects.current()?.path !== before) terminal.stop();
-    send(mainWindow, 'project:changed', projects.current());
-    return snapshot;
+    try {
+      return manager.open(id);
+    } finally {
+      if (projects.current()?.path !== before) terminal.stop();
+      send(mainWindow, 'project:changed', projects.current());
+    }
   });
   handle('history:delete', (id) => {
     manager.forget([id]);
