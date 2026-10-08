@@ -467,7 +467,8 @@ describe('file tools', () => {
   });
 
   describe('write_file after the file changed', () => {
-    const app = () => join(root, 'src', 'app.ts');
+    // The tools key readFiles by the real path; on macOS the temp folder is behind a link (/var -> /private/var).
+    const app = () => join(context.workspace.root, 'src', 'app.ts');
 
     it('refuses when the user changed the file after it was read, and keeps their edit', async () => {
       await call(readFileTool, { path: 'src/app.ts', offset: 2, limit: 1 });
