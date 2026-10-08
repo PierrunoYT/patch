@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildLaunch, probeSandboxSupport, systemLaunchEnv } from './sandbox';
 import { GIT_RESERVATION } from './sandbox_git';
 import { GitService } from '../panels/git';
-import { ShellRunner } from './shell';
+import { commandStopsSettled, ShellRunner } from './shell';
 
 const support = await probeSandboxSupport();
 const execute = promisify(execFile);
@@ -90,8 +90,9 @@ for (const [kind, available] of [
         () => env,
       );
     });
-    afterEach(() => {
+    afterEach(async () => {
       shell?.stopAll();
+      await commandStopsSettled();
       rmSync(fixture, { recursive: true, force: true });
     });
 

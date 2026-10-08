@@ -13,7 +13,7 @@ import type { CompletionClient } from './llm/types';
 import { ProjectStore } from './projects';
 import { SettingsStore } from './settings';
 import { flushJsonWrites } from './storage/json_file';
-import { backgroundStartup } from './tools/shell';
+import { backgroundStartup, commandStopsSettled } from './tools/shell';
 
 // These tests wait for their background commands themselves, so the three-second first look is not needed.
 backgroundStartup.waitMs = 50;
@@ -87,6 +87,8 @@ describe('project chat retention', () => {
     // A send to a saved chat starts a background checkpoint write. Deleting the folder while it lands fails with
     // ENOTEMPTY (#220).
     await flushJsonWrites();
+    // Command stops run in the background too (#112); on Windows the folder stays busy until they finish.
+    await commandStopsSettled();
     vi.useRealTimers();
     vi.restoreAllMocks();
     rmSync(root, { recursive: true, force: true });

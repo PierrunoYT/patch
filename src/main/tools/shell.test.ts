@@ -44,8 +44,10 @@ describe('background command cancellation', () => {
     };
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     shell.stopAll();
+    // Stops run in the background (#112); on Windows the folder stays busy until they finish.
+    await commandStopsSettled();
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -133,7 +135,7 @@ describe('background command cancellation', () => {
         await once(entry.process, 'spawn');
         controller.abort();
         await closed;
-        expect(taskkill).toHaveBeenCalledWith('taskkill', expect.any(Array), expect.any(Object));
+        expect(taskkill).toHaveBeenCalledWith('taskkill', expect.any(Array), expect.any(Object), expect.any(Function));
         expect(entry.exitCode).not.toBeUndefined();
         expect(shell.getBackground(entry.id)).toBeUndefined();
       } finally {
@@ -193,8 +195,10 @@ describe.skipIf(process.platform === 'win32')('processes a command leaves behind
     shell = new ShellRunner(() => root);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     shell.stopAll();
+    // Stops run in the background (#112); on Windows the folder stays busy until they finish.
+    await commandStopsSettled();
     for (const pid of spawnedPids.splice(0)) {
       try {
         process.kill(pid, 'SIGKILL');
@@ -258,8 +262,10 @@ describe.skipIf(process.platform !== 'win32')('processes a command leaves behind
     shell = new ShellRunner(() => root);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     shell.stopAll();
+    // Stops run in the background (#112); on Windows the folder stays busy until they finish.
+    await commandStopsSettled();
     for (const pid of spawnedPids.splice(0)) {
       try {
         process.kill(pid, 'SIGKILL');

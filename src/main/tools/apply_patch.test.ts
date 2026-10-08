@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyHunks, applyPatchTool, parsePatch } from './apply_patch';
 import { writeFileTool } from './files';
-import { ShellRunner } from './shell';
+import { commandStopsSettled, ShellRunner } from './shell';
 import type { ToolContext } from './types';
 import { Workspace } from './workspace';
 
@@ -32,8 +32,10 @@ beforeEach(() => {
   };
 });
 
-afterEach(() => {
+afterEach(async () => {
   context.shell.stopAll();
+  // Stops run in the background (#112); on Windows the folder stays busy until they finish.
+  await commandStopsSettled();
   rmSync(root, { recursive: true, force: true });
 });
 

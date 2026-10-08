@@ -17,7 +17,7 @@ import { globTool } from './glob';
 import { applyEdit, editFileTool, grepTool, listDirectoryTool, readFileTool, writeFileTool } from './files';
 import { browserTool } from './browser';
 import { availableTools } from './registry';
-import { backgroundStartup, commandOutputTool, runCommandTool, ShellRunner } from './shell';
+import { backgroundStartup, commandOutputTool, commandStopsSettled, runCommandTool, ShellRunner } from './shell';
 import { ToolError, truncateOutput, type AgentTool, type ToolContext } from './types';
 import {
   clearFetchCache,
@@ -67,8 +67,10 @@ beforeEach(() => {
   context = makeContext();
 });
 
-afterEach(() => {
+afterEach(async () => {
   context.shell.stopAll();
+  // Stops run in the background (#112); on Windows the folder stays busy until they finish.
+  await commandStopsSettled();
   rmSync(root, { recursive: true, force: true });
 });
 
