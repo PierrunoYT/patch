@@ -534,13 +534,11 @@ const D = {
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
-    [205, 'Small cleanups in command and panel code', 'other', 'low', 0, '10-07'],
     [204, 'Offer Resume after a run fails once its retries are used up', 'ui', 'low', 0, '10-07'],
     [202, 'ChatGPT sign-in: keep-cache-warm does nothing; no refresh after a 401', 'other', 'low', 0, '10-07'],
     [201, 'Reuse regex workers across grep and glob calls', 'perf', 'low', 0, '10-07'],
     [200, 'Rendering cost grows with transcript length while an answer streams', 'perf', 'low', 0, '10-07'],
     [199, 'Reuse one GitService per project instead of one per IPC call', 'perf', 'low', 0, '10-07'],
-    [198, 'grep and glob: missing-path errors and backslash patterns on Windows', 'tools', 'low', 0, '10-07'],
     [197, 'apply_patch changes have no Undo', 'tools', 'low', 0, '10-07'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [195, 'Sandbox helper: exit code 259, .git restore, Started order, env sort', 'sandbox', 'low', 0, '10-07'],
@@ -558,7 +556,6 @@ const D = {
       0,
       '10-07',
     ],
-    [155, 'Allowed-command prefixes also allow flags that write files', 'security', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
@@ -595,7 +592,6 @@ const D = {
     [125, 'e2e: transcript_view approval-card and Undo tests fail intermittently', 'tests', 'low', 0, '10-06'],
     [121, 'Perplexity Decider V1 27B (OpenRouter) as a safety check on tool calls', 'tools', 'low', 0, '10-05'],
     [120, 'Hide DevTools in packaged builds; delete the webview allowpopups value', 'security', 'low', 0, '10-05'],
-    [119, 'ci: restrict GITHUB_TOKEN permissions in ci.yml and run npm audit', 'release', 'low', 0, '10-05'],
     [118, 'Full chat saves are synchronous and pretty-printed on the main process', 'perf', 'low', 0, '10-05'],
     [117, 'Stopping an MCP stdio server kills only its direct child on macOS/Linux', 'mcp', 'low', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
@@ -645,7 +641,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 117,
+  closedCount: 121,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

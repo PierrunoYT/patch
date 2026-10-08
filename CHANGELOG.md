@@ -10,6 +10,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- `grep` and `glob` report `Not found: <path>` for a missing folder, and `glob` reads a backslash in a pattern as `/` (fixes #198).
+- Small cleanups: the resize handle handles a cancelled drag, the shell drain timer is cleared on close, and the unread `HelperProcess.timedOut` is gone (fixes #205).
+- CI runs with read-only `GITHUB_TOKEN` permissions and fails on a high-severity production dependency advisory; the build-only advisories stay open in #211 (fixes #119).
+- The allowed-commands field says that entries are prefixes and also allow flags (fixes #155).
 - The editor command (Settings) is split into a program and arguments and started without a shell on macOS and Linux; on Windows only cmd.exe runs it, as one quoted program, and `& | < > ^ %` in it are refused (fixes #209).
 - The code indexer reads files through `Workspace.resolve`, so a file swapped for a link to outside the project is no longer embedded (fixes #154).
 - The terminal panel keeps keys typed while the shell starts and sends them once it is ready, and asks a reattached shell to redraw (fixes #191).

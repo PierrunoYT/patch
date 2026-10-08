@@ -165,6 +165,8 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     rows: 4,
     value: settings.allowedCommands,
     placeholder: 'npm test\nnpm run lint\ngit status',
+    title:
+      'Each line is a prefix: it also allows any flags after it. Use a full command for tools whose flags write files.',
   });
   const allowedNetworkHosts = h('textarea', {
     class: 'form-control font-monospace',
