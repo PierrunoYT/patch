@@ -276,9 +276,17 @@ export class CodeIndex implements CodeSearch {
       const current = new Set<string>();
       const pending: PendingFile[] = [];
 
-      for (const absolute of files) {
-        const path = this.workspace.relative(absolute);
+      for (const listed of files) {
+        const path = this.workspace.relative(listed);
         current.add(path);
+        // A file swapped for a link since the listing must not be followed out of the project.
+        let absolute: string;
+        try {
+          absolute = this.workspace.resolve(listed);
+        } catch {
+          if (this.data.files[path]) dirty = this.forget(path) || dirty;
+          continue;
+        }
         const info = await stat(absolute);
         const existing = this.data.files[path];
         if (existing && existing.mtimeMs === info.mtimeMs && existing.size === info.size) continue;
