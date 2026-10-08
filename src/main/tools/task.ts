@@ -214,6 +214,8 @@ function unfinishedReason(outcome: ReturnType<Agent['outcome']>): string {
       return 'its context window filled up';
     case 'max-tokens':
       return 'its last response was cut off at the output limit';
+    case 'paused':
+      return 'the model paused its turn too many times';
     case 'refusal':
       return 'the model declined the question';
     case 'stopped':

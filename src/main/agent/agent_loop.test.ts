@@ -783,6 +783,17 @@ describe('Agent: error and limit paths', () => {
     ]);
   });
 
+  it('tells the user when the model kept pausing its turn and does not count it as an answer', async () => {
+    const { agent, events } = setup([{ stopReason: 'paused', text: 'still searching' }]);
+
+    expect(await agent.send({ text: 'go' }, new AbortController().signal)).toBe(false);
+
+    expect(agent.outcome()).toBe('paused');
+    expect(eventsOf(events, 'notice').map((event) => event.text)).toEqual([
+      'The model paused its turn too many times, so the response may be incomplete. Send a message to continue.',
+    ]);
+  });
+
   it('gives up after 200 model turns of tool calls', async () => {
     const look = tool('look', () => ({ content: 'ok' }));
     const { agent, conversation, events } = setup((turn) => ({ toolCalls: [call(`t${turn}`, 'look')] }), {

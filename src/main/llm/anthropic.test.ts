@@ -356,6 +356,22 @@ describe('AnthropicConversation', () => {
     expect(conversation.serialize().messages).toHaveLength(4);
   });
 
+  it('reports a turn that is still paused after the last continuation as paused, not as an answer', async () => {
+    for (let i = 0; i < 6; i++) server.queueSse(anthropicStream([{ type: 'text', text: `part ${i}` }], 'pause_turn'));
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-opus-5-5',
+      effort: 'high',
+    });
+    conversation.addUserMessage({ text: 'Keep going' });
+    const result = await conversation.runTurn(request());
+
+    expect(server.requests).toHaveLength(6);
+    expect(result.stopReason).toBe('paused');
+    expect(result.toolCalls).toEqual([]);
+    // Everything the model produced is still committed, so the next message continues from it.
+    expect(conversation.serialize().messages).toHaveLength(7);
+  });
+
   it('commits pause and compaction continuations together, preserving their blocks and usage', async () => {
     server.queueSse(anthropicStream([{ type: 'text', text: 'First part' }], 'pause_turn'));
     const compacted = anthropicStream([], 'compaction');

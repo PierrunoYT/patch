@@ -419,6 +419,9 @@ function mapStopReason(reason: Anthropic.Beta.BetaStopReason | null): StopReason
       return 'refusal';
     case 'model_context_window_exceeded':
       return 'context_exceeded';
+    // Only reached once MAX_CONTINUATIONS is used up: the turn is unfinished, not an answer.
+    case 'pause_turn':
+      return 'paused';
     default:
       return 'other';
   }

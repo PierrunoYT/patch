@@ -297,6 +297,18 @@ describe('task tool (subagent)', () => {
     expect(output.summary).toContain('stopped');
   });
 
+  it('does not treat a turn the model kept pausing as the answer', async () => {
+    const taskTool = createTaskTool({
+      createConversation: () => new ScriptedConversation([{ text: 'Searching the web…', stopReason: 'paused' }]),
+      system: 'system prompt',
+      tools: () => [],
+    });
+    const output = await taskTool.run({ task: 'Look it up' }, context());
+    expect(output.isError).toBe(true);
+    expect(output.content).toContain('the model paused its turn too many times');
+    expect(output.content).toContain('Searching the web');
+  });
+
   it('stops the subagent when the parent task is stopped', async () => {
     const controller = new AbortController();
     const taskTool = createTaskTool({

@@ -56,7 +56,9 @@ export interface TurnUsage {
     boolean | { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number };
 }
 
-export type StopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'refusal' | 'context_exceeded' | 'other';
+// 'paused': the provider kept pausing the turn (Anthropic pause_turn) past the continuation limit, so the response is
+// unfinished rather than an answer.
+export type StopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'refusal' | 'context_exceeded' | 'paused' | 'other';
 
 export interface TurnResult {
   text: string;

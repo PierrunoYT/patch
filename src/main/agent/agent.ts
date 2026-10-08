@@ -77,7 +77,8 @@ function cloneByModel(byModel: Record<string, ModelUsage>): Record<string, Model
 // needed), send the results back, and repeat until the model answers without tool calls.
 export class Agent {
   private usage: UsageTotals = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
-  private lastOutcome: 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'refusal' | 'stopped' | 'other' = 'other';
+  private lastOutcome: 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'paused' | 'refusal' | 'stopped' | 'other' =
+    'other';
 
   constructor(private readonly options: AgentOptions) {}
 
@@ -107,8 +108,8 @@ export class Agent {
   }
 
   // Why the last run ended, for a caller that needs more than the stopped/finished flag. A subagent only treats a
-  // final turn with no tool calls as an answer; a turn cap, a full context or a cut-off response is not one.
-  outcome(): 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'refusal' | 'stopped' | 'other' {
+  // final turn with no tool calls as an answer; a turn cap, a full context, a cut-off or paused response is not one.
+  outcome(): 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'paused' | 'refusal' | 'stopped' | 'other' {
     return this.lastOutcome;
   }
 
@@ -188,6 +189,13 @@ export class Agent {
           this.lastOutcome = 'max-tokens';
         } else if (result.stopReason === 'context_exceeded') {
           this.lastOutcome = 'context';
+        } else if (result.stopReason === 'paused') {
+          emit({
+            type: 'notice',
+            id: randomUUID(),
+            text: 'The model paused its turn too many times, so the response may be incomplete. Send a message to continue.',
+          });
+          this.lastOutcome = 'paused';
         } else {
           this.lastOutcome = 'answer';
         }
