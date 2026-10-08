@@ -208,7 +208,7 @@ describe('revokeProjectGrant timeout (#188)', () => {
       expect(error).toMatch(/did not answer in time/);
       expect(Date.now() - started).toBeLessThan(10_000);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   });
 });

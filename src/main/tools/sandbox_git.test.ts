@@ -38,7 +38,7 @@ describe('sandbox Git layout validation', () => {
   let root: string;
   beforeEach(() => {
     // validateSandboxGit returns real paths; macOS's temp folder is under the /var -> /private/var link.
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'patch-git-policy-')));
+    root = realpathSync.native(mkdtempSync(join(tmpdir(), 'patch-git-policy-')));
     mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
     writeFileSync(join(root, '.git', 'config'), '[core]\nrepositoryformatversion = 0\nbare = false\n');
   });

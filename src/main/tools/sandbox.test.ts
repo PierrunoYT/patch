@@ -29,8 +29,8 @@ describe('sandbox project root safety (#145)', () => {
       const appData = join(home, '.config', 'Patch');
       const sibling = join(home, '.config', 'Patch-safe');
       for (const path of [project, appData, sibling]) mkdirSync(path, { recursive: true });
-      expect(validateSandboxRoot(project, home, [appData])).toBe(realpathSync(project));
-      expect(validateSandboxRoot(sibling, home, [appData])).toBe(realpathSync(sibling));
+      expect(validateSandboxRoot(project, home, [appData])).toBe(realpathSync.native(project));
+      expect(validateSandboxRoot(sibling, home, [appData])).toBe(realpathSync.native(sibling));
       expect(() => validateSandboxRoot(home, home, [appData])).toThrow(/narrower project root/);
       expect(() => validateSandboxRoot(fixture, home, [appData])).toThrow(/narrower project root/);
       expect(() => validateSandboxRoot(parse(fixture).root, home, [appData])).toThrow(/narrower project root/);

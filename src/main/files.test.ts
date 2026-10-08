@@ -125,7 +125,7 @@ describe('openInEditor', () => {
     openInEditor('  cursor --reuse-window ', dir, 'src file.ts');
 
     expect(mocks.spawn).toHaveBeenCalledWith(
-      ...started(['cursor', '--reuse-window', realpathSync(file)]),
+      ...started(['cursor', '--reuse-window', realpathSync.native(file)]),
       expect.objectContaining({ detached: true, stdio: 'ignore', windowsHide: true }),
     );
     expect(mocks.spawn.mock.calls[0]![2]).not.toHaveProperty('shell');
@@ -137,7 +137,7 @@ describe('openInEditor', () => {
     writeFileSync(file, '');
     openInEditor('"C:\\Program Files\\Editor\\ed.exe" -g', dir, 'a.txt');
     expect(mocks.spawn).toHaveBeenCalledWith(
-      ...started(['C:\\Program Files\\Editor\\ed.exe', '-g', realpathSync(file)]),
+      ...started(['C:\\Program Files\\Editor\\ed.exe', '-g', realpathSync.native(file)]),
       expect.any(Object),
     );
   });
@@ -150,7 +150,11 @@ describe('openInEditor', () => {
       expect(mocks.spawn).not.toHaveBeenCalled();
     } else {
       openInEditor('code; touch pwned', dir, 'a.txt');
-      expect(mocks.spawn).toHaveBeenCalledWith('code;', ['touch', 'pwned', realpathSync(file)], expect.any(Object));
+      expect(mocks.spawn).toHaveBeenCalledWith(
+        'code;',
+        ['touch', 'pwned', realpathSync.native(file)],
+        expect.any(Object),
+      );
     }
   });
 
@@ -158,7 +162,7 @@ describe('openInEditor', () => {
     const file = join(dir, 'a.txt');
     writeFileSync(file, '');
     openInEditor('   ', dir, 'a.txt');
-    expect(mocks.spawn).toHaveBeenCalledWith(...started(['code', realpathSync(file)]), expect.any(Object));
+    expect(mocks.spawn).toHaveBeenCalledWith(...started(['code', realpathSync.native(file)]), expect.any(Object));
   });
 
   it('rejects an unclosed quote', () => {
