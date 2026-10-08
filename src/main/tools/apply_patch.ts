@@ -1,8 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { z } from 'zod';
 import { unifiedDiff } from './files';
+import { changeProjectFiles, readProjectFile } from './file_operations';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
 import { requireUtf8ForEdit, isBinaryFile, sha256 } from './text_files';
@@ -161,11 +160,14 @@ function positions(lines: string[], block: string[], from: number, normalize: (l
 
 // One file's change, fully computed in memory.
 export interface PlannedChange {
+  path: string;
   rel: string;
   absolute: string;
   before: string | null;
   after: string | null;
+  beforeBytes?: Buffer;
   // For a move: where the content used to be.
+  fromPath?: string;
   fromAbsolute?: string;
   fromRel?: string;
 }
@@ -189,7 +191,7 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
       if (existsSync(absolute)) throw new ToolError(`${rel} already exists. Use Update File to change it.`);
       const after = op.lines.length > 0 ? op.lines.join('\n') + '\n' : '';
       if (containsRedaction(after)) throw redactedError();
-      changes.push({ rel, absolute, before: null, after });
+      changes.push({ path: op.path, rel, absolute, before: null, after });
       continue;
     }
 
@@ -200,11 +202,12 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
       );
     }
     if (await isBinaryFile(absolute)) throw new ToolError(`${rel} is a binary file.`);
-    const bytes = await readFile(absolute);
+    const bytes = await readProjectFile(workspace, op.path);
+    if (bytes === null) throw new ToolError(`File not found: ${op.path}`);
     if (op.kind === 'update') requireUtf8ForEdit(bytes, rel);
     const before = bytes.toString('utf8');
     if (op.kind === 'delete') {
-      changes.push({ rel, absolute, before, after: null });
+      changes.push({ path: op.path, rel, absolute, before, beforeBytes: bytes, after: null });
       continue;
     }
     if (op.hunks.some((hunk) => hunk.lines.some((line) => containsRedaction(line.text)))) throw redactedError();
@@ -215,13 +218,23 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
       if (target !== absolute && existsSync(target))
         throw new ToolError(`${targetRel} already exists; cannot move ${rel} there.`);
       if (target === absolute) {
-        changes.push({ rel, absolute, before, after });
+        changes.push({ path: op.path, rel, absolute, before, beforeBytes: bytes, after });
       } else {
         claim(target, targetRel);
-        changes.push({ rel: targetRel, absolute: target, before, after, fromAbsolute: absolute, fromRel: rel });
+        changes.push({
+          path: op.moveTo,
+          rel: targetRel,
+          absolute: target,
+          before,
+          beforeBytes: bytes,
+          after,
+          fromPath: op.path,
+          fromAbsolute: absolute,
+          fromRel: rel,
+        });
       }
     } else {
-      changes.push({ rel, absolute, before, after });
+      changes.push({ path: op.path, rel, absolute, before, beforeBytes: bytes, after });
     }
   }
   return changes;
@@ -264,15 +277,19 @@ export const applyPatchTool = defineTool({
   },
   async run({ patch }, context) {
     const changes = await planPatch(parsePatch(patch), context);
+    await changeProjectFiles(
+      context.workspace,
+      changes.flatMap((change) => [
+        {
+          path: change.path,
+          before: change.fromPath ? null : (change.beforeBytes ?? null),
+          after: change.after === null ? null : Buffer.from(change.after),
+        },
+        ...(change.fromPath ? [{ path: change.fromPath, before: change.beforeBytes ?? null, after: null }] : []),
+      ]),
+    );
     for (const change of changes) {
-      if (change.after === null) {
-        await rm(change.absolute, { force: true });
-        continue;
-      }
-      await mkdir(dirname(change.absolute), { recursive: true });
-      await writeFile(change.absolute, change.after, 'utf8');
-      if (change.fromAbsolute && change.fromAbsolute !== change.absolute)
-        await rm(change.fromAbsolute, { force: true });
+      if (change.after === null) continue;
       context.readFiles.set(change.absolute, sha256(change.after));
       if (change.rel.endsWith('.gitignore')) context.workspace.invalidateIgnoreRules();
     }

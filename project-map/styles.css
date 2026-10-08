@@ -375,6 +375,9 @@ svg text {
   background: var(--panel2);
   border-left: 4px solid var(--accent);
 }
+.layer .mono {
+  overflow-wrap: anywhere;
+}
 .layer b {
   font-size: 14px;
 }

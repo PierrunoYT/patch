@@ -27,7 +27,7 @@ builders.overview = () => {
     h(
       'div',
       { class: 'grid kpis' },
-      k(fmt(totalSrc), 'source lines', '87 TS files + renderer CSS'),
+      k(fmt(totalSrc), 'source lines', `${D.areas.reduce((sum, area) => sum + area.files, 0)} TS files + renderer CSS`),
       k(
         fmt(D.testsByArea.reduce((sum, testArea) => sum + testArea.tl, 0)),
         'unit-test lines',
@@ -111,7 +111,7 @@ builders.overview = () => {
             'li',
             null,
             h('b', null, 'Security is the largest issue theme: '),
-            `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues, none of them high since #63 was fixed. Windows sandbox reliability is the main active cluster.`,
+            `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues concern security. #143–#145 are fixed in this snapshot: protected-path approvals, native file handles and safe sandbox roots. Remaining sandbox hardening is mostly medium severity.`,
           ),
           h(
             'li',

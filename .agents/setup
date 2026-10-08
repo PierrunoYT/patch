@@ -10,7 +10,7 @@ node --version
 npm --version
 
 echo 'Checking Linux build and Electron test prerequisites'
-packages=(build-essential python3 git ca-certificates bubblewrap libgtk-3-0 libnss3 libasound2 libgbm1 libatk-bridge2.0-0 libxss1 xvfb xauth)
+packages=(build-essential python3 git curl ca-certificates bubblewrap libgtk-3-0 libnss3 libasound2 libgbm1 libatk-bridge2.0-0 libxss1 xvfb xauth)
 missing=()
 for package in "${packages[@]}"; do
   if [[ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != 'install ok installed' ]]; then
@@ -22,6 +22,14 @@ if ((${#missing[@]})); then
   sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
 fi
 echo "System prerequisites ready (${SECONDS}s elapsed)"
+
+echo 'Checking Rust for the native file-operation helper'
+if ! command -v cargo >/dev/null && [[ ! -x "$HOME/.cargo/bin/cargo" ]]; then
+  installer=$(mktemp)
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o "$installer"
+  sh "$installer" -y --profile minimal --no-modify-path
+  rm -f -- "$installer"
+fi
 
 # Even a warm npm ci removes and reinstalls every dependency (~12s measured).
 # Keep snapshot dependencies only when the inputs and toolchain are unchanged.
@@ -45,4 +53,5 @@ else
   node -e 'require("node-pty"); require("node:fs").accessSync(require("electron"), require("node:fs").constants.X_OK)'
   printf '%s\n' "$fingerprint" > "$stamp"
 fi
+npm run build:sandbox
 echo "Orb setup ready (${SECONDS}s total). Run xvfb-run -a npm test for headless Electron tests."

@@ -72,8 +72,8 @@ jobs:
         if: runner.os == 'Windows'
         run: cargo build --release --locked --bins --examples --manifest-path native/sandbox-helper/Cargo.toml
 
-      - name: Test the Windows sandbox helper and CI preparation
-        if: runner.os == 'Windows'
+      # File operations use native handles on every platform; run their regressions on native hosts.
+      - name: Test native file operations and sandbox helper
         run: cargo test --locked --all-targets --manifest-path native/sandbox-helper/Cargo.toml
 
       # Older Server images lack the null-device package ACE that newer Windows installs at boot.

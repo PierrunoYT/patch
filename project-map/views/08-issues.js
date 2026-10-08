@@ -97,10 +97,13 @@ builders.issues = () => {
         h(
           'p',
           { class: 'small muted', style: 'margin:6px 0 0' },
-          `${sevCount.high} high, ${sevCount.medium} medium and ${sevCount.low} low. The high ones are in the command sandbox: ${D.issues
-            .filter((i) => i[3] === 'high')
-            .map((i) => '#' + i[0])
-            .join(', ')}.`,
+          `${sevCount.high} high, ${sevCount.medium} medium and ${sevCount.low} low. ` +
+            (sevCount.high
+              ? `High findings: ${D.issues
+                  .filter((i) => i[3] === 'high')
+                  .map((i) => '#' + i[0])
+                  .join(', ')}.`
+              : 'No high-severity findings remain in this snapshot; #143–#145 are fixed.'),
         ),
       ),
     ),

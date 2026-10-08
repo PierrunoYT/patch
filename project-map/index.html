@@ -10,7 +10,7 @@
     <header>
       <div class="top">
         <h1>Patch, mapped</h1>
-        <span class="sub">Snapshot through 838d396, with safe saved-chat restoration (#161), 2026-10-08</span>
+        <span class="sub">Protected-path, native file-operation and sandbox-root fixes (#143–#145), 2026-10-08</span>
         <span class="sp"></span>
         <button class="themebtn" id="themeBtn" type="button">Theme: auto</button>
       </div>
@@ -18,10 +18,10 @@
     </header>
     <main id="main"></main>
     <footer>
-      This page reflects git history through c96dd87 (2026-10-08). Line counts exclude tests unless they say otherwise;
-      renderer CSS lines (2766) are counted in src/renderer/src/styles.css. Test counts come from real Vitest runs, with
-      settings confirmation, OpenAI and UI coverage refreshed on Linux and main/tools coverage on Windows; skipped tests
-      included. Issue severities without a severity label are estimates and are marked "est.".
+      Git history through a1aff9c (2026-10-08). Source and test counts reflect this code snapshot; renderer CSS is
+      counted separately. Test counts come from real Linux Vitest runs, including explicit platform/backend skips.
+      Native Windows cross-compilation is not runtime verification. The issue list follows fixes in this snapshot;
+      linked GitHub issues close when the commits reach main. Severities without a label are estimates marked "est.".
     </footer>
 
     <!-- Classic scripts, in order: they share top-level names (D, h, builders, ...) and work from file://. -->

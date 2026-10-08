@@ -56,14 +56,14 @@ builders.safety = () => {
           layer(
             'Protected files',
             'var(--warn)',
-            '.env*, .ssh, .aws, keys, .git/, editor/agent config, shell rc files, databases, system folders: asks even in Auto.',
+            'Case-insensitive protected names and canonical Windows aliases ask even in Auto; a failed safety check asks too (#143).',
             'tools/guard.ts',
           ),
           layer(
             'Workspace confinement',
             'var(--c-shared)',
-            'All file paths go through Workspace.resolve: real paths, links resolved, nothing outside the project root.',
-            'tools/workspace.ts',
+            'Workspace.resolve checks paths; file reads, edits, patch mutations and Undo use native no-follow handles. Linked targets and hard-linked writes are refused (#144). Commands refuse sensitive project roots (#145).',
+            'tools/workspace.ts, file_operations.ts, sandbox.ts; native/sandbox-helper/src/file_ops/',
           ),
           layer(
             'Secret redaction',

@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { UndoResult } from '@shared/ipc';
+import { changeProjectFiles, readProjectFile } from './file_operations';
 import { sha256 } from './text_files';
 import type { EditUndo } from './types';
 import type { Workspace } from './workspace';
@@ -43,7 +43,7 @@ export class EditBackups {
     if (!stored) throw new Error('The backup for this edit is no longer available.');
 
     const file = workspace.resolve(stored.path);
-    const current = existsSync(file) ? await readFile(file) : null;
+    const current = await readProjectFile(workspace, stored.path);
     const created = stored.before === null;
 
     if (current === null) {
@@ -58,8 +58,13 @@ export class EditBackups {
       );
     }
 
-    if (created) await rm(file, { force: true });
-    else await writeFile(file, Buffer.from(stored.before!, 'base64'));
+    await changeProjectFiles(workspace, [
+      {
+        path: stored.path,
+        before: current,
+        after: created ? null : Buffer.from(stored.before!, 'base64'),
+      },
+    ]);
     if (stored.path.endsWith('.gitignore')) workspace.invalidateIgnoreRules();
     this.forget(chatId, toolId);
     return { path: stored.path, action: created ? 'deleted' : 'restored', absolute: file };

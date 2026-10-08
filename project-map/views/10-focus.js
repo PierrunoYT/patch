@@ -3,22 +3,22 @@
 builders.focus = () => {
   const items = [
     [
-      'Finish native file-operation confinement: #144',
+      'Continue with medium sandbox hardening: #127, #96 and #102',
       'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
         '#143 is fixed: protected paths match case-insensitively, Windows short names expand before checks, and failed safety checks ask',
-        '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
+        '#144 is fixed: file reads, edits, patch writes/deletes and Undo use a native no-follow helper with expected bytes and retained handles; deterministic link-replacement tests protect outside and guarded in-project files',
         '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'Keep the approval boundary while fixing native file-handle confinement (#144), with deterministic replacement-link tests for edits, patch deletion and Undo.',
+      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and isolate Linux local networking (#102). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',
       'A full code review found no critical bug. The high findings sat in lifecycle and state handling across modules, not in single functions, and are fixed.',
       [
         '#162 and #163 are fixed: a failed start closes the Windows helper’s input, so it no longer leaks an idle helper, and one recovery record that can’t be undone (such as for an unreadable PATH folder) is skipped and later quarantined instead of stopping every helper start',
-        'Medium still open: #176 and #177 (Windows sandbox locks and drive letters) and #178 (permission delegates on Windows). Low: #180 to #196 and improvements #197 to #206. Already fixed: #159 (non-UTF-8 file protection), #160 (same-project navigation), #161 (failed chat restoration), #162 (leaked helper after a failed start), #164 (output decoding), #166 (MCP reconnects), #167 (stale write_file), #169 (ignore rules), #170 (code index runs), #171 to #175, #179, #181, #183, #186 (the code index) and #203',
+        'Medium still open: #176 and #177 (Windows sandbox locks and drive letters). #178 is fixed: Windows delegates accept arguments and .cmd/.bat programs. Low: #180 to #196 and improvements #197 to #206. Already fixed: #159 (non-UTF-8 file protection), #160 (same-project navigation), #161 (failed chat restoration), #162 (leaked helper after a failed start), #164 (output decoding), #166 (MCP reconnects), #167 (stale write_file), #169 (ignore rules), #170 (code index runs), #171 to #175, #179, #181, #183, #186 (the code index) and #203',
       ],
       'The recurring causes: side effects on every change event without comparing old and new state, state changed before validation, and error paths that do less cleanup than success paths.',
     ],
@@ -51,7 +51,7 @@ builders.focus = () => {
       [
         '#126: approve exact extra read/write paths for one command instead of dropping the sandbox',
         '#127: protect project-local agent, IDE and startup configuration from shell writes, including absent paths',
-        '#128: run built-in file operations behind an OS-restricted executor while preserving approvals and Undo',
+        '#128: add an OS-restricted file executor; #144 now provides native no-follow handles, but the helper still runs with the user’s permissions',
         '#97 and #87: upstream proxy and process-wrapper references were added to the existing network and MCP issues rather than duplicated',
       ],
       'Keep existing fail-closed behavior. Do not copy network throttling as a network-denial guarantee; validate every claimed boundary on real backends.',

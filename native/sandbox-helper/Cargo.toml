@@ -6,9 +6,17 @@ description = "Runs one command in a Windows AppContainer for Patch"
 license = "Apache-2.0"
 publish = false
 
+[[bin]]
+name = "file-helper"
+path = "src/file_helper.rs"
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+base64 = "0.22"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"

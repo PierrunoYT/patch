@@ -1,8 +1,9 @@
 import { existsSync, statSync } from 'node:fs';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { z } from 'zod';
+import { changeProjectFiles, readProjectFile } from './file_operations';
 import {
   requireUtf8ForEdit,
   detectEol,
@@ -52,7 +53,8 @@ export const readFileTool = defineTool({
     if ((await fileSize(file)) > MAX_READ_BYTES * 8) throw new ToolError(`${path} is too large to read.`);
 
     // Hash the bytes read, whatever range is shown, so write_file can tell when the file changed since.
-    const bytes = await readFile(file);
+    const bytes = await readProjectFile(context.workspace, path);
+    if (bytes === null) throw new ToolError(`File not found: ${path}`);
     const text = bytes.toString('utf8');
     const lines = text === '' ? [] : text.split(/\r?\n/);
     if (text.endsWith('\n')) lines.pop();
@@ -215,7 +217,8 @@ export const writeFileTool = defineTool({
     let before = '';
     if (existsSync(file)) {
       requireRead(file, path, context);
-      const bytes = await readFile(file);
+      const bytes = await readProjectFile(context.workspace, path);
+      if (bytes === null) throw new ToolError(`File not found: ${path}`);
       requireUnchanged(file, path, bytes, context);
       before = requireUtf8ForEdit(bytes, path).toString('utf8');
     }
@@ -225,20 +228,19 @@ export const writeFileTool = defineTool({
   async run({ path, content }, context) {
     refuseRedacted(content);
     const file = context.workspace.resolve(path);
-    const exists = existsSync(file);
+    const rel = context.workspace.relative(file);
+    const previous = await readProjectFile(context.workspace, path);
+    const exists = previous !== null;
     if (exists) requireRead(file, path, context);
     // Keep the exact previous bytes for Undo.
-    const previous = exists ? await readFile(file) : null;
     if (previous !== null) {
       // Checked again here: the user may have edited the file while the approval card was open.
       requireUnchanged(file, path, previous, context);
       requireUtf8ForEdit(previous, path);
     }
-    await mkdir(dirname(file), { recursive: true });
-    await writeFile(file, content, 'utf8');
+    await changeProjectFiles(context.workspace, [{ path, before: previous, after: Buffer.from(content) }]);
     context.readFiles.set(file, sha256(content));
     if (path.endsWith('.gitignore')) context.workspace.invalidateIgnoreRules();
-    const rel = context.workspace.relative(file);
     return {
       content: `${exists ? 'Updated' : 'Created'} ${rel}.`,
       summary: `${exists ? 'Wrote' : 'Created'} ${rel}`,
@@ -266,20 +268,23 @@ export const editFileTool = defineTool({
     const rel = context.workspace.relative(file);
     // Fail before asking for approval, not after the user has approved a diff that cannot be applied.
     requireRead(file, input.path, context);
-    const before = requireUtf8ForEdit(await readFile(file), input.path).toString('utf8');
+    const bytes = await readProjectFile(context.workspace, input.path);
+    if (bytes === null) throw new ToolError(`File not found: ${input.path}`);
+    const before = requireUtf8ForEdit(bytes, input.path).toString('utf8');
     return { title: `Edit ${rel}`, diff: unifiedDiff(rel, before, applyEdit(before, input)) };
   },
   async run(input, context) {
     const file = context.workspace.resolve(input.path);
     if (!existsSync(file)) throw new ToolError(`File not found: ${input.path}`);
     requireRead(file, input.path, context);
-    const bytes = await readFile(file);
+    const rel = context.workspace.relative(file);
+    const bytes = await readProjectFile(context.workspace, input.path);
+    if (bytes === null) throw new ToolError(`File not found: ${input.path}`);
     const before = requireUtf8ForEdit(bytes, input.path).toString('utf8');
     const after = applyEdit(before, input);
-    await writeFile(file, after, 'utf8');
+    await changeProjectFiles(context.workspace, [{ path: input.path, before: bytes, after: Buffer.from(after) }]);
     // The model knows what it wrote, so a later write_file needs no new read.
     context.readFiles.set(file, sha256(after));
-    const rel = context.workspace.relative(file);
     return {
       content: `Edited ${rel}.\n${unifiedDiff(rel, before, after)}`,
       summary: `Edited ${rel}`,

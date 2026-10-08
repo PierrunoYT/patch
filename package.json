@@ -10,18 +10,18 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "npm run build:sandbox && electron-vite dev",
     "postinstall": "node scripts/fix-node-pty.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "build": "electron-vite build",
-    "build:sandbox": "cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml",
-    "start": "electron-vite build && electron-vite preview",
+    "build": "npm run build:sandbox && electron-vite build",
+    "build:sandbox": "node scripts/build-native.mjs",
+    "start": "npm run build && electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test:unit && npm run test:e2e",
-    "test:unit": "vitest run --project unit --passWithNoTests",
+    "test:unit": "npm run build:sandbox && vitest run --project unit --passWithNoTests",
     "test:sandbox": "vitest run --project unit src/main/tools/sandbox",
     "test:e2e": "npm run build && vitest run --project e2e",
     "perf": "npm run build && vitest run --project perf",
@@ -62,6 +62,12 @@
     },
     "mac": {
       "icon": "build/icon.icns",
+      "extraResources": [
+        {
+          "from": "native/sandbox-helper/target/release/file-helper",
+          "to": "file-helper"
+        }
+      ],
       "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-*/**",
       "singleArchFiles": "node_modules/node-pty/prebuilds/darwin-*/**",
       "target": [
@@ -80,6 +86,12 @@
       "gatekeeperAssess": false
     },
     "linux": {
+      "extraResources": [
+        {
+          "from": "native/sandbox-helper/target/release/file-helper",
+          "to": "file-helper"
+        }
+      ],
       "target": [
         "AppImage",
         "deb"
@@ -106,6 +118,10 @@
         {
           "from": "native/sandbox-helper/target/release/sandbox-helper.exe",
           "to": "sandbox-helper.exe"
+        },
+        {
+          "from": "native/sandbox-helper/target/release/file-helper.exe",
+          "to": "file-helper.exe"
         }
       ]
     },
