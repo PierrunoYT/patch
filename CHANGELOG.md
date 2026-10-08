@@ -125,6 +125,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- The renderer's `h()` no longer sets `innerHTML`, `outerHTML`, `srcdoc`, `src`, `data`, `action`, `formaction`, non-function `on*` props or non-`https://` `href` values (#208).
 - Quitting while an MCP server is still connecting closes the pending connections straight away instead of waiting up to 20 s (#190).
 - `revokeProjectGrant` gives up on a sandbox helper that does not answer within 15 s, and a browser wait that times out removes its waiter instead of leaking it (#188).
 - Background commands are numbered per chat, so one chat cannot read or stop another chat's commands. A finished command is dropped once its output is read, and at most 5 finished ones with unread output are kept per chat (#187).

@@ -9,9 +9,23 @@ type Props = {
   [key: string]: unknown;
 };
 
+// Properties and attributes that parse HTML or load content, which h() never sets from props (compared lower-case).
+// Use trustedHtml for sanitized HTML. This keeps a future h(tag, { [name]: value }) with a model- or file-derived key
+// from bypassing that rule.
+const BLOCKED_PROPS = new Set(['innerhtml', 'outerhtml', 'srcdoc', 'src', 'formaction', 'action', 'data']);
+
+function isBlockedProp(key: string, value: unknown): boolean {
+  const lower = key.toLowerCase();
+  // A link may only point at an https URL (javascript:, data: and relative URLs are refused).
+  if (lower === 'href') return !/^https:\/\//i.test(String(value));
+  // on<Event> with a non-function value would otherwise become an inline handler property or attribute.
+  return BLOCKED_PROPS.has(lower) || lower.startsWith('on');
+}
+
 // Creates an element. Text children are inserted as text, never parsed as HTML, so this is safe for model output.
 // Props named on<Event> with a function value become event listeners; other props are set as properties when the
-// element has them, otherwise as attributes.
+// element has them, otherwise as attributes. HTML sinks, URL-loading props and inline handlers (see BLOCKED_PROPS)
+// are ignored; href is only accepted for https URLs.
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   props: Props = {},
@@ -25,6 +39,8 @@ export function h<K extends keyof HTMLElementTagNameMap>(
     else if (key === 'dataset') Object.assign(element.dataset, value);
     else if (key.startsWith('on') && typeof value === 'function') {
       element.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
+    } else if (isBlockedProp(key, value)) {
+      continue;
     } else if (key in element && !key.includes('-')) {
       (element as unknown as Record<string, unknown>)[key] = value;
     } else {
