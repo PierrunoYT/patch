@@ -342,7 +342,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 216, src: 1619, tl: 3434 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
-    { a: 'main/tools', f: 24, c: 456, src: 4318, tl: 6407 },
+    { a: 'main/tools', f: 24, c: 462, src: 4388, tl: 6476 },
     { a: 'main/panels', f: 4, c: 71, src: 645, tl: 1057 },
     { a: 'main/other', f: 12, c: 190, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
@@ -535,7 +535,6 @@ const D = {
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
     [172, 'Subagent token usage is priced at the chat model’s rate', 'other', 'medium', 0, '10-07'],
     [170, 'Code index: lost progress, shared stop, duplicate runs on settings change', 'tools', 'medium', 0, '10-07'],
-    [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -655,7 +654,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 92,
+  closedCount: 93,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

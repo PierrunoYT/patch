@@ -153,6 +153,75 @@ describe('Workspace', () => {
       rmSync(outside, { recursive: true, force: true });
     }
   });
+
+  describe('nested and changing ignore rules', () => {
+    const listed = async () => (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));
+
+    beforeEach(() => {
+      mkdirSync(join(root, 'pkg', 'dist'), { recursive: true });
+      mkdirSync(join(root, 'dist'));
+      writeFileSync(join(root, 'pkg', 'dist', 'bundle.js'), 'const a = 1;');
+      writeFileSync(join(root, 'pkg', 'index.ts'), 'const a = 1;');
+      writeFileSync(join(root, 'dist', 'root.js'), 'const a = 1;');
+      writeFileSync(join(root, 'pkg', '.gitignore'), 'dist/\n');
+    });
+
+    it('scopes a nested .gitignore to its own folder in listFiles, grep, glob and list_directory', async () => {
+      const files = await listed();
+      expect(files).toContain('pkg/index.ts');
+      expect(files).toContain('dist/root.js');
+      expect(files).not.toContain('pkg/dist/bundle.js');
+      expect(context.workspace.isIgnored(join(context.workspace.root, 'pkg', 'dist', 'bundle.js'), false)).toBe(true);
+
+      const grep = (await call(grepTool, { pattern: 'const a' })).content as string;
+      expect(grep).toContain('dist/root.js');
+      expect(grep).not.toContain('pkg/dist');
+      const glob = (await call(globTool, { pattern: '*.js' })).content as string;
+      expect(glob.split('\n')).toEqual(['dist/root.js']);
+      const dir = (await call(listDirectoryTool, { path: 'pkg' })).content as string;
+      expect(dir.split('\n')).toEqual(['.gitignore', 'index.ts']);
+      const recursive = (await call(listDirectoryTool, { path: 'pkg/dist', recursive: true })).content as string;
+      expect(recursive).toBe('(empty)');
+    });
+
+    it('honors .git/info/exclude when .git is a folder', async () => {
+      mkdirSync(join(root, '.git', 'info'), { recursive: true });
+      writeFileSync(join(root, '.git', 'info', 'exclude'), 'pkg/index.ts\n');
+      expect(await listed()).not.toContain('pkg/index.ts');
+    });
+
+    it('picks up a root .gitignore changed on disk without being told', async () => {
+      expect(await listed()).toContain('dist/root.js');
+      writeFileSync(join(root, '.gitignore'), '*.log\n/dist/\n');
+      expect(await listed()).not.toContain('dist/root.js');
+      expect(context.workspace.isIgnored(join(context.workspace.root, 'dist', 'root.js'), false)).toBe(true);
+    });
+
+    it('shows files again when a nested .gitignore is deleted', async () => {
+      expect(await listed()).not.toContain('pkg/dist/bundle.js');
+      rmSync(join(root, 'pkg', '.gitignore'));
+      expect(await listed()).toContain('pkg/dist/bundle.js');
+    });
+
+    it('picks up a pattern that edit_file adds to .gitignore', async () => {
+      expect(await listed()).toContain('pkg/index.ts');
+      await call(readFileTool, { path: '.gitignore' });
+      await call(editFileTool, { path: '.gitignore', old_string: '*.log', new_string: '*.log\npkg/index.ts' });
+      expect(await listed()).not.toContain('pkg/index.ts');
+    });
+
+    it('lets a nested file re-include a file but not the contents of an excluded folder, like git', async () => {
+      writeFileSync(join(root, 'pkg', 'keep.log'), '');
+      writeFileSync(join(root, 'pkg', 'other.log'), '');
+      writeFileSync(join(root, 'pkg', '.gitignore'), 'dist/\n!keep.log\n!dist/bundle.js\n');
+      const files = await listed();
+      expect(files).toContain('pkg/keep.log');
+      expect(files).not.toContain('pkg/other.log');
+      expect(files).not.toContain('pkg/dist/bundle.js');
+      expect(context.workspace.isIgnored(join(context.workspace.root, 'pkg', 'keep.log'), false)).toBe(false);
+      expect(context.workspace.isIgnored(join(context.workspace.root, 'pkg', 'dist', 'bundle.js'), false)).toBe(true);
+    });
+  });
 });
 
 describe('file tools', () => {
