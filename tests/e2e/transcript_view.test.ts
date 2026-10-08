@@ -83,6 +83,27 @@ describe('the transcript view (mock Claude API)', () => {
     expect(layout.ids).toEqual(longTranscript().map((item) => item.id));
   });
 
+  it('jumps to the bottom on send after the user scrolled up, so a quick approval card is in view', async () => {
+    const box = (await running.page.locator('.chat-scroll-wrap').boundingBox())!;
+    await running.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await running.page.mouse.wheel(0, -3000);
+    await expect.poll(distanceFromBottom).toBeGreaterThan(1000);
+    claude.script(
+      {
+        blocks: [{ type: 'tool_use', id: 'list-files', name: 'run_command', input: { command: 'echo hi && dir' } }],
+        stopReason: 'tool_use',
+      },
+      { blocks: [{ type: 'text', text: 'Back at the bottom.' }], stopReason: 'end_turn' },
+    );
+    await running.page.getByLabel('Message', { exact: true }).fill('Hello again');
+    await running.page.getByLabel('Message', { exact: true }).press('Enter');
+    const approve = running.page.locator('.tool-card.awaiting button', { hasText: 'Approve' });
+    await approve.waitFor({ state: 'attached' });
+    await expect.poll(distanceFromBottom, { timeout: 5_000 }).toBeLessThan(5);
+    await approve.click();
+    await running.page.getByText('Back at the bottom.', { exact: true }).waitFor();
+  });
+
   it('keeps following the bottom when a tall approval card arrives, so Approve is in view', async () => {
     const newLines = Array.from({ length: 60 }, (_, index) => `line ${index}`).join('\n');
     claude.script(

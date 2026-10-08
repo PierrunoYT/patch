@@ -100,6 +100,15 @@ function diffStats(diff: string): HTMLElement {
   );
 }
 
+// Whether the items not yet shown include a message from the user. Events are applied once per frame, so the start of
+// the reply can arrive in the same render as the message: the message need not be the last item.
+export function sentMessage(items: TranscriptItem[], shown: { has(id: string): boolean }): boolean {
+  for (let index = items.length - 1; index >= 0 && !shown.has(items[index]!.id); index--) {
+    if (items[index]!.kind === 'user') return true;
+  }
+  return false;
+}
+
 // The transcript's items are grouped in containers of this many, each skipped for layout while off screen
 // (`content-visibility: auto`). Following the bottom of a long chat while an answer streams then lays out a few dozen
 // containers instead of thousands of items (docs/PERFORMANCE.md).
@@ -130,10 +139,11 @@ export class TranscriptView {
   render(items: TranscriptItem[]): void {
     // The scrolling element is the wrapper around the transcript's parent, not the direct parent.
     const container = this.element.closest<HTMLElement>('.chat-scroll-wrap');
-    const last = items[items.length - 1];
     // Always follow when the user just sent a message; otherwise only if already near the bottom.
     const stick =
-      !container || last?.kind === 'user' || container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      !container ||
+      sentMessage(items, this.nodes) ||
+      container.scrollHeight - container.scrollTop - container.clientHeight < 80;
 
     const seen = new Set<string>();
     let previous: HTMLElement | null = null;
