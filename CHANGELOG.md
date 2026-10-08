@@ -98,6 +98,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Same-project navigation no longer kills the interactive terminal, clears the Git commit draft or rebuilds the active transcript. Closing or removing an inactive project leaves the active panels alone; closing the last project still clears its chat (#160).
 - File tools reject non-UTF-8 edits and overwrites before approval and execution instead of corrupting unrelated bytes. A patch containing a non-UTF-8 update or move leaves every file unchanged (#159).
 - `read_file` counts newline-terminated files correctly, keeps real blank lines, and reports offsets past the end instead of returning a silent empty result (#181).
 - `apply_patch` accepts a move back to the same resolved path as an update, while still rejecting a second block for that file (#183).

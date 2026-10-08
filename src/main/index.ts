@@ -206,9 +206,12 @@ function start(): void {
 
   const openProject = (path: string) => {
     manager.requireIdle();
+    const before = projects.current()?.path;
     const project = projects.open(path);
-    manager.projectChanged();
-    terminal.stop();
+    if (project.path !== before) {
+      manager.projectChanged();
+      terminal.stop();
+    }
     send(mainWindow, 'project:changed', project);
     return project;
   };
@@ -277,11 +280,14 @@ function start(): void {
   handle('project:opened', () => projects.opened());
   handle('project:close', (path) => {
     manager.requireIdle();
+    const before = projects.current()?.path;
     manager.closeProject(path);
     revokeSandboxGrant(path);
     projects.close(path);
-    manager.projectChanged();
-    terminal.stop();
+    if (projects.current()?.path !== before) {
+      manager.projectChanged();
+      terminal.stop();
+    }
     send(mainWindow, 'project:changed', projects.current());
   });
   handle('project:set-instructions', (path, instructions) => projects.setInstructions(path, instructions));
@@ -291,11 +297,14 @@ function start(): void {
   });
   handle('project:remove', (path) => {
     manager.requireIdle();
+    const before = projects.current()?.path;
     manager.closeProject(path);
     revokeSandboxGrant(path);
     projects.remove(path);
-    manager.projectChanged();
-    terminal.stop();
+    if (projects.current()?.path !== before) {
+      manager.projectChanged();
+      terminal.stop();
+    }
     send(mainWindow, 'project:changed', projects.current());
     return projects.list();
   });
@@ -322,8 +331,9 @@ function start(): void {
 
   handle('history:list', () => chats.list());
   handle('history:open', (id) => {
+    const before = projects.current()?.path;
     const snapshot = manager.open(id);
-    terminal.stop();
+    if (projects.current()?.path !== before) terminal.stop();
     send(mainWindow, 'project:changed', projects.current());
     return snapshot;
   });

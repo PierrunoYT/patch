@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -152,5 +152,108 @@ describe('switching between open projects (mock Claude API)', () => {
     await expect.poll(async () => (await current())?.path).toBe(beta);
     expect((await waitFor((chat) => chat.id === betaChatId)).busy).toBe(false);
     expect(running.errors).toEqual([]);
+  });
+
+  it('keeps the terminal command, commit draft and expanded transcript when the project stays active', async () => {
+    const gamma = join(root, 'Gamma');
+    mkdirSync(gamma);
+    await running.page.evaluate((path) => window.api.invoke('project:open', path), gamma);
+    await tab('Alpha').click();
+    await waitFor((chat) => chat.projectPath === alpha);
+    const olderChat = (await snapshot()).id;
+    await running.page.evaluate(() => window.api.invoke('chat:new'));
+    writeFileSync(join(alpha, 'state.txt'), 'old\n');
+    await running.page.evaluate(() => window.api.invoke('settings:update', { approvalMode: 'auto' }));
+    claude.script(
+      {
+        blocks: [{ type: 'tool_use', id: 'read-alpha', name: 'read_file', input: { path: 'state.txt' } }],
+        stopReason: 'tool_use',
+      },
+      {
+        blocks: [
+          {
+            type: 'tool_use',
+            id: 'edit-alpha',
+            name: 'edit_file',
+            input: { path: 'state.txt', old_string: 'old', new_string: 'new' },
+          },
+        ],
+        stopReason: 'tool_use',
+      },
+      { blocks: [{ type: 'text', text: 'Alpha state preserved.' }], stopReason: 'end_turn' },
+    );
+    await message().fill('Read the Alpha instructions');
+    await message().press('Enter');
+    const active = await waitFor(
+      (chat) =>
+        !chat.busy &&
+        chat.transcript.some((item) => item.kind === 'assistant' && item.text === 'Alpha state preserved.'),
+    );
+    await running.page.getByText('Alpha state preserved.', { exact: true }).waitFor();
+    const disclosure = running.page.locator('.tool-card details').first();
+    await disclosure.locator('summary').click();
+    await expect.poll(() => disclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+    await running.page.evaluate(() => window.api.invoke('git:init'));
+    await running.page.getByRole('tab', { name: 'Git', exact: true }).click();
+    const commit = running.page.getByLabel('Commit message');
+    await commit.fill('Keep this unfinished commit');
+    await running.page.getByRole('tab', { name: 'Terminal', exact: true }).click();
+    await running.page.evaluate(() => window.api.invoke('terminal:start', 80, 24));
+    const heartbeat = join(alpha, 'terminal-heartbeat.txt');
+    const command =
+      process.platform === 'win32'
+        ? `$i=0; while ($true) { [System.IO.File]::WriteAllText('${heartbeat.replaceAll("'", "''")}', [string](++$i)); Start-Sleep -Milliseconds 100 }\r`
+        : `i=0; while :; do i=$((i+1)); printf '%s' "$i" > '${heartbeat.replaceAll("'", "'\\''")}'; sleep 0.1; done\r`;
+    const readHeartbeat = () => {
+      try {
+        return Number(readFileSync(heartbeat, 'utf8'));
+      } catch {
+        return 0;
+      }
+    };
+    const remainsRunning = async () => {
+      const before = readHeartbeat();
+      await expect.poll(readHeartbeat, { timeout: 15_000 }).toBeGreaterThan(before);
+      expect(await commit.inputValue()).toBe('Keep this unfinished commit');
+    };
+    try {
+      await running.page.evaluate((text) => window.api.invoke('terminal:write', text), command);
+      await expect.poll(readHeartbeat, { timeout: 20_000 }).toBeGreaterThan(0);
+      await tab('Alpha').click();
+      await remainsRunning();
+      expect(await disclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+      await running.page.locator('.sidebar-item.active').click();
+      await remainsRunning();
+      expect((await snapshot()).id).toBe(active.id);
+      expect(await disclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+      await running.page.getByRole('button', { name: 'Close project Beta', exact: true }).click();
+      await remainsRunning();
+      expect(await disclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+      await running.page.evaluate((path) => window.api.invoke('project:remove', path), gamma);
+      await remainsRunning();
+      expect(await disclosure.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
+      await running.page.evaluate((id) => window.api.invoke('history:open', id), olderChat);
+      await waitFor((chat) => chat.id === olderChat);
+      await remainsRunning();
+      expect((await current())?.path).toBe(alpha);
+    } finally {
+      await running.page.evaluate(() => window.api.invoke('terminal:write', '\u0003'));
+    }
+    expect(running.errors).toEqual([]);
+  });
+
+  it('clears the chat and panel state when the last active project is closed', async () => {
+    await running.page.getByRole('tab', { name: 'Terminal', exact: true }).click();
+    const opened = await running.page.evaluate(() => window.api.invoke('project:opened'));
+    for (const project of opened) {
+      if (project.path !== alpha)
+        await running.page.evaluate((path) => window.api.invoke('project:close', path), project.path);
+    }
+    await running.page.getByRole('button', { name: 'Close project Alpha', exact: true }).click();
+    await expect.poll(current).toBeNull();
+    await expect.poll(async () => (await snapshot()).id).toBe('');
+    await running.page.locator('.terminal-panel', { hasText: 'Open a project to use the terminal.' }).waitFor();
+    expect(await running.page.getByLabel('Commit message').inputValue()).toBe('');
+    expect(await running.page.locator('.tool-card').count()).toBe(0);
   });
 });

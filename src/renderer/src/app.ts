@@ -180,12 +180,13 @@ export class App {
       void this.refreshIndex();
     });
     api.on('project:changed', (project) => {
-      if (project?.path !== this.project?.path) {
+      const changed = project?.path !== this.project?.path;
+      if (changed) {
         if (this.project) this.drafts.set(this.project.path, this.composer.getDraft());
         this.composer.setDraft(this.drafts.get(project?.path ?? '') ?? { text: '', images: [], mentions: [] });
       }
       this.project = project;
-      this.panels.projectChanged();
+      if (changed) this.panels.projectChanged();
       void this.refreshGit();
       void this.refreshIndex();
       this.renderHeader();

@@ -181,7 +181,8 @@ export class ChatManager {
     this.requireIdle();
     const next = this.deps.projects.current()?.path ?? null;
     if (next === this.projectPath) {
-      this.deps.onSnapshot(this.snapshot());
+      // Closing the last project already discarded its session; publish the empty chat in that case.
+      if (next === null) this.deps.onSnapshot(this.snapshot());
       return;
     }
     if (this.projectPath) {
