@@ -305,6 +305,7 @@ export class ChatSession {
         outputTokens: usage.outputTokens,
         cacheReadTokens: usage.cacheReadTokens,
         cacheWriteTokens: usage.cacheWriteTokens ?? 0,
+        ...(typeof usage.longContext === 'object' ? { longContext: usage.longContext } : {}),
         requests: 1,
       });
       this.options.onChange(false);

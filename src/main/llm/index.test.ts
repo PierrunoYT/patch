@@ -108,7 +108,7 @@ describe('LlmService summarizer selection', () => {
   it.each([
     { provider: 'openai', api: 'responses', model: 'gpt-6-sol', customURL: true, expected: 'gpt-6-luna' },
     { provider: 'openai', api: 'chat', model: 'gpt-6-sol', customURL: false, expected: 'gpt-6-luna' },
-    { provider: 'anthropic', model: 'claude-opus-5-5', customURL: true, expected: 'claude-haiku-4-5' },
+    { provider: 'anthropic', model: 'claude-opus-5-5', customURL: true, expected: 'claude-haiku-5-5' },
   ] as const)('retains the standard small model for $provider/$api chats', async (testCase) => {
     const llm = new LlmService({
       get: () => ({

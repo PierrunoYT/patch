@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +12,26 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
+});
+
+describe('readJson', () => {
+  it('returns the fallback for a missing file and leaves the folder alone', () => {
+    expect(readJson(join(dir, 'missing.json'), { n: 0 })).toEqual({ n: 0 });
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('sets a file that is not valid JSON aside instead of leaving it to be overwritten', () => {
+    const file = join(dir, 'data.json');
+    writeFileSync(file, '{"settings": {"theme": "li');
+    expect(readJson(file, { n: 0 })).toEqual({ n: 0 });
+    expect(existsSync(file)).toBe(false);
+    const [copy] = readdirSync(dir);
+    expect(copy).toMatch(/^data\.json\.corrupt-\d+$/);
+    expect(readFileSync(join(dir, copy!), 'utf8')).toBe('{"settings": {"theme": "li');
+
+    writeJson(file, { n: 1 });
+    expect(readdirSync(dir)).toHaveLength(2);
+  });
 });
 
 describe('writeJsonLater', () => {

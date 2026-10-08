@@ -61,10 +61,16 @@ export class SettingsStore extends EventEmitter {
     private readonly cipher: SecretCipher,
   ) {
     super();
-    const stored = readJson<StoredSettings>(path, { settings: {}, secrets: {} });
-    this.settings = sanitize({ ...DEFAULT_SETTINGS, ...stored.settings });
-    this.secrets = stored.secrets ?? {};
-    this.mcpSecrets = stored.mcpSecrets ?? {};
+    const raw = readJson<unknown>(path, null);
+    const stored: Partial<Record<keyof StoredSettings, unknown>> = isRecord(raw) ? raw : {};
+    this.settings = sanitize({
+      ...DEFAULT_SETTINGS,
+      ...(isRecord(stored.settings) ? (stored.settings as Partial<Settings>) : {}),
+    });
+    this.secrets = isRecord(stored.secrets) ? (stored.secrets as StoredSettings['secrets']) : {};
+    this.mcpSecrets = isRecord(stored.mcpSecrets)
+      ? (stored.mcpSecrets as NonNullable<StoredSettings['mcpSecrets']>)
+      : {};
     this.chatgpt = sanitizeStoredChatGpt(stored.chatgpt);
     this.migratePlainSecrets();
   }
@@ -401,6 +407,10 @@ export class SettingsStore extends EventEmitter {
       throw error instanceof Error ? error : new Error(String(error));
     }
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function pickKnown(patch: Partial<Settings>): Partial<Settings> {

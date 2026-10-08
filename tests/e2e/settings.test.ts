@@ -22,6 +22,19 @@ describe('settings over IPC', () => {
     expect(Object.values(view.secrets).every((set) => set === false)).toBe(true);
   });
 
+  it('offers the new models in Settings and persists their selection', async () => {
+    const original = await running.page.evaluate(() => window.api.invoke('settings:get'));
+    for (const model of ['claude-haiku-5-5', 'claude-fable-5-1', 'gpt-6.1-sol']) {
+      await running.page.getByTitle('Settings (Ctrl+,)').click();
+      const dialog = running.page.locator('.app-dialog');
+      await dialog.getByLabel('Model', { exact: true }).selectOption(model);
+      await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      expect((await running.page.evaluate(() => window.api.invoke('settings:get'))).model).toBe(model);
+    }
+    await running.page.evaluate((model) => window.api.invoke('settings:update', { model }), original.model);
+  });
+
   it('updates settings and pushes a change event', async () => {
     const theme = await running.page.evaluate(
       () =>

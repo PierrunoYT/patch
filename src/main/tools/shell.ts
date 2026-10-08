@@ -24,6 +24,7 @@ import {
   type SandboxSupport,
 } from './sandbox';
 import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
+import { killWindowsLeftovers, killWindowsLeftoversLater } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
 import { validateSandboxGit } from './sandbox_git';
 
@@ -207,6 +208,7 @@ export class ShellRunner {
         finished = true;
         clearTimeout(timer);
         signal?.removeEventListener('abort', onAbort);
+        killLeftovers(child, false);
         child.stdout?.destroy();
         child.stderr?.destroy();
         resolve({ exitCode, output, timedOut, aborted, sandbox });
@@ -266,6 +268,7 @@ export class ShellRunner {
     if (!entry) return false;
     entry.detachAbort();
     if (entry.exitCode === undefined) killTree(entry.process);
+    else killLeftovers(entry.process);
     this.background.delete(id);
     return true;
   }
@@ -323,6 +326,9 @@ export class ShellRunner {
     });
     if (launch.stop) stoppers.set(child, launch.stop);
     child.once('spawn', () => spawned.add(child));
+    const lifetime: Lifetime = { startedAt: Date.now() };
+    lifetimes.set(child, lifetime);
+    child.once('exit', () => (lifetime.endedAt = Date.now()));
     return { child, sandbox: decision.kind };
   }
 
@@ -362,6 +368,12 @@ export class ShellRunner {
 // A container keeps running when its client process is killed, so it is removed by name as well.
 const stoppers = new WeakMap<CommandProcess, NonNullable<Launch['stop']>>();
 const spawned = new WeakSet<CommandProcess>();
+// When a command's shell started and ended, to tell its leftovers on Windows from processes that reused its pid.
+interface Lifetime {
+  startedAt: number;
+  endedAt?: number;
+}
+const lifetimes = new WeakMap<CommandProcess, Lifetime>();
 
 function killTree(child: CommandProcess): void {
   if (child instanceof HelperProcess) return child.stopTree();
@@ -373,7 +385,9 @@ function killTree(child: CommandProcess): void {
       // Falls through to killing the client.
     }
   }
-  if (!child.pid || child.exitCode !== null) return;
+  if (!child.pid) return;
+  // The shell can exit while programs it started (its process group) keep running, so the group is signalled anyway.
+  if (child.exitCode !== null) return killLeftovers(child);
   try {
     if (process.platform === 'win32') {
       // Before the spawn event, synchronously spawning taskkill gives the just-created shell time to launch a
@@ -393,6 +407,26 @@ function killTree(child: CommandProcess): void {
     child.kill('SIGKILL');
   }
 }
+
+// Kills what a command left behind (`npm run dev &`) after its shell has exited. On POSIX the command was started in
+// its own process group, which outlives the shell while any member runs; ESRCH means nothing is left. Windows has no
+// groups, so the leftovers are found through their parent pid; `wait` says whether the caller can block for that
+// (Stop, closing a chat, quitting) or must not (a foreground command that just finished).
+function killLeftovers(child: CommandProcess, wait = true): void {
+  if (!child.pid || child instanceof HelperProcess) return;
+  if (process.platform === 'win32') {
+    const lifetime = lifetimes.get(child);
+    if (!lifetime || child.exitCode === null) return;
+    const ended = { startedAt: lifetime.startedAt, endedAt: lifetime.endedAt ?? Date.now() };
+    return wait ? killWindowsLeftovers(child.pid, ended) : killWindowsLeftoversLater(child.pid, ended);
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL');
+  } catch {
+    // Nothing left in the group.
+  }
+}
+
 // libuv before 1.53 (every Node.js release so far) names child-process pipes outside the AppContainer's LOCAL\
 // namespace and retries the denied name forever, so the command hangs instead of failing (#101). Patch never
 // rewrites the command; the model decides whether a workaround suits the project.

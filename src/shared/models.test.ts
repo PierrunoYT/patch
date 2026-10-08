@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   acceptsImages,
   claudeCapabilities,
+  contextWindow,
   DEFAULT_SUBAGENT_EFFORT,
   DEFAULT_SUBAGENT_MODEL,
   effortForSubagent,
@@ -13,6 +14,23 @@ import {
   SMALL_MODELS,
   subagentModelId,
 } from './models';
+
+describe('current model catalog', () => {
+  it('includes the verified models and retains older saved-chat choices', () => {
+    for (const id of ['claude-haiku-5-5', 'claude-fable-5-1']) expect(contextWindow(id)).toBe(1_000_000);
+    expect(contextWindow('gpt-6.1-sol')).toBe(1_050_000);
+    expect(contextWindow('claude-haiku-4-5')).toBe(200_000);
+    expect(contextWindow('gpt-6-sol')).toBe(1_050_000);
+    expect(SMALL_MODELS.anthropic).toBe('claude-haiku-5-5');
+    expect(claudeCapabilities('claude-haiku-5-5')).toEqual({
+      adaptiveThinking: true,
+      compaction: true,
+      refusalFallback: false,
+      images: true,
+      strictTools: true,
+    });
+  });
+});
 
 describe('strict tool inputs', () => {
   it('is enabled for built-in Claude models and disabled for unknown ids', () => {
@@ -62,6 +80,16 @@ describe('estimateCost', () => {
     ).toBeCloseTo(29.4);
   });
 
+  it('prices Sonnet 5.5 cache reads at 5% of input', () => {
+    const usage = {
+      inputTokens: 1_000_000,
+      outputTokens: 500_000,
+      cacheReadTokens: 2_000_000,
+      cacheWriteTokens: 3_000_000,
+    };
+    expect(estimateCost('claude-sonnet-5-5', usage)).toBeCloseTo(14.7);
+  });
+
   it('prices mixed GPT-6 short and long requests without choosing a tier from chat totals', () => {
     const usage = {
       inputTokens: 300_000,
@@ -72,6 +100,27 @@ describe('estimateCost', () => {
       longContext: { inputTokens: 200_000, outputTokens: 10_000, cacheReadTokens: 80_000, cacheWriteTokens: 5_000 },
     };
     expect(estimateCost('gpt-6-sol', usage)).toBeCloseTo(1.4485);
+    expect(estimateCost('gpt-6.1-sol', usage)).toBeCloseTo(1.4305);
+  });
+
+  it('prices Haiku mixed request tiers and Fable caching at verified rates', () => {
+    expect(
+      estimateCost('claude-haiku-5-5', {
+        inputTokens: 300_000,
+        outputTokens: 30_000,
+        cacheReadTokens: 100_000,
+        cacheWriteTokens: 20_000,
+        longContext: { inputTokens: 200_000, outputTokens: 10_000, cacheReadTokens: 80_000, cacheWriteTokens: 5_000 },
+      }),
+    ).toBeCloseTo(0.1542);
+    expect(
+      estimateCost('claude-fable-5-1', {
+        inputTokens: 1_000_000,
+        outputTokens: 100_000,
+        cacheReadTokens: 2_000_000,
+        cacheWriteTokens: 100_000,
+      }),
+    ).toBeCloseTo(16.75);
   });
 
   it('returns null for unknown models and official ids on custom compatible providers', () => {
@@ -108,7 +157,7 @@ describe('formatCost', () => {
 describe('subagent model and effort', () => {
   it('keeps the chat model on the same provider until the setting changes', () => {
     expect(DEFAULT_SUBAGENT_MODEL).toBe('same');
-    expect(MID_MODELS).toEqual({ anthropic: 'claude-sonnet-5-5', openai: 'gpt-6-sol' });
+    expect(MID_MODELS).toEqual({ anthropic: 'claude-sonnet-5-5', openai: 'gpt-6.1-sol' });
     expect(subagentModelId('anthropic', 'claude-custom', 'same')).toBe('claude-custom');
     expect(subagentModelId('openai', 'local-model', 'same')).toBe('local-model');
     expect(subagentModelId('anthropic', 'claude-opus-5-5', 'mid')).toBe(MID_MODELS.anthropic);

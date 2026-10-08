@@ -15,7 +15,7 @@ The application and installer are named Patch (`Patch.exe` and `Patch-Installer.
 ## Features
 
 - OpenCode Desktop-inspired interface with neutral light/dark themes, project and session navigation, a collapsible sidebar, and model/approval controls beside the prompt
-- Chat with Claude (Opus 5.5 by default, Sonnet 5.5, Haiku 4.5), OpenAI GPT-6 (Astra, Sol, Luna) or any OpenAI-compatible endpoint, with streaming answers; Claude can also go through a proxy or gateway (Settings → Claude base URL)
+- Chat with Claude (Opus 5.5 by default, Fable 5.1, Sonnet 5.5, Haiku 5.5), OpenAI GPT-6 (Astra, Sol, Luna), GPT-6.1 Sol or any OpenAI-compatible endpoint, with streaming answers; legacy Haiku 4.5 and GPT-6 Sol ids retain their compatibility and price estimates, and Claude can also go through a proxy or gateway (Settings → Claude base URL)
 - Works directly in your project: read, search, edit and create files, run commands
 - Windows sandbox permissions recover on the next helper startup after a forced stop; cleanup leaves live commands and unrelated container permissions intact
 - Official Windows Node installations with missing AppContainer permissions work through narrow read-only toolchain grants or a private per-command copy, without administrator setup; package-readable Git/Python installations are left unchanged
@@ -30,7 +30,7 @@ The application and installer are named Patch (`Patch.exe` and `Patch-Installer.
 - Mention project files with `@` in the message box; tool calls in the chat show how long they took
 - Web search (Google Custom Search) and page fetching (long pages come in parts, fetched pages are cached for 15 minutes, and an `objective` lists the relevant lines first)
 - Model Context Protocol (MCP) servers: add them in Settings (stdio programs or Streamable HTTP endpoints) and their tools are offered to the assistant; every MCP tool call asks for approval, also in Auto mode
-- Read-only subagents with their own context: `task` for broad questions such as "find every caller", `finder` (a cheaper model) to locate code and `oracle` for a second opinion on a hard problem. Settings can run `task` on a smaller model and lower the effort for `finder` and `task`; the defaults match the chat. Their progress shows while they work, and independent read-only tool calls (including subagents) run in parallel
+- Read-only subagents with their own context: `task` for broad questions such as "find every caller", `finder` (a cheaper model) to locate code and `oracle` for a second opinion on a hard problem. Settings can run `task` on a smaller model and lower the effort for `finder` and `task`; the small Claude model is Haiku 5.5 and the mid OpenAI model is GPT-6.1 Sol, while the settings defaults still match the chat. Their progress shows while they work, and independent read-only tool calls (including subagents) run in parallel
 - Multi-file edits in one approval with `apply_patch` (Codex patch format, all-or-nothing), file search by name with `glob`, and a `todo_list` checklist the assistant keeps while it works through a multi-step task
 - Secrets are hidden from the model: private keys, cloud and Git host tokens, JWTs and credential values in tool results (an `.env` file, a printed token) are replaced by `[REDACTED:_____]` before the model, the transcript or the saved chat see them
 - Edits to protected files (`.env`, keys, `.git`, editor and agent config, shell start-up files, databases) always ask, even in Auto mode

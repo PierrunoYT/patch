@@ -1035,6 +1035,25 @@ describe('agent loop', () => {
     expect(saved.transcript).toHaveLength(2);
   });
 
+  it('tracks only the long-request bucket from a mixed continuation turn', async () => {
+    const longContext = { inputTokens: 100_000, outputTokens: 5, cacheReadTokens: 3, cacheWriteTokens: 2 };
+    const { session } = setup([
+      {
+        text: 'done',
+        usage: {
+          inputTokens: 110_000,
+          outputTokens: 12,
+          cacheReadTokens: 7,
+          cacheWriteTokens: 5,
+          longContext,
+        },
+      },
+    ]);
+    await session.send({ text: 'hi' });
+    expect(session.serialize().usage.longContext).toEqual(longContext);
+    expect(session.serialize().usage.inputTokens).toBe(110_000);
+  });
+
   it('restores legacy saved usage without cache writes', () => {
     const { session } = setup([], { usage: { inputTokens: 7, outputTokens: 5, cacheReadTokens: 3 } });
     expect(session.snapshot().usage).toEqual({

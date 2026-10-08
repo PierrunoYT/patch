@@ -14,6 +14,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Added
 
+- Add Claude Haiku 5.5, Claude Fable 5.1 and GPT-6.1 Sol with their context windows, capabilities and tiered price estimates. Haiku 5.5 becomes the Anthropic small model and GPT-6.1 Sol the OpenAI mid model; Haiku 4.5 and GPT-6 Sol remain compatible with their existing prices. Haiku 5.5 uses adaptive thinking, images, strict tool inputs and server-side compaction, without refusal fallback.
 - `npm run test:sandbox`: real bubblewrap, Seatbelt and Docker/Podman isolation tests with disposable fake-home credentials, hook/symlink protection and local TCP network controls. The Windows integration suite also checks credential isolation. Linux bubblewrap and Docker probes pass in an orb; native macOS/Windows checks require their hosts. Missing backends/images skip explicitly, and the CI matrix requires its native backend instead of silently accepting an unavailable sandbox (refs #76).
 - Agent commands (including background ones) run in a sandbox: bubblewrap on Linux, Seatbelt on macOS, or an opt-in Docker/Podman container on every platform, with the project folder writable, the rest of the home folder hidden and the network off by default. New settings: sandbox mode, sandbox network and container image. The approval card describes confinement, and the model can request network or unsandboxed access for one command, which always asks (refs #76).
 - Windows command sandbox: `run_command` runs in an AppContainer through `sandbox-helper.exe` (`native/sandbox-helper`, Rust; `npm run build:sandbox`), with only the project folder writable, `.git/hooks` read-only, toolchain folders read-only, the network off unless allowed, and process and memory limits. The installer ships the helper and CI builds it; without it Automatic mode refuses commands unless unsandboxed access is explicitly requested and approved (refs #76).
@@ -61,6 +62,12 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - The release workflow also runs as a dry run, by hand or when it or `package.json` changes: it tests on all three platforms and builds the installers (the Windows one unsigned) without releasing anything.
 - Claude Code GitHub workflows: `@claude` mentions in issues and pull requests, and an automatic review of pull requests from branches in this repository (fork pull requests are skipped). Both need the `CLAUDE_CODE_OAUTH_TOKEN` repository secret.
 
+### Fixed
+
+- Text copied alongside an image pastes normally in the composer instead of being replaced by an image attachment. (#175)
+
+- A `settings.json` or `projects.json` that is not valid JSON is no longer overwritten by the next change. It is renamed to `<file>.corrupt-<timestamp>` (the log records only the file name) and the app starts from defaults. A file that holds `null`, an array or another non-object value no longer stops startup (fixes #168).
+
 ### Changed
 
 - Each `search_code` call updates its index once instead of walking and checking every file twice, while retaining indexing progress (#186).
@@ -98,8 +105,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
-- Text copied alongside an image pastes normally in the composer instead of being replaced by an image attachment. (#175)
-
+- Claude Sonnet 5.5 cost estimates price cache reads at $0.10 per million tokens (5% of input), as Anthropic lists, instead of $0.20.
+- Programs a command starts and leaves running (`npm run dev &`, `Start-Process`) are killed once a foreground command finishes, and when a background command is stopped, its chat or project closes, or the app quits, even after its shell has exited. On Linux and macOS this signals the command's process group; on Windows without the sandbox the leftovers are found through their parent process id (#165).
 - Failed saved-chat restoration no longer switches the main process to another project or closes the active chat. Sessions are prepared against the target workspace before switching, and history-open notifications keep the renderer synchronized even on errors (#161).
 - Same-project navigation no longer kills the interactive terminal, clears the Git commit draft or rebuilds the active transcript. Closing or removing an inactive project leaves the active panels alone; closing the last project still clears its chat (#160).
 - File tools reject non-UTF-8 edits and overwrites before approval and execution instead of corrupting unrelated bytes. A patch containing a non-UTF-8 update or move leaves every file unchanged (#159).
