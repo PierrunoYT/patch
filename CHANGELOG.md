@@ -68,6 +68,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- Starting a background command that exits within its first three seconds returns its result as soon as it exits instead of always waiting the full three seconds. Unit tests shorten that wait (`backgroundStartup.waitMs`), and the Git panel tests copy a repository built once per file instead of creating one per test, which cuts their runtime on Windows.
 - Each `search_code` call updates its index once instead of walking and checking every file twice, while retaining indexing progress (#186).
 
 - The project map moved from the single 3,000-line `patch-overview.html` to `project-map/`: `index.html`, `styles.css`, the data in `data.js`, shared helpers in `core.js`, one script per tab in `views/` and `boot.js`. It still opens straight from disk and renders the same. ESLint now checks its scripts.

@@ -453,6 +453,26 @@ export function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
 }
 
+// How long a started background command is watched before its first result is returned. Tests shorten it.
+export const backgroundStartup = { waitMs: 3000 };
+
+// Waits up to backgroundStartup.waitMs, or until the command has ended. Rejects only when `signal` aborts.
+async function waitForStartup(entry: BackgroundCommand, signal: AbortSignal): Promise<void> {
+  if (entry.exitCode !== undefined) return;
+  const ended = new AbortController();
+  const end = () => ended.abort();
+  entry.process.once('close', end);
+  entry.process.once('error', end);
+  try {
+    await delay(backgroundStartup.waitMs, undefined, { signal: AbortSignal.any([signal, ended.signal]) });
+  } catch (error) {
+    if (signal.aborted) throw error;
+  } finally {
+    entry.process.off('close', end);
+    entry.process.off('error', end);
+  }
+}
+
 export const runCommandTool = defineTool({
   name: 'run_command',
   description: `Run a shell command (${shellName()}) in the project root and return its output and exit code. Each call starts a fresh shell: use paths instead of cd. Set background to true for servers and watchers that do not exit, then read their output with command_output. Do not use it to change files (no sed, perl, PowerShell replace scripts or redirects into project files): use edit_file, write_file and apply_patch, which show a diff and can be undone. Commands may run in a sandbox: only the project folder is writable, the rest of the home folder is hidden and the network is usually off. If a command fails because of that, set network (needs the internet) or unsandboxed (needs files outside the project) so the user is asked to allow it once; do not set them otherwise.`,
@@ -490,8 +510,9 @@ export const runCommandTool = defineTool({
         if (context.signal.aborted) throw error;
         return { content: (error as Error).message, isError: true, summary: `Could not start \`${command}\`` };
       }
-      // Give servers a moment so early errors (port in use, syntax errors) show up in the result.
-      await delay(3000, undefined, { signal: context.signal });
+      // Give servers a moment so early errors (port in use, syntax errors) show up in the result. A command that
+      // has already ended has nothing more to show, so it does not wait.
+      await waitForStartup(entry, context.signal);
       const status = entry.exitCode === undefined ? 'still running' : `exited with code ${entry.exitCode}`;
       return {
         content: `Started background command ${entry.id} (${status}).\n${truncateOutput(stripAnsi(takeUnread(entry))) || '(no output yet)'}`,

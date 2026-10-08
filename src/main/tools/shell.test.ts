@@ -5,9 +5,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
-import { APPCONTAINER_TIMEOUT_HINT, formatResult, runCommandTool, ShellRunner } from './shell';
+import { APPCONTAINER_TIMEOUT_HINT, backgroundStartup, formatResult, runCommandTool, ShellRunner } from './shell';
 import type { ToolContext } from './types';
 import { Workspace } from './workspace';
+
+// Long enough for a Node script to start and print on a busy machine; the real wait is three seconds.
+backgroundStartup.waitMs = 1000;
 
 const command =
   "node -e \"require('net').createServer().listen(0, '127.0.0.1', () => console.log('background-ready'))\"";
@@ -146,6 +149,19 @@ describe('background command cancellation', () => {
     controller.abort();
     await closed;
     expect(shell.getBackground(entry.id)).toBeUndefined();
+  }, 20_000);
+
+  it('returns the startup result as soon as a background command exits', async () => {
+    const waitMs = backgroundStartup.waitMs;
+    backgroundStartup.waitMs = 15_000;
+    try {
+      const startedAt = Date.now();
+      const result = await runCommandTool.run({ command: 'exit 2', background: true }, context);
+      expect(result.content).toContain('exited with code 2');
+      expect(Date.now() - startedAt).toBeLessThan(10_000);
+    } finally {
+      backgroundStartup.waitMs = waitMs;
+    }
   }, 20_000);
 });
 

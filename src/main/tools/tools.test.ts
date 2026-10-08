@@ -17,7 +17,7 @@ import { globTool } from './glob';
 import { applyEdit, editFileTool, grepTool, listDirectoryTool, readFileTool, writeFileTool } from './files';
 import { browserTool } from './browser';
 import { availableTools } from './registry';
-import { commandOutputTool, runCommandTool, ShellRunner } from './shell';
+import { backgroundStartup, commandOutputTool, runCommandTool, ShellRunner } from './shell';
 import { ToolError, truncateOutput, type AgentTool, type ToolContext } from './types';
 import {
   clearFetchCache,
@@ -28,6 +28,9 @@ import {
   relevantLines,
 } from './web';
 import { Workspace } from './workspace';
+
+// Long enough for a Node script to start and print on a busy machine; the real wait is three seconds.
+backgroundStartup.waitMs = 1000;
 
 let root: string;
 let context: ToolContext;
@@ -599,7 +602,7 @@ describe('shell tools', () => {
     // A script file, because the result repeats the command line and must not contain the output words itself.
     writeFileSync(
       join(root, 'bg.js'),
-      `process.stdout.write('first\\n'); setTimeout(() => process.stdout.write('second\\n'), 4500); setTimeout(() => {}, 30000);`,
+      `process.stdout.write('first\\n'); setTimeout(() => process.stdout.write('second\\n'), 2500); setTimeout(() => {}, 30000);`,
     );
     const ctx = { ...context, shell };
     try {

@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -12,7 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GitFile } from '@shared/panels';
 import { validateSandboxGit } from '../tools/sandbox_git';
 import { filterNames, GitService, hardenedConfig, isRepoAboveHome, projectCommands, removeEntry } from './git';
@@ -25,8 +26,16 @@ let service: GitService;
 // Path and status only, for tests about which files are listed rather than their line counts.
 const kinds = (files: GitFile[]) => files.map(({ path, status }) => ({ path, status }));
 
-async function initRepo(initialCommit = true): Promise<void> {
-  const git = simpleGit({ baseDir: root });
+// Building a repository takes nine git processes, which is most of what these tests cost on Windows. Each test copies
+// a template made once instead; only the folder the copy is in differs.
+let templates: { base: string; empty: string; committed: string } | undefined;
+
+beforeAll(async () => {
+  const base = mkdtempSync(join(tmpdir(), 'cc-git-template-'));
+  const empty = join(base, 'empty');
+  const committed = join(base, 'committed');
+  mkdirSync(empty);
+  const git = simpleGit({ baseDir: empty });
   await git.init();
   await git.addConfig('user.name', 'Test');
   await git.addConfig('user.email', 'test@example.com');
@@ -34,10 +43,21 @@ async function initRepo(initialCommit = true): Promise<void> {
   await git.addConfig('core.autocrlf', 'false');
   await git.addConfig('status.renames', 'true');
   await git.addConfig('diff.renames', 'true');
-  if (!initialCommit) return;
-  writeFileSync(join(root, 'a.txt'), 'one\n');
-  await git.add('-A');
-  await git.commit('first');
+  cpSync(empty, committed, { recursive: true });
+  writeFileSync(join(committed, 'a.txt'), 'one\n');
+  const withCommit = simpleGit({ baseDir: committed });
+  await withCommit.add('-A');
+  await withCommit.commit('first');
+  templates = { base, empty, committed };
+}, 60_000);
+
+afterAll(() => {
+  if (templates) rmSync(templates.base, { recursive: true, force: true });
+});
+
+async function initRepo(initialCommit = true): Promise<void> {
+  if (!templates) throw new Error('The repository templates were not built.');
+  cpSync(initialCommit ? templates.committed : templates.empty, root, { recursive: true });
 }
 
 beforeEach(() => {

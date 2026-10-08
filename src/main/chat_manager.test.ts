@@ -12,6 +12,10 @@ import { LlmService, type Conversation } from './llm';
 import type { CompletionClient } from './llm/types';
 import { ProjectStore } from './projects';
 import { SettingsStore } from './settings';
+import { backgroundStartup } from './tools/shell';
+
+// These tests wait for their background commands themselves, so the three-second first look is not needed.
+backgroundStartup.waitMs = 50;
 
 describe('project chat retention', () => {
   let root: string;
