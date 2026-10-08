@@ -134,7 +134,7 @@ const D = {
         'registry.ts',
         'shell.ts (559; streaming UTF-8 output, #164; kills the programs a finished command left running, #165; sandbox-only PowerShell imports and script policy; Windows-sandbox timeout hint for the Node test hang, #101; awaits sandbox probes in prepare)',
         'shell_leftovers.ts (113; finds and kills what a Windows shell left running through its parent pid, #165)',
-        'sandbox_windows.ts (402, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
+        'sandbox_windows.ts (404, Program Files candidates, protected Git paths, helper protocol and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
         'web.ts (226, no own test)',
@@ -543,7 +543,6 @@ const D = {
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
     [166, 'MCP server that dies after connecting stays "connected" forever', 'mcp', 'medium', 0, '10-07'],
     [163, 'Windows sandbox: an unreadable PATH folder breaks every later helper start', 'sandbox', 'high', 0, '10-07'],
-    [162, 'Windows sandbox: a command failing before start leaves the helper running', 'sandbox', 'high', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -666,7 +665,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 80,
+  closedCount: 81,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

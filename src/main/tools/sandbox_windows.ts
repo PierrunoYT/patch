@@ -356,6 +356,8 @@ export class HelperProcess extends EventEmitter {
   private fail(message: string): void {
     if (this.done) return;
     this.done = true;
+    // The helper keeps serving until its input closes, so a run that failed before starting would leave it idle.
+    this.helper.stdin?.end();
     this.stdout.end();
     this.stderr.end();
     this.emit('error', new Error(message));

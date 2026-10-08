@@ -64,6 +64,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows sandbox: a command that fails before it starts (lock timeout, missing Git metadata, AppContainer or process creation failure, no free drive letter, cancel during preparation) no longer leaves an idle `sandbox-helper.exe` running. The failed run closes the helper's input, so the helper exits as it does after a finished command (fixes #162).
 - A `settings.json` or `projects.json` that is not valid JSON is no longer overwritten by the next change. It is renamed to `<file>.corrupt-<timestamp>` (the log records only the file name) and the app starts from defaults. A file that holds `null`, an array or another non-object value no longer stops startup (fixes #168).
 
 ### Changed

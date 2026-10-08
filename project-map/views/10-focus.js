@@ -15,11 +15,11 @@ builders.focus = () => {
       'Fix #142 next: it is the same planted-program problem through cross-spawn, which searches the working directory itself. Each fix needs a regression test that plants the file or link it guards against.',
     ],
     [
-      'Fix the remaining high-severity lifecycle bugs from the Oct 7 code review: #162 and #163',
+      'Fix the remaining high-severity lifecycle bug from the Oct 7 code review: #163',
       'A full code review found no critical bug. The high findings sit in lifecycle and state handling across modules, not in single functions.',
       [
-        '#162, #163: the Windows sandbox leaks a helper process per failed start, and one unreadable PATH folder stops every later start',
-        '#165 to #178 (medium), #180 to #196 (low) and #197 to #206 (improvements): orphaned processes, MCP reconnects, stale ignore rules, settings recovery and more. Already fixed: #159 (non-UTF-8 file protection), #160 (same-project navigation), #161 (failed chat restoration), #164 (output decoding), #179, #181, #183, #186 (the code index) and #203',
+        '#163: one unreadable PATH folder stops every later Windows sandbox helper start. #162 is fixed: a failed start closes the helper’s input, so it no longer leaks an idle helper process',
+        '#165 to #178 (medium), #180 to #196 (low) and #197 to #206 (improvements): orphaned processes, MCP reconnects, stale ignore rules, settings recovery and more. Already fixed: #159 (non-UTF-8 file protection), #160 (same-project navigation), #161 (failed chat restoration), #162 (leaked helper after a failed start), #164 (output decoding), #179, #181, #183, #186 (the code index) and #203',
       ],
       'The recurring causes: side effects on every change event without comparing old and new state, state changed before validation, and error paths that do less cleanup than success paths.',
     ],

@@ -1,8 +1,8 @@
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   buildHelperRequest,
   exceedsEntryLimit,
@@ -288,10 +288,14 @@ rl.on('line', (line) => {
     out({ type: 'exit', id: request.id, exitCode: 3, timedOut: false });
     setTimeout(() => process.exit(0), 100);
   }
-  if (request.command === 'error') { out({ type: 'error', id: request.id, message: 'no container' }); setTimeout(() => process.exit(0), 100); }
+  // Like the real helper, it keeps waiting for input after an error and only exits once stdin closes.
+  if (request.command === 'error') out({ type: 'error', id: request.id, message: 'no container' });
   if (request.command === 'crash') process.exit(9);
 });
-rl.on('close', () => process.exit(0));
+rl.on('close', () => {
+  if (request?.command === 'error' && request.args[0]) require('node:fs').writeFileSync(request.args[0], 'closed');
+  process.exit(0);
+});
 `;
 
 describe('HelperProcess', () => {
@@ -334,9 +338,12 @@ describe('HelperProcess', () => {
   });
 
   it('reports a helper error event as an error, so the command is never run unsandboxed', async () => {
-    const child = start('error');
+    const marker = join(dir, 'error-closed');
+    const child = start('error', [marker]);
     const [error] = (await once(child, 'error')) as [Error];
     expect(error.message).toBe('no container');
+    // The helper must not be left running after the failed run.
+    await vi.waitFor(() => expect(existsSync(marker)).toBe(true), { timeout: 3000 });
   });
 
   it('reports a helper that dies without an exit event', async () => {
