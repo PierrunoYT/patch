@@ -61,6 +61,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - The release workflow also runs as a dry run, by hand or when it or `package.json` changes: it tests on all three platforms and builds the installers (the Windows one unsigned) without releasing anything.
 - Claude Code GitHub workflows: `@claude` mentions in issues and pull requests, and an automatic review of pull requests from branches in this repository (fork pull requests are skipped). Both need the `CLAUDE_CODE_OAUTH_TOKEN` repository secret.
 
+### Fixed
+
+- A `settings.json` or `projects.json` that is not valid JSON is no longer overwritten by the next change. It is renamed to `<file>.corrupt-<timestamp>` (the log records only the file name) and the app starts from defaults. A file that holds `null`, an array or another non-object value no longer stops startup (fixes #168).
+
 ### Changed
 
 - Each `search_code` call updates its index once instead of walking and checking every file twice, while retaining indexing progress (#186).

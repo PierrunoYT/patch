@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -61,6 +61,27 @@ describe('SettingsStore', () => {
     writeFileSync(file, JSON.stringify({ ...DEFAULT_SETTINGS, anthropicBaseUrl: 'ftp://old.example' }));
     expect(new SettingsStore(file, reversingCipher).get().anthropicBaseUrl).toBe('');
   });
+
+  it('keeps a truncated settings file as a .corrupt copy and starts from defaults', () => {
+    const broken = '{"settings": {"theme": "light"}, "secrets": {"anthropicApiKey": "plain:sk-ant-1';
+    writeFileSync(file, broken);
+    const store = new SettingsStore(file, reversingCipher);
+    expect(store.get()).toEqual(DEFAULT_SETTINGS);
+    store.update({ theme: 'light' });
+    const copies = readdirSync(dir).filter((name) => name.startsWith('settings.json.corrupt-'));
+    expect(copies).toHaveLength(1);
+    expect(readFileSync(join(dir, copies[0]!), 'utf8')).toBe(broken);
+  });
+
+  it.each(['null', '[]', '"text"', '42', '{"settings": null, "secrets": []}'])(
+    'starts with defaults when the settings file holds %s',
+    (content) => {
+      writeFileSync(file, content);
+      const store = new SettingsStore(file, reversingCipher);
+      expect(store.get()).toEqual(DEFAULT_SETTINGS);
+      expect(store.setSecret('openaiApiKey', 'sk-1').secrets.openaiApiKey).toBe(true);
+    },
+  );
 
   it('starts from defaults', () => {
     const store = new SettingsStore(file, reversingCipher);

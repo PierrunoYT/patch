@@ -13,7 +13,10 @@ export class ProjectStore {
   private readonly openProjects = new Map<string, ProjectInfo>();
 
   constructor(private readonly file: string) {
-    this.projects = readJson<ProjectInfo[]>(file, []).filter((project) => typeof project?.path === 'string');
+    const stored = readJson<unknown>(file, []);
+    this.projects = (Array.isArray(stored) ? (stored as ProjectInfo[]) : []).filter(
+      (project) => typeof project?.path === 'string',
+    );
   }
 
   list(): ProjectInfo[] {

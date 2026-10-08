@@ -194,9 +194,9 @@ const D = {
       proc: 'main',
       files: 2,
       tests: 1,
-      lines: 112,
-      testLines: 81,
-      desc: 'Atomic JSON writes (temp file + rename, background writes for checkpoints) and JSONL logs.',
+      lines: 132,
+      testLines: 101,
+      desc: 'Atomic JSON writes (temp file + rename, background writes for checkpoints), reads that set an unparseable file aside as .corrupt-<timestamp> (#168), and JSONL logs.',
       list: ['json_file.ts', 'jsonl_log.ts'],
     },
     {
@@ -533,7 +533,6 @@ const D = {
     [171, 'trimHistory is quadratic and blocks the main process on long chats', 'perf', 'medium', 0, '10-07'],
     [170, 'Code index: lost progress, shared stop, duplicate runs on settings change', 'tools', 'medium', 0, '10-07'],
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
-    [168, 'Corrupt settings.json is silently reset; a null file crashes startup', 'other', 'medium', 0, '10-07'],
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
     [166, 'MCP server that dies after connecting stays "connected" forever', 'mcp', 'medium', 0, '10-07'],
     [165, 'Processes a command leaves behind are never killed on Stop or quit', 'tools', 'medium', 0, '10-07'],
@@ -661,7 +660,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 78,
+  closedCount: 79,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

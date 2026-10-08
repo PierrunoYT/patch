@@ -1,13 +1,33 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { basename, dirname } from 'node:path';
+import { appLog } from '../app_log';
 
-// Reads a JSON file, returning `fallback` if it is missing or unreadable.
+// Reads a JSON file, returning `fallback` if it is missing or unreadable. A file that exists but is not valid JSON is
+// renamed to `<file>.corrupt-<timestamp>` first, so the next write to the path does not destroy what a hand edit, a
+// sync tool or a crash left behind.
 export function readJson<T>(path: string, fallback: T): T {
+  let text: string;
   try {
-    return JSON.parse(readFileSync(path, 'utf8')) as T;
+    text = readFileSync(path, 'utf8');
   } catch {
     return fallback;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    keepCorruptCopy(path);
+    return fallback;
+  }
+}
+
+function keepCorruptCopy(path: string): void {
+  const copy = `${path}.corrupt-${Date.now()}`;
+  try {
+    renameSync(path, copy);
+    appLog.warn('storage', 'A file was not valid JSON and was set aside.', { file: basename(copy) });
+  } catch {
+    appLog.warn('storage', 'A file was not valid JSON and could not be set aside.', { file: basename(path) });
   }
 }
 
