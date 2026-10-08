@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { globTool } from './glob';
 import { applyEdit, editFileTool, grepTool, listDirectoryTool, readFileTool, writeFileTool } from './files';
 import { browserTool } from './browser';
@@ -23,10 +23,12 @@ import {
   clearFetchCache,
   extractArticle,
   fetchUrlTool,
-  fetchWithoutCrossHostRedirect,
+  fetchWithoutCrossOriginRedirect,
   readBodyCapped,
   relevantLines,
+  webTransport,
 } from './web';
+import { resolver } from './net_address';
 import { Workspace } from './workspace';
 
 // Long enough for a Node script to start and print on a busy machine; the real wait is three seconds.
@@ -585,6 +587,37 @@ describe('browser tool', () => {
     expect(navigationPolicy?.('https://example.test@evil.test/')).toBe(false);
   });
 
+  it('confines later browser navigation to the approved scheme and port as well', async () => {
+    await call(browserTool, { url: 'https://example.test/start' }, { ...context, browser });
+    expect(navigationPolicy?.('https://example.test:443/next')).toBe(true);
+    expect(navigationPolicy?.('https://example.test:8443/next')).toBe(false);
+    expect(navigationPolicy?.('http://example.test/next')).toBe(false);
+    await call(browserTool, { url: 'http://localhost:3000/' }, { ...context, browser });
+    expect(navigationPolicy?.('http://localhost:3000/login')).toBe(true);
+    expect(navigationPolicy?.('http://localhost:5432/')).toBe(false);
+  });
+
+  it('asks before opening a local or private address, even in Auto mode', async () => {
+    const check = async (url: string, ctx = context) => {
+      const input = browserTool.schema!.parse({ url });
+      return { mustAsk: await browserTool.mustAsk!(input, ctx), note: (await browserTool.preview!(input, ctx)).note };
+    };
+    expect(await check('http://localhost:3000')).toEqual({
+      mustAsk: true,
+      note: 'browser to a local or private address (localhost); asks even in Auto mode.',
+    });
+    expect((await check('http://169.254.169.254/')).mustAsk).toBe(true);
+    expect((await check('http://[::1]:8080/')).mustAsk).toBe(true);
+    expect((await check(pathToFileURL(join(root, 'index.html')).href)).mustAsk).toBe(false);
+    const listed = { ...context, allowsNetworkUrl: (url: string) => new URL(url).hostname === 'localhost' };
+    expect((await check('http://localhost:3000', listed)).mustAsk).toBe(false);
+    vi.spyOn(resolver, 'lookup').mockResolvedValueOnce([{ address: '192.168.1.20', family: 4 }]);
+    expect((await check('https://router.example/')).mustAsk).toBe(true);
+    vi.spyOn(resolver, 'lookup').mockResolvedValueOnce([{ address: '93.184.216.34', family: 4 }]);
+    expect(await check('https://example.com/')).toEqual({ mustAsk: false, note: undefined });
+    vi.restoreAllMocks();
+  });
+
   it('is approval gated and previews the complete URL', async () => {
     const url = 'https://example.test/private?token=value';
     expect(browserTool.requiresApproval).toBe(true);
@@ -602,42 +635,53 @@ describe('browser tool', () => {
 });
 
 describe('fetch redirects', () => {
+  // Every test host resolves to a public address; the transport records the requests instead of sending them.
+  let contacted: string[];
+  function serve(respond: (url: URL) => Response) {
+    contacted = [];
+    vi.spyOn(resolver, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
+    vi.spyOn(webTransport, 'request').mockImplementation(async (url) => {
+      contacted.push(url.href);
+      return respond(url);
+    });
+  }
+  afterEach(() => vi.restoreAllMocks());
+
   it('blocks a cross-host redirect before contacting its destination', async () => {
-    const originalFetch = globalThis.fetch;
-    const contacted: string[] = [];
-    globalThis.fetch = (async (input: URL | RequestInfo) => {
-      contacted.push(String(input));
-      return new Response(null, { status: 302, headers: { location: 'https://evil.test/secret' } });
-    }) as typeof fetch;
-    try {
-      await expect(
-        fetchWithoutCrossHostRedirect(new URL('https://allowed.test/start'), new AbortController().signal),
-      ).rejects.toThrow(/Blocked redirect.*request that URL separately/);
-      expect(contacted).toEqual(['https://allowed.test/start']);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    serve(() => new Response(null, { status: 302, headers: { location: 'https://evil.test/secret' } }));
+    await expect(
+      fetchWithoutCrossOriginRedirect(new URL('https://allowed.test/start'), new AbortController().signal),
+    ).rejects.toThrow(/Blocked redirect.*request that URL separately/);
+    expect(contacted).toEqual(['https://allowed.test/start']);
+  });
+
+  it.each([
+    ['another port', 'https://allowed.test:8443/next'],
+    ['plain http', 'http://allowed.test/next'],
+  ])('blocks a same-host redirect to %s', async (_name, location) => {
+    serve(() => new Response(null, { status: 302, headers: { location } }));
+    await expect(
+      fetchWithoutCrossOriginRedirect(new URL('https://allowed.test/start'), new AbortController().signal),
+    ).rejects.toThrow(/Blocked redirect.*origin/);
+    expect(contacted).toEqual(['https://allowed.test/start']);
   });
 
   it('follows same-host redirects', async () => {
-    const originalFetch = globalThis.fetch;
-    const contacted: string[] = [];
-    globalThis.fetch = (async (input: URL | RequestInfo) => {
-      contacted.push(String(input));
-      return contacted.length === 1
-        ? new Response(null, { status: 302, headers: { location: '/next' } })
-        : new Response('ok');
-    }) as typeof fetch;
-    try {
-      expect(
-        await (
-          await fetchWithoutCrossHostRedirect(new URL('https://allowed.test/start'), new AbortController().signal)
-        ).text(),
-      ).toBe('ok');
-      expect(contacted).toEqual(['https://allowed.test/start', 'https://allowed.test/next']);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    serve(() =>
+      contacted.length === 1 ? new Response(null, { status: 302, headers: { location: '/next' } }) : new Response('ok'),
+    );
+    expect(
+      await (
+        await fetchWithoutCrossOriginRedirect(new URL('https://allowed.test/start'), new AbortController().signal)
+      ).text(),
+    ).toBe('ok');
+    expect(contacted).toEqual(['https://allowed.test/start', 'https://allowed.test/next']);
+    // Both hops connect to the address resolved once at the start.
+    expect(resolver.lookup).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(webTransport.request).mock.calls.map((args) => args[1])).toEqual([
+      [{ address: '93.184.216.34', family: 4 }],
+      [{ address: '93.184.216.34', family: 4 }],
+    ]);
   });
 });
 
@@ -892,20 +936,20 @@ describe('grep limits', () => {
 });
 
 describe('fetch_url paging, cache and size cap', () => {
-  const originalFetch = globalThis.fetch;
   let requests: string[];
 
   function serve(body: string | (() => Response), type = 'text/plain') {
     requests = [];
-    globalThis.fetch = (async (input: URL | RequestInfo) => {
-      requests.push(String(input));
+    vi.spyOn(resolver, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
+    vi.spyOn(webTransport, 'request').mockImplementation(async (url) => {
+      requests.push(url.href);
       return typeof body === 'function' ? body() : new Response(body, { headers: { 'content-type': type } });
-    }) as typeof fetch;
+    });
   }
 
   beforeEach(() => clearFetchCache());
   afterEach(() => {
-    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
     clearFetchCache();
   });
 

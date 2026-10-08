@@ -1,6 +1,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { defineTool, ToolError, truncateOutput } from './types';
+import { localDestination } from './web';
 import type { Workspace } from './workspace';
 
 export interface PageLoadResult {
@@ -39,8 +40,17 @@ export const browserTool = defineTool({
     screenshot: z.boolean().optional().describe('Attach a screenshot. Only when you need to see the page.'),
   }),
   requiresApproval: true,
-  async preview({ url }) {
-    return { title: `Open ${url}` };
+  // A local or private address (this machine, the LAN, cloud metadata) asks even in Auto mode, unless the user listed
+  // the host in allowedNetworkHosts. Chromium resolves the name itself, so the address cannot be pinned here.
+  async mustAsk(input, context) {
+    return (await localDestination(input, input.url, context)) !== null;
+  },
+  async preview(input, context) {
+    const local = await localDestination(input, input.url, context).catch(() => null);
+    return {
+      title: `Open ${input.url}`,
+      note: local ? `browser to a local or private address (${local}); asks even in Auto mode.` : undefined,
+    };
   },
   async run({ url, screenshot }, context) {
     if (!context.browser) throw new ToolError('The browser panel is not available.');
@@ -57,7 +67,8 @@ export const browserTool = defineTool({
           confineFileUrl(next.href, context.workspace);
           return true;
         }
-        return ['http:', 'https:'].includes(next.protocol) && next.hostname === approved.hostname;
+        // The whole origin: a redirect must not reach another port on the host or drop from https to http.
+        return ['http:', 'https:'].includes(next.protocol) && next.origin === approved.origin;
       } catch {
         return false;
       }

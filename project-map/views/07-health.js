@@ -85,7 +85,7 @@ builders.health = () => {
         h(
           'p',
           { class: 'small muted', style: 'margin:6px 0 0' },
-          '* files.ts and web.ts have no file of their own but are tested in tools/tools.test.ts. 4 of these 8 are renderer views.',
+          `* files.ts has no file of its own but is tested in tools/tools.test.ts. ${D.untested.filter(([, f]) => f.startsWith('renderer/')).length} of these ${D.untested.length} are renderer views.`,
         ),
       ),
       card(

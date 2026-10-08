@@ -125,8 +125,8 @@ const D = {
       id: 'tools',
       label: 'main/tools',
       proc: 'main',
-      files: 23,
-      tests: 23,
+      files: 24,
+      tests: 25,
       lines: 4005,
       testLines: 5953,
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
@@ -137,7 +137,8 @@ const D = {
         'sandbox_windows.ts (434, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
         'sandbox.ts (476; exact-name Seatbelt Mach, sysctl and IPC grants; asynchronous, mode-scoped support probes, #112)',
         'files.ts (349; read_file line counts, #181; UTF-8-only edits and overwrites, #159)',
-        'web.ts (226, no own test)',
+        'web.ts (335; fetch_url pins the checked address and keeps redirects on the origin, #146)',
+        'net_address.ts (76; local and private address checks for fetch_url and browser, #146)',
         'sandbox_windows.integration.test.ts (real AppContainer temp/cache writes, Node/npm tests and upstream skips, toolchains, overlapping project-drive and ACL recovery)',
         'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
         'sandbox_git.ts (210; a .git reservation file Git refuses (an empty folder plus a protected HEAD folder inside another repository), confined metadata pointers, trusted system links above the project and protected includes)',
@@ -340,9 +341,9 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 227, src: 1711, tl: 3522 },
+    { a: 'main/agent', f: 11, c: 228, src: 1711, tl: 3559 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
-    { a: 'main/tools', f: 24, c: 463, src: 4389, tl: 6493 },
+    { a: 'main/tools', f: 24, c: 536, src: 4589, tl: 6824 },
     { a: 'main/panels', f: 4, c: 71, src: 645, tl: 1057 },
     { a: 'main/other', f: 12, c: 198, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 84, src: 1261, tl: 901 },
@@ -351,7 +352,7 @@ const D = {
   ],
   e2e: [
     ['security', 12],
-    ['chat', 11],
+    ['chat', 13],
     ['ui', 12],
     ['panels', 7],
     ['sandbox_approvals', 8],
@@ -389,7 +390,6 @@ const D = {
     [572, 'renderer/src/views/transcript.ts'],
     [446, 'main/index.ts'],
     [334, 'main/tools/files.ts *'],
-    [226, 'main/tools/web.ts *'],
     [201, 'shared/ipc.ts'],
   ],
   largest: [
@@ -550,14 +550,6 @@ const D = {
     [148, 'Browser tool uses the panel’s persistent cookie session', 'security', 'medium', 0, '10-07'],
     [147, 'macOS sandboxed commands with network can reach local Unix sockets', 'sandbox', 'medium', 0, '10-07'],
     [
-      146,
-      'fetch_url and browser reach any address in Auto mode (SSRF, exfiltration)',
-      'security',
-      'medium',
-      0,
-      '10-07',
-    ],
-    [
       145,
       'Opening the home folder as a project makes all of it writable to the sandbox',
       'sandbox',
@@ -651,7 +643,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 96,
+  closedCount: 97,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

@@ -1207,6 +1207,43 @@ describe('Agent: calls that must ask', () => {
       expect(ran).toHaveBeenCalledTimes(action === 'reject' ? 0 : 1);
     },
   );
+
+  // fetch_url and browser resolve the host before they can tell whether it is local.
+  it('waits for an asynchronous check, and a failed check counts as no', async () => {
+    const ran = vi.fn();
+    const guarded = defineTool({
+      name: 'guarded',
+      description: 'guarded',
+      schema: z.object({ what: z.string() }),
+      requiresApproval: true,
+      mustAsk: async ({ what }) => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        if (what === 'broken') throw new Error('lookup failed');
+        return what === 'secret';
+      },
+      async run({ what }) {
+        ran(what);
+        return { content: 'ok' };
+      },
+    });
+    const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => ({ approved: false }));
+    const { agent } = setup(
+      [
+        {
+          toolCalls: [
+            call('t1', 'guarded', { what: 'plain' }),
+            call('t2', 'guarded', { what: 'broken' }),
+            call('t3', 'guarded', { what: 'secret' }),
+          ],
+        },
+        { text: 'x' },
+      ],
+      { tools: [guarded], mode: 'auto', requestApproval },
+    );
+    await agent.send({ text: 'go' }, new AbortController().signal);
+    expect(requestApproval).toHaveBeenCalledTimes(1);
+    expect(ran.mock.calls).toEqual([['plain'], ['broken']]);
+  });
 });
 
 describe('Agent: parallel read-only tools', () => {

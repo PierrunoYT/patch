@@ -1,6 +1,13 @@
 import { Readability } from '@mozilla/readability';
+import type { LookupAddress } from 'node:dns';
+import http, { type IncomingMessage } from 'node:http';
+import https from 'node:https';
+import type { LookupFunction } from 'node:net';
+import { pipeline, Readable } from 'node:stream';
+import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { parseHTML } from 'linkedom';
 import { z } from 'zod';
+import { destinationFor, resolveDestination, type Destination } from './net_address';
 import { defineTool, ToolError } from './types';
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -140,16 +147,27 @@ export const fetchUrlTool = defineTool({
     force_refetch: z.boolean().optional().describe('Download the page again even if it was fetched recently.'),
   }),
   requiresApproval: true,
-  async preview({ url }) {
-    return { title: `Fetch ${url}` };
+  // A local or private address (this machine, the LAN, cloud metadata) asks even in Auto mode, unless the user listed
+  // the host in allowedNetworkHosts.
+  async mustAsk(input, context) {
+    return (await localDestination(input, input.url, context)) !== null;
   },
-  async run({ url, objective, offset = 0, force_refetch = false }, context) {
+  async preview(input, context) {
+    const local = await localDestination(input, input.url, context).catch(() => null);
+    return {
+      title: `Fetch ${input.url}`,
+      note: local ? `fetch_url to a local or private address (${local}); asks even in Auto mode.` : undefined,
+    };
+  },
+  async run(input, context) {
+    const { url, objective, offset = 0, force_refetch = false } = input;
     const parsed = new URL(url);
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new ToolError('Only http and https URLs can be fetched.');
 
     let page = force_refetch ? null : cachedPage(parsed.href);
     if (!page) {
-      const response = await fetchWithoutCrossHostRedirect(parsed, context.signal);
+      const destination = await destinationFor(input, parsed.hostname);
+      const response = await fetchWithoutCrossOriginRedirect(parsed, context.signal, destination);
       if (!response.ok) {
         await response.body?.cancel();
         throw new ToolError(`HTTP ${response.status} for ${url}`);
@@ -190,27 +208,118 @@ export const fetchUrlTool = defineTool({
   },
 });
 
-export async function fetchWithoutCrossHostRedirect(initial: URL, signal: AbortSignal): Promise<Response> {
+// The local address a call to `url` would reach, or null when it is public, not http(s), or allow-listed by the user.
+export async function localDestination(
+  call: object,
+  url: string,
+  context: { allowsNetworkUrl?(url: string): boolean },
+): Promise<string | null> {
+  const parsed = new URL(url);
+  if (!['http:', 'https:'].includes(parsed.protocol) || context.allowsNetworkUrl?.(url)) return null;
+  return (await destinationFor(call, parsed.hostname)).local;
+}
+
+// Follows redirects that stay on the same origin (scheme, host and port), so a redirect cannot reach another service
+// on the same host or drop from https to http. Every request connects only to the checked addresses.
+export async function fetchWithoutCrossOriginRedirect(
+  initial: URL,
+  signal: AbortSignal,
+  destination?: Destination,
+): Promise<Response> {
+  // A same-origin hop has the same host, so it uses the same checked addresses instead of asking DNS again.
+  const { addresses } = destination ?? (await resolveDestination(initial.hostname));
   let current = initial;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
-    const response = await fetch(current, {
-      redirect: 'manual',
-      signal: withTimeout(signal),
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; Patch)' },
-    });
+    const response = await webTransport.request(current, addresses, withTimeout(signal));
     if (![301, 302, 303, 307, 308].includes(response.status)) return response;
     const location = response.headers.get('location');
     if (!location) return response;
     await response.body?.cancel();
-    const destination = new URL(location, current);
-    if (!['http:', 'https:'].includes(destination.protocol) || destination.hostname !== initial.hostname) {
+    const next = new URL(location, current);
+    if (next.origin !== initial.origin) {
       throw new ToolError(
-        `Blocked redirect to ${destination.href}. The destination host was not approved; request that URL separately.`,
+        `Blocked redirect to ${next.href}. Its origin (scheme, host and port) was not approved; request that URL separately.`,
       );
     }
-    current = destination;
+    current = next;
   }
   throw new ToolError(`Too many redirects for ${initial.href}`);
+}
+
+// Sends the request over node:http(s) with a lookup that returns only the checked addresses: fetch has no hook to pin
+// the address, and DNS rebinding could otherwise swap in a private address between the check and the connection.
+// An object so tests can replace it.
+export const webTransport = {
+  request(url: URL, addresses: LookupAddress[], signal: AbortSignal): Promise<Response> {
+    return new Promise((resolve, reject) => {
+      const request = (url.protocol === 'https:' ? https : http).request(
+        url,
+        {
+          headers: { 'user-agent': USER_AGENT, 'accept-encoding': 'gzip, deflate, br' },
+          lookup: pinnedLookup(addresses),
+          // No shared connection pool: a pooled socket could have been opened to another address for the same host.
+          agent: false,
+          signal,
+        },
+        (message) => {
+          try {
+            resolve(toResponse(message));
+          } catch (error) {
+            message.destroy();
+            reject(error);
+          }
+        },
+      );
+      request.on('error', reject);
+      request.end();
+    });
+  },
+};
+
+const USER_AGENT = 'Mozilla/5.0 (compatible; Patch)';
+
+export function pinnedLookup(addresses: LookupAddress[]): LookupFunction {
+  return (_hostname, options, callback) => {
+    const usable = options.family ? addresses.filter((entry) => entry.family === options.family) : addresses;
+    if (usable.length === 0) {
+      callback(Object.assign(new Error('No checked address for this host.'), { code: 'ENOTFOUND' }), '');
+    } else if (options.all) {
+      callback(null, usable);
+    } else {
+      callback(null, usable[0]!.address, usable[0]!.family);
+    }
+  };
+}
+
+function toResponse(message: IncomingMessage): Response {
+  const status = message.statusCode ?? 0;
+  if (status < 200 || status > 599) throw new ToolError(`Unexpected HTTP status ${status}`);
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(message.headers)) {
+    for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) headers.append(name, item);
+  }
+  if ([204, 205, 304].includes(status)) {
+    message.resume();
+    return new Response(null, { status, headers });
+  }
+  const decoder = decoderFor(headers.get('content-encoding'));
+  const body: Readable = decoder ? pipeline(message, decoder, () => {}) : message;
+  return new Response(Readable.toWeb(body) as unknown as ReadableStream<Uint8Array>, { status, headers });
+}
+
+// fetch decompressed bodies itself; node:http does not.
+function decoderFor(encoding: string | null) {
+  switch (encoding?.trim().toLowerCase()) {
+    case 'gzip':
+    case 'x-gzip':
+      return createGunzip();
+    case 'deflate':
+      return createInflate();
+    case 'br':
+      return createBrotliDecompress();
+    default:
+      return null;
+  }
 }
 
 export function extractArticle(html: string): string {

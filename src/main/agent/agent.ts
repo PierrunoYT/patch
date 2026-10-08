@@ -442,7 +442,7 @@ export class Agent {
       return { result: { id: call.id, content, isError: true } };
     }
     const needsApproval =
-      mustAsk(tool, input, context) ||
+      (await mustAsk(tool, input, context)) ||
       (rule
         ? rule.action === 'ask'
         : tool.alwaysAsk ||
@@ -524,9 +524,9 @@ export class Agent {
 }
 
 // A tool can ask even in Auto mode for a particular call. A check that cannot be made counts as no.
-function mustAsk(tool: AgentTool, input: Record<string, unknown>, context: ToolContext): boolean {
+async function mustAsk(tool: AgentTool, input: Record<string, unknown>, context: ToolContext): Promise<boolean> {
   try {
-    return tool.mustAsk?.(input, context) ?? false;
+    return (await tool.mustAsk?.(input, context)) ?? false;
   } catch {
     return false;
   }

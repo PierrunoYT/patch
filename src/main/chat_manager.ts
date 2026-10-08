@@ -344,6 +344,12 @@ export class ChatManager {
     const finderTool = createFinderTool(subagents);
     const oracleTool = createOracleTool(subagents);
 
+    // The global network allow-list plus this project's own, read on every call so a change applies at once.
+    const allowsNetworkUrl = (url: string): boolean => {
+      const settings = this.deps.settings.get();
+      const own = this.deps.projects.get(workspace.root);
+      return isNetworkUrlAllowed(url, mergeAllowLists(settings.allowedNetworkHosts, own?.allowedNetworkHosts));
+    };
     const session: ChatSession = new ChatSession({
       id: saved?.id,
       title: saved?.title,
@@ -391,13 +397,21 @@ export class ChatManager {
               return false;
             }
           }
-          return isNetworkUrlAllowed(url, mergeAllowLists(settings.allowedNetworkHosts, own?.allowedNetworkHosts));
+          return allowsNetworkUrl(url);
         }
         return false;
       },
       toolContext: (base): ToolContext => {
         const { codeSearch, browser, webSearch } = capabilities();
-        return { ...base, workspace, shell, browser, codeSearch: codeSearch?.search ?? null, webSearch };
+        return {
+          ...base,
+          workspace,
+          shell,
+          browser,
+          codeSearch: codeSearch?.search ?? null,
+          webSearch,
+          allowsNetworkUrl,
+        };
       },
       smallModel: (conversation) => this.deps.llm.smallModel(conversation),
       keepCacheWarm: () => this.deps.settings.get().keepCacheWarm,

@@ -61,6 +61,9 @@ export interface ToolContext {
   browser: BrowserController | null;
   codeSearch: CodeSearch | null;
   webSearch: WebSearchConfig | null;
+  // True when the user listed this URL's host in allowedNetworkHosts. fetch_url and browser then do not ask for a
+  // local or private address. Absent (tests, subagents): no host is listed.
+  allowsNetworkUrl?(url: string): boolean;
   // Live output for the transcript while a tool runs (e.g. command output).
   onProgress(text: string): void;
 }
@@ -81,8 +84,9 @@ export interface AgentTool<S extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.
   // True for tools that only read and never ask for approval. Consecutive calls to such tools in one model turn run at
   // the same time; any other call runs alone, in order.
   parallelSafe?: boolean;
-  // Per-call safety check (protected files, sandbox escalation): asks even in Auto mode or with an allow rule.
-  mustAsk?(input: z.infer<S>, context: ToolContext): boolean;
+  // Per-call safety check (protected files, sandbox escalation, local network addresses): asks even in Auto mode or
+  // with an allow rule.
+  mustAsk?(input: z.infer<S>, context: ToolContext): boolean | Promise<boolean>;
   preview?(input: z.infer<S>, context: ToolContext): Promise<ToolPreview>;
   run(input: z.infer<S>, context: ToolContext): Promise<ToolOutput>;
 }

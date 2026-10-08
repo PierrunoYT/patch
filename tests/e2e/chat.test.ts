@@ -248,13 +248,10 @@ describe('chat end to end (mock Claude API)', () => {
     expect(webRequests).toBe(before);
   });
 
+  // The test server is on 127.0.0.1, a local address: only the allow-list entry lets it run without asking in Auto mode.
   it.each(['ask', 'auto'] as const)('runs allowed network calls in %s mode', async (approvalMode) => {
     await running.page.evaluate(
-      (mode) =>
-        window.api.invoke('settings:update', {
-          approvalMode: mode,
-          allowedNetworkHosts: mode === 'ask' ? '127.0.0.1' : '',
-        }),
+      (mode) => window.api.invoke('settings:update', { approvalMode: mode, allowedNetworkHosts: '127.0.0.1' }),
       approvalMode,
     );
     const before = webRequests;
@@ -276,6 +273,28 @@ describe('chat end to end (mock Claude API)', () => {
     const current = await waitForIdle();
     expect(webRequests).toBe(before + 1);
     expect(current.transcript.at(-1)).toMatchObject({ text: `Network ${approvalMode} complete` });
+  });
+
+  it.each(['fetch_url', 'browser'])('asks before %s reaches a local address in Auto mode', async (name) => {
+    await running.page.evaluate(() =>
+      window.api.invoke('settings:update', { approvalMode: 'auto', allowedNetworkHosts: '' }),
+    );
+    const before = webRequests;
+    claude.script({
+      blocks: [{ type: 'tool_use', id: `local-${name}`, name, input: { url: webUrl } }],
+      stopReason: 'tool_use',
+    });
+    await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Open the local page' }));
+    const pending = await waitFor((current) =>
+      current.transcript.find((item) => item.kind === 'tool' && item.status === 'awaiting-approval'),
+    );
+    expect(pending).toMatchObject({
+      preview: { note: expect.stringContaining('local or private address (127.0.0.1)') },
+    });
+    expect(webRequests).toBe(before);
+    await running.page.evaluate((id) => window.api.invoke('chat:decide', id, { approved: false }), pending.id);
+    await waitFor((current) => !current.busy);
+    expect(webRequests).toBe(before);
   });
 
   it('runs without renderer errors', () => {
