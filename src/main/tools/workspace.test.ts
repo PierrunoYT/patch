@@ -1,9 +1,17 @@
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Workspace } from './workspace';
+
+// cmd.exe does not understand Node's \" quoting, so the command line is passed verbatim.
+function shortPath(path: string): string {
+  return spawnSync('cmd.exe', ['/d', '/s', '/c', `"for %I in ("${path}") do @echo %~sI"`], {
+    encoding: 'utf8',
+    windowsVerbatimArguments: true,
+  }).stdout.trim();
+}
 
 describe('Workspace native path canonicalization', () => {
   const roots: string[] = [];
@@ -26,9 +34,7 @@ describe('Workspace native path canonicalization', () => {
     ({ skip }) => {
       const root = mkdtempSync(join(tmpdir(), 'patch-workspace-long-name-'));
       roots.push(root);
-      const shortRoot = execFileSync('cmd.exe', ['/d', '/s', '/c', `for %I in ("${root}") do @echo %~sI`], {
-        encoding: 'utf8',
-      }).trim();
+      const shortRoot = shortPath(root);
       if (!shortRoot || shortRoot.toLowerCase() === root.toLowerCase()) skip();
 
       const workspace = new Workspace(shortRoot);
@@ -36,13 +42,7 @@ describe('Workspace native path canonicalization', () => {
       expect(workspace.root).toBe(canonicalRoot);
       expect(workspace.resolve('missing/deeper/file.txt')).toBe(join(canonicalRoot, 'missing', 'deeper', 'file.txt'));
       mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
-      const shortGit = execFileSync(
-        'cmd.exe',
-        ['/d', '/s', '/c', `for %I in ("${join(root, '.git')}") do @echo %~sI`],
-        {
-          encoding: 'utf8',
-        },
-      ).trim();
+      const shortGit = shortPath(join(root, '.git'));
       expect(workspace.resolve(join(shortGit, 'hooks', 'new-hook'))).toBe(
         join(canonicalRoot, '.git', 'hooks', 'new-hook'),
       );
