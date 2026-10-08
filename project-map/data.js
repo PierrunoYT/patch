@@ -174,7 +174,7 @@ const D = {
       list: [
         'terminal.ts',
         'browser.ts',
-        'git.ts (385; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
+        'git.ts (386; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
         'commit_message.ts',
       ],
     },
@@ -343,7 +343,7 @@ const D = {
     { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
     { a: 'main/tools', f: 24, c: 448, src: 4295, tl: 6323 },
-    { a: 'main/panels', f: 4, c: 63, src: 607, tl: 934 },
+    { a: 'main/panels', f: 4, c: 64, src: 608, tl: 947 },
     { a: 'main/other', f: 12, c: 188, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
     { a: 'renderer', f: 4, c: 14, src: 6368, tl: 138 },
@@ -548,7 +548,6 @@ const D = {
       0,
       '10-07',
     ],
-    [156, 'Git panel commit check misses gpg.ssh.defaultKeyCommand', 'security', 'low', 0, '10-07'],
     [155, 'Allowed-command prefixes also allow flags that write files', 'security', 'low', 0, '10-07'],
     [154, 'Code indexer follows a swapped symlink and embeds outside content', 'security', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
@@ -659,7 +658,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 88,
+  closedCount: 89,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

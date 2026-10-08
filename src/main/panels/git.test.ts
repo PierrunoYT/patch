@@ -455,6 +455,19 @@ describe('GitService with a hostile repository config', () => {
     expect(existsSync(marker('sign'))).toBe(false);
   });
 
+  it('does not commit when the SSH signing key command is a project file (#156)', async () => {
+    await initRepo();
+    writeFileSync(join(root, 'key.sh'), `#!/bin/sh\ntouch "${marker('key').replaceAll('\\', '/')}"\n`, {
+      mode: 0o755,
+    });
+    config('commit.gpgSign', 'true');
+    config('gpg.format', 'ssh');
+    config('gpg.ssh.defaultKeyCommand', './key.sh');
+    writeFileSync(join(root, 'a.txt'), 'two\n');
+    await expect(service.commit('signed')).rejects.toThrow(/gpg\.ssh\.defaultkeycommand=\.\/key\.sh/);
+    expect(existsSync(marker('key'))).toBe(false);
+  });
+
   it('does not run core.fsmonitor when reading the status', async () => {
     await initRepo();
     writeFileSync(join(root, 'a.txt'), 'two\n');

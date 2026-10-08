@@ -32,7 +32,8 @@ export function hardenedConfig(localFilterNames: string[]): string[] {
 // askpass commands, the receive/upload-pack programs of a local remote, and signing programs.
 const PUSH_COMMANDS =
   /^(credential\..*helper|core\.sshcommand|core\.askpass|core\.gitproxy|remote\..*\.(receivepack|uploadpack))$/;
-const COMMIT_COMMANDS = /^(gpg\.program|gpg\..*\.program)$/;
+// gpg.ssh.defaultKeyCommand runs when SSH signing is on and no signing key is set (#156).
+const COMMIT_COMMANDS = /^(gpg\.program|gpg\..*\.program|gpg\.ssh\.defaultkeycommand)$/;
 
 // The settings among `git config --local --null --get-regexp` output that run a file inside the project. A sandboxed
 // command can rewrite any project file, so the panel must not run one with the user's rights (#130). The check is
