@@ -1209,7 +1209,7 @@ describe('Agent: calls that must ask', () => {
   );
 
   // fetch_url and browser resolve the host before they can tell whether it is local.
-  it('waits for an asynchronous check, and a failed check counts as no', async () => {
+  it('waits for an asynchronous check, and a failed check asks in Auto mode', async () => {
     const ran = vi.fn();
     const guarded = defineTool({
       name: 'guarded',
@@ -1238,11 +1238,43 @@ describe('Agent: calls that must ask', () => {
         },
         { text: 'x' },
       ],
-      { tools: [guarded], mode: 'auto', requestApproval },
+      {
+        tools: [guarded],
+        mode: 'auto',
+        requestApproval,
+        agentOptions: { decidePermission: async () => ({ action: 'allow' }) },
+      },
     );
     await agent.send({ text: 'go' }, new AbortController().signal);
     expect(requestApproval).toHaveBeenCalledTimes(1);
-    expect(ran.mock.calls).toEqual([['plain'], ['broken']]);
+    expect(ran.mock.calls).toEqual([['plain']]);
+  });
+
+  it.each([false, true])('asks when a synchronous check throws, including with allow rule: %s', async (allow) => {
+    const ran = vi.fn();
+    const guarded = defineTool({
+      name: 'guarded',
+      description: 'guarded',
+      schema: z.object({}),
+      requiresApproval: true,
+      mustAsk: () => {
+        throw new Error('check failed');
+      },
+      async run() {
+        ran();
+        return { content: 'ok' };
+      },
+    });
+    const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => ({ approved: false }));
+    const { agent } = setup([{ toolCalls: [call('t1', 'guarded', {})] }, { text: 'x' }], {
+      tools: [guarded],
+      mode: 'auto',
+      requestApproval,
+      agentOptions: allow ? { decidePermission: async () => ({ action: 'allow' }) } : {},
+    });
+    await agent.send({ text: 'go' }, new AbortController().signal);
+    expect(requestApproval).toHaveBeenCalledTimes(1);
+    expect(ran).not.toHaveBeenCalled();
   });
 });
 

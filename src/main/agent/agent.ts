@@ -523,12 +523,12 @@ export class Agent {
   }
 }
 
-// A tool can ask even in Auto mode for a particular call. A check that cannot be made counts as no.
+// A tool can ask even in Auto mode for a particular call. When the safety check fails, fail closed and ask.
 async function mustAsk(tool: AgentTool, input: Record<string, unknown>, context: ToolContext): Promise<boolean> {
   try {
     return (await tool.mustAsk?.(input, context)) ?? false;
   } catch {
-    return false;
+    return true;
   }
 }
 

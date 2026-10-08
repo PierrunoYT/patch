@@ -38,7 +38,7 @@ function realPathAllowingMissing(target: string): string | null {
     }
   }
   try {
-    const real = realpathSync(current);
+    const real = realpathSync.native(current);
     return missing.length > 0 ? join(real, ...missing) : real;
   } catch {
     return null;
@@ -51,7 +51,7 @@ export class Workspace {
   private folderRules = new Map<string, { key: string; rules: Ignore | null }>();
 
   constructor(root: string) {
-    this.root = realpathSync(resolve(root));
+    this.root = realpathSync.native(resolve(root));
   }
 
   // Resolves a model-supplied path (relative or absolute) and rejects anything outside the project.

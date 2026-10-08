@@ -12,6 +12,10 @@ describe('isGuardedPath', () => {
     'deploy.KEY',
     '.vscode/tasks.json',
     '.claude/settings.json',
+    'repo/.GIT/CONFIG',
+    'repo/.SSH/ID_RSA',
+    'repo/.VSCODE/TASKS.JSON',
+    'repo/.BASHRC',
     '.npmrc',
     '.bashrc',
     'data/app.sqlite',
@@ -30,6 +34,7 @@ describe('isGuardedPath', () => {
     'docs/environment.md',
     'AGENTS.md',
     'src/keyboard.ts',
+    '.ENV.EXAMPLE',
   ])('does not guard %s', (path) => {
     expect(isGuardedPath(path)).toBe(false);
   });

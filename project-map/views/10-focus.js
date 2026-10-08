@@ -3,15 +3,15 @@
 builders.focus = () => {
   const items = [
     [
-      'Fix the Oct 7 audit findings that reach code outside the sandbox: #143 to #145',
+      'Fix the remaining high-severity Oct 7 findings: #144 and #145',
       'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
-        '#143: the protected-path guard is case-sensitive and misses 8.3 names, so Auto mode writes .GIT/config without asking (reproduced)',
+        '#143 is fixed: protected paths match case-insensitively, Windows short names expand before checks, and failed safety checks ask',
         '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
         '#145: opening the home folder as a project makes all of it writable to sandboxed commands',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'Fix #143 next: Auto mode can write .GIT/config without asking, and it is reproduced. Each fix needs a regression test that plants the file or link it guards against.',
+      'Keep the approval boundary while fixing native file-handle confinement (#144) and unsafe sandbox roots (#145). Each fix needs a regression test that plants the file or link it guards against.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',

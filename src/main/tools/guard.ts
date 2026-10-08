@@ -6,23 +6,23 @@
 const GUARDED: RegExp[] = [
   // Credentials and keys. Example files such as .env.example hold no secrets and stay open.
   /(^|\/)\.env(\.(?!example$|sample$|template$|dist$)[^/]+)?$/i,
-  /(^|\/)\.(ssh|gnupg|aws|kube|azure|docker)(\/|$)/,
-  /(^|\/)\.(npmrc|netrc|pypirc)$/,
+  /(^|\/)\.(ssh|gnupg|aws|kube|azure|docker)(\/|$)/i,
+  /(^|\/)\.(npmrc|netrc|pypirc)$/i,
   /\.(pem|key|p12|pfx|keystore|jks|kdbx)$/i,
-  /(^|\/)id_(rsa|ed25519|ecdsa|dsa)(\.pub)?$/,
-  /(^|\/)\.config\/gcloud\//,
+  /(^|\/)id_(rsa|ed25519|ecdsa|dsa)(\.pub)?$/i,
+  /(^|\/)\.config\/gcloud\//i,
   // Version-control internals.
-  /(^|\/)\.git(\/|$)/,
+  /(^|\/)\.git(\/|$)/i,
   // Editor and agent configuration.
-  /(^|\/)\.(cursor|windsurf|claude|codex|vscode|idea|amp)(\/|$)/,
+  /(^|\/)\.(cursor|windsurf|claude|codex|vscode|idea|amp)(\/|$)/i,
   // Shell start-up files.
-  /(^|\/)\.(bashrc|bash_profile|zshrc|zprofile|profile|zshenv)$/,
-  /(^|\/)\.config\/fish\//,
+  /(^|\/)\.(bashrc|bash_profile|zshrc|zprofile|profile|zshenv)$/i,
+  /(^|\/)\.config\/fish\//i,
   // Databases.
   /\.(sqlite3?|db)$/i,
   // System folders.
   /^[A-Za-z]:\/(Windows|Program Files)/i,
-  /^\/(etc|boot|sys|proc)\//,
+  /^\/(etc|boot|sys|proc)\//i,
 ];
 
 export function isGuardedPath(path: string): boolean {

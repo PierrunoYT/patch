@@ -156,7 +156,8 @@ const D = {
         'skills.ts',
         'guard.ts',
         'redact.ts',
-        'workspace.ts',
+        'workspace.ts (native path canonicalization, including Windows case and short-name aliases, #143)',
+        'workspace.test.ts (Windows case and 8.3 regression fixtures; explicit skips on other platforms)',
         'edit_backups.ts',
         'text_files.ts',
         'types.ts',
@@ -555,7 +556,6 @@ const D = {
       '10-07',
     ],
     [144, 'File tools check a path, then write it later: a swapped symlink redirects', 'security', 'high', 0, '10-07'],
-    [143, 'Protected-path guard misses case variants and 8.3 names (.GIT/config)', 'security', 'high', 0, '10-07'],
     [
       140,
       'Windows sandbox: files moved into a project lack its write grant until reopened',
@@ -639,7 +639,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 100,
+  closedCount: 101,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
