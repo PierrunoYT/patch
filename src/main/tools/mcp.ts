@@ -117,6 +117,9 @@ export class McpHub {
 
   async stop(): Promise<void> {
     this.stopped = true;
+    // Close clients still connecting right away (#190): their pending connect/listTools then fail at once, instead
+    // of quitting waiting out the connect and tool-list timeouts. connectOne checks `stopped` afterwards.
+    await Promise.all([...this.states.values()].filter((state) => state.connecting).map((state) => closeClient(state)));
     await this.updating;
     await Promise.all([...this.states.values()].map((state) => closeClient(state)));
     this.states.clear();

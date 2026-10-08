@@ -1,3 +1,5 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
@@ -158,6 +160,35 @@ describe('McpHub', () => {
       await hub.stop();
     }
   });
+
+  // #190: quitting while a server is still connecting must not wait out the connect and tool-list timeouts.
+  it('stops at once while a server is still connecting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mcp-hang-'));
+    const script = join(dir, 'hang.mjs');
+    // Starts but never answers the initialize request.
+    writeFileSync(script, 'setInterval(() => {}, 1000);\n');
+    const servers: McpServerConfig[] = [
+      { name: 'slow', transport: 'stdio', command: process.execPath, args: [script] },
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+    );
+    try {
+      hub.start();
+      for (let i = 0; i < 100 && hub.status()[0]?.state !== 'connecting'; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const started = Date.now();
+      await hub.stop();
+      expect(Date.now() - started).toBeLessThan(5_000);
+      expect(hub.status()[0]).toMatchObject({ state: 'connecting' });
+    } finally {
+      await hub.stop();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 20_000);
 });
 
 // The process id of a connected stdio server, read from the hub's private state.

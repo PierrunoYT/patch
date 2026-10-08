@@ -551,7 +551,6 @@ const D = {
     [193, 'Renderer actions that fail silently or run twice (delete, commit)', 'ui', 'low', 0, '10-07'],
     [192, 'Renderer can miss chat events sent during startup', 'ui', 'low', 0, '10-07'],
     [191, 'Terminal drops keys typed before the shell is ready; blank after reopen', 'ui', 'low', 0, '10-07'],
-    [190, 'Quitting while an MCP server connects keeps the app running up to 20 s', 'mcp', 'low', 0, '10-07'],
     [185, 'Windows path casing duplicates projects, read tracking and indexes', 'other', 'low', 0, '10-07'],
     [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
@@ -652,7 +651,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 110,
+  closedCount: 111,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
