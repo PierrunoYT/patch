@@ -344,7 +344,7 @@ const D = {
     { a: 'main/llm', f: 8, c: 106, src: 2180, tl: 2992 },
     { a: 'main/tools', f: 24, c: 450, src: 4295, tl: 6323 },
     { a: 'main/panels', f: 4, c: 64, src: 608, tl: 947 },
-    { a: 'main/other', f: 12, c: 188, src: 2960, tl: 2876 },
+    { a: 'main/other', f: 12, c: 190, src: 2960, tl: 2876 },
     { a: 'shared', f: 8, c: 76, src: 1261, tl: 901 },
     { a: 'renderer', f: 4, c: 14, src: 6368, tl: 138 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -501,7 +501,6 @@ const D = {
     ['7778e01', 'fix: keep Windows sandbox toolchain copies across commands'],
   ],
   issues: [
-    [220, 'chat_manager.test.ts: temp folder cleanup fails with ENOTEMPTY on macOS CI', 'tests', 'low', 0, '10-08'],
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [210, 'ChatGPT sign-in: redirect says localhost, server binds only 127.0.0.1', 'security', 'low', 0, '10-07'],
@@ -658,7 +657,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 89,
+  closedCount: 90,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

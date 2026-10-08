@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Test maintenance
 
+- The chat manager unit tests wait for background chat checkpoint writes (`flushJsonWrites` in `storage/json_file.ts`) before deleting their temporary folder, so they no longer fail now and then on macOS with `ENOTEMPTY` (fixes #220).
 - Windows sandbox approval end-to-end tests use an isolated project PATH for their PowerShell built-in commands, avoiding unrelated runner toolchain preparation. Unfinished chats are stopped after each test so a timeout does not cascade into later approval checks.
 
 ### Added

@@ -12,6 +12,7 @@ import { LlmService, type Conversation } from './llm';
 import type { CompletionClient } from './llm/types';
 import { ProjectStore } from './projects';
 import { SettingsStore } from './settings';
+import { flushJsonWrites } from './storage/json_file';
 import { backgroundStartup } from './tools/shell';
 
 // These tests wait for their background commands themselves, so the three-second first look is not needed.
@@ -81,8 +82,11 @@ describe('project chat retention', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     manager.dispose();
+    // A send to a saved chat starts a background checkpoint write. Deleting the folder while it lands fails with
+    // ENOTEMPTY (#220).
+    await flushJsonWrites();
     vi.useRealTimers();
     vi.restoreAllMocks();
     rmSync(root, { recursive: true, force: true });

@@ -88,6 +88,12 @@ async function drain(path: string, write: LaterWrite): Promise<void> {
   }
 }
 
+// Settles when no write from writeJsonLater is left, including ones asked for while waiting, e.g. before a folder
+// they write into is deleted. Failed writes count as finished: the caller of writeJsonLater gets their errors.
+export async function flushJsonWrites(): Promise<void> {
+  while (laterWrites.size > 0) await Promise.allSettled([...laterWrites.values()].map((write) => write.done));
+}
+
 // Drops a write from writeJsonLater that has not landed yet, e.g. because the file is being deleted.
 export function cancelJsonWrite(path: string): void {
   const write = laterWrites.get(path);

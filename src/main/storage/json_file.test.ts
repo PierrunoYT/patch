@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { cancelJsonWrite, readJson, writeJson, writeJsonLater } from './json_file';
+import { cancelJsonWrite, flushJsonWrites, readJson, writeJson, writeJsonLater } from './json_file';
 
 let dir: string;
 
@@ -97,5 +97,28 @@ describe('writeJsonLater', () => {
     const file = join(dir, 'data.json');
     await writeJsonLater(file, { n: 2 });
     expect(readJson(file, null)).toEqual({ n: 2 });
+  });
+});
+
+describe('flushJsonWrites', () => {
+  it('settles only when every background write is on disk and its temporary file is gone', async () => {
+    const one = join(dir, 'one', 'data.json');
+    const two = join(dir, 'two', 'data.json');
+    void writeJsonLater(one, { n: 1 });
+    void writeJsonLater(two, { n: 2 });
+    // The first write does not finish the second, and a write that fails does not stop the wait.
+    writeFileSync(join(dir, 'blocked'), '');
+    writeJsonLater(join(dir, 'blocked', 'data.json'), { n: 3 }).catch(() => {});
+    expect(existsSync(one)).toBe(false);
+    await flushJsonWrites();
+    expect(readJson(one, null)).toEqual({ n: 1 });
+    expect(readJson(two, null)).toEqual({ n: 2 });
+    expect(readdirSync(join(dir, 'one'))).toEqual(['data.json']);
+    expect(readdirSync(join(dir, 'two'))).toEqual(['data.json']);
+  });
+
+  it('settles at once when nothing is being written', async () => {
+    await flushJsonWrites();
+    expect(readdirSync(dir)).toEqual([]);
   });
 });

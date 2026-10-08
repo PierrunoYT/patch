@@ -132,7 +132,7 @@ builders.focus = () => {
         h(
           'li',
           null,
-          'CI is green on Windows, Linux and macOS again since #137. The crash_kill approval e2e test still stalls intermittently on Windows (#138), macOS e2e tests time out now and then (#218), and chat_manager.test.ts cleanup fails on macOS (#220); queued jobs sometimes time out waiting for a hosted runner and need a re-run.',
+          'CI is green on Windows, Linux and macOS again since #137. The crash_kill approval e2e test still stalls intermittently on Windows (#138) and macOS e2e tests time out now and then (#218); queued jobs sometimes time out waiting for a hosted runner and need a re-run.',
         ),
       ),
     ),
