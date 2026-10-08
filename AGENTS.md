@@ -74,4 +74,5 @@ Totals and counts in the page's text are computed from `D` (for example `D.issue
 - `node-pty` is a native module: packaging uses its prebuilds (`npmRebuild: false`) and it is unpacked from the asar.
 - If `node_modules/electron/dist` is missing after install, run `node node_modules/electron/install.js`.
 - `PATCH_USER_DATA=<folder>` starts the app with a clean profile.
+- If end-to-end tests fail with "Process failed to launch" (`electron.app` is undefined), the shell has inherited `ELECTRON_RUN_AS_NODE=1` from an Electron-based editor or agent host; unset it before `npm test`.
 - On Windows, do not launch `sandbox-helper.exe` through a dynamically constructed nested PowerShell or .NET process with redirected standard input; antivirus software flags that diagnostic pattern as a malicious command line. Use `npm run build:sandbox` and the existing Vitest integration tests, or add focused instrumentation to the helper source instead.
