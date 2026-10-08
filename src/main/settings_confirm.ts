@@ -8,11 +8,14 @@ import type { McpServerConfig, Settings } from '@shared/settings';
 // enough.)
 // Returns one line per change, or nothing when the patch needs no confirmation. `storedHeaders` names the encrypted
 // HTTP headers kept per MCP server (SettingsStore.mcpHeaderNames), which a changed URL would send to another host.
+// `resolveProgram` gives the absolute path a stdio server's command runs (null when it isn't found), so the dialog
+// names the actual program.
 export function changesToConfirm(
   current: Settings,
   patch: Partial<Settings>,
   autoConfirmed: boolean,
   storedHeaders: Record<string, string[]> = {},
+  resolveProgram: (command: string) => string | null = (command) => command,
 ): string[] {
   const changes: string[] = [];
 
@@ -62,7 +65,12 @@ export function changesToConfirm(
         continue;
       }
       const what = stdioChange(before, server);
-      if (what) changes.push(`${what} MCP server "${server.name}": ${commandLine(server)}`);
+      if (what) {
+        const command = server.command ?? '';
+        const program = resolveProgram(command);
+        const runs = program === null ? ' (not found on PATH)' : program !== command ? ` (runs ${program})` : '';
+        changes.push(`${what} MCP server "${server.name}": ${commandLine(server)}${runs}`);
+      }
     }
   }
 

@@ -3,16 +3,15 @@
 builders.focus = () => {
   const items = [
     [
-      'Fix the Oct 7 audit findings that reach code outside the sandbox: #142 to #145',
-      'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test.',
+      'Fix the Oct 7 audit findings that reach code outside the sandbox: #143 to #145',
+      'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
-        '#142: MCP stdio servers start in the project folder, so npx.cmd or node_modules/.bin there replaces the configured command',
         '#143: the protected-path guard is case-sensitive and misses 8.3 names, so Auto mode writes .GIT/config without asking (reproduced)',
         '#144: file tools check a path, then write it later; a sandboxed background command can swap in a symlink (Linux, macOS)',
         '#145: opening the home folder as a project makes all of it writable to sandboxed commands',
         '#146 to #148 (medium): main-process network tools in Auto mode, macOS Unix sockets, the browser tool’s cookie session',
       ],
-      'Fix #142 next: it is the same planted-program problem through cross-spawn, which searches the working directory itself. Each fix needs a regression test that plants the file or link it guards against.',
+      'Fix #143 next: Auto mode can write .GIT/config without asking, and it is reproduced. Each fix needs a regression test that plants the file or link it guards against.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',

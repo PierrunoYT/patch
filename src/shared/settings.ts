@@ -25,7 +25,8 @@ export type SandboxNetwork = 'off' | 'allow-list' | 'on';
 export interface McpServerConfig {
   name: string;
   transport: 'stdio' | 'http';
-  // Stdio: executable and arguments. cwd is the open project, set when connecting, not stored.
+  // Stdio: executable and arguments; `${project}` in args or env stands for the open project's path. cwd is a private
+  // folder, set when connecting, not stored (#142).
   command?: string;
   args?: string[];
   env?: Record<string, string>;

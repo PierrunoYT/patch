@@ -66,7 +66,7 @@ const D = {
         'settings.ts (451)',
         'chat_store.ts (182)',
         'app_log.ts (error + crash logging)',
-        'settings_confirm.ts (182, ordered protective-rule confirmation)',
+        'settings_confirm.ts (190, ordered protective-rule confirmation; names the program an MCP server resolves to, #142)',
         'projects.ts',
         'files.ts',
         'ipc.ts',
@@ -148,7 +148,7 @@ const D = {
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process)',
         'browser.ts',
-        'mcp.ts',
+        'mcp.ts (stdio servers start in userData/mcp with an absolute command; ${project} opts a server into the project, #142)',
         'task.ts',
         'todo.ts',
         'plan.ts',
@@ -578,7 +578,6 @@ const D = {
     ],
     [144, 'File tools check a path, then write it later: a swapped symlink redirects', 'security', 'high', 0, '10-07'],
     [143, 'Protected-path guard misses case variants and 8.3 names (.GIT/config)', 'security', 'high', 0, '10-07'],
-    [142, 'MCP stdio servers can start a program planted in the project', 'mcp', 'high', 0, '10-07'],
     [
       140,
       'Windows sandbox: files moved into a project lack its write grant until reopened',
@@ -663,7 +662,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 83,
+  closedCount: 84,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;

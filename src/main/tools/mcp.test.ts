@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
-import { McpHub } from './mcp';
+import { launchConfig, McpHub, resolveCommand } from './mcp';
 
 // The mock MCP server used by the end-to-end tests; spawning it here exercises the real client over stdio.
 const mockServerScript = join(__dirname, '../../../tests/e2e/mock_mcp_server.mjs');
@@ -59,6 +59,26 @@ describe('McpHub', () => {
     }
   });
 
+  it('does not start a server that uses ${project} while no project is open', async () => {
+    const servers = [
+      launchConfig(
+        { name: 'fs', transport: 'stdio', command: process.execPath, args: [mockServerScript, '${project}'] },
+        undefined,
+        __dirname,
+      ),
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+    );
+    try {
+      await hub.refresh();
+      expect(hub.status()[0]).toMatchObject({ state: 'error', error: expect.stringMatching(/Open a project/) });
+    } finally {
+      await hub.stop();
+    }
+  });
+
   it('drops removed servers and reconnects changed ones', async () => {
     let servers: McpServerConfig[] = [
       { name: 'test', transport: 'stdio', command: process.execPath, args: [mockServerScript] },
@@ -78,5 +98,66 @@ describe('McpHub', () => {
     } finally {
       await hub.stop();
     }
+  });
+});
+
+// #142: a stdio server must never run a program planted in the project, or start inside it.
+describe('launchConfig', () => {
+  const server: McpServerConfig = { name: 'fs', transport: 'stdio', command: 'npx', args: ['-y', 'server', '.'] };
+
+  it('starts stdio servers in the private folder, whatever project is open', () => {
+    const a = launchConfig({ ...server, env: { TOKEN: 'x' } }, 'C:\\a', 'C:\\data\\mcp');
+    expect(a).toEqual({ ...server, env: { TOKEN: 'x' }, cwd: 'C:\\data\\mcp' });
+    // Unchanged config across a project switch, so the server is not reconnected.
+    expect(launchConfig(server, 'C:\\b', 'C:\\data\\mcp')).toEqual(launchConfig(server, 'C:\\a', 'C:\\data\\mcp'));
+  });
+
+  it('gives the project path only where args or env name ${project}', () => {
+    const withProject = { ...server, args: ['server', '${project}/src'], env: { ROOT: '${project}', TOKEN: 'x' } };
+    expect(launchConfig(withProject, '/home/me/p', '/data/mcp')).toEqual({
+      ...withProject,
+      args: ['server', '/home/me/p/src'],
+      env: { ROOT: '/home/me/p', TOKEN: 'x' },
+      cwd: '/data/mcp',
+    });
+    expect(launchConfig(withProject, undefined, '/data/mcp').args).toEqual(['server', '${project}/src']);
+  });
+
+  it('leaves HTTP servers alone', () => {
+    const http: McpServerConfig = { name: 'docs', transport: 'http', url: 'https://x.test/mcp' };
+    expect(launchConfig(http, 'C:\\a', 'C:\\data\\mcp')).toBe(http);
+  });
+});
+
+describe('resolveCommand', () => {
+  const files =
+    (...paths: string[]) =>
+    (path: string) =>
+      paths.includes(path);
+
+  it('ignores PATH entries that depend on the working folder, where a project could plant the program', () => {
+    const exists = files('npx.cmd', 'C:\\proj\\npx.cmd', 'C:\\node\\npx.cmd');
+    expect(resolveCommand('npx', '.;;proj;C:\\node', '.exe;.cmd', 'win32', exists)).toBe('C:\\node\\npx.cmd');
+    expect(resolveCommand('npx', '.:bin:/usr/bin', undefined, 'linux', files('bin/npx', '/usr/bin/npx'))).toBe(
+      '/usr/bin/npx',
+    );
+  });
+
+  it('follows PATH order and PATHEXT, and keeps an extension that is already given', () => {
+    const exists = files('C:\\a\\tool.CMD', 'C:\\b\\tool.EXE', 'C:\\b\\tool.cmd');
+    expect(resolveCommand('tool', '"C:\\a";C:\\b', '.EXE;.CMD', 'win32', exists)).toBe('C:\\a\\tool.CMD');
+    expect(resolveCommand('tool.cmd', 'C:\\a;C:\\b', '.EXE;.CMD', 'win32', exists)).toBe('C:\\b\\tool.cmd');
+  });
+
+  it('runs an absolute path as it is and refuses relative paths', () => {
+    expect(resolveCommand('C:\\tools\\srv.exe', '', undefined, 'win32', files())).toBe('C:\\tools\\srv.exe');
+    expect(resolveCommand('/opt/srv', '', undefined, 'linux', files())).toBe('/opt/srv');
+    for (const relative of ['.\\srv.exe', 'bin\\srv', 'C:srv.exe', '\\srv.exe'])
+      expect(() => resolveCommand(relative, 'C:\\bin', undefined, 'win32', files())).toThrow(/relative path/);
+    expect(() => resolveCommand('./srv', '/bin', undefined, 'linux', files())).toThrow(/relative path/);
+  });
+
+  it('says when the program is not on PATH', () => {
+    expect(() => resolveCommand('uvx', 'C:\\bin', undefined, 'win32', files())).toThrow(/not found on PATH/);
   });
 });

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, crashReporter, dialog, safeStorage, session, shell } from 'electron';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { SECRET_NAMES } from '@shared/settings';
 import { ToolErrorLog } from './agent/tool_error_log';
@@ -18,7 +19,7 @@ import { ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
 import { changesToConfirm, projectChangesToConfirm } from './settings_confirm';
-import { McpHub } from './tools/mcp';
+import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
 import { releaseProjectGrant } from './tools/sandbox_windows';
 import { Workspace } from './tools/workspace';
 import type { IndexStatus } from '@shared/ipc';
@@ -131,7 +132,10 @@ function start(): void {
   // A changed key or endpoint means new embeddings; drop cached indexes so they are rebuilt with the new client.
   settings.on('change', () => codeIndexes.clear());
 
-  const mcpServers = () => settings.mcpServers().map((server) => ({ ...server, cwd: projects.current()?.path }));
+  const mcpDir = join(userData, 'mcp');
+  mkdirSync(mcpDir, { recursive: true });
+  const mcpServers = () =>
+    settings.mcpServers().map((server) => launchConfig(server, projects.current()?.path, mcpDir));
   let appliedMcpConfig = '';
   const mcp = new McpHub(mcpServers, () => send(mainWindow, 'app:notice', 'MCP servers updated'));
   // Not awaited: connections happen in the background and the tool list refreshes when they settle.
@@ -142,8 +146,8 @@ function start(): void {
     mcp.start();
   };
   refreshMcp();
-  // Only a real change reconnects and notifies. A theme toggle or an API key edit does not, and neither does a
-  // project switch: stdio servers keep the working directory they connected with.
+  // Only a real change reconnects and notifies. A theme toggle or an API key edit does not, and a project switch
+  // reconnects only the servers whose args or env use ${project}.
   settings.on('change', refreshMcp);
 
   const indexFor = (workspace: Workspace): CodeIndex | null => {
@@ -210,6 +214,7 @@ function start(): void {
     const project = projects.open(path);
     if (project.path !== before) {
       manager.projectChanged();
+      refreshMcp();
       terminal.stop();
     }
     send(mainWindow, 'project:changed', project);
@@ -243,7 +248,14 @@ function start(): void {
   };
 
   handle('settings:update', async (patch) => {
-    await confirmChanges(changesToConfirm(settings.get(), patch, autoConfirmed, settings.mcpHeaderNames()));
+    const mcpProgram = (command: string) => {
+      try {
+        return resolveCommand(command, process.env.PATH ?? '', process.env.PATHEXT);
+      } catch {
+        return null;
+      }
+    };
+    await confirmChanges(changesToConfirm(settings.get(), patch, autoConfirmed, settings.mcpHeaderNames(), mcpProgram));
     const view = settings.update(patch);
     if (patch.approvalMode === 'auto') autoConfirmed = true;
     return view;
@@ -286,6 +298,7 @@ function start(): void {
     projects.close(path);
     if (projects.current()?.path !== before) {
       manager.projectChanged();
+      refreshMcp();
       terminal.stop();
     }
     send(mainWindow, 'project:changed', projects.current());
@@ -303,6 +316,7 @@ function start(): void {
     projects.remove(path);
     if (projects.current()?.path !== before) {
       manager.projectChanged();
+      refreshMcp();
       terminal.stop();
     }
     send(mainWindow, 'project:changed', projects.current());

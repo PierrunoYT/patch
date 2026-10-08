@@ -199,6 +199,7 @@ Model Context Protocol servers give the assistant extra tools (a database, an is
 ]
 ```
 
+- A `stdio` server starts in a private folder (`mcp` in Patch's user data folder), never in the open project, so a program or package planted in a repository cannot stand in for the one you configured. Its `command` must be a program name found on PATH or an absolute path; Patch looks it up only in PATH folders that don't depend on the working folder, and the confirmation names the program it found. To give a server the open project, write `${project}` in its `args` or `env` (for example `"args": ["-y", "@modelcontextprotocol/server-filesystem", "${project}"]`): Patch replaces it with the project's path, reconnects that server when you switch projects, and doesn't start it while no project is open.
 - The line under the box shows each server's state: connected with its number of tools, connecting, or the error. A server that fails does not affect the others.
 - Its tools appear to the assistant as `mcp_<server>_<tool>`. **Every MCP tool call asks for approval, even in Auto mode**, because a server can do anything its program or endpoint allows.
 - `env` values and `headers` are stored encrypted, like API keys, and are not shown again. When you reopen Settings, each one appears with an empty value (`"SOME_TOKEN": ""`): leave it empty to keep the stored value, type a new value to replace it, or delete the line to remove it. Renaming a server drops its stored values, so enter them again after a rename.

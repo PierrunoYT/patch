@@ -1,13 +1,83 @@
 import { spawnSync } from 'node:child_process';
+import { statSync } from 'node:fs';
+import { posix, win32 } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { McpServerConfig, McpStatus } from '@shared/settings';
+import { fixedSearchPath } from '../exec_search';
 import type { JsonObjectSchema } from '../llm/types';
 import { ToolError, truncateOutput, type AgentTool, type ToolOutput } from './types';
 
 const CONNECT_TIMEOUT_MS = 10_000;
 const CALL_TIMEOUT_MS = 120_000;
+
+export const PROJECT_PLACEHOLDER = '${project}';
+
+// Stdio servers never start in the project (#142): there, `npx` prefers the project's node_modules/.bin, `python -m`
+// imports from it, and the MCP SDK's cross-spawn looks for the program itself in the working folder first on
+// Windows. They start in a private folder instead, and see the open project only where their args or env name it as
+// ${project}, so a project switch reconnects only those servers.
+export function launchConfig(server: McpServerConfig, project: string | undefined, workDir: string): McpServerConfig {
+  if (server.transport !== 'stdio') return server;
+  const expand = (value: string) => (project ? value.split(PROJECT_PLACEHOLDER).join(project) : value);
+  return {
+    ...server,
+    ...(server.args && { args: server.args.map(expand) }),
+    ...(server.env && {
+      env: Object.fromEntries(Object.entries(server.env).map(([key, value]) => [key, expand(value)])),
+    }),
+    cwd: workDir,
+  };
+}
+
+function usesProject(server: McpServerConfig): boolean {
+  return [...(server.args ?? []), ...Object.values(server.env ?? {})].some((value) =>
+    value.includes(PROJECT_PLACEHOLDER),
+  );
+}
+
+const isFile = (path: string): boolean => {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+};
+
+// The absolute path of the program a stdio server runs, found only in PATH folders that don't depend on the working
+// folder, so nothing planted in a project can stand in for it.
+export function resolveCommand(
+  command: string,
+  searchPath: string,
+  pathExt: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+  exists: (path: string) => boolean = isFile,
+): string {
+  const windows = platform === 'win32';
+  const path = windows ? win32 : posix;
+  if (windows ? /^([A-Za-z]:[\\/]|[\\/]{2}[^\\/])/.test(command) : command.startsWith('/')) return command;
+  if (/[\\/]/.test(command) || (windows && command.includes(':'))) {
+    throw new Error(`"${command}" is a relative path; use a program name found on PATH or an absolute path.`);
+  }
+  const extensions = (pathExt || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean);
+  const hasExtension = extensions.some((ext) => command.toLowerCase().endsWith(ext.toLowerCase()));
+  const suffixes = windows && !hasExtension ? extensions : [''];
+  for (const entry of fixedSearchPath(searchPath, platform).path.split(windows ? ';' : ':')) {
+    const folder = windows ? entry.replace(/^"(.*)"$/, '$1') : entry;
+    if (!folder) continue;
+    for (const suffix of suffixes) {
+      const candidate = path.join(folder, command + suffix);
+      if (exists(candidate)) return candidate;
+    }
+  }
+  throw new Error(`"${command}" was not found on PATH.`);
+}
+
+function pathOf(env: Record<string, string>): string {
+  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH');
+  return key ? env[key]! : '';
+}
 
 interface ServerState {
   config: McpServerConfig;
@@ -115,12 +185,7 @@ export class McpHub {
     try {
       const transport =
         config.transport === 'stdio'
-          ? new StdioClientTransport({
-              command: config.command!,
-              args: config.args ?? [],
-              env: { ...getDefaultEnvironment(), ...config.env },
-              cwd: config.cwd,
-            })
+          ? stdioTransport(config)
           : new StreamableHTTPClientTransport(new URL(config.url!), { requestInit: { headers: config.headers } });
       await withTimeout(client.connect(transport), `connecting to ${config.name} timed out`);
       const listed = await withTimeout(client.listTools(), `listing tools of ${config.name} timed out`);
@@ -175,6 +240,17 @@ export class McpHub {
       },
     };
   }
+}
+
+function stdioTransport(config: McpServerConfig): StdioClientTransport {
+  if (usesProject(config)) throw new Error(`Open a project to start this server: it uses ${PROJECT_PLACEHOLDER}.`);
+  const env = { ...getDefaultEnvironment(), ...config.env };
+  return new StdioClientTransport({
+    command: resolveCommand(config.command!, pathOf(env), process.env.PATHEXT),
+    args: config.args ?? [],
+    env,
+    cwd: config.cwd,
+  });
 }
 
 // Namespaced tool name the model sees: mcp_<server>_<tool>, sanitized to what the provider APIs accept. The suffix

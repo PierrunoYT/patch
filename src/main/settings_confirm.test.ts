@@ -174,6 +174,17 @@ describe('changesToConfirm', () => {
     ]);
   });
 
+  it('names the program a stdio server would run, or that it is not on PATH (#142)', () => {
+    const added: McpServerConfig = { name: 'fs', transport: 'stdio', command: 'npx', args: ['-y', 'srv'] };
+    const resolve = (command: string) => (command === 'npx' ? 'C:\\node\\npx.cmd' : null);
+    expect(changesToConfirm(current, { mcpServers: [docs, added] }, false, {}, resolve)).toEqual([
+      'Start the new MCP server "fs": npx -y srv (runs C:\\node\\npx.cmd)',
+    ]);
+    expect(changesToConfirm(current, { mcpServers: [{ ...added, command: 'uvx' }] }, false, {}, resolve)).toContain(
+      'Start the new MCP server "fs": uvx -y srv (not found on PATH)',
+    );
+  });
+
   it('asks before setting environment variables for a stdio server, naming the keys only', () => {
     const changes = changesToConfirm(
       current,
