@@ -307,10 +307,11 @@ export class Composer {
   private paste(event: ClipboardEvent): void {
     const files = [...(event.clipboardData?.files ?? [])].filter((file) => PASTE_TYPES.has(file.type));
     if (files.length === 0) return;
+    // Text copied with a preview image (for example table cells) keeps the browser's normal paste behavior.
+    if (event.clipboardData?.types.includes('text/plain')) return;
     if (this.imagesBlocked) {
       // Copying from Word, Excel or a browser often puts text and an image on the clipboard together: let the text
       // paste as usual, and only say why the image was left out when there is nothing else.
-      if (event.clipboardData?.types.includes('text/plain')) return;
       event.preventDefault();
       this.actions.notice(this.imagesBlocked);
       return;

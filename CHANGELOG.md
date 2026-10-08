@@ -98,6 +98,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Text copied alongside an image pastes normally in the composer instead of being replaced by an image attachment. (#175)
+
 - Same-project navigation no longer kills the interactive terminal, clears the Git commit draft or rebuilds the active transcript. Closing or removing an inactive project leaves the active panels alone; closing the last project still clears its chat (#160).
 - File tools reject non-UTF-8 edits and overwrites before approval and execution instead of corrupting unrelated bytes. A patch containing a non-UTF-8 update or move leaves every file unchanged (#159).
 - `read_file` counts newline-terminated files correctly, keeps real blank lines, and reports offsets past the end instead of returning a silent empty result (#181).

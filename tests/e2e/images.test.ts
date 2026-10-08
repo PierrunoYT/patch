@@ -27,6 +27,18 @@ describe('image attachments follow the model (mock Claude API)', () => {
   const attach = () => running.page.getByLabel('Attach images');
   const image = { mediaType: 'image/png' as const, base64: 'iVBORw0KGgo=' };
 
+  it('preserves normal text paste when the clipboard also contains an image', async () => {
+    const prevented = await running.page.locator('.composer-input').evaluate((input) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', 'Copied table cells');
+      data.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'cells.png', { type: 'image/png' }));
+      const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(prevented).toBe(false);
+  });
+
   it('offers attaching for a model that accepts images, and sends the image', async () => {
     expect(await attach().isEnabled()).toBe(true);
 
