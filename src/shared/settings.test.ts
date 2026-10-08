@@ -73,6 +73,19 @@ describe('parseMcpServers', () => {
       /"args" must be string arrays/,
     );
   });
+
+  it('rejects env and headers values that are not strings (#184)', () => {
+    expect(() => parseMcpServers('[{"name":"x","transport":"stdio","command":"a","env":{"TOKEN":1}}]')).toThrow(
+      /"env" values must be strings/,
+    );
+    expect(() =>
+      parseMcpServers('[{"name":"x","transport":"http","url":"https://x","headers":{"Authorization":null}}]'),
+    ).toThrow(/"headers" values must be strings/);
+    expect(() => parseMcpServers('[{"name":"x","transport":"stdio","command":"a","env":["A"]}]')).toThrow(
+      /"env" must be an object/,
+    );
+    expect(parseMcpServers('[{"name":"x","transport":"stdio","command":"a","env":{"TOKEN":""}}]')).toHaveLength(1);
+  });
 });
 
 describe('sanitizeMcpServers', () => {
@@ -83,6 +96,7 @@ describe('sanitizeMcpServers', () => {
         { name: '', transport: 'stdio', command: 'run' },
         'nonsense',
         { name: 'no-url', transport: 'http' },
+        { name: 'bad-env', transport: 'stdio', command: 'run', env: { TOKEN: 1 } },
       ]),
     ).toEqual([{ name: 'ok', transport: 'stdio', command: 'run' }]);
   });

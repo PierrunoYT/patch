@@ -62,6 +62,42 @@ describe('SettingsStore', () => {
     expect(new SettingsStore(file, reversingCipher).get().anthropicBaseUrl).toBe('');
   });
 
+  it('keeps an OpenAI-compatible base URL only when it is http(s) (#184)', () => {
+    const store = new SettingsStore(file, reversingCipher);
+    expect(store.update({ openaiBaseUrl: ' http://localhost:11434/v1 ' }).openaiBaseUrl).toBe(
+      'http://localhost:11434/v1',
+    );
+    expect(() => store.update({ openaiBaseUrl: 'localhost:11434' })).toThrow(/OpenAI-compatible base URL/);
+    expect(store.get().openaiBaseUrl).toBe('http://localhost:11434/v1');
+    expect(store.update({ openaiBaseUrl: '' }).openaiBaseUrl).toBe('');
+
+    writeFileSync(file, JSON.stringify({ ...DEFAULT_SETTINGS, openaiBaseUrl: 'javascript:alert(1)' }));
+    expect(new SettingsStore(file, reversingCipher).get().openaiBaseUrl).toBe('');
+  });
+
+  it('uses the default max indexed files for an empty, zero or non-finite value (#184)', () => {
+    const store = new SettingsStore(file, reversingCipher);
+    expect(store.update({ maxIndexedFiles: 500.7 }).maxIndexedFiles).toBe(500);
+    for (const value of [Number(''), NaN, Infinity, 0.5]) {
+      expect(store.update({ maxIndexedFiles: value }).maxIndexedFiles).toBe(DEFAULT_SETTINGS.maxIndexedFiles);
+    }
+    writeFileSync(file, JSON.stringify({ settings: { ...DEFAULT_SETTINGS, maxIndexedFiles: 0 } }));
+    expect(new SettingsStore(file, reversingCipher).get().maxIndexedFiles).toBe(DEFAULT_SETTINGS.maxIndexedFiles);
+  });
+
+  it('keeps the previous MCP secrets in memory when saving new ones fails (#184)', () => {
+    const store = new SettingsStore(file, reversingCipher);
+    const server = { name: 'docs', transport: 'stdio' as const, command: 'server' };
+    store.update({ mcpServers: [{ ...server, env: { TOKEN: 'old' } }] });
+    const seen: unknown[] = [];
+    store.on('change', (view) => seen.push(view));
+    renameSync(file, join(dir, 'saved.json'));
+    mkdirSync(file);
+    expect(() => store.update({ mcpServers: [{ ...server, env: { TOKEN: 'new' } }] })).toThrow();
+    expect(store.mcpServers()[0]!.env).toEqual({ TOKEN: 'old' });
+    expect(seen).toEqual([]);
+  });
+
   it('keeps a truncated settings file as a .corrupt copy and starts from defaults', () => {
     const broken = '{"settings": {"theme": "light"}, "secrets": {"anthropicApiKey": "plain:sk-ant-1';
     writeFileSync(file, broken);
@@ -124,7 +160,7 @@ describe('SettingsStore', () => {
       subagentEffort: 'turbo' as never,
     });
     expect(store.get().approvalMode).toBe('ask');
-    expect(store.get().maxIndexedFiles).toBe(1);
+    expect(store.get().maxIndexedFiles).toBe(DEFAULT_SETTINGS.maxIndexedFiles);
     expect(store.get().model).toBe(DEFAULT_SETTINGS.model);
     expect(store.get().subagentModel).toBe('same');
     expect(store.get().subagentEffort).toBe('match');

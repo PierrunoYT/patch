@@ -122,14 +122,20 @@ export class SettingsStore extends EventEmitter {
     // hide typos.
     if ('mcpServers' in known) this.validateMcpServers(known.mcpServers);
     if ('permissionRules' in known) parsePermissionRules(JSON.stringify(known.permissionRules));
-    if ('anthropicBaseUrl' in known) {
-      const error = baseUrlError('The Claude base URL', String(known.anthropicBaseUrl));
+    for (const [key, label] of [
+      ['anthropicBaseUrl', 'The Claude base URL'],
+      ['openaiBaseUrl', 'The OpenAI-compatible base URL'],
+    ] as const) {
+      if (!(key in known)) continue;
+      const error = baseUrlError(label, String(known[key]));
       if (error) throw new Error(error);
     }
     const next = sanitize({ ...this.settings, ...known });
-    if ('mcpServers' in known) this.storeMcpSecrets(next.mcpServers);
+    // Staged, not assigned: the stored secrets change only once the file is written, so a failed write leaves memory
+    // and disk in agreement (#184).
+    const mcpSecrets = 'mcpServers' in known ? this.nextMcpSecrets(next.mcpServers) : this.mcpSecrets;
     next.mcpServers = next.mcpServers.map(({ env: _env, headers: _headers, ...server }) => server);
-    this.persist(next, this.secrets);
+    this.persist(next, this.secrets, this.chatgpt, mcpSecrets);
     return this.view();
   }
 
@@ -243,11 +249,13 @@ export class SettingsStore extends EventEmitter {
     settings: Settings,
     secrets: Partial<Record<SecretName, string>>,
     chatgpt: StoredChatGpt | null = this.chatgpt,
+    mcpSecrets = this.mcpSecrets,
   ): void {
-    this.writeStored(settings, secrets, chatgpt);
+    this.writeStored(settings, secrets, chatgpt, mcpSecrets);
     this.settings = settings;
     this.secrets = secrets;
     this.chatgpt = chatgpt;
+    this.mcpSecrets = mcpSecrets;
     this.emit('change', this.view());
   }
 
@@ -317,7 +325,8 @@ export class SettingsStore extends EventEmitter {
     };
   }
 
-  private storeMcpSecrets(servers: McpServerConfig[]): void {
+  // The stored env and header secrets for a new server list. It changes nothing; persist stores the result.
+  private nextMcpSecrets(servers: McpServerConfig[]): typeof this.mcpSecrets {
     const next: typeof this.mcpSecrets = {};
     const renamed = this.renamedServers(servers);
     for (const server of servers) {
@@ -329,7 +338,7 @@ export class SettingsStore extends EventEmitter {
         headers: server.headers ? this.encryptMap(server.headers, previous?.headers) : previous?.headers,
       };
     }
-    this.mcpSecrets = next;
+    return next;
   }
 
   // Maps the new name of each renamed server to its old one (#23). A server counts as renamed when its old name is gone
@@ -435,11 +444,14 @@ function sanitize(settings: Settings): Settings {
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(result.effort)) result.effort = DEFAULT_SETTINGS.effort;
   if (!['same', 'mid', 'small'].includes(result.subagentModel)) result.subagentModel = DEFAULT_SETTINGS.subagentModel;
   if (!['match', 'scaled'].includes(result.subagentEffort)) result.subagentEffort = DEFAULT_SETTINGS.subagentEffort;
-  result.maxIndexedFiles = Math.max(1, Math.floor(result.maxIndexedFiles));
+  // An empty field arrives as 0 and a hand-edited file can hold NaN; neither means "index one file" (#184).
+  const maxFiles = Math.floor(result.maxIndexedFiles);
+  result.maxIndexedFiles = Number.isFinite(maxFiles) && maxFiles >= 1 ? maxFiles : DEFAULT_SETTINGS.maxIndexedFiles;
   result.model = result.model.trim() || DEFAULT_SETTINGS.model;
   result.mcpServers = sanitizeMcpServers(result.mcpServers);
   // A saved value that is not an http(s) URL would send nothing anywhere; fall back to the official API.
   result.anthropicBaseUrl = baseUrlError('', result.anthropicBaseUrl) ? '' : result.anthropicBaseUrl.trim();
+  result.openaiBaseUrl = baseUrlError('', result.openaiBaseUrl) ? '' : result.openaiBaseUrl.trim();
   result.permissionRules = sanitizePermissionRules(result.permissionRules);
   return result;
 }

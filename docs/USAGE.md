@@ -212,7 +212,7 @@ Model Context Protocol servers give the assistant extra tools (a database, an is
 - A `stdio` server starts in a private folder (`mcp` in Patch's user data folder), never in the open project, so a program or package planted in a repository cannot stand in for the one you configured. Its `command` must be a program name found on PATH or an absolute path; Patch looks it up only in PATH folders that don't depend on the working folder, and the confirmation names the program it found. To give a server the open project, write `${project}` in its `args` or `env` (for example `"args": ["-y", "@modelcontextprotocol/server-filesystem", "${project}"]`): Patch replaces it with the project's path, reconnects that server when you switch projects, and doesn't start it while no project is open.
 - The line under the box shows each server's state: connected with its number of tools, connecting, or the error. A server that fails does not affect the others.
 - Its tools appear to the assistant as `mcp_<server>_<tool>`. **Every MCP tool call asks for approval, even in Auto mode**, because a server can do anything its program or endpoint allows.
-- `env` values and `headers` are stored encrypted, like API keys, and are not shown again. When you reopen Settings, each one appears with an empty value (`"SOME_TOKEN": ""`): leave it empty to keep the stored value, type a new value to replace it, or delete the line to remove it. Renaming a server drops its stored values, so enter them again after a rename.
+- `env` and `headers` are objects whose values are strings; they are stored encrypted, like API keys, and are not shown again. When you reopen Settings, each one appears with an empty value (`"SOME_TOKEN": ""`): leave it empty to keep the stored value, type a new value to replace it, or delete the line to remove it. Renaming a server drops its stored values, so enter them again after a rename.
 - A stdio server starts in the project that is open when it connects, runs with your permissions, and keeps running until you change its settings or quit Patch.
 
 ## Subagents and the todo list
@@ -274,10 +274,10 @@ Besides the API keys, approvals and allow-lists described above, **Settings** ha
 - **Theme**: dark or light.
 - **Editor command**: what the **Open in editor** link on a tool card runs, e.g. `code`, `cursor` or `subl`.
 - **ChatGPT**: **Sign in with ChatGPT** uses a ChatGPT account for official OpenAI models. The button starts the browser login immediately and does not wait for Save. **Sign out** drops the session. With both a session and an API key, and no custom base URL, official chats use the session.
-- **OpenAI-compatible base URL**: for Ollama, OpenRouter, LM Studio and similar. Leave it empty for OpenAI itself. A custom URL always uses the API key, even when a ChatGPT account is signed in.
+- **OpenAI-compatible base URL**: for Ollama, OpenRouter, LM Studio and similar. Leave it empty for OpenAI itself. It must be an `http://` or `https://` URL. A custom URL always uses the API key, even when a ChatGPT account is signed in.
 - **Claude base URL**: for a proxy or gateway in front of Claude (a company gateway, LiteLLM and similar). Leave it empty for api.anthropic.com. Claude chats, and Claude background work such as chat titles and Compact chat, go there with your Anthropic API key, so setting or changing it asks for confirmation; clearing it does not. It must serve the Anthropic Messages API, including the beta features Patch uses (server-side compaction, refusal fallback, prompt caching). Chats on a custom URL get no official-price estimate.
 - **Google search engine id**: with a Google API key, turns on web search.
-- **Maximum files to index for code search**, and the current project's index status with a **Reindex** button.
+- **Maximum files to index for code search** (empty or below 1 uses the default, 2,000), and the current project's index status with a **Reindex** button.
 
 The project menu (the sliders button in the header) has **Open folder…**, the recent projects and **Project settings…** for the open project (its instructions and its own allow-lists, see above). **Remove from recent** is on each recent project's row on the welcome screen, shown when no project is open.
 

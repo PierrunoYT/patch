@@ -159,8 +159,11 @@ function mcpServerError(entry: unknown): string | null {
     if (key === 'args') {
       if (!Array.isArray(value) || value.some((item) => typeof item !== 'string'))
         return '"args" must be string arrays';
-    } else if (typeof value !== 'object' || value === null) {
+    } else if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return `"${key}" must be an object`;
+    } else if (Object.values(value).some((item) => typeof item !== 'string')) {
+      // The values are encrypted and sent as env variables or HTTP headers, so each one must be a string.
+      return `"${key}" values must be strings`;
     }
   }
   return null;
