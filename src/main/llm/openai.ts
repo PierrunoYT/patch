@@ -228,10 +228,15 @@ export function trimHistory(messages: MessageParam[]): MessageParam[] {
   if (!first) return messages;
   let lastGroup = rest.length - 1;
   while (lastGroup > 0 && rest[lastGroup]?.role === 'tool') lastGroup--;
+  // Each message is measured once and the running total shrinks as messages are dropped: re-measuring the remaining
+  // history at every step was quadratic and froze the main process on long chats. In a JSON array every item adds
+  // its own length plus one separator, so `chars` is exactly `estimateChars([first, ...rest.slice(start)])`.
+  const sizes = rest.map(messageChars);
+  let chars = 1 + messageChars(first) + sizes.reduce((sum, size) => sum + size, 0);
   let start = 0;
-  while (start < lastGroup && estimateTokens([first, ...rest.slice(start)]) > MAX_HISTORY_TOKENS) {
-    start++;
-    while (start < lastGroup && rest[start]?.role === 'tool') start++;
+  while (start < lastGroup && Math.ceil(chars / 4) > MAX_HISTORY_TOKENS) {
+    chars -= sizes[start++]!;
+    while (start < lastGroup && rest[start]?.role === 'tool') chars -= sizes[start++]!;
   }
   if (start === 0) return messages;
   return [
@@ -253,6 +258,11 @@ function parseArguments(raw: string): unknown {
 // look like hundreds of thousands of tokens and push everything else out.
 function estimateTokens(messages: MessageParam[]): number {
   return Math.ceil(estimateChars(messages) / 4);
+}
+
+// One message's share of `estimateChars` for a list: its JSON plus the comma or bracket next to it.
+function messageChars(message: MessageParam): number {
+  return estimateChars([message]) - 1;
 }
 
 function mapFinishReason(reason: string | null, hasToolCalls: boolean): StopReason {

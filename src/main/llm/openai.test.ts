@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { Agent } from '../agent/agent';
+import { estimateChars } from './compaction';
 import { createOpenAIClient, OpenAIConversation, trimHistory } from './openai';
 import { MockApiServer } from './test_server';
 import type { TurnRequest } from './types';
@@ -263,6 +264,80 @@ describe('OpenAIConversation', () => {
     ];
     // Well under the budget once the image is not counted by its base64 length.
     expect(trimHistory(history)).toBe(history);
+  });
+
+  it('keeps exactly what re-measuring the remaining history at every step would keep', () => {
+    // The straightforward version: re-measure everything that is left after each dropped group.
+    const reference = (messages: any[]): any[] => {
+      const tokens = (list: any[]) => Math.ceil(estimateChars(list) / 4);
+      if (tokens(messages) <= 100_000) return messages;
+      const [first, ...rest] = messages;
+      let lastGroup = rest.length - 1;
+      while (lastGroup > 0 && rest[lastGroup]?.role === 'tool') lastGroup--;
+      let start = 0;
+      while (start < lastGroup && tokens([first, ...rest.slice(start)]) > 100_000) {
+        start++;
+        while (start < lastGroup && rest[start]?.role === 'tool') start++;
+      }
+      if (start === 0) return messages;
+      return [
+        first,
+        { role: 'user', content: '(Earlier messages were removed to fit the context window.)' },
+        ...rest.slice(start),
+      ];
+    };
+    let seed = 7;
+    const random = () => (seed = (seed * 48_271) % 2_147_483_647) / 2_147_483_647;
+    let trimmed = 0;
+    for (let round = 0; round < 40; round++) {
+      const history: any[] = [{ role: 'user', content: `THE TASK ${'t'.repeat(Math.floor(random() * 50_000))}` }];
+      const count = 2 + Math.floor(random() * 40);
+      for (let i = 0; i < count; i++) {
+        const text = 'x'.repeat(Math.floor(random() * 40_000));
+        const kind = random();
+        if (kind < 0.3) {
+          const calls = 1 + Math.floor(random() * 3);
+          history.push({
+            role: 'assistant',
+            content: '',
+            tool_calls: Array.from({ length: calls }, (_, c) => ({
+              id: `c${i}_${c}`,
+              type: 'function',
+              function: { name: 'read_file', arguments: '{}' },
+            })),
+          });
+          for (let c = 0; c < calls; c++) history.push({ role: 'tool', tool_call_id: `c${i}_${c}`, content: text });
+        } else if (kind < 0.4) {
+          history.push({
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: `data:image/png;base64,${'A'.repeat(300_000)}` } }],
+          });
+        } else {
+          history.push({ role: kind < 0.7 ? 'user' : 'assistant', content: `"quoted" ${text}` });
+        }
+      }
+      const sent = trimHistory(history);
+      expect(sent).toEqual(reference(history));
+      if (sent !== history) trimmed++;
+    }
+    // Both outcomes are covered: histories under the budget and histories that had to be shortened.
+    expect(trimmed).toBeGreaterThan(0);
+    expect(trimmed).toBeLessThan(40);
+  });
+
+  it('trims a very long history quickly', () => {
+    const history: any[] = [{ role: 'user', content: 'THE TASK' }];
+    for (let i = 0; i < 3_000; i++) {
+      history.push({ role: 'assistant', content: `answer ${i} ${'x'.repeat(1_500)}` });
+      history.push({ role: 'user', content: `follow-up ${i}` });
+    }
+    const started = performance.now();
+    const sent = trimHistory(history);
+    // Re-measuring the remaining history at every step took many seconds here.
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(sent[0]).toEqual({ role: 'user', content: 'THE TASK' });
+    expect(sent.at(-1)).toEqual({ role: 'user', content: 'follow-up 2999' });
+    expect(Math.ceil(estimateChars(sent) / 4)).toBeLessThanOrEqual(100_100);
   });
 
   it('drops the oldest turns but keeps the task when history grows too large', async () => {

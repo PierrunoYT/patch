@@ -110,7 +110,7 @@ const D = {
       list: [
         'codex_auth.ts (477, ChatGPT sign-in)',
         'anthropic.ts (448, prompt cache, keep-alive, Haiku 5.5 per-request price tier)',
-        'openai.ts (295)',
+        'openai.ts (305)',
         'openai_responses.ts (294, platform/Codex requests)',
         'index.ts (LlmService)',
         'endpoints.ts (test hooks off in packaged builds)',
@@ -341,7 +341,7 @@ const D = {
   },
   testsByArea: [
     { a: 'main/agent', f: 11, c: 214, src: 1611, tl: 3385 },
-    { a: 'main/llm', f: 8, c: 102, src: 2162, tl: 2836 },
+    { a: 'main/llm', f: 8, c: 104, src: 2180, tl: 2992 },
     { a: 'main/tools', f: 24, c: 446, src: 4173, tl: 6132 },
     { a: 'main/panels', f: 4, c: 63, src: 607, tl: 934 },
     { a: 'main/other', f: 12, c: 188, src: 2960, tl: 2876 },
@@ -537,7 +537,6 @@ const D = {
     [174, 'Git panel diff and Discard fail when the project is a repo subfolder', 'ui', 'medium', 0, '10-07'],
     [173, 'Anthropic: mid-stream connection drops are retried at once, without notice', 'other', 'medium', 0, '10-07'],
     [172, 'Subagent token usage is priced at the chat model’s rate', 'other', 'medium', 0, '10-07'],
-    [171, 'trimHistory is quadratic and blocks the main process on long chats', 'perf', 'medium', 0, '10-07'],
     [170, 'Code index: lost progress, shared stop, duplicate runs on settings change', 'tools', 'medium', 0, '10-07'],
     [169, 'Ignore rules go stale; nested .gitignore files are ignored', 'tools', 'medium', 0, '10-07'],
     [167, 'write_file overwrites changes made after the agent read the file', 'tools', 'medium', 0, '10-07'],
@@ -662,7 +661,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 85,
+  closedCount: 86,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2766;
