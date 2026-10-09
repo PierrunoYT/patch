@@ -219,7 +219,7 @@ async function checkSandboxGit(cwd: string): Promise<{ result: string[]; read: s
       if (process.platform === 'win32') return false;
       let top: string | null = null;
       for (let path = absolute; ; path = dirname(path)) {
-        if (realpathSync(path) === workspace.root) top = path;
+        if (realpathSync.native(path) === workspace.root) top = path;
         if (dirname(path) === path) break;
       }
       if (top === null || relative(top, absolute) !== relative(workspace.root, confined)) return false;

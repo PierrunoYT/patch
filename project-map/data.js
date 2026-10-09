@@ -55,9 +55,9 @@ const D = {
       label: 'main (root)',
       proc: 'main',
       files: 14,
-      tests: 10,
-      lines: 2507,
-      testLines: 2473,
+      tests: 11,
+      lines: 2536,
+      testLines: 2520,
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
         'chat_manager.ts (523; passes sensitive app paths to ShellRunner, #145; safe restored-session preparation, #161; same-project state, #160)',
@@ -350,7 +350,7 @@ const D = {
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
     { a: 'main/tools', f: 28, c: 598, src: 5067, tl: 7583 },
     { a: 'main/panels', f: 4, c: 73, src: 667, tl: 1087 },
-    { a: 'main/other', f: 12, c: 207, src: 3289, tl: 3273 },
+    { a: 'main/other', f: 13, c: 210, src: 3318, tl: 3320 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
     { a: 'renderer', f: 5, c: 16, src: 6470, tl: 158 },
     { a: 'preload', f: 0, c: 0, src: 39, tl: 0 },
@@ -542,7 +542,6 @@ const D = {
     [195, 'Sandbox helper: exit code 259, .git restore, Started order, env sort', 'sandbox', 'low', 0, '10-07'],
     [194, 'Composer and git panel state races (stale mentions, cleared input)', 'ui', 'low', 0, '10-07'],
     [192, 'Renderer can miss chat events sent during startup', 'ui', 'low', 0, '10-07'],
-    [185, 'Windows path casing duplicates projects, read tracking and indexes', 'other', 'low', 0, '10-07'],
     [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
@@ -639,7 +638,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 122,
+  closedCount: 123,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

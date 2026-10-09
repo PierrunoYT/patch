@@ -6,6 +6,35 @@ import { readJson, writeJson } from './storage/json_file';
 const MAX_RECENT = 20;
 const MAX_SETTING_CHARS = 50_000;
 
+// Files written before projects were stored under their native real path can hold a path in other letter casing than
+// the folder's, which open() would no longer find. On Windows and macOS such a path takes the folder's casing, and
+// entries that then name the same folder are merged into the most recently opened one, keeping settings only the
+// others have. Only the casing changes: a folder that has since become a link keeps its stored path.
+function withRealCasing(projects: ProjectInfo[]): ProjectInfo[] {
+  if (process.platform !== 'win32' && process.platform !== 'darwin') return projects;
+  const byPath = new Map<string, ProjectInfo>();
+  const sorted = [...projects].sort((a, b) => String(b.lastOpened).localeCompare(String(a.lastOpened)));
+  for (const project of sorted) {
+    let path = project.path;
+    try {
+      const real = realpathSync.native(path);
+      if (real !== path && real.toLowerCase() === path.toLowerCase()) path = real;
+    } catch {
+      // A folder that no longer exists keeps its stored path.
+    }
+    const kept = byPath.get(path);
+    if (!kept) {
+      const name = project.name === basename(project.path) ? basename(path) || path : project.name;
+      byPath.set(path, { ...project, path, name });
+      continue;
+    }
+    kept.instructions ||= project.instructions;
+    kept.allowedCommands ||= project.allowedCommands;
+    kept.allowedNetworkHosts ||= project.allowedNetworkHosts;
+  }
+  return [...byPath.values()];
+}
+
 // Recent projects and their custom instructions, stored in userData/projects.json.
 export class ProjectStore {
   private projects: ProjectInfo[];
@@ -14,8 +43,8 @@ export class ProjectStore {
 
   constructor(private readonly file: string) {
     const stored = readJson<unknown>(file, []);
-    this.projects = (Array.isArray(stored) ? (stored as ProjectInfo[]) : []).filter(
-      (project) => typeof project?.path === 'string',
+    this.projects = withRealCasing(
+      (Array.isArray(stored) ? (stored as ProjectInfo[]) : []).filter((project) => typeof project?.path === 'string'),
     );
   }
 
@@ -42,7 +71,7 @@ export class ProjectStore {
     if (!existsSync(absolute) || !statSync(absolute).isDirectory()) {
       throw new Error(`Folder not found: ${path}`);
     }
-    const real = realpathSync(absolute);
+    const real = realpathSync.native(absolute);
     let project = this.openProjects.get(real) ?? this.projects.find((candidate) => candidate.path === real);
     if (!project) {
       project = { path: real, name: basename(real) || real, instructions: '', lastOpened: '' };
@@ -108,7 +137,7 @@ export class ProjectStore {
     const absolute = resolve(path);
     if (this.openProjects.has(absolute) || this.projects.some((project) => project.path === absolute)) return absolute;
     try {
-      return realpathSync(absolute);
+      return realpathSync.native(absolute);
     } catch {
       return absolute;
     }
