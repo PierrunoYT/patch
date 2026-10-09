@@ -3,14 +3,20 @@
 // files, databases, and system folders. Paths are project-relative with forward slashes, or absolute for a file
 // outside the project.
 
-const GUARDED: RegExp[] = [
-  // Credentials and keys. Example files such as .env.example hold no secrets and stay open.
+// Credentials and keys. Example files such as .env.example hold no secrets and stay open.
+const SECRETS: RegExp[] = [
   /(^|\/)\.env(\.(?!example$|sample$|template$|dist$)[^/]+)?$/i,
   /(^|\/)\.(ssh|gnupg|aws|kube|azure|docker)(\/|$)/i,
   /(^|\/)\.(npmrc|netrc|pypirc)$/i,
   /\.(pem|key|p12|pfx|keystore|jks|kdbx)$/i,
   /(^|\/)id_(rsa|ed25519|ecdsa|dsa)(\.pub)?$/i,
   /(^|\/)\.config\/gcloud\//i,
+  // direnv files usually export tokens, and direnv runs them on cd.
+  /(^|\/)\.envrc$/i,
+];
+
+const GUARDED: RegExp[] = [
+  ...SECRETS,
   // Version-control internals.
   /(^|\/)\.git(\/|$)/i,
   // Editor and agent configuration.
@@ -20,8 +26,7 @@ const GUARDED: RegExp[] = [
   // prompt, so an unreviewed edit would carry over into later chats (#236).
   /^(AGENTS|CLAUDE)\.md$/i,
   /(^|\/)\.patch(\/|$)/i,
-  // Files other programs run on their own: direnv runs .envrc on cd, Husky's hooks run on git commit.
-  /(^|\/)\.envrc$/i,
+  // Husky's hooks run on git commit (direnv's .envrc is listed with the secrets).
   /(^|\/)\.husky(\/|$)/i,
   // Shell start-up files.
   /(^|\/)\.(bashrc|bash_profile|zshrc|zprofile|profile|zshenv)$/i,
@@ -33,7 +38,16 @@ const GUARDED: RegExp[] = [
   /^\/(etc|boot|sys|proc)\//i,
 ];
 
-export function isGuardedPath(path: string): boolean {
+const matches = (patterns: RegExp[], path: string) => {
   const normalized = path.replace(/\\/g, '/');
-  return GUARDED.some((pattern) => pattern.test(normalized));
+  return patterns.some((pattern) => pattern.test(normalized));
+};
+
+export function isGuardedPath(path: string): boolean {
+  return matches(GUARDED, path);
+}
+
+// Files that hold credentials: their content is never sent away for search indexing (#234).
+export function isSecretPath(path: string): boolean {
+  return matches(SECRETS, path);
 }

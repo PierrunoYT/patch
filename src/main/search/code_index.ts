@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { EMBEDDING_BASE_URL, EMBEDDING_MODEL, RERANK_MODEL } from '@shared/models';
 import { appLog } from '../app_log';
 import { readJson, writeJson } from '../storage/json_file';
+import { isSecretPath } from '../tools/guard';
+import { redactSecrets } from '../tools/redact';
 import { fileSize, isBinaryFile } from '../tools/text_files';
 import { defineTool, type AgentTool, type CodeSearch } from '../tools/types';
 import type { Workspace } from '../tools/workspace';
@@ -223,7 +225,7 @@ export class CodeIndex implements CodeSearch {
     try {
       const ranked = await this.reranker.rerank(
         query,
-        candidates.map((hit) => `${hit.path}\n${hit.text}`),
+        candidates.map((hit) => redactSecrets(`${hit.path}\n${hit.text}`)),
         Math.min(limit, candidates.length),
         signal,
       );
@@ -278,6 +280,8 @@ export class CodeIndex implements CodeSearch {
 
       for (const listed of files) {
         const path = this.workspace.relative(listed);
+        // Keys, .env files and other credentials are never sent to the embedding service (#234).
+        if (isSecretPath(path)) continue;
         current.add(path);
         // A file swapped for a link since the listing must not be followed out of the project.
         let absolute: string;
@@ -322,8 +326,10 @@ export class CodeIndex implements CodeSearch {
       for (let i = 0; i < work.length; i += EMBED_BATCH) {
         signal.throwIfAborted();
         const batch = work.slice(i, i + EMBED_BATCH);
+        // A secret inside an ordinary file (a token in a config, a key in a test fixture) is masked the way tool
+        // results are before it leaves the machine.
         const vectors = await this.embedder.embed(
-          batch.map((item) => item.chunk.text),
+          batch.map((item) => redactSecrets(item.chunk.text)),
           'document',
           signal,
         );

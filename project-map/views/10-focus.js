@@ -12,7 +12,7 @@ builders.focus = () => {
         '#232 (macOS, unverified): Seatbelt allows reading and writing every user tty',
         '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too',
       ],
-      '#233 is fixed: git log --output and similar arguments in allowed commands ask. #236 is fixed: AGENTS.md, skills, .envrc and .husky are protected. #251 is fixed: removing a delegate rule is confirmed. #241 is fixed: MCP servers follow a project switch from History. Quick wins next: #234 (secrets sent for embedding).',
+      '#233 is fixed: git log --output and similar arguments in allowed commands ask. #236 is fixed: AGENTS.md, skills, .envrc and .husky are protected. #251 is fixed: removing a delegate rule is confirmed. #241 is fixed: MCP servers follow a project switch from History. #234 is fixed: credential files are never embedded and secrets are masked first.',
     ],
     [
       'Continue with medium sandbox hardening: #127 and #96',

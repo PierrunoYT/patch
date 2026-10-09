@@ -95,6 +95,27 @@ describe('CodeIndex', () => {
     expect(new Set(embedder.inputs.slice(0, -1))).toEqual(new Set(['document']));
   });
 
+  it('never sends credential files or secrets in ordinary files to the embedding service (#234)', async () => {
+    const key = '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAsecretbody\n-----END RSA PRIVATE KEY-----';
+    writeFileSync(join(root, 'deploy.pem'), `${key}\n`);
+    writeFileSync(join(root, '.npmrc'), '//registry.npmjs.org/:_authToken=npm_SECRETTOKEN1234567890\n');
+    writeFileSync(join(root, '.env'), 'DB_PASSWORD=hunter2hunter2\n');
+    writeFileSync(
+      join(root, 'src', 'config.ts'),
+      'export const client = connect({ apiKey: "sk-ant-api03-abcdefghijklmnopqrstuvwxyz" });\n',
+    );
+    const embedder = new FakeEmbedder();
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    await index.search('connect client', 5, signal);
+
+    const sent = embedder.calls.flat().join('\n');
+    expect(sent).toContain('src/config.ts');
+    for (const secret of ['PRIVATE KEY', 'secretbody', 'npm_SECRETTOKEN', 'hunter2', 'sk-ant-api03-abcdef']) {
+      expect(sent).not.toContain(secret);
+    }
+    expect(index.fileCount).toBe(3);
+  });
+
   it('walks the project once per search tool call and still reports indexing progress', async () => {
     const workspace = new Workspace(root);
     const walk = vi.spyOn(workspace, 'listFiles');
@@ -397,6 +418,19 @@ describe('CodeIndex with a reranker', () => {
     // Every candidate went to the reranker with its path, not only the requested one.
     expect(reranker.seen!.documents).toHaveLength(2);
     expect(reranker.seen!.documents.some((text) => text.startsWith('src/auth.ts\n'))).toBe(true);
+  });
+
+  it('masks secrets in the documents it sends to the reranker (#234)', async () => {
+    writeFileSync(
+      join(root, 'src', 'cart.ts'),
+      'export function addToCart(item) {\n  password = "hunter2hunter2";\n}\n',
+    );
+    const reranker = new FakeReranker('addToCart');
+    const index = new CodeIndex(new Workspace(root), new FakeEmbedder(), indexDir, () => 1000, reranker);
+    await index.searchDetailed('add to cart', 2, signal);
+    const documents = reranker.seen!.documents.join('\n');
+    expect(documents).toContain('addToCart');
+    expect(documents).not.toContain('hunter2hunter2');
   });
 
   it('falls back to the embedding order when reranking fails, and says so', async () => {
