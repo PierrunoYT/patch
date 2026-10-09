@@ -540,7 +540,7 @@ const D = {
       0,
       '10-09',
     ],
-    [259, 'Minor reliability issues from the Oct 9 audit', 'other', 'low', 0, '10-09'],
+    [259, 'Windows file helper truncates before writing; a crash can leave a short file', 'sandbox', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
     [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
