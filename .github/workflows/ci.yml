@@ -201,14 +201,19 @@ jobs:
           sudo apt-get install -y ./dist/*.deb
           xvfb-run -a node scripts/smoke-packaged.mjs /opt/Patch/patch-app
 
-      # Informational for now: an AppImage cannot carry the setuid sandbox helper.
+      # Informational: an AppImage cannot carry the setuid sandbox helper, and where Ubuntu restricts user namespaces
+      # its launcher adds --no-sandbox (#22). The script reports "chromiumSandbox" either way. Started as a user
+      # would, through FUSE, not extracted.
       - name: Smoke-test the AppImage
         if: runner.os == 'Linux'
         continue-on-error: true
+        env:
+          SMOKE_ALLOW_NO_SANDBOX: '1'
         run: |
+          sudo apt-get install -y libfuse2t64
           appimage=$(ls dist/*.AppImage | head -1)
-          (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/$appimage" --appimage-extract > /dev/null)
-          xvfb-run -a node scripts/smoke-packaged.mjs "$RUNNER_TEMP/squashfs-root/AppRun"
+          chmod +x "$appimage"
+          xvfb-run -a node scripts/smoke-packaged.mjs "$GITHUB_WORKSPACE/$appimage"
 
       # Start the app from the DMG, as a user's first launch would, and use it the same way.
       - name: Smoke-test the DMG

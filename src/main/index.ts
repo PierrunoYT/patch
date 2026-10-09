@@ -22,6 +22,7 @@ import {
   searchCodeTool,
 } from './search/code_index';
 import { buildMenu } from './menu';
+import { chromiumSandboxWarning } from './chromium_sandbox';
 import { ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
@@ -463,11 +464,16 @@ function start(): void {
   // script in the renderer cannot start it on its own (#157).
   // Starts that arrive while the dialog is open share it; a cancelled one is asked again next time.
   const terminalConfirmed = new Map<string, Promise<void>>();
+  // PATCH_TERMINAL_CONFIRMED=1 at launch answers the dialog in advance, for the packaged-app smoke test, which cannot
+  // click a native dialog. Whoever sets the app's environment can already run a shell, so this does not weaken the
+  // boundary #157 draws against the renderer; it is removed so the terminal and commands do not inherit it.
+  const terminalPreconfirmed = process.env.PATCH_TERMINAL_CONFIRMED === '1';
+  delete process.env.PATCH_TERMINAL_CONFIRMED;
   handle('terminal:start', async (cols, rows) => {
     const project = projects.current();
     if (!project) throw new Error('Open a project to use the terminal.');
     let confirmed = terminalConfirmed.get(project.path);
-    if (!confirmed) {
+    if (!confirmed && !terminalPreconfirmed) {
       confirmed = confirmNatively(
         'Start terminal',
         `Start a terminal in ${project.name}?`,
@@ -529,6 +535,12 @@ function start(): void {
         `Your saved ${names} could not be read, likely because Patch was closed right after it was saved. Enter it again in Settings.`,
       ),
     );
+  }
+
+  const sandboxWarning = chromiumSandboxWarning(process.platform, app.commandLine.hasSwitch('no-sandbox'));
+  if (sandboxWarning) {
+    appLog.warn('app', 'Chromium sandbox is off (--no-sandbox).');
+    mainWindow.webContents.once('did-finish-load', () => send(mainWindow, 'app:notice', sandboxWarning));
   }
 
   app.on('activate', () => {

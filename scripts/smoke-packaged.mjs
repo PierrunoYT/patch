@@ -3,9 +3,10 @@
 // Node inspector Playwright's Electron support needs), opens a project, lists its files and runs a command in the
 // terminal panel, which loads node-pty. It also connects a stdio and an HTTP MCP server: the MCP SDK client is
 // bundled into the main process (it is a dev dependency), so only a packaged app shows that nothing it needs is
-// missing. Exits non-zero, with what it saw, when anything fails.
+// missing. Last, it chats with a local stand-in for the Claude API and approves a file edit from its card. Exits
+// non-zero, with what it saw, when anything fails.
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -44,6 +45,70 @@ const mcpHttp = createServer(async (req, res) => {
   await transport.handleRequest(req, res, body);
 });
 await new Promise((resolve) => mcpHttp.listen(0, '127.0.0.1', resolve));
+
+// A stand-in for the Claude API, reached through the custom base URL setting (a packaged app ignores the test
+// hooks). The first turn asks to write approved.txt; after the tool result it answers. Titles get a fixed answer.
+const sse = (res, events) => {
+  res.writeHead(200, { 'content-type': 'text/event-stream' });
+  for (const [event, data] of events)
+    res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`);
+  res.end();
+};
+const message = (stop, block, delta) => [
+  [
+    'message_start',
+    {
+      message: {
+        id: 'msg_smoke',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-smoke',
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 0 },
+      },
+    },
+  ],
+  ['content_block_start', { index: 0, content_block: block }],
+  ['content_block_delta', { index: 0, delta }],
+  ['content_block_stop', { index: 0 }],
+  ['message_delta', { delta: { stop_reason: stop, stop_sequence: null }, usage: { output_tokens: 1 } }],
+  ['message_stop', {}],
+];
+let turns = 0;
+const claude = createServer(async (req, res) => {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+  if (!body.stream) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(
+      JSON.stringify({
+        id: 'msg_title',
+        type: 'message',
+        role: 'assistant',
+        model: body.model,
+        content: [{ type: 'text', text: '{"title":"Smoke test"}' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    );
+  }
+  turns++;
+  if (turns === 1)
+    return sse(
+      res,
+      message(
+        'tool_use',
+        { type: 'tool_use', id: 'toolu_smoke', name: 'write_file', input: {} },
+        { type: 'input_json_delta', partial_json: JSON.stringify({ path: 'approved.txt', content: 'APPROVED\n' }) },
+      ),
+    );
+  sse(res, message('end_turn', { type: 'text', text: '' }, { type: 'text_delta', text: 'Written after approval.' }));
+});
+await new Promise((resolve) => claude.listen(0, '127.0.0.1', resolve));
 // Written before the start, as a saved profile: adding servers through settings:update would ask for confirmation.
 const mockStdioServer = fileURLToPath(new URL('../tests/e2e/mock_mcp_server.mjs', import.meta.url));
 writeFileSync(
@@ -54,14 +119,17 @@ writeFileSync(
         { name: 'stdio', transport: 'stdio', command: process.execPath, args: [mockStdioServer] },
         { name: 'http', transport: 'http', url: `http://127.0.0.1:${mcpHttp.address().port}/mcp` },
       ],
+      anthropicBaseUrl: `http://127.0.0.1:${claude.address().port}`,
+      approvalMode: 'ask',
     },
-    secrets: {},
+    secrets: { anthropicApiKey: 'plain:sk-ant-smoke' },
   }),
 );
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const child = spawn(executable, [...extraArgs, `--remote-debugging-port=${port}`], {
-  env: { ...process.env, PATCH_USER_DATA: profile },
+  // The terminal's native confirmation (#157) cannot be clicked from here; this answers it in advance.
+  env: { ...process.env, PATCH_USER_DATA: profile, PATCH_TERMINAL_CONFIRMED: '1' },
   stdio: ['ignore', 'pipe', 'pipe'],
   // Its own process group, so the whole app can be stopped at the end.
   detached: true,
@@ -128,6 +196,30 @@ try {
   seen.mcp = mcp.map(({ name, state, error, tools }) => ({ name, state, error, tools }));
   if (mcp.length !== 2 || !mcp.every((server) => server.state === 'connected' && server.tools.length > 0))
     throw new Error('The MCP servers did not connect.');
+
+  // A chat that edits a file, approved by clicking the card, as a user would.
+  await page.getByLabel('Message').fill('Write approved.txt');
+  await page.getByLabel('Message').press('Enter');
+  const card = page.locator('.tool-card.awaiting');
+  await card.waitFor();
+  if (existsSync(join(project, 'approved.txt'))) throw new Error('The edit ran before it was approved.');
+  await card.getByRole('button', { name: 'Approve' }).click();
+  await page.getByText('Written after approval.', { exact: true }).waitFor();
+  if (readFileSync(join(project, 'approved.txt'), 'utf8') !== 'APPROVED\n')
+    throw new Error('The approved edit did not write the file.');
+  seen.approval = 'approved an edit';
+
+  // The AppImage launcher drops Chromium's sandbox where user namespaces are restricted (#22); the app then logs it
+  // and shows a notice. A build that should keep the sandbox fails here.
+  let log = '';
+  try {
+    log = readFileSync(join(profile, 'logs', 'app.log.jsonl'), 'utf8');
+  } catch {
+    // No problem was logged.
+  }
+  seen.chromiumSandbox = log.includes('Chromium sandbox is off') ? 'off' : 'on';
+  if (seen.chromiumSandbox === 'off' && process.env.SMOKE_ALLOW_NO_SANDBOX !== '1')
+    throw new Error("Chromium's sandbox is off (the app was started with --no-sandbox).");
   await page.screenshot({ path: process.env.SMOKE_SCREENSHOT || join(tmpdir(), 'patch-smoke.png') });
   await browser.close();
 } catch (error) {
@@ -138,6 +230,7 @@ await finish();
 async function finish() {
   clearTimeout(deadline);
   mcpHttp.close();
+  claude.close();
   try {
     process.kill(-child.pid, 'SIGTERM');
   } catch {
