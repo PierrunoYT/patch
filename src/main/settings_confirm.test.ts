@@ -2,10 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type McpServerConfig, type PermissionRule, type Settings } from '@shared/settings';
 import type { ProjectInfo } from '@shared/project';
 import { decidePermission } from './agent/permissions';
-import { addedEntries, changesToConfirm, projectChangesToConfirm } from './settings_confirm';
+import { addedEntries, changesToConfirm, projectChangesToConfirm, secretToConfirm } from './settings_confirm';
 
 const docs: McpServerConfig = { name: 'docs', transport: 'stdio', command: 'node', args: ['docs.js'] };
 const current: Settings = { ...DEFAULT_SETTINGS, mcpServers: [docs] };
+
+describe('secretToConfirm (#35)', () => {
+  it('asks before a key is saved as plain text, naming the key', () => {
+    const lines = secretToConfirm('openaiApiKey', 'sk-test', false);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('OpenAI API key');
+    expect(lines[0]).toContain('plain text');
+  });
+
+  it('does not ask when the key can be encrypted, or when it is only removed', () => {
+    expect(secretToConfirm('anthropicApiKey', 'sk-test', true)).toEqual([]);
+    expect(secretToConfirm('anthropicApiKey', '', false)).toEqual([]);
+    expect(secretToConfirm('anthropicApiKey', '   ', false)).toEqual([]);
+  });
+});
 
 describe('changesToConfirm', () => {
   it('asks before sending OpenAI requests and the OpenAI key to another host, not when going back', () => {

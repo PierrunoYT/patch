@@ -368,7 +368,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
       ? h(
           'div',
           { class: 'alert alert-warning py-2 small' },
-          'Keys are stored unencrypted. System encryption may be unavailable or migration may have failed.',
+          'Keys are stored unencrypted. System encryption may be unavailable or migration may have failed. Saving a new key while encryption is unavailable asks you to confirm.',
         )
       : null,
     ...secretFields,

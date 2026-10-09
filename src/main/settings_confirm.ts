@@ -1,5 +1,5 @@
 import type { ProjectInfo, ProjectSettings } from '@shared/project';
-import type { McpServerConfig, Settings } from '@shared/settings';
+import type { McpServerConfig, SecretName, Settings } from '@shared/settings';
 import { delegateLabel } from './agent/permissions';
 
 // Settings changes that let the app run programs, let the agent act without asking, or send an API key to another
@@ -7,6 +7,22 @@ import { delegateLabel } from './agent/permissions';
 // apply them silently. (It could still type into the terminal panel, a real shell, so keeping the renderer itself
 // safe - DOMPurify, the CSP and Trusted Types - is the main control; this keeps a settings-only exploit from being
 // enough.)
+// Saving a key while the system cannot encrypt it writes it to settings.json as plain text (#35). Removing a key, or
+// saving one that can be encrypted, needs no confirmation.
+export function secretToConfirm(name: SecretName, value: string, canEncrypt: boolean): string[] {
+  if (canEncrypt || !value.trim()) return [];
+  return [
+    `Save the ${SECRET_LABELS[name]} unencrypted: this system cannot encrypt it, so it is stored as plain text in settings.json, readable by anyone who can read your profile folder.`,
+  ];
+}
+
+const SECRET_LABELS: Record<SecretName, string> = {
+  anthropicApiKey: 'Anthropic API key',
+  openaiApiKey: 'OpenAI API key',
+  openrouterApiKey: 'OpenRouter API key',
+  googleApiKey: 'Google API key',
+};
+
 // Returns one line per change, or nothing when the patch needs no confirmation. `storedHeaders` names the encrypted
 // HTTP headers kept per MCP server (SettingsStore.mcpHeaderNames), which a changed URL would send to another host.
 // `resolveProgram` gives the absolute path a stdio server's command runs (null when it isn't found), so the dialog

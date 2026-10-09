@@ -66,7 +66,7 @@ describe('settings over IPC', () => {
     const message = await running.page.evaluate(() =>
       (window.api.invoke as any)('settings:set-secret', 'nope', 'x').catch((error: Error) => error.message),
     );
-    expect(message).toContain('Unknown secret');
+    expect(message).toContain('Invalid arguments for settings:set-secret');
   });
 
   it('confirms removal of protective permission rules and leaves settings intact when cancelled', async () => {

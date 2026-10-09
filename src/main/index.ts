@@ -316,8 +316,9 @@ function start(): void {
     if (patch.approvalMode === 'auto') autoConfirmed = true;
     return view;
   });
-  handle('settings:set-secret', (name, value) => {
+  handle('settings:set-secret', async (name, value) => {
     if (!SECRET_NAMES.includes(name)) throw new Error(`Unknown secret: ${name}`);
+    await confirmChanges(secretToConfirm(name, value, settings.canEncrypt()));
     return settings.setSecret(name, value);
   });
   handle('chatgpt:sign-in', () => signInWithChatGpt(settings, { openUrl: (url) => shell.openExternal(url) }));

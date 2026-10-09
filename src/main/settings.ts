@@ -99,6 +99,11 @@ export class SettingsStore extends EventEmitter {
     };
   }
 
+  // Whether keys can be encrypted on this system. When not, a saved key is kept as plain text.
+  canEncrypt(): boolean {
+    return this.cipher.isAvailable();
+  }
+
   // The full server config, including decrypted env and headers, for the process that connects to the servers.
   mcpServers(): McpServerConfig[] {
     return this.settings.mcpServers.map((server) => ({
