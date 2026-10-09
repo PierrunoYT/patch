@@ -220,6 +220,9 @@ export class McpHub {
       await withTimeout(client.connect(transport), `connecting to ${config.name} timed out`);
       const listed = await withTimeout(client.listTools(), `listing tools of ${config.name} timed out`);
       if (this.stopped) {
+        // stop() may already have cleared `connecting` before this server's process existed, so this attempt's own
+        // client is closed here, or the process would outlive the quit (#259).
+        state.connecting = client;
         await closeClient(state);
         return;
       }
@@ -231,6 +234,7 @@ export class McpHub {
     } catch (error) {
       state.error = error instanceof Error ? error.message : String(error);
       state.tools = [];
+      state.connecting = client;
       await closeClient(state);
     } finally {
       state.connecting = null;
