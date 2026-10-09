@@ -39,6 +39,8 @@ export interface SecretCipher {
   isAvailable(): boolean;
   encrypt(plain: string): string;
   decrypt(encoded: string): string;
+  // True when the system "encrypts" with a password anyone can know (Electron's basic_text backend on Linux).
+  fixedKey?(): boolean;
 }
 
 interface StoredSettings {
@@ -86,8 +88,10 @@ export class SettingsStore extends EventEmitter {
       boolean
     >;
     const stored = this.sealedSecretValues();
+    // A backend that seals with a fixed password (Linux without a keyring) protects nothing, whatever was stored (#258).
     const secretsEncrypted =
-      stored.length > 0 ? stored.every((value) => !value.startsWith('plain:')) : this.cipher.isAvailable();
+      !this.cipher.fixedKey?.() &&
+      (stored.length > 0 ? stored.every((value) => !value.startsWith('plain:')) : this.cipher.isAvailable());
     const { mcpServers, ...rest } = this.settings;
     const session = this.getChatGptSession();
     return {

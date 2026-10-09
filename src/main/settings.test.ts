@@ -330,6 +330,18 @@ describe('SettingsStore', () => {
     expect(readFileSync(file, 'utf8')).toBe(original);
   });
 
+  it('does not call keys encrypted when the system seals them with a fixed password (#258)', () => {
+    // Keys sealed earlier stay readable; they just are not reported as protected.
+    const earlier = new SettingsStore(file, reversingCipher);
+    earlier.setSecret('anthropicApiKey', 'a-key');
+    const store = new SettingsStore(file, { ...reversingCipher, isAvailable: () => false, fixedKey: () => true });
+    expect(store.getSecret('anthropicApiKey')).toBe('a-key');
+    expect(store.view().secretsEncrypted).toBe(false);
+    // A new key is stored as plain text, as with no encryption at all.
+    store.setSecret('googleApiKey', 'g-key');
+    expect(JSON.parse(readFileSync(file, 'utf8')).secrets.googleApiKey).toBe('plain:g-key');
+  });
+
   it('migrates when the cipher becomes available in the current process', () => {
     let available = false;
     const store = new SettingsStore(file, { ...reversingCipher, isAvailable: () => available });

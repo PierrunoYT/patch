@@ -94,9 +94,14 @@ if (process.env.PATCH_E2E_QUIET === '1') {
 
 let mainWindow: BrowserWindow | null = null;
 
+const fixedKey = () => process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text';
+
 function createSettings(): SettingsStore {
   return new SettingsStore(join(app.getPath('userData'), 'settings.json'), {
-    isAvailable: () => safeStorage.isEncryptionAvailable(),
+    // On Linux without a keyring Electron falls back to `basic_text`, a hard-coded password: that is not encryption,
+    // so new keys are stored as plain text (after asking) and Settings says keys are not encrypted (#258).
+    isAvailable: () => safeStorage.isEncryptionAvailable() && !fixedKey(),
+    fixedKey,
     encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
     decrypt: (encoded) => safeStorage.decryptString(Buffer.from(encoded, 'base64')),
   });

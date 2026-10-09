@@ -533,7 +533,6 @@ const D = {
   ],
   issues: [
     [259, 'Minor reliability issues from the Oct 9 audit', 'other', 'low', 0, '10-09'],
-    [258, 'Linux keys may show as encrypted with the basic_text safeStorage backend', 'security', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
     [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
@@ -633,7 +632,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 172,
+  closedCount: 173,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
