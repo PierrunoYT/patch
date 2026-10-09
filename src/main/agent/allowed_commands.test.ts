@@ -29,6 +29,30 @@ describe('isCommandAllowed', () => {
     expect(isCommandAllowed('npx vitest run src/main/agent --reporter=verbose', list)).toBe(true);
   });
 
+  it.each([
+    // git log/diff/show write any bytes to any path with --output and --format escapes (#233).
+    ['git log', 'git log -1 --format=%x65cho%x20pwned --output=/home/u/.bashrc'],
+    ['git log', 'git log --output x.sh'],
+    ['git log', 'git log "--output=x.sh"'],
+    ['git diff', 'git diff --OUTPUT=x'],
+    ['git format-patch', 'git format-patch -o ../out HEAD~1'],
+    ['git grep', 'git grep -Ocalc foo'],
+    ['find', 'find . -name x -exec rm -rf src'],
+    ['find', 'find . -delete'],
+    ['find', 'find . -fprint ../list'],
+    ['sed', 'sed --in-place s/a/b/ file'],
+  ])('asks when %s gets an argument that writes a file or runs a program: %s', (entry, command) => {
+    expect(isCommandAllowed(command, entry)).toBe(false);
+  });
+
+  it('keeps allowing the same commands with harmless arguments', () => {
+    expect(isCommandAllowed('git log -1 --format=%h --stat', 'git log')).toBe(true);
+    expect(isCommandAllowed('git diff --stat -- src/output.ts', 'git diff')).toBe(true);
+    expect(isCommandAllowed('find . -name "*.ts" -type f', 'find')).toBe(true);
+    // The exact allowed command is allowed even when it ends in such an argument: the user wrote it.
+    expect(isCommandAllowed('git log --output=log.txt', 'git log --output=log.txt')).toBe(true);
+  });
+
   it('rejects commands that are not on the list', () => {
     expect(isCommandAllowed('rm -rf .', allowed)).toBe(false);
     expect(isCommandAllowed('npm install', allowed)).toBe(false);

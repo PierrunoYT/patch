@@ -130,6 +130,7 @@ git status
 
 - `npm test` also allows `npm test -- --watch`, but not `npm testing` or `npm run test`.
 - Any command containing `;`, `&`, `|`, `>`, `<`, a backtick, `$`, `(`, `)`, `{`, `}` or a line break is always asked about, so an allowed `npm test` cannot become `npm test && rm -rf .`, nor, in PowerShell (which runs the commands on Windows), `npm test (Remove-Item -Recurse src)`. Ordinary arguments such as `npm install @types/node` or `npx vitest run "src/a b.test.ts"` still match.
+- A line trusts the program with its other arguments, so allow only programs you would let run with any arguments. Arguments that make a command which looks read-only write a file or run another program are asked about anyway: `--output` (so `git log --output=~/.bashrc` asks even when `git log` is allowed), `--output-directory`, `--exec`, `--upload-pack`, `--receive-pack`, `--open-files-in-pager`, `--in-place`, `-o` and `-O` (with or without a value), and `find`'s `-exec`, `-execdir`, `-ok`, `-okdir`, `-delete`, `-fprint*` and `-fls`. This list is best-effort, not a complete one.
 - File edits are always asked about, whatever is on this list.
 - Only allow commands you would run yourself. `npm run` would let the assistant run any script in `package.json`.
 

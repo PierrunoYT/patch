@@ -12,7 +12,7 @@ builders.focus = () => {
         '#232 (macOS, unverified): Seatbelt allows reading and writing every user tty',
         '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too',
       ],
-      'Quick wins next: #233 (git log --output in allowed commands), #236 (guard AGENTS.md and skills), #251 (confirm delegate rule removal), #241 (MCP project switch from History), #234 (secrets sent for embedding).',
+      '#233 is fixed: git log --output and similar arguments in allowed commands ask. Quick wins next: #236 (guard AGENTS.md and skills), #251 (confirm delegate rule removal), #241 (MCP project switch from History), #234 (secrets sent for embedding).',
     ],
     [
       'Continue with medium sandbox hardening: #127 and #96',
