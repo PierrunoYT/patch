@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
 import { launchConfig, McpHub, resolveCommand } from './mcp';
 import { mcpSandboxUnavailable } from './mcp_sandbox';
+import { probeSandboxSupport } from './sandbox';
 import { findHelper } from './sandbox_windows';
 
 // The mock MCP server used by the end-to-end tests; spawning it here exercises the real client over stdio.
@@ -339,7 +340,48 @@ describe('launchConfig', () => {
   });
 });
 
+// Whether this machine can run a sandboxed stdio server at all (bubblewrap, or the built Windows helper).
+const canSandbox = mcpSandboxUnavailable(process.platform, await probeSandboxSupport()) === null;
+
 describe('sandboxed stdio servers (#87)', () => {
+  it.skipIf(!canSandbox)("refuses a project inside the app's own folders, as for commands (#256)", async () => {
+    const appData = mkdtempSync(join(tmpdir(), 'mcp-sensitive-'));
+    const project = join(appData, 'project');
+    mkdirSync(project);
+    const marker = join(appData, 'started.txt');
+    const servers: McpServerConfig[] = [
+      launchConfig(
+        {
+          name: 'boxed',
+          transport: 'stdio',
+          command: process.execPath,
+          args: [mockServerScript, '${project}'],
+          env: { MOCK_MCP_CLIENT_FILE: marker },
+          sandbox: true,
+        },
+        project,
+        join(appData, 'mcp'),
+      ),
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+      undefined,
+      () => [appData],
+    );
+    try {
+      await hub.refresh();
+      expect(hub.status()[0]).toMatchObject({
+        state: 'error',
+        error: expect.stringMatching(/refused this project root/),
+      });
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      await hub.stop();
+      rmSync(appData, { recursive: true, force: true });
+    }
+  });
+
   it('names why a sandboxed server cannot start, and never starts it unsandboxed', async () => {
     const support = { bwrap: false, seatbelt: true, appcontainer: 'helper.exe', container: null };
     expect(mcpSandboxUnavailable('win32', support)).toBeNull();

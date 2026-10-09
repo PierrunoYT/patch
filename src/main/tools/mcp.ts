@@ -121,6 +121,8 @@ export class McpHub {
     private readonly onToolsChanged: () => void,
     // What MCP servers see as the client; index.ts passes the app's own version.
     private readonly clientInfo = { name: 'Patch', version: '0.0.0' },
+    // Folders a sandboxed server must never get as its project, as for commands (#256).
+    private readonly sandboxSensitivePaths: () => string[] = () => [],
   ) {}
 
   // Reconnects every configured server in the background. Called at startup and when the servers setting changes.
@@ -201,7 +203,7 @@ export class McpHub {
     try {
       const transport =
         config.transport === 'stdio'
-          ? await stdioTransport(config)
+          ? await stdioTransport(config, this.sandboxSensitivePaths())
           : new StreamableHTTPClientTransport(new URL(config.url!), { requestInit: { headers: config.headers } });
       await withTimeout(client.connect(transport), `connecting to ${config.name} timed out`);
       const listed = await withTimeout(client.listTools(), `listing tools of ${config.name} timed out`);
@@ -276,12 +278,12 @@ export class McpHub {
   }
 }
 
-async function stdioTransport(config: McpServerConfig): Promise<StdioClientTransport> {
+async function stdioTransport(config: McpServerConfig, sensitivePaths: string[]): Promise<StdioClientTransport> {
   if (usesProject(config)) throw new Error(`Open a project to start this server: it uses ${PROJECT_PLACEHOLDER}.`);
   const env = { ...getDefaultEnvironment(), ...config.env };
   const command = resolveCommand(config.command!, pathOf(env), process.env.PATHEXT);
   if (!config.sandbox) return new StdioClientTransport({ command, args: config.args ?? [], env, cwd: config.cwd });
-  const launch = await mcpSandboxLaunch(config, command, process.env);
+  const launch = await mcpSandboxLaunch(config, command, process.env, { sensitivePaths });
   return new StdioClientTransport({
     // bwrap or systemd-run, found like the server's own program: never in a folder that depends on the cwd.
     command: resolveCommand(launch.command, process.env.PATH ?? '', process.env.PATHEXT),

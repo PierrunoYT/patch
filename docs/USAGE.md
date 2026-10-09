@@ -136,7 +136,7 @@ git status
 
 ### Command sandbox
 
-Sandboxed commands refuse a volume root, your home folder or its ancestors, and any root overlapping application data, Patch's profile or its packaged installation (#145). This applies to native and container modes, foreground and background commands, and happens before Git reservation files or Windows write grants are created. You can still open such a folder for browsing; choose a narrower project to run commands, or explicitly approve an unsandboxed run. A project inside the home folder is allowed when it does not overlap those sensitive trees.
+Sandboxed commands, and sandboxed MCP servers given the project, refuse a volume root, your home folder or its ancestors, and any root overlapping application data, Patch's profile or its packaged installation (#145). This applies to native and container modes, foreground and background commands, and happens before Git reservation files or Windows write grants are created. You can still open such a folder for browsing; choose a narrower project to run commands, or explicitly approve an unsandboxed run. A project inside the home folder is allowed when it does not overlap those sensitive trees.
 
 On macOS, each command gets a temporary `.patch-command-tmp-*` folder inside the project as `TMPDIR`, removed when the command closes. System temporary directories are not writable: allowing another host write tree would let a background command move an opened file out of the project while a file edit still holds its handle (#144). Programs that insist on `/tmp` or the host's temp folder need explicit unsandboxed approval.
 

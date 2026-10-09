@@ -65,6 +65,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- A sandboxed MCP server that names `${project}` refuses to start when the project is inside Patch's own data or install folder, the same check commands get. Before, the server's root check left those folders out (fixes #256).
 - More addresses count as local, so `fetch_url` and `browser` ask before reaching them even in Auto mode: 192.0.0.0/24 (Oracle Cloud's metadata address), 198.18.0.0/15, multicast and reserved IPv4 ranges, IPv6 site-local and multicast, and NAT64, 6to4 and IPv4-compatible IPv6 addresses whose IPv4 address is local (such as `64:ff9b::7f00:1` for 127.0.0.1). NAT64 addresses of public sites stay public (fixes #252).
 - While the assistant's browser shows a project file (`file://`), its session has no network: requests to the web are refused and the session goes through an unreachable proxy, which also stops DNS prefetching and WebRTC. Such pages open without asking, even in Ask mode, and could read other project files such as `.env` and send them to any host. The user's own browser session is not affected (fixes #229).
 - **Initialize** in the Git panel first stops the assistant's background commands in the project and restarts sandboxed MCP servers that use it once the repository exists. Before, a sandboxed program still running could write the new `.git` (its config and hooks), which Git and the user's own commits later run outside the sandbox (fixes #231).

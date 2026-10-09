@@ -186,6 +186,12 @@ function start(): void {
     codeIndexes.clear();
   });
 
+  // Folders no sandboxed command or MCP server may get as its project: the app's data and its install folder.
+  const sandboxSensitivePaths = () => [
+    app.getPath('appData'),
+    app.getPath('userData'),
+    ...(app.isPackaged ? [dirname(process.resourcesPath)] : []),
+  ];
   const mcpDir = join(userData, 'mcp');
   mkdirSync(mcpDir, { recursive: true });
   // Set while Git panel's Initialize runs: sandboxed servers with project access are stopped meanwhile (#231).
@@ -196,10 +202,12 @@ function start(): void {
       .map((server) => launchConfig(server, projects.current()?.path, mcpDir))
       .filter((server) => !(pauseProjectMcpServers && server.projectAccess));
   let appliedMcpConfig = '';
-  const mcp = new McpHub(mcpServers, () => send(mainWindow, 'app:notice', 'MCP servers updated'), {
-    name: 'Patch',
-    version: app.getVersion(),
-  });
+  const mcp = new McpHub(
+    mcpServers,
+    () => send(mainWindow, 'app:notice', 'MCP servers updated'),
+    { name: 'Patch', version: app.getVersion() },
+    sandboxSensitivePaths,
+  );
   // Not awaited: connections happen in the background and the tool list refreshes when they settle.
   const refreshMcp = () => {
     const next = JSON.stringify(mcpServers());
@@ -271,11 +279,7 @@ function start(): void {
     onHistoryChanged: () => send(mainWindow, 'history:changed', chats.list()),
     onDroppedFields: (error) => toolErrorLog.record(error),
     edits: editBackups,
-    sandboxSensitivePaths: () => [
-      app.getPath('appData'),
-      app.getPath('userData'),
-      ...(app.isPackaged ? [dirname(process.resourcesPath)] : []),
-    ],
+    sandboxSensitivePaths,
   });
 
   // What every switch of the current project restarts: MCP servers that use ${project}, the terminal and the agent's
