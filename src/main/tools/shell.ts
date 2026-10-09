@@ -504,8 +504,8 @@ export async function commandStopsSettled(): Promise<void> {
   while (pendingStops.size > 0) await Promise.all([...pendingStops]);
 }
 
-// Resolves once the process has exited, or after `ms`. On Windows a stopped command's folder stays busy until then,
-// so a stop is not settled before it (#50).
+// Resolves once the process has exited, or after `ms`. A stop is not settled before it (#50): on Windows the stopped
+// command's folder stays busy until then, and everywhere a caller may expect the exit code.
 function exited(child: CommandProcess, ms = 5000): Promise<void> {
   if (child.exitCode !== null || child.signalCode) return Promise.resolve();
   return new Promise((resolve) => {
@@ -557,9 +557,12 @@ function killTree(child: CommandProcess): void {
       );
     } else {
       process.kill(-child.pid, 'SIGKILL');
+      // Settled, like on Windows, once the process is gone.
+      trackStop(exited(child));
     }
   } catch {
     child.kill('SIGKILL');
+    trackStop(exited(child));
   }
 }
 
