@@ -149,6 +149,10 @@ export interface LaunchEnv {
   // Unique container name, so it can be removed when the command is stopped.
   containerName: string;
   image: string;
+  // bubblewrap only: more folders mounted writable after cwd (a sandboxed MCP server's project, #87), and the HOME
+  // the program sees instead of the hidden home folder.
+  writable?: string[];
+  homeEnv?: string;
 }
 
 export interface Launch {
@@ -205,9 +209,11 @@ export function bwrapArgs(env: LaunchEnv, network: boolean): string[] {
     if (exists(path)) args.push('--ro-bind', path, path);
   }
   args.push('--bind', cwd, cwd);
+  for (const path of env.writable ?? []) args.push('--bind', path, path);
   // Mount the directory itself: protecting leaves would allow absent control files and directory replacement.
   for (const path of env.gitPaths) args.push('--ro-bind', path, path);
-  args.push('--setenv', 'HOME', home, '--setenv', 'TMPDIR', '/tmp', '--chdir', cwd, '--', shell.file, ...shell.args);
+  args.push('--setenv', 'HOME', env.homeEnv ?? home, '--setenv', 'TMPDIR', '/tmp', '--chdir', cwd, '--');
+  args.push(shell.file, ...shell.args);
   return args;
 }
 

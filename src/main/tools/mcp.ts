@@ -1,11 +1,13 @@
+import { createHash } from 'node:crypto';
 import { statSync } from 'node:fs';
-import { posix, win32 } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { McpServerConfig, McpStatus } from '@shared/settings';
 import { fixedSearchPath } from '../exec_search';
 import type { JsonObjectSchema } from '../llm/types';
+import { mcpSandboxLaunch } from './mcp_sandbox';
 import { killSurvivors, listProcesses, processTree } from './shell_leftovers';
 import { ToolError, truncateOutput, type AgentTool, type ToolOutput } from './types';
 
@@ -21,14 +23,24 @@ export const PROJECT_PLACEHOLDER = '${project}';
 export function launchConfig(server: McpServerConfig, project: string | undefined, workDir: string): McpServerConfig {
   if (server.transport !== 'stdio') return server;
   const expand = (value: string) => (project ? value.split(PROJECT_PLACEHOLDER).join(project) : value);
+  // Only this function grants project access; a value typed into the settings is dropped.
+  const stored = { ...server };
+  delete stored.projectAccess;
   return {
-    ...server,
+    ...stored,
     ...(server.args && { args: server.args.map(expand) }),
     ...(server.env && {
       env: Object.fromEntries(Object.entries(server.env).map(([key, value]) => [key, expand(value)])),
     }),
-    cwd: workDir,
+    // A sandboxed server writes only its own folder (named after it), and the project only when it names it (#87).
+    cwd: server.sandbox ? join(workDir, 'sandboxed', sandboxFolder(server.name)) : workDir,
+    ...(server.sandbox && project && usesProject(server) && { projectAccess: project }),
   };
+}
+
+// A folder name for a server name, distinct per name.
+function sandboxFolder(name: string): string {
+  return `${name.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40)}-${createHash('sha256').update(name).digest('hex').slice(0, 8)}`;
 }
 
 function usesProject(server: McpServerConfig): boolean {
@@ -189,7 +201,7 @@ export class McpHub {
     try {
       const transport =
         config.transport === 'stdio'
-          ? stdioTransport(config)
+          ? await stdioTransport(config)
           : new StreamableHTTPClientTransport(new URL(config.url!), { requestInit: { headers: config.headers } });
       await withTimeout(client.connect(transport), `connecting to ${config.name} timed out`);
       const listed = await withTimeout(client.listTools(), `listing tools of ${config.name} timed out`);
@@ -259,13 +271,17 @@ export class McpHub {
   }
 }
 
-function stdioTransport(config: McpServerConfig): StdioClientTransport {
+async function stdioTransport(config: McpServerConfig): Promise<StdioClientTransport> {
   if (usesProject(config)) throw new Error(`Open a project to start this server: it uses ${PROJECT_PLACEHOLDER}.`);
   const env = { ...getDefaultEnvironment(), ...config.env };
+  const command = resolveCommand(config.command!, pathOf(env), process.env.PATHEXT);
+  if (!config.sandbox) return new StdioClientTransport({ command, args: config.args ?? [], env, cwd: config.cwd });
+  const launch = await mcpSandboxLaunch(config, command, process.env);
   return new StdioClientTransport({
-    command: resolveCommand(config.command!, pathOf(env), process.env.PATHEXT),
-    args: config.args ?? [],
-    env,
+    // bwrap or systemd-run, found like the server's own program: never in a folder that depends on the cwd.
+    command: resolveCommand(launch.command, process.env.PATH ?? '', process.env.PATHEXT),
+    args: launch.args,
+    env: launch.env,
     cwd: config.cwd,
   });
 }

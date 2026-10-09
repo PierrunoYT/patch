@@ -212,6 +212,25 @@ describe('changesToConfirm', () => {
     );
   });
 
+  it('asks before a server leaves the sandbox or gets network in it, and names the boundary (#87)', () => {
+    const boxed: McpServerConfig = { ...docs, sandbox: true };
+    const configured: Settings = { ...current, mcpServers: [boxed] };
+    expect(changesToConfirm(configured, { mcpServers: [docs] })).toEqual([
+      'Run without the sandbox the MCP server "docs": node docs.js',
+    ]);
+    expect(changesToConfirm(configured, { mcpServers: [{ ...boxed, sandboxNetwork: true }] })).toEqual([
+      'Give network access to the sandboxed MCP server "docs": node docs.js (sandboxed, with network)',
+    ]);
+    // Moving into the sandbox, or taking network away, narrows its rights.
+    expect(changesToConfirm(current, { mcpServers: [boxed] })).toEqual([]);
+    expect(
+      changesToConfirm({ ...current, mcpServers: [{ ...boxed, sandboxNetwork: true }] }, { mcpServers: [boxed] }),
+    ).toEqual([]);
+    expect(changesToConfirm(current, { mcpServers: [docs, { ...boxed, name: 'new' }] })).toEqual([
+      'Start the new MCP server "new": node docs.js (sandboxed)',
+    ]);
+  });
+
   it('asks before setting environment variables for a stdio server, naming the keys only', () => {
     const changes = changesToConfirm(current, {
       mcpServers: [{ ...docs, env: { NODE_OPTIONS: '--require ./x.js', KEPT: '' } }],

@@ -1,6 +1,7 @@
 // A minimal Model Context Protocol server over stdio (newline-delimited JSON-RPC), used by the unit and end-to-end
 // tests to exercise the real client code without any external service. Offers one tool: echo.
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { connect } from 'node:net';
 import { createInterface } from 'node:readline';
 
 const tools = [
@@ -10,6 +11,32 @@ const tools = [
     inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
   },
 ];
+// MOCK_MCP_PROBE=1 adds a tool that reports what the server process can reach, for the sandbox tests (#87).
+if (process.env.MOCK_MCP_PROBE)
+  tools.push({
+    name: 'probe',
+    description: 'Reads or writes a file, or connects to host:port, and reports the outcome.',
+    inputSchema: { type: 'object', properties: { action: { type: 'string' }, target: { type: 'string' } } },
+  });
+
+function probe({ action, target }) {
+  if (action === 'connect') {
+    const [host, port] = target.split(':');
+    return new Promise((resolve) => {
+      const socket = connect({ host, port: Number(port), timeout: 2000 });
+      socket.once('connect', () => (socket.destroy(), resolve('connected')));
+      socket.once('error', (error) => (socket.destroy(), resolve(error.code)));
+      socket.once('timeout', () => (socket.destroy(), resolve('ETIMEDOUT')));
+    });
+  }
+  try {
+    if (action === 'read') return Promise.resolve(`content:${readFileSync(target, 'utf8')}`);
+    writeFileSync(target, 'WRITTEN-BY-MCP');
+    return Promise.resolve('written');
+  } catch (error) {
+    return Promise.resolve(error.code);
+  }
+}
 
 function send(message) {
   process.stdout.write(JSON.stringify(message) + '\n');
@@ -39,6 +66,10 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     });
   } else if (message.method === 'tools/list') {
     send({ jsonrpc: '2.0', id: message.id, result: { tools } });
+  } else if (message.method === 'tools/call' && message.params.name === 'probe') {
+    void probe(message.params.arguments).then((text) =>
+      send({ jsonrpc: '2.0', id: message.id, result: { content: [{ type: 'text', text }] } }),
+    );
   } else if (message.method === 'tools/call') {
     send({
       jsonrpc: '2.0',

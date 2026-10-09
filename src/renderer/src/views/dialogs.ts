@@ -737,6 +737,8 @@ function mcpServersForEditing(servers: McpServerView[]): string {
     ...(server.command ? { command: server.command } : {}),
     ...(server.args ? { args: server.args } : {}),
     ...(server.url ? { url: server.url } : {}),
+    ...(server.sandbox !== undefined ? { sandbox: server.sandbox } : {}),
+    ...(server.sandboxNetwork !== undefined ? { sandboxNetwork: server.sandboxNetwork } : {}),
     ...(server.envKeys.length > 0 ? { env: Object.fromEntries(server.envKeys.map((key) => [key, ''])) } : {}),
     ...(server.headerKeys.length > 0 ? { headers: Object.fromEntries(server.headerKeys.map((key) => [key, ''])) } : {}),
   }));

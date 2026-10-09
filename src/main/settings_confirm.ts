@@ -88,7 +88,8 @@ export function changesToConfirm(
         const command = server.command ?? '';
         const program = resolveProgram(command);
         const runs = program === null ? ' (not found on PATH)' : program !== command ? ` (runs ${program})` : '';
-        changes.push(`${what} MCP server "${server.name}": ${commandLine(server)}${runs}`);
+        const boundary = server.sandbox ? (server.sandboxNetwork ? ' (sandboxed, with network)' : ' (sandboxed)') : '';
+        changes.push(`${what} MCP server "${server.name}": ${commandLine(server)}${runs}${boundary}`);
       }
     }
   }
@@ -201,6 +202,9 @@ function stdioChange(before: McpServerConfig | undefined, server: McpServerConfi
     JSON.stringify(before.args ?? []) === JSON.stringify(server.args ?? []) &&
     (before.cwd ?? '') === (server.cwd ?? '');
   if (!same) return 'Start the changed';
+  // Leaving the sandbox, or getting network inside it, gives the same program more rights (#87).
+  if (before.sandbox && !server.sandbox) return 'Run without the sandbox the';
+  if (server.sandbox && server.sandboxNetwork && !before.sandboxNetwork) return 'Give network access to the sandboxed';
   // An empty value keeps the stored one, so only a typed value changes the environment (e.g. NODE_OPTIONS).
   const newEnv = Object.entries(server.env ?? {}).filter(([, value]) => value);
   if (newEnv.length > 0) return `Set ${newEnv.map(([key]) => key).join(', ')} for the`;

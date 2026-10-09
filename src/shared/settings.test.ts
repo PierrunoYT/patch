@@ -86,6 +86,19 @@ describe('parseMcpServers', () => {
     );
     expect(parseMcpServers('[{"name":"x","transport":"stdio","command":"a","env":{"TOKEN":""}}]')).toHaveLength(1);
   });
+
+  it('accepts sandbox switches on stdio servers only (#87)', () => {
+    const stdio = (extra: string) => `[{"name":"x","transport":"stdio","command":"a"${extra}}]`;
+    expect(parseMcpServers(stdio(',"sandbox":true,"sandboxNetwork":true'))[0]).toMatchObject({
+      sandbox: true,
+      sandboxNetwork: true,
+    });
+    expect(() => parseMcpServers(stdio(',"sandbox":"yes"'))).toThrow(/"sandbox" must be true or false/);
+    expect(() => parseMcpServers(stdio(',"sandboxNetwork":true'))).toThrow(/needs "sandbox": true/);
+    expect(() => parseMcpServers('[{"name":"x","transport":"http","url":"https://x","sandbox":true}]')).toThrow(
+      /stdio servers only/,
+    );
+  });
 });
 
 describe('sanitizeMcpServers', () => {

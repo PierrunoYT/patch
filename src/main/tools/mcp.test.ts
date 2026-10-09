@@ -1,10 +1,11 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
 import { launchConfig, McpHub, resolveCommand } from './mcp';
+import { mcpSandboxUnavailable } from './mcp_sandbox';
 
 // The mock MCP server used by the end-to-end tests; spawning it here exercises the real client over stdio.
 const mockServerScript = join(__dirname, '../../../tests/e2e/mock_mcp_server.mjs');
@@ -299,6 +300,64 @@ describe('launchConfig', () => {
   it('leaves HTTP servers alone', () => {
     const http: McpServerConfig = { name: 'docs', transport: 'http', url: 'https://x.test/mcp' };
     expect(launchConfig(http, 'C:\\a', 'C:\\data\\mcp')).toBe(http);
+  });
+
+  // #87: a sandboxed server writes only its own folder, and the project only when it names it.
+  it('gives a sandboxed server its own folder, and project access only through ${project}', () => {
+    const sandboxed = { ...server, sandbox: true };
+    const plain = launchConfig(sandboxed, '/home/me/p', '/data/mcp');
+    expect(plain.cwd).toMatch(/[\\/]sandboxed[\\/]fs-[0-9a-f]{8}$/);
+    expect(plain.cwd!.startsWith(join('/data/mcp', 'sandboxed'))).toBe(true);
+    expect(plain.projectAccess).toBeUndefined();
+    expect(launchConfig({ ...sandboxed, name: 'f s' }, undefined, '/data/mcp').cwd).not.toBe(plain.cwd);
+    const withProject = launchConfig({ ...sandboxed, args: ['${project}'] }, '/home/me/p', '/data/mcp');
+    expect(withProject).toMatchObject({ args: ['/home/me/p'], projectAccess: '/home/me/p' });
+    // Access is never taken from the stored settings, and an unsandboxed server has no use for it.
+    expect(launchConfig({ ...sandboxed, projectAccess: '/etc' }, '/home/me/p', '/data/mcp').projectAccess).toBe(
+      undefined,
+    );
+    expect(launchConfig({ ...server, args: ['${project}'] }, '/home/me/p', '/data/mcp').projectAccess).toBe(undefined);
+  });
+});
+
+describe('sandboxed stdio servers off Linux (#87)', () => {
+  it('names why a sandboxed server cannot start, and never starts it unsandboxed', async () => {
+    const support = { bwrap: false, seatbelt: true, appcontainer: 'helper.exe', container: null };
+    expect(mcpSandboxUnavailable('win32', support)).toMatch(/only on Linux/);
+    expect(mcpSandboxUnavailable('darwin', support)).toMatch(/only on Linux/);
+    expect(mcpSandboxUnavailable('linux', support)).toMatch(/bubblewrap/);
+    expect(mcpSandboxUnavailable('linux', { ...support, bwrap: true })).toBeNull();
+  });
+
+  it.skipIf(process.platform === 'linux')('reports a sandboxed server as an error on this platform', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mcp-unsandboxable-'));
+    const marker = join(dir, 'started.txt');
+    const servers: McpServerConfig[] = [
+      launchConfig(
+        {
+          name: 'boxed',
+          transport: 'stdio',
+          command: process.execPath,
+          args: [mockServerScript],
+          env: { MOCK_MCP_CLIENT_FILE: marker },
+          sandbox: true,
+        },
+        undefined,
+        dir,
+      ),
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+    );
+    try {
+      await hub.refresh();
+      expect(hub.status()[0]).toMatchObject({ state: 'error', error: expect.stringMatching(/only on Linux/) });
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      await hub.stop();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

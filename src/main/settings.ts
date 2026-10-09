@@ -409,6 +409,8 @@ export class SettingsStore extends EventEmitter {
       command: server.command,
       args: server.args,
       url: server.url,
+      ...(server.sandbox !== undefined && { sandbox: server.sandbox }),
+      ...(server.sandboxNetwork !== undefined && { sandboxNetwork: server.sandboxNetwork }),
       envKeys: Object.keys(stored?.env ?? {}),
       headerKeys: Object.keys(stored?.headers ?? {}),
     };

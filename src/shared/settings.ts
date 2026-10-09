@@ -31,6 +31,13 @@ export interface McpServerConfig {
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
+  // Stdio: run the server in the command sandbox (#87), with a private writable folder, the open project writable
+  // only when its args or env name ${project}, the rest of the home folder hidden and no network unless
+  // sandboxNetwork is true. Linux (bubblewrap) only for now; elsewhere a sandboxed server refuses to start.
+  sandbox?: boolean;
+  sandboxNetwork?: boolean;
+  // The open project a sandboxed server may write, set when connecting, not stored.
+  projectAccess?: string;
   // HTTP: endpoint URL.
   url?: string;
   headers?: Record<string, string>;
@@ -50,6 +57,8 @@ export interface McpServerView {
   command?: string;
   args?: string[];
   url?: string;
+  sandbox?: boolean;
+  sandboxNetwork?: boolean;
   envKeys: string[];
   headerKeys: string[];
 }
@@ -153,6 +162,12 @@ function mcpServerError(entry: unknown): string | null {
   if (server.transport === 'stdio' && typeof server.command !== 'string') return 'stdio servers need a "command"';
   if (server.transport === 'http' && (typeof server.url !== 'string' || !/^https?:\/\//.test(server.url)))
     return 'http servers need an "url" starting with http(s)://';
+  for (const key of ['sandbox', 'sandboxNetwork'] as const) {
+    if (server[key] !== undefined && typeof server[key] !== 'boolean') return `"${key}" must be true or false`;
+  }
+  if ((server.sandbox !== undefined || server.sandboxNetwork !== undefined) && server.transport !== 'stdio')
+    return '"sandbox" applies to stdio servers only';
+  if (server.sandboxNetwork && !server.sandbox) return '"sandboxNetwork" needs "sandbox": true';
   for (const key of ['args', 'headers', 'env'] as const) {
     const value = server[key];
     if (value === undefined) continue;
