@@ -147,7 +147,7 @@ describe('project chat retention', () => {
 
   it('refuses images for a model that does not accept them, judged by the model the chat will use', async () => {
     open('alpha');
-    const image = { mediaType: 'image/png' as const, base64: 'AAAA' };
+    const image = { mediaType: 'image/png' as const, base64: 'iVBORw0KGgo=' };
     settings.update({ model: 'claude-custom' });
 
     expect(() => manager.send({ text: 'Look', images: [image] })).toThrow(/claude-custom does not accept images/);

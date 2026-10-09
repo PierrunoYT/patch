@@ -19,6 +19,7 @@ import { buildSystemPrompt, promptListsSkills } from './agent/system_prompt';
 import { ChatSession, type SavedChat } from './agent/session';
 import type { ChatStore } from './chat_store';
 import type { LlmService } from './llm';
+import { checkUserImages } from './llm/images';
 import type { ProjectStore } from './projects';
 import type { SettingsStore } from './settings';
 import type { EditBackups } from './tools/edit_backups';
@@ -99,6 +100,7 @@ export class ChatManager {
     // A chat keeps its model; a new chat gets the model in settings.
     const model = this.session?.snapshot().model ?? this.deps.settings.get().model;
     if (message.images?.length && !acceptsImages(model)) throw new Error(imagesNotSupportedMessage(model));
+    if (message.images?.length) message = { ...message, images: checkUserImages(message.images) };
     if (!this.session) {
       this.session = this.createSession();
       this.liveSessions.add(this.session);

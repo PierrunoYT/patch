@@ -104,9 +104,9 @@ const D = {
       id: 'llm',
       label: 'main/llm',
       proc: 'main',
-      files: 11,
-      tests: 8,
-      lines: 2218,
+      files: 12,
+      tests: 9,
+      lines: 2269,
       testLines: 3114,
       desc: 'Provider clients: Anthropic Messages with strict edit inputs, OpenAI Responses with backend-specific truncation (omitted for ChatGPT subscriptions), OpenAI-compatible Chat Completions, plus compaction, ChatGPT sign-in and guarded endpoints.',
       list: [
@@ -117,6 +117,7 @@ const D = {
         'index.ts (LlmService)',
         'endpoints.ts (test hooks off in packaged builds)',
         'compaction.ts',
+        'images.ts (media type sniffing, size cap, text for tool-result images, #240)',
         'openai_route.ts',
         'tool_schema.ts',
         'types.ts',
@@ -355,8 +356,8 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 271, src: 1887, tl: 3828 },
-    { a: 'main/llm', f: 8, c: 113, src: 2218, tl: 3114 },
+    { a: 'main/agent', f: 11, c: 272, src: 1887, tl: 3828 },
+    { a: 'main/llm', f: 9, c: 118, src: 2269, tl: 3172 },
     { a: 'main/tools', f: 30, c: 717, src: 6085, tl: 9121 },
     { a: 'main/panels', f: 4, c: 83, src: 829, tl: 1314 },
     { a: 'main/other', f: 15, c: 235, src: 3776, tl: 3624 },
@@ -540,7 +541,6 @@ const D = {
   issues: [
     [259, 'Windows file helper truncates before writing; a crash can leave a short file', 'sandbox', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
-    [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
     [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
     [
@@ -630,7 +630,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 182,
+  closedCount: 183,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { ApprovalDecision, ChatEvent, ModelUsage, UsageTotals } from '@shared/chat';
 import type { ApprovalMode } from '@shared/settings';
 import type { Conversation, ToolCall, ToolResult, UserInput } from '../llm/types';
+import { acceptsImages } from '@shared/models';
+import { withoutImages } from '../llm/images';
 import { PLAN_MODE_OFF_RESULT } from '../tools/plan';
 import { redactSecrets, streamRedactor } from '../tools/redact';
 import { toToolSpecs } from '../tools/registry';
@@ -252,7 +254,7 @@ export class Agent {
       const last = results.at(-1);
       if (note && last)
         results[results.length - 1] = { ...last, content: `${last.content}\n\n[Note from the app: ${note}]` };
-      conversation.addToolResults(results);
+      conversation.addToolResults(acceptsImages(conversation.model) ? results : withoutImages(results));
       this.options.onCheckpoint?.();
       if (stop || signal.aborted) {
         this.lastOutcome = signal.aborted ? 'stopped' : 'other';

@@ -20,7 +20,7 @@ type Step = Partial<TurnResult> | ((request: TurnRequest) => Promise<Partial<Tur
 // A conversation that replays scripted model turns and records what the agent sent to it, in order.
 class ScriptedConversation implements Conversation {
   readonly provider = 'anthropic' as const;
-  readonly model = 'test-model';
+  model = 'test-model';
   readonly log: string[] = [];
   readonly users: UserInput[] = [];
   readonly results: ToolResult[][] = [];
@@ -951,6 +951,19 @@ describe('Agent: retrying transient provider errors', () => {
     });
     await expect(agent.send({ text: 'go' }, new AbortController().signal)).rejects.toThrow();
     expect(conversation.discarded).toBe(0);
+  });
+
+  it('sends tool-result images as text to a model that takes no images (#240)', async () => {
+    const shot = tool('shot', () => ({ content: 'screenshot', images: [image] }));
+    const { agent, conversation } = setup([{ toolCalls: [call('t1', 'shot')] }, { text: 'done' }], { tools: [shot] });
+    conversation.model = 'claude-sonnet-4-5';
+    await agent.send({ text: 'go' }, new AbortController().signal);
+    expect(conversation.results[0]![0]).not.toHaveProperty('images', [image]);
+    expect(conversation.results[0]![0]!.content).toContain('image(s) not shown');
+
+    const kept = setup([{ toolCalls: [call('t1', 'shot')] }, { text: 'done' }], { tools: [shot] });
+    await kept.agent.send({ text: 'go' }, new AbortController().signal);
+    expect(kept.conversation.results[0]![0]!.images).toEqual([image]);
   });
 
   it('waits as long as the provider asks', async () => {
