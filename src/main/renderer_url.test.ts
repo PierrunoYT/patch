@@ -13,11 +13,24 @@ describe('devRendererUrl', () => {
 });
 
 describe('isAppPageUrl', () => {
-  const built = 'file:///C:/Program%20Files/Patch/resources/app.asar/out/renderer/index.html';
+  const winPage = 'C:\\Program Files\\Patch\\resources\\app.asar\\out\\renderer\\index.html';
+  const winUrl = 'file:///C:/Program%20Files/Patch/resources/app.asar/out/renderer/index.html';
+  const linuxPage = '/opt/Patch/resources/app.asar/out/renderer/index.html';
+  const win = (url: string) => isAppPageUrl(url, true, {}, winPage, 'win32');
+  const linux = (url: string) => isAppPageUrl(url, true, {}, linuxPage, 'linux');
 
-  it('accepts the built app page in a packaged app', () => {
-    expect(isAppPageUrl(built, true, {})).toBe(true);
-    expect(isAppPageUrl('file:///home/me/patch/out/renderer/index.html', true, {})).toBe(true);
+  it('accepts exactly the built app page, with any query or hash', () => {
+    expect(win(winUrl)).toBe(true);
+    expect(win(`${winUrl}?x=1#top`)).toBe(true);
+    expect(win(winUrl.replace('C:/Program%20Files', 'c:/program%20files'))).toBe(true);
+    expect(linux(`file://${linuxPage}`)).toBe(true);
+  });
+
+  it('rejects another file named renderer/index.html', () => {
+    expect(win('file:///C:/Users/me/Downloads/renderer/index.html')).toBe(false);
+    expect(linux('file:///home/me/renderer/index.html')).toBe(false);
+    expect(linux(`file://${linuxPage.toUpperCase()}`)).toBe(false);
+    expect(win('file://server/share/out/renderer/index.html')).toBe(false);
   });
 
   it('accepts the dev server only in development', () => {
@@ -27,9 +40,9 @@ describe('isAppPageUrl', () => {
   });
 
   it('rejects other pages, other files and garbage', () => {
-    expect(isAppPageUrl('https://evil.example/renderer/index.html', true, {})).toBe(false);
-    expect(isAppPageUrl('file:///C:/Users/me/Downloads/evil.html', true, {})).toBe(false);
-    expect(isAppPageUrl('about:blank', true, {})).toBe(false);
-    expect(isAppPageUrl('', true, {})).toBe(false);
+    expect(win('https://evil.example/renderer/index.html')).toBe(false);
+    expect(win('file:///C:/Users/me/Downloads/evil.html')).toBe(false);
+    expect(win('about:blank')).toBe(false);
+    expect(win('')).toBe(false);
   });
 });

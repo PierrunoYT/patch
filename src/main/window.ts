@@ -2,7 +2,7 @@ import { app, BrowserWindow, screen, session, shell, type WebContents } from 'el
 import { join } from 'node:path';
 import { AGENT_BROWSER_PARTITION, allowsWebviewAttach, BROWSER_PARTITIONS } from '@shared/panels';
 import { appLog } from './app_log';
-import { devRendererUrl } from './renderer_url';
+import { APP_PAGE_PATH, devRendererUrl } from './renderer_url';
 
 // Set by the end-to-end tests: the window is fully transparent, has no taskbar entry and never takes focus. It is still
 // shown, so the page renders and animation frames run as they do for a user. On Linux a fully transparent X11 window
@@ -52,7 +52,7 @@ export function createMainWindow(onAgentBrowserAttached: (guest: WebContents) =>
   if (devUrl) {
     window.loadURL(devUrl);
   } else {
-    window.loadFile(join(__dirname, '../renderer/index.html'));
+    window.loadFile(APP_PAGE_PATH);
   }
 
   return window;

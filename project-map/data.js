@@ -56,8 +56,8 @@ const D = {
       proc: 'main',
       files: 14,
       tests: 11,
-      lines: 2536,
-      testLines: 2520,
+      lines: 2560,
+      testLines: 2533,
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
         'chat_manager.ts (523; passes sensitive app paths to ShellRunner, #145; safe restored-session preparation, #161; same-project state, #160)',
@@ -350,7 +350,7 @@ const D = {
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
     { a: 'main/tools', f: 28, c: 598, src: 5067, tl: 7583 },
     { a: 'main/panels', f: 4, c: 73, src: 667, tl: 1087 },
-    { a: 'main/other', f: 13, c: 210, src: 3318, tl: 3320 },
+    { a: 'main/other', f: 13, c: 212, src: 3342, tl: 3333 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
     { a: 'renderer', f: 5, c: 16, src: 6491, tl: 158 },
     { a: 'preload', f: 0, c: 0, src: 39, tl: 0 },
@@ -608,7 +608,6 @@ const D = {
     [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
     [70, 'ci: pin GitHub Actions to commit SHAs', 'release', 'low', 0, '10-01'],
     [67, 'Force webSecurity on browser guests + global web-contents-created guard', 'security', 'low', 0, '10-01'],
-    [66, 'IPC sender check accepts any file:///…/renderer/index.html', 'security', 'low', 0, '10-01'],
     [62, 'e2e tests for chat list, header model picker, status-bar branch', 'tests', 'low', 0, '10-01'],
     [50, 'Windows shell cancellation test times out, leaves temp folder locked', 'tests', 'low', 0, '10-01'],
     [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
@@ -635,7 +634,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 126,
+  closedCount: 127,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

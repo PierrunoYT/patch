@@ -234,6 +234,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- The IPC sender check accepts only the exact app page the window loads, not any `file:` URL ending in `/renderer/index.html` (fixes #66).
 - The packaged app has no Toggle Developer Tools menu item or shortcut, and browser-panel guests no longer get an `allowpopups` attribute, whose value `'false'` would have counted as on (popups stay denied by the window-open handler) (fixes #120).
 - Settings, project, chat and index JSON files are staged under a random temporary name (`<file>.<uuid>.tmp`) created exclusively, so a file or link placed at the name makes the write fail instead of redirecting it. Temporary files older than five minutes that a crash left behind are removed on start (fixes #124).
 - File tools and Undo now use a native `file-helper` with retained directory/file handles, no-follow path walks, expected-byte checks and exclusive creation. Symlink/junction and hard-linked mutation targets are refused, including links introduced after approval that point to protected project files; batched changes validate existing targets before writing. Packaged builds load only the bundled helper, never a project copy or JavaScript write fallback. Rust is now required for source builds on every platform, and macOS ships a universal helper (fixes #144).
