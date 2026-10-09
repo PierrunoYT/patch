@@ -184,6 +184,28 @@ describe('McpHub', () => {
     }
   });
 
+  it('starts a server that stopped on its own again, without a settings change (#243)', async () => {
+    const servers: McpServerConfig[] = [
+      { name: 'test', transport: 'stdio', command: process.execPath, args: [mockServerScript] },
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+    );
+    try {
+      await hub.refresh();
+      const pid = serverPid(hub, 'test');
+      process.kill(pid, 'SIGKILL');
+      await vi.waitFor(() => expect(hub.status()[0]!.state).toBe('error'), { timeout: 5_000, interval: 20 });
+      // Back after the first one-second wait.
+      await vi.waitFor(() => expect(hub.status()[0]!.state).toBe('connected'), { timeout: 10_000, interval: 100 });
+      expect(serverPid(hub, 'test')).not.toBe(pid);
+      expect((await hub.tools()[0]!.run({ text: 'again' }, {} as never)).content).toBe('echo:again');
+    } finally {
+      await hub.stop();
+    }
+  });
+
   it('does not report a server it closed itself as stopped', async () => {
     let servers: McpServerConfig[] = [
       { name: 'test', transport: 'stdio', command: process.execPath, args: [mockServerScript] },

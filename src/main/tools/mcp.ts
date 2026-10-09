@@ -100,7 +100,14 @@ interface ServerState {
   // The server's own tool descriptions, named only after every server has connected so names cannot collide.
   listed: McpToolDescription[];
   tools: AgentTool[];
+  // When the current connection was made, to tell a server that crashes right away from one that ran for a while.
+  connectedAt?: number;
 }
+
+// A server that stops on its own is started again after 1, 2, 4, 8 and 16 seconds (#243). One that crashes again and
+// again gives up after these, until it has run for RECONNECT_RESET_MS or its settings change.
+const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000];
+const RECONNECT_RESET_MS = 5 * 60_000;
 
 interface McpToolDescription {
   name: string;
@@ -115,6 +122,7 @@ export class McpHub {
   private updating: Promise<void> | null = null;
   private stopped = false;
   private dirty = false;
+  private readonly reconnects = new Map<string, { attempts: number; timer: NodeJS.Timeout | null }>();
 
   constructor(
     private readonly getServers: () => McpServerConfig[],
@@ -132,6 +140,8 @@ export class McpHub {
 
   async stop(): Promise<void> {
     this.stopped = true;
+    for (const reconnect of this.reconnects.values()) if (reconnect.timer) clearTimeout(reconnect.timer);
+    this.reconnects.clear();
     // Close clients still connecting right away (#190): their pending connect/listTools then fail at once, instead
     // of quitting waiting out the connect and tool-list timeouts. connectOne checks `stopped` afterwards.
     await Promise.all([...this.states.values()].filter((state) => state.connecting).map((state) => closeClient(state)));
@@ -188,6 +198,8 @@ export class McpHub {
   private async connectOne(config: McpServerConfig): Promise<void> {
     const existing = this.states.get(config.name);
     if (existing?.client && JSON.stringify(existing.config) === JSON.stringify(config)) return;
+    // Changed settings start the automatic reconnects from scratch.
+    if (existing && JSON.stringify(existing.config) !== JSON.stringify(config)) this.forgetReconnect(config.name);
     if (existing) {
       await closeClient(existing);
       existing.client = null;
@@ -213,6 +225,7 @@ export class McpHub {
       }
       state.client = client;
       state.error = undefined;
+      state.connectedAt = Date.now();
       state.listed = listed.tools as McpToolDescription[];
       client.onclose = () => this.onServerClosed(state, client);
     } catch (error) {
@@ -226,14 +239,52 @@ export class McpHub {
 
   // A server that exits or drops the connection on its own. closeClient clears state.client before closing, so this
   // only acts on unexpected closes, and the instance check ignores a late callback from a client already replaced.
-  // The next refresh reconnects it, because a state without a client is never skipped.
+  // It is started again after a short wait; any refresh before that reconnects it too, because a state without a
+  // client is never skipped.
   private onServerClosed(state: ServerState, client: Client): void {
     if (state.client !== client || this.stopped) return;
     state.client = null;
     state.error = 'The server stopped.';
     state.listed = [];
     state.tools = [];
+    const name = state.config.name;
+    if (state.connectedAt !== undefined && Date.now() - state.connectedAt >= RECONNECT_RESET_MS) {
+      this.forgetReconnect(name);
+    }
+    this.scheduleReconnect(name);
     this.onToolsChanged();
+  }
+
+  private scheduleReconnect(name: string): void {
+    const entry = this.reconnects.get(name) ?? { attempts: 0, timer: null };
+    this.reconnects.set(name, entry);
+    const delay = RECONNECT_DELAYS_MS[entry.attempts];
+    const state = this.states.get(name);
+    if (delay === undefined) {
+      if (state) {
+        state.error = `The server stopped ${entry.attempts + 1} times in a row. Change its settings or restart Patch to start it again.`;
+      }
+      return;
+    }
+    entry.attempts++;
+    entry.timer = setTimeout(() => {
+      entry.timer = null;
+      if (this.stopped || this.reconnects.get(name) !== entry) return;
+      void this.refresh().then(() => {
+        const after = this.states.get(name);
+        // A start that failed (the server exits at once) is tried again, until the attempts are used up.
+        if (!this.stopped && after && !after.client && this.reconnects.get(name) === entry) {
+          this.scheduleReconnect(name);
+        }
+      });
+    }, delay);
+    entry.timer.unref?.();
+  }
+
+  private forgetReconnect(name: string): void {
+    const entry = this.reconnects.get(name);
+    if (entry?.timer) clearTimeout(entry.timer);
+    this.reconnects.delete(name);
   }
 
   // Names are assigned in config order once every server has connected, so two servers that connect in parallel
