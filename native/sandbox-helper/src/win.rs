@@ -2238,7 +2238,12 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
                 fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
                 // Copies inherit this as they are written, so publishing needs no ACL propagation. Patch's sandboxed
                 // commands may read and execute the copy, never write it; other packages get nothing (#151).
-                edit_acl(staged, toolchain_sid.psid(), FILE_READ_EXECUTE, Change::Grant)?;
+                edit_acl(
+                    staged,
+                    toolchain_sid.psid(),
+                    FILE_READ_EXECUTE,
+                    Change::Grant,
+                )?;
                 staging_created = true;
             }
             let target = root.join(index.to_string());
