@@ -121,7 +121,6 @@ builders.focus = () => {
       h(
         'ul',
         { class: 'small', style: 'margin:0;padding-left:18px' },
-        h('li', null, 'McpHub still introduces itself to MCP servers as "CodeCompanion" (#72).'),
         h(
           'li',
           null,

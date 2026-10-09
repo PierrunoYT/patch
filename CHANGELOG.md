@@ -14,11 +14,15 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Performance
 
+- Long transcripts stream faster: a streaming answer is rendered without syntax highlighting until it ends, and an event for the newest transcript item copies the list instead of calling a function for every item (fixes #200).
 - `grep` and `glob` reuse a small pool of regex workers instead of starting one per call; a worker that timed out or was stopped is never reused (fixes #201).
 - Full chat saves of a listed chat write the file in the background like checkpoints, and chat files are written without indentation (fixes #118).
 
 ### Fixed
 
+- The renderer's IPC arguments are checked at runtime with zod schemas: wrong types, unknown secret names or image types, oversized values, bad terminal sizes and a non-boolean approval are refused with an error naming the channel. The unused `project:set-instructions` channel is removed (fixes #32).
+- Saving an API key while the system cannot encrypt it (it would be stored as plain text) now asks for confirmation in a native dialog; removing a key never asks (fixes #35).
+- MCP servers now see the client as `Patch` with the app's version instead of `CodeCompanion 0.1.0`, and the installer's app id is `io.github.pierrunoyt.patch` instead of `patch`. No release has been published yet, so no install is affected (fixes #72).
 - GitHub Actions updated to checkout 7.0.1, setup-node 7.0.0, upload-artifact 7.0.1, download-artifact 8.0.1 and claude-code-action 1.0.240 (Dependabot PRs #221 to #225, applied directly on main). None of the changed behaviors apply here: no `pull_request_target` or `workflow_run` trigger, no git push with checkout credentials, explicit `cache: npm`, and artifacts are uploaded and downloaded by name pattern.
 - A window opened while a run is in progress no longer loses chat events sent during its start-up, such as the one that ends the run. Events are numbered, snapshots name the last event they include, and the renderer listens before it asks for the snapshot (fixes #192).
 - Windows sandbox: a command that is still running 5 s after it was stopped is reported as timed out (exit code -1) instead of Windows' exit code 259; `started` always comes before the command's output; `.git` restores the inheritance flag it was snapshotted with; the environment block is sorted by UTF-16 code units, as Windows expects; and a project path with non-ASCII letters in another case no longer propagates its grant again (fixes #195).

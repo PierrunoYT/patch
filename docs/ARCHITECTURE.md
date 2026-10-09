@@ -41,7 +41,7 @@ Patch is an Electron app written in TypeScript and built with electron-vite. All
 
 `src/shared/ipc.ts` declares every channel:
 
-- `InvokeApi` — renderer → main request/response (`window.api.invoke('settings:get')`).
+- `InvokeApi` — renderer → main request/response (`window.api.invoke('settings:get')`). The renderer's arguments arrive as untyped data, so `handle()` (`src/main/ipc.ts`) parses them with the channel's zod schema from `src/main/ipc_schemas.ts` before the handler runs: argument count, types, enums (image types, secret names), numeric ranges (terminal size) and size caps are checked, `chat:decide` needs a real boolean `approved`, and a refused call names the channel and the first problem, never the value (#32).
 - `EventMap` — main → renderer pushes (`window.api.on('chat:event', …)`). Every `chat:event` carries an increasing `seq`, and each snapshot the main process sends or returns carries the `seq` of the last event it already includes. The renderer registers its chat listeners before its start-up requests, keeps what arrives meanwhile, uses the newer of the requested and any pushed snapshot (`newerSnapshot`) and applies only events newer than it (`chatEventApplies`), because Electron drops messages that arrive while no listener exists (#192).
 
 Handlers (`src/main/ipc.ts`, `handle` / `send`) and the preload bridge are typed from these maps, so a renamed channel or changed payload fails to compile. The preload forwards only channels listed in `INVOKE` / `EVENTS`; those lists are `Record<Channel, true>` so forgetting a new channel is also a compile error.
