@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { abortableSleep, MAX_RETRIES, retryDecision } from './retry';
+import { abortableSleep, isTransientError, MAX_RETRIES, retryDecision } from './retry';
 
 // Half of the jitter range, so the delay is exactly the backoff.
 const middle = () => 0.5;
@@ -114,14 +114,33 @@ describe('retryDecision: how long to wait', () => {
     expect(withHeaders(new Headers({ 'retry-after': '3' }))).toBe(3000);
     expect(withHeaders(new Headers({ 'retry-after-ms': '1500' }))).toBe(1500);
     expect(withHeaders({ 'retry-after': '7' })).toBe(7000);
-    expect(withHeaders(new Headers({ 'retry-after': '0' }))).toBe(0);
+    // Never sooner than a second, so a 0 does not spend every retry at once (#247).
+    expect(withHeaders(new Headers({ 'retry-after': '0' }))).toBe(1000);
     // retry-after-ms wins when both are sent.
-    expect(withHeaders(new Headers({ 'retry-after-ms': '900', 'retry-after': '30' }))).toBe(900);
+    expect(withHeaders(new Headers({ 'retry-after-ms': '1200', 'retry-after': '30' }))).toBe(1200);
 
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     expect(withHeaders(new Headers({ 'retry-after': 'Thu, 01 Jan 2026 00:00:10 GMT' }))).toBe(10_000);
     vi.useRealTimers();
+  });
+
+  it('waits at least a second whatever Retry-After says, and ignores a blank one (#247)', () => {
+    const withHeaders = (headers: Record<string, string>) =>
+      retryDecision(status(429, { headers: new Headers(headers) }), 0, middle)?.delayMs;
+    for (const value of ['0', '-5', '1e-9', 'Wed, 01 Jan 2020 00:00:00 GMT']) {
+      expect(withHeaders({ 'retry-after': value })).toBe(1000);
+    }
+    expect(withHeaders({ 'retry-after-ms': '0' })).toBe(1000);
+    // A blank header is no header: the normal backoff applies.
+    expect(withHeaders({ 'retry-after': ' ' })).toBe(2000);
+  });
+
+  it('lets a chat resume after a rate limit that asks for a longer wait than the retries allow (#247)', () => {
+    const longWait = status(429, { headers: new Headers({ 'retry-after': '120' }) });
+    expect(retryDecision(longWait, 0, middle)).toBeNull();
+    expect(isTransientError(longWait)).toBe(true);
+    expect(isTransientError(status(400))).toBe(false);
   });
 
   it('ignores a Retry-After it cannot read', () => {

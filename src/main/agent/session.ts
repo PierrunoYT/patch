@@ -18,7 +18,7 @@ import type { AgentTool, EditUndo, ToolContext } from '../tools/types';
 import { appLog } from '../app_log';
 import { compactionPrompt } from '../llm/compaction';
 import { Agent, type AgentOptions, type DroppedFieldError } from './agent';
-import { retryDecision } from './retry';
+import { isTransientError } from './retry';
 
 export interface SavedChat {
   version: 1;
@@ -277,8 +277,9 @@ export class ChatSession {
         interrupted = true;
         this.emit({ type: 'notice', id: randomUUID(), text: 'Stopped.' });
       } else {
-        // A transient provider error that outlasted the retries leaves the chat after its last finished tool batch.
-        providerFailure = retryDecision(error, 0) !== null;
+        // A transient provider error that outlasted the retries, or asked for a longer wait than they allow, leaves
+        // the chat after its last finished tool batch (#247).
+        providerFailure = isTransientError(error);
         this.emit({ type: 'error', id: randomUUID(), text: error instanceof Error ? error.message : String(error) });
       }
     } finally {

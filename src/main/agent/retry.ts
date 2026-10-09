@@ -8,6 +8,8 @@ const BASE_DELAY_MS = 2_000;
 const MAX_BACKOFF_MS = 30_000;
 // A provider asking for a longer pause than this is not going to recover soon enough to be worth waiting for.
 const MAX_RETRY_AFTER_MS = 60_000;
+// The shortest wait a Retry-After header can ask for.
+const MIN_SERVER_DELAY_MS = 1_000;
 
 // Connection problems that usually pass. A refused connection (nothing listening, e.g. Ollama not started) does not.
 const TRANSIENT_NETWORK_CODES = new Set([
@@ -62,7 +64,16 @@ export function retryDecision(
   const requested = retryAfterMs(error);
   if (requested !== null && requested > MAX_RETRY_AFTER_MS) return null;
   const backoff = Math.min(MAX_BACKOFF_MS, BASE_DELAY_MS * 2 ** attempt) * (0.75 + random() * 0.5);
-  return { delayMs: Math.round(requested ?? backoff), reason };
+  // The server's wait is honoured, but never below a second: a Retry-After of 0 or a date already past would otherwise
+  // spend every retry within milliseconds (#247).
+  return { delayMs: Math.round(requested === null ? backoff : Math.max(requested, MIN_SERVER_DELAY_MS)), reason };
+}
+
+// Whether the error is one a later attempt may get past (rate limit, overload, server or connection problem), however
+// long the server asks to wait. A chat that failed on one can be resumed.
+export function isTransientError(error: unknown): boolean {
+  if (!isObject(error) || kind(error) === 'AbortError' || kind(error) === 'APIUserAbortError') return false;
+  return transientReason(error) !== null;
 }
 
 function transientReason(error: ErrorLike): string | null {
@@ -147,7 +158,7 @@ function header(error: ErrorLike, name: string): string | null {
   if (!isObject(headers)) return null;
   const value =
     typeof headers.get === 'function' ? (headers.get as (key: string) => unknown).call(headers, name) : headers[name];
-  return typeof value === 'string' && value !== '' ? value : null;
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
 function isObject(value: unknown): value is ErrorLike & Record<string, unknown> {
