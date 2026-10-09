@@ -8,8 +8,16 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Performance
+
+- `grep` and `glob` reuse a small pool of regex workers instead of starting one per call; a worker that timed out or was stopped is never reused (fixes #201).
+- Full chat saves of a listed chat write the file in the background like checkpoints, and chat files are written without indentation (fixes #118).
+
 ### Fixed
 
+- `web_search` masks recognizable secrets in the query before it is sent to Google, and the docs name the outgoing query as a data flow (fixes #73).
+- Browser-panel guests always run with `webSecurity` on and insecure content off, a `disablewebsecurity` attribute is dropped, and every new web contents gets a deny-all popup handler and, for app windows, a block on navigating away (fixes #67).
+- GitHub Actions are pinned to commit SHAs, with Dependabot keeping the pins current after a week-long cooldown (fixes #70).
 - Sending a message after scrolling up jumps the chat to the bottom again even when the reply starts in the same frame, so an approval card that arrives right away is in view instead of thousands of pixels below it.
 - A run that ends because a transient provider error outlasted its retries offers Resume (fixes #204).
 - Projects are stored under their native real path, so the same folder typed with different casing on Windows is one project. Recent projects saved in other casing by an older version are merged on start, keeping their settings (fixes #185).

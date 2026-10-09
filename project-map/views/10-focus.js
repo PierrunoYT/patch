@@ -37,9 +37,9 @@ builders.focus = () => {
       'Finish the Electron and tool hardening from the Oct 5–6 reviews',
       'The Oct 5–6 audits found no critical issue. All four high-priority findings are fixed: grep/glob patterns run in a worker (#122), connection-string passwords are redacted (#123), saved MCP headers cannot silently go to a new URL (#110), and Git panel Discard no longer deletes what a link points to (#111).',
       [
-        '#118: full chat saves still block the main process. #112 is fixed: the .git check before sandboxed commands is asynchronous and cached, and stopping commands no longer uses spawnSync',
+        '#118 is fixed: full chat saves write the chat file in the background, like checkpoints. #112 is fixed: the .git check before sandboxed commands is asynchronous and cached, and stopping commands no longer uses spawnSync',
         '#114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #116 provider failure text kept out of local logs, #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
-        '#73: web_search still sends queries without approval',
+        '#73 and #67 are fixed: web_search masks secrets in its query and the data flow is documented; browser guests always keep webSecurity on and new web contents are locked down by default',
         '#125: two transcript_view e2e tests fail intermittently in full runs',
         '#138: the crash_kill approval e2e test still stalls intermittently on Windows CI, also after the sandbox probes became asynchronous (#112); it needs timing logs',
       ],
@@ -79,7 +79,7 @@ builders.focus = () => {
       [
         'release.yml checks the tag against package.json, and tag v0.1.0 already points at an old commit',
         '#26 (signing, checksums) and #28 (macOS entitlements) are sev:medium',
-        '#71, #70, #119, #22 are low-severity release items',
+        '#71 and #22 are low-severity release items; #70 (Actions pinned to SHAs) and #119 are fixed',
       ],
       'Mostly a decision (what to do with the old v0.1.0 to v0.3.0 tags) plus a CHANGELOG cut.',
     ],
@@ -130,7 +130,7 @@ builders.focus = () => {
         h(
           'li',
           null,
-          'Crash-resume checkpoints write in the background (#55), but full chat saves are still synchronous (#118).',
+          'Crash-resume checkpoints (#55) and full chat saves (#118) write the chat file in the background.',
         ),
         h(
           'li',
