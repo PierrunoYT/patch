@@ -3,7 +3,7 @@
 builders.focus = () => {
   const items = [
     [
-      'Continue with medium sandbox hardening: #127, #96 and #102',
+      'Continue with medium sandbox hardening: #127 and #96',
       'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
         '#143 is fixed: protected paths match case-insensitively, Windows short names expand before checks, and failed safety checks ask',
@@ -11,7 +11,7 @@ builders.focus = () => {
         '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and isolate Linux local networking (#102; the approval card and settings already say that loopback services and abstract sockets are reachable). Native-platform tests and packaged builds still need their own hosts.',
+      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and, with #97, give Linux commands with network access their own network namespace (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',

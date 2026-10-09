@@ -349,7 +349,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 233, src: 1754, tl: 3628 },
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
-    { a: 'main/tools', f: 28, c: 606, src: 5075, tl: 7602 },
+    { a: 'main/tools', f: 28, c: 607, src: 5075, tl: 7602 },
     { a: 'main/panels', f: 4, c: 76, src: 728, tl: 1148 },
     { a: 'main/other', f: 13, c: 213, src: 3355, tl: 3333 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
@@ -575,14 +575,6 @@ const D = {
     [121, 'Perplexity Decider V1 27B (OpenRouter) as a safety check on tool calls', 'tools', 'low', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
     [104, 'No process or memory limits for sandboxed commands on Linux and macOS', 'sandbox', 'low', 0, '10-05'],
-    [
-      102,
-      'Linux sandbox with network reaches abstract sockets and host loopback (now disclosed)',
-      'sandbox',
-      'medium',
-      0,
-      '10-05',
-    ],
     [101, 'npm test fails and node --test hangs inside the AppContainer', 'sandbox', 'medium', 0, '10-05'],
     [97, 'Enforce hostname restrictions for sandbox command networking', 'sandbox', 'low', 0, '10-04'],
     [96, 'Narrow macOS sandbox file access, isolate command temp directories', 'sandbox', 'medium', 0, '10-04'],
@@ -616,7 +608,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 150,
+  closedCount: 151,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

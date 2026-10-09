@@ -49,8 +49,10 @@ const fs = require('node:fs');
 const net = require('node:net');
 const [action, target, value] = process.argv.slice(2);
 const report = (value) => console.log(JSON.stringify(value));
-if (action === 'connect') {
-  const socket = net.connect({ host: target, port: Number(value), timeout: 2000 });
+if (action === 'connect' || action === 'connect-abstract') {
+  // An abstract Unix socket's name starts with a NUL byte, which cannot be passed as an argument.
+  const where = action === 'connect' ? { host: target, port: Number(value) } : { path: '\\0' + target };
+  const socket = net.connect({ ...where, timeout: 2000 });
   socket.once('connect', () => { report({ connected: true }); socket.destroy(); });
   socket.once('error', (error) => { report({ error: error.code }); socket.destroy(); });
   socket.once('timeout', () => { report({ error: 'ETIMEDOUT' }); socket.destroy(); });
@@ -277,6 +279,33 @@ for (const [kind, available] of [
           /^(EPERM|EACCES|ENETUNREACH|EHOSTUNREACH|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)$/,
         );
       });
+
+      // #102: bubblewrap with network shares the host's network namespace, which holds loopback-only services and
+      // abstract Unix sockets (X11, some D-Bus setups). The approval card and settings say so; offline they are
+      // out of reach. These tests pin that documented behavior until commands get their own namespace (#97).
+      it.skipIf(kind !== 'bwrap')(
+        'reaches a host loopback-only service and an abstract Unix socket only with network on (#102)',
+        async () => {
+          const loopback = createServer((socket) => socket.end());
+          loopback.listen(0, '127.0.0.1');
+          await once(loopback, 'listening');
+          const name = `patch-sandbox-test-${randomUUID()}`;
+          const abstract = createServer((socket) => socket.end());
+          abstract.listen(`\0${name}`);
+          await once(abstract, 'listening');
+          try {
+            const loopbackPort = String((loopback.address() as { port: number }).port);
+            const refused = /^(EPERM|EACCES|ENETUNREACH|EHOSTUNREACH|ECONNREFUSED|ETIMEDOUT|ENOENT)$/;
+            expect((await run('connect', '127.0.0.1', loopbackPort)).error).toMatch(refused);
+            expect((await run('connect-abstract', name)).error).toMatch(refused);
+            expect(await run('connect', '127.0.0.1', loopbackPort, true)).toEqual({ connected: true });
+            expect(await run('connect-abstract', name, '', true)).toEqual({ connected: true });
+          } finally {
+            loopback.close();
+            abstract.close();
+          }
+        },
+      );
     },
   );
 }
