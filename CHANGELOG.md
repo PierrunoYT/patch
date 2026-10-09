@@ -60,6 +60,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - A damaged chat file (for example one without its conversation) is skipped when the chat list is rebuilt, instead of stopping the app from starting on every launch (fixes #249).
 - A `Retry-After` of 0, a negative value or a date already past waits at least a second before retrying, and a blank header is ignored. Before, every retry fired within milliseconds. A rate limit that asks for a longer wait than the retries allow now leaves the chat resumable like other temporary provider errors (fixes #247).
 - Changing or removing the OpenRouter key stops a search index update that is running, after the batch already on its way. Before, it kept embedding the rest of the project with the old key and could overwrite the new index's file (fixes #248).
+- The Git panel's diff leaves out a new link that points outside the project instead of failing as a whole, and does not read a large new file whole (part of #259).
 - Output a replaced shell writes after a project switch no longer appears in the new project's terminal (part of #259).
 - An MCP server that stops on its own is started again after 1, 2, 4, 8 and 16 seconds, and its status says when it gave up. Before, its tools stayed gone until the user changed its settings or restarted Patch (fixes #243).
 - A file that disappears or cannot be read while the search index is built (a build churning files, a file locked by another program) is left out instead of failing the whole update and every `search_code` call with it (fixes #245).

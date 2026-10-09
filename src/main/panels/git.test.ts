@@ -147,6 +147,22 @@ describe('GitService', () => {
     expect(files.find((file) => file.path === 'image.bin')).toEqual({ path: 'image.bin', status: 'untracked' });
   });
 
+  it('leaves a new link that points outside the project out of the diff instead of failing (#259)', async () => {
+    await initRepo();
+    const outside = mkdtempSync(join(tmpdir(), 'git-outside-'));
+    try {
+      writeFileSync(join(outside, 'secret.txt'), 'outside\n');
+      symlinkSync(outside, join(root, 'out'), process.platform === 'win32' ? 'junction' : 'dir');
+      writeFileSync(join(root, 'fresh.txt'), 'fresh\n');
+      const diff = await service.diff(null);
+      expect(diff).toContain('+fresh');
+      expect(diff).not.toContain('outside');
+    } finally {
+      rmSync(join(root, 'out'), { force: true, recursive: false });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
   it('does not read a large new file to count its lines (#244)', async () => {
     await initRepo();
     const big = join(root, 'dump.sql');

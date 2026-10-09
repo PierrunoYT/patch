@@ -340,8 +340,17 @@ export class GitService {
       }
     }
     for (const file of files.filter((candidate) => candidate.status === 'untracked')) {
-      const absolute = this.workspace.resolve(file.path);
-      const content = await readFile(absolute, 'utf8').catch(() => '');
+      // A new link that points outside the project is left out instead of failing the whole diff, and a large new
+      // file is not read whole (#259).
+      let absolute: string;
+      try {
+        absolute = this.workspace.resolve(file.path);
+      } catch {
+        continue;
+      }
+      const info = await stat(absolute).catch(() => null);
+      const content =
+        info?.isFile() && info.size <= MAX_COUNTED_BYTES ? await readFile(absolute, 'utf8').catch(() => '') : '';
       parts.push(createTwoFilesPatch('/dev/null', `b/${file.path}`, '', content, '', ''));
     }
     return parts.filter(Boolean).join('\n');
