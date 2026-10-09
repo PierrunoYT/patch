@@ -82,6 +82,18 @@ describe('applyHunks', () => {
     lines: lines.map((line) => ({ prefix: line[0] as ' ' | '-' | '+', text: line.slice(1) })),
   });
 
+  it("keeps the file's own context lines when the hunk matched loosely (#246)", () => {
+    // A BOM on the first line, which trim() would drop.
+    const bom = applyHunks('﻿first\nsecond\n', [hunk(null, ' first', '-second', '+SECOND')], 'f');
+    expect(bom).toBe('﻿first\nSECOND\n');
+    // A tab-indented context line matched by spaces stays a tab.
+    expect(applyHunks('\tindented\nold\n', [hunk(null, '     indented', '-old', '+new')], 'f')).toBe(
+      '\tindented\nnew\n',
+    );
+    // Trailing spaces on a context line survive.
+    expect(applyHunks('keep  \nold\n', [hunk(null, ' keep', '-old', '+new')], 'f')).toBe('keep  \nnew\n');
+  });
+
   it('applies several hunks in order and keeps the final newline', () => {
     expect(applyHunks('a\nb\nc\nd\n', [hunk(null, '-a', '+A'), hunk(null, ' c', '-d', '+D')], 'f')).toBe(
       'A\nb\nc\nD\n',

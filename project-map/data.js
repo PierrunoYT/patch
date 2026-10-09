@@ -548,7 +548,6 @@ const D = {
       '10-09',
     ],
     [248, 'search_code: changing the OpenRouter key leaves an index update running', 'tools', 'low', 0, '10-09'],
-    [246, 'apply_patch fuzzy matching rewrites unchanged context lines (BOM, tabs)', 'tools', 'low', 0, '10-09'],
     [243, 'MCP: a server that crashes is never reconnected', 'mcp', 'medium', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
     [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
@@ -648,7 +647,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 164,
+  closedCount: 165,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

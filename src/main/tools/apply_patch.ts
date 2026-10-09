@@ -147,8 +147,17 @@ export function applyHunks(content: string, hunks: Hunk[], label: string): strin
         );
       }
     }
+    // Context lines keep the file's own text: a hunk found with whitespace-tolerant matching must not re-indent them,
+    // strip their trailing spaces or drop a BOM (#246). Only + lines come from the patch.
+    const replacement: string[] = [];
+    let at = start;
+    for (const line of hunk.lines) {
+      if (line.prefix === '+') replacement.push(line.text);
+      else if (line.prefix === ' ') replacement.push(lines[at++]!);
+      else at++;
+    }
     ends.splice(start, before.length, ...hunkEnds(hunk, ends, start, eol));
-    lines.splice(start, before.length, ...after);
+    lines.splice(start, before.length, ...replacement);
     cursor = start + after.length;
   }
   return lines.map((line, i) => (i === lines.length - 1 && !endsWithNewline ? line : line + (ends[i] || eol))).join('');
