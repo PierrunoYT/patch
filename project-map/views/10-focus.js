@@ -3,16 +3,16 @@
 builders.focus = () => {
   const items = [
     [
-      'Fix the high findings from the Oct 9 audit: #232 and #240',
-      'A full audit with a second pass found no Windows sandbox escape on its own. The worst issues are chains that get past the approval card, plus one bug that breaks a chat for good.',
+      'Finish the Oct 9 audit: #240, then the macOS and native-helper items',
+      'A full audit with a second pass found no Windows sandbox escape on its own; the worst issues were chains past the approval card. Most of its findings are fixed: the agent browser goes offline for project files and keeps public pages off local addresses (#229, #235), MCP cards show arguments (#230), Initialize stops sandboxed processes first (#231), the proxy checks TLS server names (#239), plan mode and permission rules are enforced as documented (#237, #238), and secrets stay out of embeddings and truncated output (#234, #253).',
       [
-        '#229 is fixed: the agent browser has no network while it shows a project file, so a page that reads .env cannot send it anywhere',
-        '#230 is fixed: MCP approval cards show the call arguments as JSON, not only the tool name',
-        '#231 is fixed: Git panel Initialize stops background commands and sandboxed project MCP servers before creating .git',
-        '#232 (macOS, unverified): Seatbelt allows reading and writing every user tty',
-        '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too',
+        '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too; the fix removes a rejected trailing message, an exception to append-only history that needs a decision',
+        '#232 (macOS): Seatbelt lets commands read and write every user tty; denying it also breaks programs that open their own pty',
+        '#257 (macOS, unverified): hard links into the project may get past the hidden home folder and read-only .git',
+        '#242 and #259: the native file helper still applies a patch file by file without rollback, and truncates before writing',
+        '#260: a public name that resolves to a local address still reaches local services from the agent browser',
       ],
-      '#233 is fixed: git log --output and similar arguments in allowed commands ask. #236 is fixed: AGENTS.md, skills, .envrc and .husky are protected. #251 is fixed: removing a delegate rule is confirmed. #241 is fixed: MCP servers follow a project switch from History. #234 is fixed: credential files are never embedded and secrets are masked first.',
+      'The macOS items need a Mac to verify; the helper items are Rust changes in native/sandbox-helper.',
     ],
     [
       'Continue with medium sandbox hardening: #127 and #96',
