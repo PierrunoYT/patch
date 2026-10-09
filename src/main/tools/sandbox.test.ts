@@ -393,7 +393,17 @@ describe('describeSandbox', () => {
       'unrestricted network on (not filtered by hostname), but not local Unix sockets.',
     );
     expect(describeSandbox({ kind: 'seatbelt', network: false })).not.toContain('Unix sockets');
-    expect(describeSandbox({ kind: 'bwrap', network: true })).not.toContain('Unix sockets');
+    expect(describeSandbox({ kind: 'bwrap', network: false })).not.toContain('Unix sockets');
+  });
+
+  it('says that bubblewrap with network reaches local services and abstract sockets', () => {
+    for (const access of [{}, { network: true }]) {
+      expect(describeSandbox({ kind: 'bwrap', network: true }, access)).toContain(
+        'including services on this machine and abstract Unix sockets such as the X11 display.',
+      );
+    }
+    expect(describeSandbox({ kind: 'container', network: true })).not.toContain('services on this machine');
+    expect(describeSandbox({ kind: 'appcontainer', network: true })).not.toContain('services on this machine');
   });
 });
 

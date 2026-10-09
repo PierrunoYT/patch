@@ -396,8 +396,15 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
       ? 'unrestricted network allowed for this command'
       : 'unrestricted network on (not filtered by hostname)'
     : 'no network';
-  // Seatbelt keeps local Unix sockets (Docker, ssh-agent) blocked even with network access.
-  const sockets = decision.kind === 'seatbelt' && decision.network ? ', but not local Unix sockets' : '';
+  // Seatbelt keeps local Unix sockets (Docker, ssh-agent) blocked even with network access. bubblewrap shares the
+  // host's network namespace, which holds loopback services and abstract Unix sockets such as X11's (#102).
+  const sockets = !decision.network
+    ? ''
+    : decision.kind === 'seatbelt'
+      ? ', but not local Unix sockets'
+      : decision.kind === 'bwrap'
+        ? ', including services on this machine and abstract Unix sockets such as the X11 display'
+        : '';
   return `${where}: project files are writable but Git metadata is read-only; use the Git panel or explicitly approved unsandboxed access for Git writes. The rest of your home folder is hidden, ${net}${sockets}.`;
 }
 

@@ -11,7 +11,7 @@ builders.focus = () => {
         '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and isolate Linux local networking (#102). Native-platform tests and packaged builds still need their own hosts.',
+      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and isolate Linux local networking (#102; the approval card and settings already say that loopback services and abstract sockets are reachable). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',

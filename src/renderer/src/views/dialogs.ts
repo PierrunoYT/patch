@@ -434,7 +434,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field(
       'Network in the sandbox',
       sandboxNetwork,
-      'Matching command URLs request unrestricted network access, not hostname filtering. You must approve each run, even in Auto mode or with an allow permission rule. Explicit network or unsandboxed requests also require approval each time. On grants unrestricted network access to all sandboxed commands, so they can also reach local network services such as databases and dev servers. On macOS, local Unix sockets (Docker, ssh-agent) stay blocked.',
+      'Matching command URLs request unrestricted network access, not hostname filtering. You must approve each run, even in Auto mode or with an allow permission rule. Explicit network or unsandboxed requests also require approval each time. On grants unrestricted network access to all sandboxed commands, so they can also reach local network services such as databases and dev servers. On macOS, local Unix sockets (Docker, ssh-agent) stay blocked. On Linux, abstract Unix sockets such as the X11 display are reachable too.',
     ),
     field(
       'Container image',

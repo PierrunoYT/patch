@@ -45,7 +45,7 @@ export function changesToConfirm(
   }
   if (patch.sandboxNetwork === 'on' && current.sandboxNetwork !== 'on') {
     changes.push(
-      'Give sandboxed commands full network access, including local network services such as databases and dev servers (on macOS, not local Unix sockets).',
+      'Give sandboxed commands full network access, including local network services such as databases and dev servers (on macOS, not local Unix sockets; on Linux, also abstract Unix sockets such as the X11 display).',
     );
   }
   if (typeof patch.sandboxImage === 'string' && patch.sandboxImage.trim() !== current.sandboxImage.trim()) {
