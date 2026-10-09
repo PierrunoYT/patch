@@ -44,7 +44,9 @@ describe('side panels', () => {
 
   it('runs commands in the interactive terminal in the project folder', async () => {
     await running.page.locator('.panel-tab', { hasText: 'Terminal' }).click();
+    await running.page.locator('.terminal-panel .xterm-rows', { hasText: 'Press Enter to start a shell' }).waitFor();
     await running.page.locator('.terminal-panel .xterm').click();
+    await running.page.keyboard.press('Enter');
     await running.page.waitForTimeout(1500);
     await running.page.keyboard.type('echo terminal-works-$((20+22))');
     if (process.platform === 'win32') {

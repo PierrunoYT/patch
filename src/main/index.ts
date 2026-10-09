@@ -282,17 +282,20 @@ function start(): void {
   handle('log:renderer-error', (report) => rendererErrors.report(report));
 
   handle('settings:get', () => settings.view());
-  // Switching to Auto mode is confirmed once per app session; MCP and editor commands every time they change.
-  let autoConfirmed = false;
-  // A native dialog for sensitive settings changes (settings_confirm.ts). Throws when the user cancels.
-  const confirmChanges = async (changes: string[]): Promise<void> => {
-    if (changes.length === 0) return;
+  // A native dialog the renderer cannot answer or skip (#157). Throws `cancelled` when the user cancels.
+  const confirmNatively = async (
+    title: string,
+    message: string,
+    detail: string,
+    confirm: string,
+    cancelled: string,
+  ): Promise<void> => {
     const options: Electron.MessageBoxOptions = {
       type: 'warning',
-      title: 'Confirm settings',
-      message: 'Apply these settings?',
-      detail: changes.map((change) => `• ${change}`).join('\n'),
-      buttons: ['Apply', 'Cancel'],
+      title,
+      message,
+      detail,
+      buttons: [confirm, 'Cancel'],
       defaultId: 1,
       cancelId: 1,
       noLink: true,
@@ -300,7 +303,18 @@ function start(): void {
     const { response } = await (mainWindow
       ? dialog.showMessageBox(mainWindow, options)
       : dialog.showMessageBox(options));
-    if (response !== 0) throw new Error('Settings not changed: the change was cancelled.');
+    if (response !== 0) throw new Error(cancelled);
+  };
+  // Sensitive settings changes (settings_confirm.ts), including every switch to Auto mode.
+  const confirmChanges = async (changes: string[]): Promise<void> => {
+    if (changes.length === 0) return;
+    await confirmNatively(
+      'Confirm settings',
+      'Apply these settings?',
+      changes.map((change) => `• ${change}`).join('\n'),
+      'Apply',
+      'Settings not changed: the change was cancelled.',
+    );
   };
 
   handle('settings:update', async (patch) => {
@@ -311,10 +325,8 @@ function start(): void {
         return null;
       }
     };
-    await confirmChanges(changesToConfirm(settings.get(), patch, autoConfirmed, settings.mcpHeaderNames(), mcpProgram));
-    const view = settings.update(patch);
-    if (patch.approvalMode === 'auto') autoConfirmed = true;
-    return view;
+    await confirmChanges(changesToConfirm(settings.get(), patch, settings.mcpHeaderNames(), mcpProgram));
+    return settings.update(patch);
   });
   handle('settings:set-secret', async (name, value) => {
     if (!SECRET_NAMES.includes(name)) throw new Error(`Unknown secret: ${name}`);
@@ -447,9 +459,28 @@ function start(): void {
     return (await workspace.listFiles(workspace.root, MAX_MENTION_FILES)).map((file) => workspace.relative(file));
   });
 
-  handle('terminal:start', (cols, rows) => {
+  // The terminal is an unsandboxed shell, so the first one of each project in a session is confirmed natively: a
+  // script in the renderer cannot start it on its own (#157).
+  // Starts that arrive while the dialog is open share it; a cancelled one is asked again next time.
+  const terminalConfirmed = new Map<string, Promise<void>>();
+  handle('terminal:start', async (cols, rows) => {
     const project = projects.current();
     if (!project) throw new Error('Open a project to use the terminal.');
+    let confirmed = terminalConfirmed.get(project.path);
+    if (!confirmed) {
+      confirmed = confirmNatively(
+        'Start terminal',
+        `Start a terminal in ${project.name}?`,
+        `The terminal is your own shell, with your full rights and not sandboxed, in ${project.path}. Patch asks once per project each time it starts.`,
+        'Start',
+        'Terminal not started. Press Enter to start it.',
+      );
+      terminalConfirmed.set(project.path, confirmed);
+      confirmed.catch(() => terminalConfirmed.delete(project.path));
+    }
+    await confirmed;
+    // The dialog can outlast a project switch; start the shell only in the project it was confirmed for.
+    if (projects.current()?.path !== project.path) throw new Error('The project changed. Press Enter to start it.');
     terminal.start(project.path, cols, rows);
   });
   handle('terminal:write', (data) => terminal.write(data));

@@ -1,8 +1,12 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { launchApp, type RunningApp } from './app';
 
 describe('window security', () => {
   let running: RunningApp;
+  const leftovers: string[] = [];
 
   beforeAll(async () => {
     running = await launchApp();
@@ -10,6 +14,7 @@ describe('window security', () => {
 
   afterAll(async () => {
     await running?.close();
+    for (const folder of leftovers) rmSync(folder, { recursive: true, force: true });
   });
 
   it('exposes only the preload api to the page', async () => {
@@ -150,12 +155,49 @@ describe('window security', () => {
     const before = (await confirmations()).length;
     expect(await update({ approvalMode: 'auto' })).toMatchObject({ ok: true, approvalMode: 'auto' });
     expect(await update({ approvalMode: 'ask' })).toMatchObject({ ok: true, approvalMode: 'ask' });
-    // Auto mode is confirmed once per session; ordinary settings never ask.
+    // Auto mode is confirmed every time it is turned on (#157); ordinary settings never ask.
     expect(await update({ approvalMode: 'auto', theme: 'light' })).toMatchObject({ ok: true, approvalMode: 'auto' });
+    expect(await update({ theme: 'dark' })).toMatchObject({ ok: true, approvalMode: 'auto' });
     const asked = (await confirmations()).slice(before);
-    expect(asked).toHaveLength(1);
-    expect(asked[0]).toContain('Auto mode');
-    await update({ approvalMode: 'ask', theme: 'dark' });
+    expect(asked).toHaveLength(2);
+    expect(asked.every((text) => text.includes('Auto mode'))).toBe(true);
+    await update({ approvalMode: 'ask' });
+  });
+
+  it('confirms the first terminal of a project natively, and starts none when cancelled (#157)', async () => {
+    const { app, page } = running;
+    const setResponse = (response: number) =>
+      app.evaluate((_electron, value) => {
+        (globalThis as unknown as { __patchConfirmResponse: number }).__patchConfirmResponse = value;
+      }, response);
+    const confirmations = () =>
+      app.evaluate(() => (globalThis as unknown as { __patchConfirmations: string[] }).__patchConfirmations.slice());
+    const start = () =>
+      page.evaluate(() =>
+        window.api.invoke('terminal:start', 80, 24).then(
+          () => 'started',
+          (error: Error) => error.message,
+        ),
+      );
+    const folder = mkdtempSync(join(tmpdir(), 'patch-terminal-'));
+    // The stored spelling (native real path), which closing the project needs.
+    const project = await page.evaluate((path) => window.api.invoke('project:open', path).then((p) => p.path), folder);
+    try {
+      const before = (await confirmations()).length;
+      await setResponse(1);
+      expect(await start()).toContain('Terminal not started');
+      await setResponse(0);
+      expect(await start()).toBe('started');
+      // Asked once per project in a session.
+      expect(await start()).toBe('started');
+      const asked = (await confirmations()).slice(before);
+      expect(asked).toHaveLength(2);
+      expect(asked[0]).toContain('not sandboxed');
+    } finally {
+      await page.evaluate((path) => window.api.invoke('project:close', path), project);
+      // The terminal's shell keeps the folder busy on Windows until the app has quit.
+      leftovers.push(folder);
+    }
   });
 
   it('confirms new project allow-list entries in the main process', async () => {

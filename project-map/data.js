@@ -33,7 +33,7 @@ const D = {
       desc: 'Screens: transcript, composer with @-mentions, sidebar, terminal/browser/git panels, settings and history dialogs.',
       list: [
         'dialogs.ts (742, untested)',
-        'panels.ts (708, untested)',
+        'panels.ts (749, untested; the terminal starts on Enter, #157)',
         'transcript.ts (590)',
         'composer.ts (396)',
         'sidebar.ts',
@@ -61,12 +61,12 @@ const D = {
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
         'chat_manager.ts (523; passes sensitive app paths to ShellRunner, #145; safe restored-session preparation, #161; same-project state, #160)',
-        'index.ts (516; sandbox app-data/user-data/install boundaries, #145; history error resync and same-project terminal preservation)',
+        'index.ts (570; native confirmation for the first terminal of each project, #157; sandbox app-data/user-data/install boundaries, #145; history error resync and same-project terminal preservation)',
         'exec_search.ts (37, bare program names never resolve in the project, #141)',
         'settings.ts (451)',
         'chat_store.ts (193)',
         'app_log.ts (error + crash logging)',
-        'settings_confirm.ts (209, ordered protective-rule confirmation; names the program an MCP server resolves to, #142; unencrypted key save, #35)',
+        'settings_confirm.ts (219, ordered protective-rule confirmation; every switch to Auto and new project instructions, #157; names the program an MCP server resolves to, #142; unencrypted key save, #35)',
         'projects.ts',
         'files.ts',
         'ipc.ts',
@@ -349,15 +349,15 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 233, src: 1754, tl: 3628 },
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
-    { a: 'main/tools', f: 28, c: 602, src: 5075, tl: 7602 },
+    { a: 'main/tools', f: 28, c: 603, src: 5075, tl: 7602 },
     { a: 'main/panels', f: 4, c: 76, src: 728, tl: 1148 },
-    { a: 'main/other', f: 13, c: 212, src: 3355, tl: 3333 },
+    { a: 'main/other', f: 13, c: 213, src: 3355, tl: 3333 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
     { a: 'renderer', f: 5, c: 16, src: 6491, tl: 158 },
     { a: 'preload', f: 0, c: 0, src: 39, tl: 0 },
   ],
   e2e: [
-    ['security', 12],
+    ['security', 13],
     ['chat', 13],
     ['ui', 12],
     ['panels', 8],
@@ -545,14 +545,6 @@ const D = {
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
-    [
-      157,
-      'Renderer can start a shell and edit instructions without native confirmation',
-      'security',
-      'low',
-      0,
-      '10-07',
-    ],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
     [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
@@ -625,7 +617,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 147,
+  closedCount: 148,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

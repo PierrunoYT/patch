@@ -93,8 +93,8 @@ export async function launchApp(
   // The window is sized from the screen, which differs between machines (Xvfb's default is 640x480), and macOS keeps
   // windows within the screen. Narrow windows hide parts of the footer, so give every run the same desktop layout.
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // Answer only Patch's native settings confirmation; browser confirms must remain under Playwright's control.
-  // Each one is recorded; a test sets __patchConfirmResponse to 1 to press Cancel.
+  // Answer only Patch's native settings and terminal confirmations; browser confirms must remain under Playwright's
+  // control. Each one is recorded; a test sets __patchConfirmResponse to 1 to press Cancel.
   await app.evaluate(({ dialog }) => {
     const state = globalThis as unknown as { __patchConfirmations: string[]; __patchConfirmResponse: number };
     state.__patchConfirmations = [];
@@ -105,7 +105,8 @@ export async function launchApp(
         detail?: string;
         title?: string;
       };
-      if (options?.title !== 'Confirm settings') return Reflect.apply(showMessageBox, dialog, args);
+      if (options?.title !== 'Confirm settings' && options?.title !== 'Start terminal')
+        return Reflect.apply(showMessageBox, dialog, args);
       state.__patchConfirmations.push(options?.detail ?? '');
       return { response: state.__patchConfirmResponse, checkboxChecked: false };
     };

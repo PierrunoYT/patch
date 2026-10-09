@@ -220,6 +220,7 @@ class TerminalPanel implements Panel {
   // Keys typed while the shell is starting, sent once it is ready.
   private pendingInput = '';
   private noProjectShown = false;
+  private hintShown = false;
 
   constructor(private readonly hasProject: () => boolean) {
     this.terminal.loadAddon(this.fit);
@@ -237,10 +238,12 @@ class TerminalPanel implements Panel {
     new ResizeObserver(() => this.resize()).observe(this.element);
   }
 
+  // The shell starts on Enter, not when the panel is shown: the main process confirms the first one of each project
+  // natively (#157), and that dialog should follow something the user did.
   shown(): void {
     requestAnimationFrame(() => {
       this.resize();
-      if (!this.started) this.start();
+      if (!this.started && !this.starting) this.hint();
       this.terminal.focus();
     });
   }
@@ -248,7 +251,15 @@ class TerminalPanel implements Panel {
   projectChanged(): void {
     this.started = false;
     this.noProjectShown = false;
+    this.hintShown = false;
     this.terminal.reset();
+  }
+
+  private hint(): void {
+    if (!this.hasProject()) return this.start();
+    if (this.hintShown) return;
+    this.hintShown = true;
+    this.terminal.write('Press Enter to start a shell in this project.\r\n');
   }
 
   private start(): void {

@@ -30,13 +30,13 @@ const SECRET_LABELS: Record<SecretName, string> = {
 export function changesToConfirm(
   current: Settings,
   patch: Partial<Settings>,
-  autoConfirmed: boolean,
   storedHeaders: Record<string, string[]> = {},
   resolveProgram: (command: string) => string | null = (command) => command,
 ): string[] {
   const changes: string[] = [];
 
-  if (patch.approvalMode === 'auto' && current.approvalMode !== 'auto' && !autoConfirmed) {
+  // Every time, not once per session: a script in the renderer could otherwise turn it back on silently (#157).
+  if (patch.approvalMode === 'auto' && current.approvalMode !== 'auto') {
     changes.push('Switch to Auto mode: file edits and commands run without asking.');
   }
 
@@ -148,10 +148,18 @@ export function changesToConfirm(
   return changes;
 }
 
-// The same check for a project's own allow-lists (Project settings), which add to the global ones.
+// The same check for a project's own allow-lists (Project settings), which add to the global ones, and for its
+// instructions, which go into every chat's system prompt (#157). Removing instructions needs no confirmation.
 export function projectChangesToConfirm(current: ProjectInfo | null, patch: ProjectSettings): string[] {
   const name = current?.name ?? 'this project';
   const changes: string[] = [];
+  const instructions = patch.instructions.trim();
+  if (instructions && instructions !== (current?.instructions ?? '').trim()) {
+    const shown = instructions.length > MAX_SHOWN_INSTRUCTIONS;
+    changes.push(
+      `In ${name}, give the agent these instructions in every chat: "${instructions.slice(0, MAX_SHOWN_INSTRUCTIONS)}${shown ? '…' : ''}"${shown ? ` (${instructions.length} characters in all)` : ''}`,
+    );
+  }
   const commands = addedEntries(current?.allowedCommands ?? '', patch.allowedCommands);
   if (commands.length > 0) changes.push(`In ${name}, run these commands without asking: ${list(commands)}`);
   const hosts = addedEntries(current?.allowedNetworkHosts ?? '', patch.allowedNetworkHosts);
@@ -159,6 +167,8 @@ export function projectChangesToConfirm(current: ProjectInfo | null, patch: Proj
     changes.push(`In ${name}, let network tools contact these hosts without asking: ${list(hosts)}`);
   return changes;
 }
+
+const MAX_SHOWN_INSTRUCTIONS = 600;
 
 // Lines of `after` (one entry per line, as the allow-lists are written) that `before` does not have.
 export function addedEntries(before: string, after: string): string[] {
