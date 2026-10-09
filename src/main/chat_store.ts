@@ -161,7 +161,15 @@ export class ChatStore {
       .filter((name) => ID_PATTERN.test(name.replace(/\.json$/, '')))
       .map((name) => readJson<SavedChat | null>(join(this.dir, name), null))
       .filter((chat): chat is SavedChat => chat?.version === 1)
-      .map(summarize);
+      .flatMap((chat) => {
+        // One damaged chat file (hand-edited, cut short by a sync tool) must not stop the app from starting (#249).
+        try {
+          return [summarize(chat)];
+        } catch {
+          appLog.warn('chats', 'A saved chat file could not be listed and was skipped.');
+          return [];
+        }
+      });
     if (this.index.length > 0) writeJson(this.indexFile, this.index);
   }
 }

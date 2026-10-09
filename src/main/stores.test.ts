@@ -346,6 +346,9 @@ describe('ChatStore', () => {
     writeFileSync(join(chats, `${idB}.json`), '{ truncated');
     writeFileSync(join(chats, `${idC}.json`), JSON.stringify({ ...chat(idC, '2026-01-02T00:00:00Z'), version: 2 }));
     writeFileSync(join(chats, 'notes.json'), JSON.stringify(chat(idD, '2026-01-03T00:00:00Z')));
+    // A version 1 file without its conversation (hand-edited, cut short by a sync tool) once stopped the app (#249).
+    const idE = '55555555-5555-5555-5555-555555555555';
+    writeFileSync(join(chats, `${idE}.json`), JSON.stringify({ version: 1, id: idE, title: 'Damaged' }));
 
     const store = new ChatStore(chats);
     expect(store.list().map((item) => item.id)).toEqual([idA]);
