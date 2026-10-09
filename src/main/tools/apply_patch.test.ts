@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyHunks, applyPatchTool, parsePatch } from './apply_patch';
+import { applyHunks, applyPatchTool, invalidWindowsName, parsePatch } from './apply_patch';
 import { EditBackups } from './edit_backups';
 import { writeFileTool } from './files';
 import { commandStopsSettled, ShellRunner } from './shell';
@@ -136,7 +136,61 @@ describe('applyHunks', () => {
   });
 });
 
+describe('invalidWindowsName (#242)', () => {
+  it.each([
+    'newdir/what?.txt',
+    'a<b.txt',
+    'pipe|name',
+    'dir/con',
+    'NUL.txt',
+    'lpt1.log',
+    'trailing.',
+    'space ',
+    'x/y:z',
+  ])('refuses %j', (rel) => {
+    expect(invalidWindowsName(rel)).not.toBeNull();
+  });
+
+  it.each(['src/a.ts', 'console.log', 'nul-test.ts', '.env.example', 'dir.v2/file'])('accepts %j', (rel) => {
+    expect(invalidWindowsName(rel)).toBeNull();
+  });
+});
+
 describe('apply_patch tool', () => {
+  // Both failed only while the patch was written, after src/a.ts had already changed (#242).
+  it.skipIf(process.platform !== 'win32')(
+    'refuses a new file Windows cannot create before changing anything',
+    async () => {
+      await expect(
+        run(patch('*** Update File: src/a.ts', '@@', '-one', '+ONE', '*** Add File: newdir/what?.txt', '+x')),
+      ).rejects.toThrow('does not allow');
+      expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
+      expect(existsSync(join(root, 'newdir'))).toBe(false);
+    },
+  );
+
+  it.skipIf(process.platform !== 'win32' && process.platform !== 'darwin')(
+    'refuses the same new file named twice in different case before changing anything',
+    async () => {
+      await expect(
+        run(
+          patch(
+            '*** Update File: src/a.ts',
+            '@@',
+            '-one',
+            '+ONE',
+            '*** Add File: b.txt',
+            '+x',
+            '*** Add File: B.txt',
+            '+y',
+          ),
+        ),
+      ).rejects.toThrow('appears twice');
+      expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
+      expect(existsSync(join(root, 'b.txt'))).toBe(false);
+    },
+  );
+
   it.each([false, true])('rejects non-UTF-8 updates (move=%s) before applying any file', async (move) => {
     const file = join(root, 'src', 'b.ts');
     const bytes = Buffer.from('caf\xe9\nalpha\n', 'latin1');

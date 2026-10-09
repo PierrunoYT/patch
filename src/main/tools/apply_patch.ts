@@ -210,15 +210,38 @@ export interface PlannedChange {
   fromRel?: string;
 }
 
+// Why Windows refuses a project-relative path as a file name, or null. Each part is checked: characters Windows does
+// not allow, a trailing dot or space, and device names such as CON or NUL (also with an extension).
+export function invalidWindowsName(rel: string): string | null {
+  for (const part of rel.split('/')) {
+    // eslint-disable-next-line no-control-regex
+    if (/[<>:"|?*\x00-\x1f]/.test(part)) return `"${part}" contains a character Windows does not allow in file names.`;
+    if (/[. ]$/.test(part)) return `"${part}" ends with a dot or a space, which Windows drops.`;
+    if (/^(con|prn|aux|nul|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3])(\..*)?$/i.test(part)) {
+      return `"${part}" is a device name on Windows.`;
+    }
+  }
+  return null;
+}
+
 // Works out every change before any file is touched, so a patch that fails in its third file leaves the first two alone.
 export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<PlannedChange[]> {
   const { workspace } = context;
   const changes: PlannedChange[] = [];
   const touched = new Set<string>();
+  // On Windows and macOS b.txt and B.txt are one file; a new path keeps the casing the model typed (#242).
+  const foldCase = process.platform === 'win32' || process.platform === 'darwin';
   const claim = (absolute: string, rel: string) => {
-    if (touched.has(absolute))
+    const key = foldCase ? absolute.toLowerCase() : absolute;
+    if (touched.has(key))
       throw new ToolError(`${rel} appears twice in the patch. Put all changes to a file in one block.`);
-    touched.add(absolute);
+    touched.add(key);
+  };
+  // A new file whose name Windows refuses would fail only while the patch is written, after earlier files changed.
+  const checkNewName = (rel: string) => {
+    if (process.platform !== 'win32') return;
+    const problem = invalidWindowsName(rel);
+    if (problem) throw new ToolError(`${rel}: ${problem}`);
   };
 
   for (const op of ops) {
@@ -227,6 +250,7 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
     claim(absolute, rel);
     if (op.kind === 'add') {
       if (existsSync(absolute)) throw new ToolError(`${rel} already exists. Use Update File to change it.`);
+      checkNewName(rel);
       const after = op.lines.length > 0 ? op.lines.join('\n') + '\n' : '';
       if (containsRedaction(after)) throw redactedError();
       changes.push({ path: op.path, rel, absolute, before: null, after });
@@ -259,6 +283,7 @@ export async function planPatch(ops: PatchOp[], context: ToolContext): Promise<P
         changes.push({ path: op.path, rel, absolute, before, beforeBytes: bytes, after });
       } else {
         claim(target, targetRel);
+        checkNewName(targetRel);
         changes.push({
           path: op.moveTo,
           rel: targetRel,
