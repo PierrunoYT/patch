@@ -154,8 +154,12 @@ function start(): void {
   for (const name of BROWSER_PARTITIONS) {
     session
       .fromPartition(name)
-      .webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) =>
-        callback({ cancel: !browser.allowsRequest(details.url, name === AGENT_BROWSER_PARTITION) }),
+      .webRequest.onBeforeRequest(
+        { urls: ['<all_urls>'] },
+        (details, callback) =>
+          void browser
+            .checkRequest(details.url, name === AGENT_BROWSER_PARTITION)
+            .then((allowed) => callback({ cancel: !allowed })),
       );
   }
   // A new chat or project gets an empty agent browser. The app starts with one anyway: its session is not saved.

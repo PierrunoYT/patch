@@ -181,6 +181,38 @@ describe('BrowserService', () => {
     expect(service.allowsRequest('ws://localhost:5173/')).toBe(true);
   });
 
+  it('also refuses public names that resolve to a local address, for a public page (#260)', async () => {
+    const lookups: string[] = [];
+    const resolve = async (host: string) => {
+      lookups.push(host);
+      if (host === 'gone.example') throw new Error('ENOTFOUND');
+      return { local: host === 'rebind.example' ? '127.0.0.1' : null };
+    };
+    const service = new BrowserService(
+      () => {},
+      async () => {},
+      async () => {},
+      resolve,
+    );
+    attach(service, new FakeGuest());
+    await service.open('https://example.com/', new AbortController().signal);
+    expect(await service.checkRequest('http://rebind.example:8080/secret')).toBe(false);
+    expect(await service.checkRequest('https://cdn.example/app.js')).toBe(true);
+    expect(await service.checkRequest('https://cdn.example/other.js')).toBe(true);
+    expect(await service.checkRequest('https://gone.example/x')).toBe(true);
+    // Each name is resolved once per page; address literals and the user's own session are not resolved.
+    expect(await service.checkRequest('http://127.0.0.1/')).toBe(false);
+    expect(await service.checkRequest('http://rebind.example/', false)).toBe(true);
+    expect(lookups).toEqual(['rebind.example', 'cdn.example', 'gone.example']);
+
+    // A page the agent opened on a local address is not limited, and a new page resolves again.
+    await service.open('http://localhost:3000/', new AbortController().signal);
+    expect(await service.checkRequest('http://rebind.example/')).toBe(true);
+    await service.open('https://example.com/', new AbortController().signal);
+    expect(await service.checkRequest('http://rebind.example/')).toBe(false);
+    expect(lookups.filter((host) => host === 'rebind.example')).toHaveLength(2);
+  });
+
   it('stops when the chat is stopped', async () => {
     const service = new BrowserService(() => {});
     const guest = new FakeGuest();

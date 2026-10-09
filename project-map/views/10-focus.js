@@ -10,7 +10,6 @@ builders.focus = () => {
         '#232 (macOS): Seatbelt lets commands read and write every user tty; denying it also breaks programs that open their own pty',
         '#257 (macOS, unverified): hard links into the project may get past the hidden home folder and read-only .git',
         '#242 and #259: the native file helper still applies a patch file by file without rollback, and truncates before writing',
-        '#260: a public name that resolves to a local address still reaches local services from the agent browser',
       ],
       'The macOS items need a Mac to verify; the helper items are Rust changes in native/sandbox-helper.',
     ],

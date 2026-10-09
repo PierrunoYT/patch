@@ -1,6 +1,7 @@
+import { isIP } from 'node:net';
 import type { WebContents } from 'electron';
 import type { BrowserController, PageLoadResult } from '../tools/browser';
-import { isLocalHostname } from '../tools/net_address';
+import { bareHostname, isLocalHostname, resolveDestination } from '../tools/net_address';
 
 // The hostname of a URL, or '' when it does not parse.
 function hostnameOf(url: string): string {
@@ -31,6 +32,8 @@ export class BrowserService implements BrowserController {
   private offline = false;
   // Set while the agent's page is a web page on a public host: it may not reach local addresses (#235).
   private publicPage = false;
+  // Whether each host name a public page loaded from resolves to a local address, per page (#260).
+  private resolved = new Map<string, Promise<boolean>>();
 
   constructor(
     private readonly show: () => void,
@@ -39,6 +42,8 @@ export class BrowserService implements BrowserController {
     // Cuts the agent session off from every network, or restores it. The request filter alone misses what Chromium
     // sends outside it, such as DNS prefetching and WebRTC.
     private readonly setOffline: (offline: boolean) => Promise<void> = async () => {},
+    // Resolves a host name the way fetch_url does; tests pass a stub.
+    private readonly resolve: (host: string) => Promise<{ local: string | null }> = resolveDestination,
   ) {}
 
   attach(guest: WebContents): void {
@@ -67,8 +72,8 @@ export class BrowserService implements BrowserController {
   // screenshot would hand it to the model. file:// is checked in both sessions; web pages cannot load file://
   // themselves. Network requests are refused only in the agent's session: all of them while it shows a project file,
   // and those to this machine or the local network while it shows a page that is not itself local, so a public page
-  // cannot frame or fetch a local service or cloud metadata for a screenshot to pass on (#235). Only names and
-  // address literals are checked here; a public name that resolves to a local address is not.
+  // cannot frame or fetch a local service or cloud metadata for a screenshot to pass on (#235). This check sees names
+  // and address literals; checkRequest also resolves the names.
   allowsRequest(url: string, fromAgentSession = true): boolean {
     if (fromAgentSession && this.offline && /^(https?|wss?|ftp):/i.test(url)) return false;
     if (fromAgentSession && this.publicPage && /^(https?|wss?):/i.test(url) && isLocalHostname(hostnameOf(url))) {
@@ -76,6 +81,26 @@ export class BrowserService implements BrowserController {
     }
     if (!/^file:/i.test(url) || !this.isNavigationAllowed) return true;
     return this.isNavigationAllowed(url);
+  }
+
+  // allowsRequest, and for a public page also what each host name resolves to: a public name that resolves to this
+  // machine, the local network or cloud metadata is refused too (#260). Names are resolved once per page. Chromium
+  // resolves the name again itself, so a name whose answer changes in between (DNS rebinding) is not fully covered.
+  async checkRequest(url: string, fromAgentSession = true): Promise<boolean> {
+    if (!this.allowsRequest(url, fromAgentSession)) return false;
+    if (!fromAgentSession || !this.publicPage || !/^(https?|wss?):/i.test(url)) return true;
+    const host = hostnameOf(url);
+    if (!host || isIP(bareHostname(host)) !== 0) return true;
+    let local = this.resolved.get(host);
+    if (!local) {
+      local = this.resolve(host).then(
+        (destination) => destination.local !== null,
+        // A name that does not resolve cannot be loaded anyway.
+        () => false,
+      );
+      this.resolved.set(host, local);
+    }
+    return !(await local);
   }
 
   // Takes the agent's session off the network before a project file loads, and back on before a web page loads. A
@@ -92,6 +117,7 @@ export class BrowserService implements BrowserController {
     this.isNavigationAllowed = null;
     this.blockedNavigation = null;
     this.publicPage = false;
+    this.resolved = new Map();
     const guest = this.available ? this.guest! : null;
     if (guest) {
       await guest.loadURL('about:blank').catch(() => {});
@@ -142,6 +168,7 @@ export class BrowserService implements BrowserController {
       if (signal.aborted) throw new Error('Stopped.');
       await this.setNetwork(guest, /^file:/i.test(url));
       this.publicPage = /^https?:/i.test(url) && !isLocalHostname(hostnameOf(url));
+      this.resolved = new Map();
       await Promise.race([
         guest.loadURL(url).catch((loadError: Error) => {
           error ??= loadError.message;

@@ -185,7 +185,7 @@ const D = {
       desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
       list: [
         'terminal.ts',
-        'browser.ts (193; agent session offline for project files, #229; public pages kept off local addresses, #235)',
+        'browser.ts (193; agent session offline for project files, #229; public pages kept off local addresses and names resolving to them, #235, #260)',
         'git.ts (507; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
         'commit_message.ts',
       ],
@@ -535,14 +535,6 @@ const D = {
     ['65c6d4e', 'fix(security): ask before allowed commands that write files or run programs'],
   ],
   issues: [
-    [
-      260,
-      'Agent browser pages reach local addresses through names that resolve to them',
-      'security',
-      'low',
-      0,
-      '10-09',
-    ],
     [259, 'Windows file helper truncates before writing; a crash can leave a short file', 'sandbox', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
@@ -639,7 +631,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 177,
+  closedCount: 178,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
