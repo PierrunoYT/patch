@@ -1,0 +1,9 @@
+# Keeps the commit-SHA pins of GitHub Actions current (#70). Updates wait a week after a release.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
