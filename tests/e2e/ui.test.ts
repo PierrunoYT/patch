@@ -226,8 +226,11 @@ describe('user interface', () => {
     await markdown.waitFor();
 
     expect(await markdown.locator('style, [style]').count()).toBe(0);
-    const overlay = markdown.locator('.model-overlay');
+    // Its class is removed too (#254), so the span is found by its text.
+    expect(await markdown.locator('.model-overlay').count()).toBe(0);
+    const overlay = markdown.locator('span', { hasText: 'Overlay payload' });
     expect(await overlay.textContent()).toBe('Overlay payload');
+    expect(await overlay.getAttribute('class')).toBeNull();
     expect(
       await overlay.evaluate((element) => {
         const style = getComputedStyle(element);
