@@ -1,21 +1,54 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyChatEvent,
+  chatEventApplies,
   countDiffLines,
   diffNotice,
   filterChats,
   limitPreview,
+  newerSnapshot,
   outputNotice,
   planNotice,
   searchSnippet,
   transcriptSearchText,
   TRANSCRIPT_LIMITS,
   type ChatEvent,
+  type ChatSnapshot,
   type ChatSummary,
   type TranscriptItem,
 } from './chat';
 
 const run = (events: ChatEvent[]) => events.reduce<TranscriptItem[]>(applyChatEvent, []);
+
+describe('chat events around a start-up snapshot (#192)', () => {
+  const snapshot = (seq: number | undefined, title = 'asked'): ChatSnapshot => ({
+    id: 'chat-1',
+    title,
+    projectPath: null,
+    model: 'm',
+    transcript: [],
+    busy: true,
+    resumable: false,
+    usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 },
+    agentFile: null,
+    seq,
+  });
+
+  it('keeps the snapshot that includes more events', () => {
+    expect(newerSnapshot(snapshot(5), null).title).toBe('asked');
+    expect(newerSnapshot(snapshot(5), snapshot(7, 'pushed')).title).toBe('pushed');
+    expect(newerSnapshot(snapshot(5), snapshot(5, 'pushed')).title).toBe('pushed');
+    expect(newerSnapshot(snapshot(7), snapshot(5, 'pushed')).title).toBe('asked');
+  });
+
+  it('applies only events of the shown chat that are newer than its snapshot', () => {
+    expect(chatEventApplies(snapshot(5), 'chat-1', 5)).toBe(false);
+    expect(chatEventApplies(snapshot(5), 'chat-1', 6)).toBe(true);
+    expect(chatEventApplies(snapshot(5), 'chat-2', 6)).toBe(false);
+    // A snapshot without a number (from an older main process) takes every event.
+    expect(chatEventApplies(snapshot(undefined), 'chat-1', 1)).toBe(true);
+  });
+});
 
 describe('transcriptSearchText and searchSnippet', () => {
   it('collects only what the user and the assistant said', () => {

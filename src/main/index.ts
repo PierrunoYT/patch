@@ -230,6 +230,9 @@ function start(): void {
     return index ? { index } : { index: null, reason: 'Set an OpenRouter API key to enable code indexing.' };
   };
 
+  // Numbers every chat event sent to the window; a snapshot carries the number of the last event it already includes,
+  // so a window that starts while a run is going can drop older events and keep newer ones (#192).
+  let chatEventSeq = 0;
   const manager = new ChatManager({
     settings,
     projects,
@@ -244,9 +247,9 @@ function start(): void {
     emit: (event, chatId) => {
       // Model and provider failures shown in the chat (the error text, not the conversation).
       if (event.type === 'error') appLog.error('chat', event.text);
-      send(mainWindow, 'chat:event', { chatId, event });
+      send(mainWindow, 'chat:event', { chatId, event, seq: ++chatEventSeq });
     },
-    onSnapshot: (snapshot) => send(mainWindow, 'chat:snapshot', snapshot),
+    onSnapshot: (snapshot) => send(mainWindow, 'chat:snapshot', { ...snapshot, seq: chatEventSeq }),
     onHistoryChanged: () => send(mainWindow, 'history:changed', chats.list()),
     onDroppedFields: (error) => toolErrorLog.record(error),
     edits: editBackups,
@@ -377,7 +380,7 @@ function start(): void {
     return projects.list();
   });
 
-  handle('chat:snapshot', () => manager.snapshot());
+  handle('chat:snapshot', () => ({ ...manager.snapshot(), seq: chatEventSeq }));
   handle('chat:send', (message) => {
     // Returns once the chat has started; progress arrives as chat:event messages.
     manager.send(message).catch(() => {});

@@ -123,6 +123,9 @@ export interface ChatSnapshot {
   usage: UsageTotals;
   // Name of the project instruction file (AGENTS.md) that is part of the system prompt, if any.
   agentFile: string | null;
+  // Set by the main process when it sends the snapshot to the window: the number of the last chat event already
+  // reflected in it. Events with this number or lower must not be applied on top (#192).
+  seq?: number;
 }
 
 export interface ChatSummary {
@@ -140,6 +143,16 @@ export interface ChatSummary {
 }
 
 // What is searched in a saved chat besides its title: the user's and the assistant's messages.
+// Of the snapshot the window asked for at start-up and one pushed to it meanwhile, the one that includes more events.
+export function newerSnapshot(asked: ChatSnapshot, pushed: ChatSnapshot | null): ChatSnapshot {
+  return pushed && (pushed.seq ?? 0) >= (asked.seq ?? 0) ? pushed : asked;
+}
+
+// Whether a chat event still has to be applied to the snapshot shown: it is for that chat and newer than the snapshot.
+export function chatEventApplies(snapshot: ChatSnapshot, chatId: string, seq: number): boolean {
+  return chatId === snapshot.id && seq > (snapshot.seq ?? 0);
+}
+
 export function transcriptSearchText(transcript: TranscriptItem[]): string {
   return transcript
     .flatMap((item) => (item.kind === 'user' || item.kind === 'assistant' ? [item.text] : []))

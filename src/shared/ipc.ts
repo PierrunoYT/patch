@@ -123,7 +123,8 @@ export interface EventMap {
   'app:notice': string;
   'settings:changed': SettingsView;
   'project:changed': ProjectInfo | null;
-  'chat:event': { chatId: string; event: ChatEvent };
+  // `seq` increases with every chat event; snapshots carry the last one they include (#192).
+  'chat:event': { chatId: string; event: ChatEvent; seq: number };
   'chat:snapshot': ChatSnapshot;
   'history:changed': ChatSummary[];
   'terminal:data': string;

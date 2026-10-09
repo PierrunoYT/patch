@@ -1,6 +1,6 @@
-import { applyChatEvent, type ChatEvent, type ChatSnapshot } from '@shared/chat';
+import { applyChatEvent, chatEventApplies, newerSnapshot, type ChatEvent, type ChatSnapshot } from '@shared/chat';
 import { indexStatusLabel } from '@shared/index_status';
-import type { ImageAttachment, IndexStatus } from '@shared/ipc';
+import type { EventMap, ImageAttachment, IndexStatus } from '@shared/ipc';
 import {
   acceptsImages,
   COMPACT_SUGGESTED_TOKENS,
@@ -157,11 +157,28 @@ export class App {
   );
 
   async start(root: HTMLElement): Promise<void> {
-    [this.settings, this.project, this.chat] = await Promise.all([
+    // Chat listeners come first: Electron drops messages that arrive while nobody listens, and a window opened during
+    // a run would otherwise lose, say, the busy:false that ends it (#192). Until the start-up answers are in, events
+    // and pushed snapshots are only kept; the newest snapshot wins, and only events newer than it are applied.
+    let started = false;
+    const early: Array<EventMap['chat:event']> = [];
+    let pushed: ChatSnapshot | null = null;
+    api.on('chat:snapshot', (snapshot) => {
+      if (started) this.applySnapshot(snapshot);
+      else pushed = snapshot;
+    });
+    api.on('chat:event', (message) => {
+      if (started) this.onChatEvent(message);
+      else early.push(message);
+    });
+    let snapshot: ChatSnapshot;
+    [this.settings, this.project, snapshot] = await Promise.all([
       api.invoke('settings:get'),
       api.invoke('project:current'),
       api.invoke('chat:snapshot'),
     ]);
+    // `pushed` is assigned by the listener above; the cast stops TypeScript from narrowing it to its initial null.
+    this.chat = newerSnapshot(snapshot, pushed as ChatSnapshot | null);
 
     root.replaceChildren(this.layout());
     this.applyTheme();
@@ -200,24 +217,8 @@ export class App {
       void this.renderWelcome();
       void this.renderProjects();
     });
-    api.on('chat:snapshot', (snapshot) => {
-      this.chat = snapshot;
-      this.pendingEvents = [];
-      this.transcript.reset();
-      this.renderAll();
-    });
-    api.on('chat:event', ({ chatId, event }) => {
-      if (chatId !== this.chat.id) return;
-      this.pendingEvents.push(event);
-      if (event.type === 'tool-end') {
-        this.panels.filesChanged();
-        this.composer.filesChanged();
-        // search_code builds the index on its first call.
-        if (event.status === 'done') void this.refreshIndex();
-      }
-      // Stream deltas arrive quickly; apply them in batches once per frame.
-      this.frame ||= requestAnimationFrame(() => this.flushEvents());
-    });
+    started = true;
+    for (const message of early) this.onChatEvent(message);
     // Notices from the main process (MCP servers reconnected, a saved key that can no longer be read).
     api.on('app:notice', (text) => this.toast(text, 'warning'));
     api.on('menu:command', (command) => {
@@ -351,6 +352,27 @@ export class App {
         this.planSwitch,
       ),
     );
+  }
+
+  private applySnapshot(snapshot: ChatSnapshot): void {
+    this.chat = snapshot;
+    this.pendingEvents = [];
+    this.transcript.reset();
+    this.renderAll();
+  }
+
+  private onChatEvent({ chatId, event, seq }: EventMap['chat:event']): void {
+    // Already part of the snapshot shown (an event sent before the snapshot was taken).
+    if (!chatEventApplies(this.chat, chatId, seq)) return;
+    this.pendingEvents.push(event);
+    if (event.type === 'tool-end') {
+      this.panels.filesChanged();
+      this.composer.filesChanged();
+      // search_code builds the index on its first call.
+      if (event.status === 'done') void this.refreshIndex();
+    }
+    // Stream deltas arrive quickly; apply them in batches once per frame.
+    this.frame ||= requestAnimationFrame(() => this.flushEvents());
   }
 
   private renderAll(): void {
