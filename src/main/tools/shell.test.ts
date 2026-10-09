@@ -316,6 +316,15 @@ describe('formatResult', () => {
     expect(text).toContain('unsandboxed');
   });
 
+  it('redacts a private key before cutting long output, even when the cut falls inside it (#253)', () => {
+    const body = Array.from({ length: 400 }, (_, i) => `KEYLINE${i}${'Q'.repeat(60)}`).join('\n');
+    const key = `-----BEGIN RSA PRIVATE KEY-----\n${body}\n-----END RSA PRIVATE KEY-----`;
+    const output = `${'noise\n'.repeat(4000)}${key}\n${'noise\n'.repeat(1000)}`;
+    const text = formatResult('cat key', { ...result, output, timedOut: false, exitCode: 0 });
+    expect(text).not.toContain('KEYLINE');
+    expect(text).toContain('[REDACTED');
+  });
+
   it('adds no hint to other timeouts or to Windows sandbox commands that finished', () => {
     for (const sandbox of ['none', 'bwrap', 'seatbelt', 'container'] as const)
       expect(formatResult('node --test', { ...result, sandbox })).not.toContain(APPCONTAINER_TIMEOUT_HINT);

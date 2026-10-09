@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { appLog } from '../app_log';
 import { sandboxEnv, scrubEnv } from './env';
 import { startFilteringProxy, type FilteringProxy } from './net_proxy';
+import { redactSecrets } from './redact';
 import {
   buildLaunch,
   decideSandbox,
@@ -623,7 +624,8 @@ export function formatResult(command: string, result: CommandResult): string {
     : result.timedOut
       ? 'Timed out and was stopped.'
       : `Exit code: ${result.exitCode ?? 'unknown'}`;
-  const output = stripAnsi(result.output).trim();
+  // Redacted before it is cut: a key whose END falls in the left-out middle would otherwise come through (#253).
+  const output = redactSecrets(stripAnsi(result.output).trim());
   const hint = result.timedOut && result.sandbox === 'appcontainer' ? `\n${APPCONTAINER_TIMEOUT_HINT}` : '';
   return `$ ${command}\n${status}\n${output ? truncateOutput(output) : '(no output)'}${hint}`;
 }
@@ -694,7 +696,7 @@ export const runCommandTool = defineTool({
       // has already ended has nothing more to show, so it does not wait.
       await waitForStartup(entry, context.signal);
       const status = entry.exitCode === undefined ? 'still running' : `exited with code ${entry.exitCode}`;
-      const content = `Started background command ${entry.id} (${status}).\n${truncateOutput(stripAnsi(takeUnread(entry))) || '(no output yet)'}`;
+      const content = `Started background command ${entry.id} (${status}).\n${truncateOutput(redactSecrets(stripAnsi(takeUnread(entry)))) || '(no output yet)'}`;
       // Already ended and fully shown: nothing is left to poll.
       context.shell.releaseIfRead(entry);
       return {
@@ -731,8 +733,8 @@ export const commandOutputTool = defineTool({
     const status = entry.exitCode === undefined ? 'running' : `exited with code ${entry.exitCode}`;
     const unread = takeUnread(entry);
     const output = full
-      ? truncateOutput(stripAnsi(entry.output).trim()) || '(no output)'
-      : truncateOutput(stripAnsi(unread).trim()) || '(no new output since your last read)';
+      ? truncateOutput(redactSecrets(stripAnsi(entry.output).trim())) || '(no output)'
+      : truncateOutput(redactSecrets(stripAnsi(unread).trim())) || '(no new output since your last read)';
     if (stop) context.shell.stopBackground(id, entry.owner);
     // An ended command whose output is now fully read is dropped from memory.
     else context.shell.releaseIfRead(entry);

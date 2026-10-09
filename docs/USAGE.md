@@ -200,7 +200,7 @@ api.example.com
 
 ### Hidden secrets
 
-Before the assistant sees a tool result (a file it read, command output, a fetched page), private keys, cloud and Git host tokens, JWTs and values of credential-named variables (`password = "…"`, `API_KEY=…` lines) are replaced by `[REDACTED:_____]`. The same text is shown in the chat and saved with it. The assistant cannot write the placeholder into a file: `write_file`, `edit_file` and `apply_patch` refuse it, so a secret is never overwritten by the placeholder. Redaction recognises common formats only.
+Before the assistant sees a tool result (a file it read, command output, a fetched page), private keys, cloud and Git host tokens, JWTs and values of credential-named variables (`password = "…"`, `API_KEY=…` lines) are replaced by `[REDACTED:_____]`. The same text is shown in the chat and saved with it, and a command's live output is redacted as it arrives. A private key cut off by a long output's shortening, or split between reads of a background command, is masked from its BEGIN line or up to its END line. The assistant cannot write the placeholder into a file: `write_file`, `edit_file` and `apply_patch` refuse it, so a secret is never overwritten by the placeholder. Redaction recognises common formats only.
 
 ## MCP servers
 

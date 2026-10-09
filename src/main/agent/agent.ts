@@ -3,7 +3,7 @@ import type { ApprovalDecision, ChatEvent, ModelUsage, UsageTotals } from '@shar
 import type { ApprovalMode } from '@shared/settings';
 import type { Conversation, ToolCall, ToolResult, UserInput } from '../llm/types';
 import { PLAN_MODE_OFF_RESULT } from '../tools/plan';
-import { redactSecrets } from '../tools/redact';
+import { redactSecrets, streamRedactor } from '../tools/redact';
 import { toToolSpecs } from '../tools/registry';
 import { ToolError, type AgentTool, type EditUndo, type ToolContext, type ToolPreview } from '../tools/types';
 import type { PermissionDecision } from './permissions';
@@ -456,7 +456,9 @@ export class Agent {
       return { result: { id: call.id, content: PLAN_MODE_OFF_RESULT } };
     }
 
-    const onProgress = (text: string) => emit({ type: 'tool-progress', id: eventId, text });
+    // Live output is shown and may be saved before the tool ends, so it is redacted too, across its pieces (#253).
+    const redactProgress = streamRedactor();
+    const onProgress = (text: string) => emit({ type: 'tool-progress', id: eventId, text: redactProgress(text) });
     const context = this.options.toolContext(signal, onProgress);
 
     const rule = await this.options.decidePermission?.(tool.name, input);

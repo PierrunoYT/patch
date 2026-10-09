@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { containsRedaction, redactSecrets, REDACTION_MARK } from './redact';
+import { containsRedaction, redactSecrets, REDACTION_MARK, streamRedactor } from './redact';
+
+describe('a private key cut into pieces (#253)', () => {
+  const begin = '-----BEGIN OPENSSH PRIVATE KEY-----';
+  const end = '-----END OPENSSH PRIVATE KEY-----';
+
+  it('masks the half after a BEGIN with no END, and the half before an END with no BEGIN', () => {
+    expect(redactSecrets(`ls\n${begin}\nSECRETBODY1\nSECRETBODY2`)).toBe(`ls\n${REDACTION_MARK}`);
+    expect(redactSecrets(`SECRETBODY3\n${end}\ndone`)).toBe(`${REDACTION_MARK}\ndone`);
+    // A whole key followed by ordinary text keeps that text.
+    expect(redactSecrets(`${begin}\nX\n${end}\nafter ${end.length}`)).toBe(`${REDACTION_MARK}\nafter ${end.length}`);
+  });
+
+  it('keeps masking streamed output from a BEGIN until its END arrives', () => {
+    const redact = streamRedactor();
+    const pieces = ['start\n', `${begin}\nSECRET`, 'BODY4\nSECRETBODY5\n', `SECRETBODY6\n${end}\n`, 'after\n'];
+    const shown = pieces.map(redact).join('');
+    expect(shown).not.toMatch(/SECRET/);
+    expect(shown).toContain('start');
+    expect(shown).toContain('after');
+    // Ordinary output passes through unchanged.
+    expect(streamRedactor()('hello\n')).toBe('hello\n');
+  });
+});
 
 describe('redactSecrets', () => {
   it.each([

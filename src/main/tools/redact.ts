@@ -26,10 +26,38 @@ const SECRET_PATTERNS: RegExp[] = [
 // (a minified file, base64) costs linear time: redaction runs on the main process for every tool result (#122).
 const URL_PASSWORD = /\b([a-z][a-z0-9+.-]{0,30}:\/\/[^\s:/@'"`<>]{0,256}:)([^\s/'"`<>]{1,512})(@[^\s@/'"`<>]{1,256})/gi;
 
+// A private key cut off by truncation or split across reads of a command's output (#253): the part after a BEGIN with
+// no END, and the part before an END with no BEGIN. Applied after whole keys are replaced, so these only see halves.
+const KEY_BEGIN = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
+const KEY_END = /-----END [A-Z ]*PRIVATE KEY-----/;
+const KEY_TAIL = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*$/;
+const KEY_HEAD = /^[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/;
+
 export function redactSecrets(text: string): string {
   let out = text;
   for (const pattern of SECRET_PATTERNS) out = out.replace(pattern, REDACTION_MARK);
+  out = out.replace(KEY_HEAD, REDACTION_MARK).replace(KEY_TAIL, REDACTION_MARK);
   return out.replace(URL_PASSWORD, `$1${REDACTION_MARK}$3`);
+}
+
+// Redacts text that arrives in pieces (a command's live output). A private key whose BEGIN came in an earlier piece
+// is masked until its END arrives, so its middle lines are never shown either.
+export function streamRedactor(): (chunk: string) => string {
+  let insideKey = false;
+  return (chunk) => {
+    let text = chunk;
+    let prefix = '';
+    if (insideKey) {
+      const end = KEY_END.exec(text);
+      if (!end) return REDACTION_MARK;
+      prefix = REDACTION_MARK;
+      text = text.slice(end.index + end[0].length);
+      insideKey = false;
+    }
+    const begins = [...text.matchAll(new RegExp(KEY_BEGIN, 'g'))].at(-1);
+    if (begins && !KEY_END.test(text.slice(begins.index))) insideKey = true;
+    return prefix + redactSecrets(text);
+  };
 }
 
 export function containsRedaction(text: string): boolean {

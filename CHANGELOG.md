@@ -65,6 +65,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- Command output is redacted before a long result is shortened, a private key with only its BEGIN or END line left (cut by the shortening, or split between reads of a background command) is masked, and live command output in the chat is redacted as it arrives. Before, key lines could reach the model and the chat in all three cases (fixes #253).
 - Model-written Markdown can no longer use the app's own classes and ids, or hide text: `class` (except code highlighting), `id` and `hidden` are removed, so a reply cannot draw a fake Approve button or overlay (fixes #254).
 - A sandboxed MCP server that names `${project}` refuses to start when the project is inside Patch's own data or install folder, the same check commands get. Before, the server's root check left those folders out (fixes #256).
 - More addresses count as local, so `fetch_url` and `browser` ask before reaching them even in Auto mode: 192.0.0.0/24 (Oracle Cloud's metadata address), 198.18.0.0/15, multicast and reserved IPv4 ranges, IPv6 site-local and multicast, and NAT64, 6to4 and IPv4-compatible IPv6 addresses whose IPv4 address is local (such as `64:ff9b::7f00:1` for 127.0.0.1). NAT64 addresses of public sites stay public (fixes #252).
