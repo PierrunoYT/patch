@@ -11,7 +11,7 @@ builders.focus = () => {
         '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and, with #97, give Linux commands with network access their own network namespace (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
+      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux, #97) to macOS and Windows (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',
@@ -52,7 +52,7 @@ builders.focus = () => {
         '#126: approve exact extra read/write paths for one command instead of dropping the sandbox',
         '#127: protect project-local agent, IDE and startup configuration from shell writes, including absent paths',
         '#128: add an OS-restricted file executor; #144 now provides native no-follow handles, but the helper still runs with the user’s permissions',
-        '#97 and #87: upstream proxy and process-wrapper references were added to the existing network and MCP issues rather than duplicated',
+        '#97 and #87 are done on Linux: allow-list commands go through a filtering proxy from their own network namespace, and MCP stdio servers can opt in to bubblewrap; macOS and Windows remain',
       ],
       'Keep existing fail-closed behavior. Do not copy network throttling as a network-denial guarantee; validate every claimed boundary on real backends.',
     ],

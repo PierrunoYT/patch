@@ -59,7 +59,8 @@ describe('sandbox escalation approvals', () => {
     const dialog = running.page.locator('.app-dialog');
     await running.page.getByLabel('Run commands in a sandbox').scrollIntoViewIfNeeded();
     expect(await dialog.textContent()).toContain('Commands do not run when the selected sandbox is unavailable');
-    expect(await dialog.textContent()).toContain('Matching command URLs request unrestricted network access');
+    expect(await dialog.textContent()).toContain('matching command URLs request unrestricted network access');
+    expect(await dialog.textContent()).toContain('Allow-list on Linux (Automatic mode)');
     expect(await running.page.getByLabel('Network in the sandbox').inputValue()).toBe('allow-list');
     if (captureDir) await dialog.screenshot({ path: join(captureDir, 'sandbox-settings.png') });
     await running.page.getByRole('button', { name: 'Cancel' }).click();

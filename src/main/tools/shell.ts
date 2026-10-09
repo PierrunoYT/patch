@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { appLog } from '../app_log';
 import { sandboxEnv, scrubEnv } from './env';
+import { startFilteringProxy, type FilteringProxy } from './net_proxy';
 import {
   buildLaunch,
   decideSandbox,
@@ -131,11 +132,14 @@ export class ShellRunner {
     private readonly sensitivePaths: () => string[] = () => [],
   ) {}
 
-  // URL matching cannot constrain the connections a program makes. Treat it as a request for full network access.
+  // URL matching cannot constrain the connections a program makes. Treat it as a request for full network access,
+  // except where the network is filtered by host (#97): then the boundary holds without asking.
   mustAsk(command: string, access: CommandAccess): boolean {
     if (access.network || access.unsandboxed) return true;
     const config = this.sandbox();
-    return config.mode !== 'off' && config.network === 'allow-list' && wantsNetwork(command, config, access);
+    if (config.mode === 'off' || config.network !== 'allow-list') return false;
+    const decision = this.decide(command, access);
+    return !('filtered' in decision && decision.filtered) && wantsNetwork(command, config, access);
   }
 
   // Runs the sandbox probes this command's decision needs, off the main thread's critical path (#112). describe,
@@ -338,6 +342,7 @@ export class ShellRunner {
       return { child: await this.spawnInAppContainer(inner, decision.network, signal), sandbox: decision.kind };
     let launch: Launch;
     let commandTemp: string | undefined;
+    let proxy: FilteringProxy | undefined;
     if (decision.kind === 'none') launch = { file: inner.file, args: inner.args };
     else {
       const env = await systemLaunchEnv({
@@ -356,6 +361,15 @@ export class ShellRunner {
         env.tmp = commandTemp;
       }
       const support = this.detect();
+      if (decision.filtered) {
+        // A proxy that cannot start leaves the command without any network; it is not run unfiltered instead.
+        proxy = await startFilteringProxy({ allowedHosts: config.allowedHosts });
+        env.proxy = { socket: proxy.socketPath, bridge: support.netBridge! };
+        if (signal?.aborted) {
+          await proxy.close();
+          signal.throwIfAborted();
+        }
+      }
       launch = buildLaunch(decision, env, support.container, { scope: support.scope });
       // The limits are not a security boundary, so a missing systemd user manager does not stop the command (#104).
       if (decision.kind === 'bwrap' && !support.scope)
@@ -401,6 +415,11 @@ export class ShellRunner {
           appLog.warn('sandbox', 'Could not remove the command temporary directory.');
         }
       });
+    if (proxy) {
+      const filtering = proxy;
+      child.once('close', () => void filtering.close());
+      child.once('error', () => void filtering.close());
+    }
     if (launch.stop) stoppers.set(child, launch.stop);
     child.once('spawn', () => spawned.add(child));
     const lifetime: Lifetime = { startedAt: Date.now() };

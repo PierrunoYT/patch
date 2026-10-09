@@ -90,6 +90,10 @@
         {
           "from": "native/sandbox-helper/target/release/file-helper",
           "to": "file-helper"
+        },
+        {
+          "from": "native/sandbox-helper/target/release/net-bridge",
+          "to": "net-bridge"
         }
       ],
       "target": [

@@ -162,6 +162,57 @@ describe('wantsNetwork', () => {
     expect(wantsNetwork('npm i', { ...config, network: 'on' }, {})).toBe(true);
   });
 
+  it('filters the allow-list setting by host where bubblewrap and the bridge can enforce it (#97)', () => {
+    const list = { ...config, network: 'allow-list' as const };
+    const linux: SandboxSupport = { ...none, bwrap: true, netBridge: '/opt/Patch/resources/net-bridge' };
+    // Every command, whatever URLs it names: the proxy decides per connection.
+    expect(decideSandbox('npm install', list, linux, {}, 'linux')).toEqual({
+      kind: 'bwrap',
+      network: false,
+      filtered: true,
+    });
+    // An explicit network request stays unrestricted network; other settings and platforms keep the old behavior.
+    expect(decideSandbox('npm install', list, linux, { network: true }, 'linux')).toEqual({
+      kind: 'bwrap',
+      network: true,
+    });
+    expect(decideSandbox('npm install', { ...list, network: 'off' }, linux, {}, 'linux')).toEqual({
+      kind: 'bwrap',
+      network: false,
+    });
+    expect(decideSandbox('npm install', list, { ...linux, netBridge: null }, {}, 'linux')).toEqual({
+      kind: 'bwrap',
+      network: false,
+    });
+    expect(decideSandbox('npm install', list, { ...linux, seatbelt: true }, {}, 'darwin')).toMatchObject({
+      kind: 'seatbelt',
+    });
+    expect(describeSandbox({ kind: 'bwrap', network: false, filtered: true })).toContain(
+      'network only to the allowed hosts, on ports 80 and 443, through a filtering proxy',
+    );
+  });
+
+  it('mounts the proxy socket and bridge and starts the command through the bridge (#97)', () => {
+    const args = bwrapArgs({ ...env(), proxy: { socket: '/tmp/patch-net-x/proxy.sock', bridge: '/opt/b' } }, false);
+    expect(args).toContain('--unshare-all');
+    expect(args).not.toContain('--share-net');
+    expect(args.join(' ')).toContain('--bind /tmp/patch-net-x/proxy.sock /tmp/.patch-proxy.sock');
+    expect(args.join(' ')).toContain('--ro-bind /opt/b /tmp/.patch-net-bridge');
+    expect(args.join(' ')).toContain('--setenv HTTPS_PROXY http://127.0.0.1:3128');
+    const start = args.indexOf('--', args.indexOf('--chdir'));
+    expect(args.slice(start + 1, start + 6)).toEqual([
+      '/tmp/.patch-net-bridge',
+      '3128',
+      '/tmp/.patch-proxy.sock',
+      '--',
+      '/bin/bash',
+    ]);
+    // The proxy is mounted after /tmp's tmpfs, or the tmpfs would hide it.
+    expect(args.indexOf('/tmp/.patch-proxy.sock')).toBeGreaterThan(args.indexOf('--tmpfs'));
+    // With unrestricted network there is nothing to filter.
+    expect(bwrapArgs({ ...env(), proxy: { socket: '/s', bridge: '/b' } }, true).join(' ')).not.toContain('bridge');
+  });
+
   it('grants the allow-list setting only when every URL in the command is allowed', () => {
     const list = { ...config, network: 'allow-list' as const };
     expect(wantsNetwork('curl https://registry.npmjs.org/x', list, {})).toBe(true);

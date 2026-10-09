@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { dirname, parse, posix, relative, resolve, sep } from 'node:path';
+import { dirname, join, parse, posix, relative, resolve, sep } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
-import { DEFAULT_LIMITS, findHelper } from './sandbox_windows';
+import { DEFAULT_LIMITS, findHelper, isPackagedElectron } from './sandbox_windows';
 import { validateSandboxGit } from './sandbox_git';
+import { PROXY_PORT } from './net_proxy';
 
 // Runs agent commands (run_command, background ones included) with limited rights. The planning code below is pure
 // so it can be tested on any platform; only refreshSandboxSupport() and detectSandboxSupport() look at the machine.
@@ -25,6 +26,8 @@ export interface SandboxSupport {
   bwrap: boolean;
   // `systemd-run --user --scope` works, so bubblewrap commands can get process and memory limits (#104).
   scope?: boolean;
+  // Path of the net-bridge helper, so bubblewrap commands can get network filtered by host (#97).
+  netBridge?: string | null;
   seatbelt: boolean;
   // Path of sandbox-helper.exe (Windows AppContainer).
   appcontainer: string | null;
@@ -39,8 +42,9 @@ export interface CommandAccess {
 
 export type SandboxKind = 'bwrap' | 'seatbelt' | 'appcontainer' | 'container' | 'none';
 
+// `filtered`: no direct network, only the allow-listed hosts through Patch's proxy (#97); `network` is then false.
 export type SandboxDecision =
-  { kind: SandboxKind; network: boolean; note?: string } | { kind: 'unavailable'; reason: string };
+  { kind: SandboxKind; network: boolean; filtered?: boolean; note?: string } | { kind: 'unavailable'; reason: string };
 
 // Read-only inside the sandbox when they exist: what builds need. Everything else in the home folder is hidden.
 // Open binaries/caches, not their credential-bearing parent folders or global Git configuration.
@@ -86,12 +90,31 @@ export function commandUrlsAllowed(command: string, allowedHosts: string): boole
   return urls.length > 0 && urls.every((url) => isNetworkUrlAllowed(url, allowedHosts));
 }
 
-// Whether the sandbox gets network. "allow-list" cannot filter by host (neither bubblewrap, Seatbelt nor a plain
-// container can): matching command URLs request unrestricted network access, which must be approved for each run.
-// This is a request heuristic, never a host-level network boundary.
+// Whether the sandbox gets network. Except where `filtersNetwork` holds, "allow-list" cannot filter by host
+// (Seatbelt, a plain container and the AppContainer helper cannot): matching command URLs request unrestricted
+// network access, which must be approved for each run. That is a request heuristic, never a network boundary.
 export function wantsNetwork(command: string, config: SandboxConfig, access: CommandAccess): boolean {
   if (access.network || config.network === 'on') return true;
   return config.network === 'allow-list' && commandUrlsAllowed(command, config.allowedHosts);
+}
+
+// Whether an "allow-list" command gets network enforced by host instead (#97): bubblewrap on Linux, with the
+// net-bridge helper, gives the command its own network namespace whose only way out is Patch's filtering proxy.
+export function filtersNetwork(
+  config: SandboxConfig,
+  support: SandboxSupport,
+  access: CommandAccess,
+  platform: NodeJS.Platform,
+): boolean {
+  return (
+    config.mode === 'auto' &&
+    config.network === 'allow-list' &&
+    !access.network &&
+    !access.unsandboxed &&
+    platform === 'linux' &&
+    support.bwrap &&
+    Boolean(support.netBridge)
+  );
 }
 
 export function decideSandbox(
@@ -119,6 +142,7 @@ export function decideSandbox(
     }
     return { kind: 'container', network };
   }
+  if (filtersNetwork(config, support, access, platform)) return { kind: 'bwrap', network: false, filtered: true };
   if (platform === 'linux' && support.bwrap) return { kind: 'bwrap', network };
   if (platform === 'darwin' && support.seatbelt) return { kind: 'seatbelt', network };
   if (platform === 'win32' && support.appcontainer) return { kind: 'appcontainer', network };
@@ -153,7 +177,14 @@ export interface LaunchEnv {
   // the program sees instead of the hidden home folder.
   writable?: string[];
   homeEnv?: string;
+  // bubblewrap only: filtered network (#97). The proxy's Unix socket and the net-bridge binary are mounted into the
+  // sandbox, and the bridge starts the command.
+  proxy?: { socket: string; bridge: string };
 }
+
+// Where the proxy socket and the bridge appear inside the sandbox, on its private /tmp.
+const PROXY_SOCKET = '/tmp/.patch-proxy.sock';
+const PROXY_BRIDGE = '/tmp/.patch-net-bridge';
 
 export interface Launch {
   file: string;
@@ -212,7 +243,17 @@ export function bwrapArgs(env: LaunchEnv, network: boolean): string[] {
   for (const path of env.writable ?? []) args.push('--bind', path, path);
   // Mount the directory itself: protecting leaves would allow absent control files and directory replacement.
   for (const path of env.gitPaths) args.push('--ro-bind', path, path);
+  if (env.proxy && !network) {
+    args.push('--bind', env.proxy.socket, PROXY_SOCKET, '--ro-bind', env.proxy.bridge, PROXY_BRIDGE);
+    // Programs that honor proxy variables (curl, git, npm, pip, Node with NODE_USE_ENV_PROXY) use the bridge;
+    // anything else has no route and no resolver, so it fails instead of getting around the filter.
+    const proxyUrl = `http://127.0.0.1:${PROXY_PORT}`;
+    for (const name of ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'ALL_PROXY', 'all_proxy'])
+      args.push('--setenv', name, proxyUrl);
+    args.push('--setenv', 'NO_PROXY', '', '--setenv', 'no_proxy', '', '--setenv', 'NODE_USE_ENV_PROXY', '1');
+  }
   args.push('--setenv', 'HOME', env.homeEnv ?? home, '--setenv', 'TMPDIR', '/tmp', '--chdir', cwd, '--');
+  if (env.proxy && !network) args.push(PROXY_BRIDGE, String(PROXY_PORT), PROXY_SOCKET, '--');
   args.push(shell.file, ...shell.args);
   return args;
 }
@@ -442,11 +483,13 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
     appcontainer: 'Sandboxed (AppContainer)',
     container: 'Sandboxed (container)',
   }[decision.kind];
-  const net = decision.network
-    ? access.network
-      ? 'unrestricted network allowed for this command'
-      : 'unrestricted network on (not filtered by hostname)'
-    : 'no network';
+  const net = decision.filtered
+    ? 'network only to the allowed hosts, on ports 80 and 443, through a filtering proxy'
+    : decision.network
+      ? access.network
+        ? 'unrestricted network allowed for this command'
+        : 'unrestricted network on (not filtered by hostname)'
+      : 'no network';
   // Seatbelt keeps local Unix sockets (Docker, ssh-agent) blocked even with network access. bubblewrap shares the
   // host's network namespace, which holds loopback services and abstract Unix sockets such as X11's (#102).
   const sockets = !decision.network
@@ -508,10 +551,26 @@ export function detectSandboxSupport(platform: NodeJS.Platform = process.platfor
   return {
     bwrap: platform === 'linux' && known(BWRAP_PROBE),
     scope: platform === 'linux' && known(SCOPE_PROBE),
+    netBridge: platform === 'linux' ? findNetBridge() : null,
     seatbelt: platform === 'darwin' && existsSync('/usr/bin/sandbox-exec'),
     appcontainer: platform === 'win32' ? findHelper() : null,
     container: known(DOCKER_PROBE) ? 'docker' : known(PODMAN_PROBE) ? 'podman' : null,
   };
+}
+
+// The net-bridge helper (#97): in a packaged app only the copy in its resources folder, never one from a checkout.
+export function findNetBridge(): string | null {
+  const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+  const packaged = isPackagedElectron(process.versions.electron, process.execPath, process.platform);
+  const paths = packaged
+    ? resources
+      ? [join(resources, 'net-bridge')]
+      : []
+    : [
+        join(__dirname, '../../native/sandbox-helper/target/release/net-bridge'),
+        join(__dirname, '../../../native/sandbox-helper/target/release/net-bridge'),
+      ];
+  return paths.find((path) => existsSync(path)) ?? null;
 }
 
 // Probes every sandbox program, for tests that pick their cases from what the machine has.

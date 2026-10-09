@@ -19,6 +19,7 @@ import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sandboxEnv } from './env';
 import { ShellRunner } from './shell';
+import { startFilteringProxy } from './net_proxy';
 import { buildLaunch, probeSandboxSupport, systemLaunchEnv } from './sandbox';
 
 // Exercise the production launch builders, never Automatic mode's unsandboxed fallback.
@@ -342,6 +343,124 @@ for (const [kind, available] of [
           );
           expect(hog.output).not.toContain('ALLOCATED');
           expect(hog.status === 0).toBe(false);
+        },
+        60_000,
+      );
+
+      // #97: "allow-list" network through the filtering proxy. Fixture servers on loopback stand in for the internet:
+      // the test resolver names allowed.test and denied.test as public addresses of those servers, and the fixture
+      // port is allowed. Nothing leaves this machine.
+      it.skipIf(kind !== 'bwrap' || !support.netBridge || !existsSync('/usr/bin/curl'))(
+        'reaches only allow-listed hosts through the proxy, with no direct route or resolver (#97)',
+        async () => {
+          const http = await import('node:http');
+          const site = http.createServer((request, response) => {
+            if (request.url === '/redirect') {
+              response.writeHead(302, { location: `http://denied.test:${sitePort}/` });
+              return response.end();
+            }
+            response.end(`SITE:${request.headers.host}`);
+          });
+          site.listen(0, '127.0.0.1');
+          await once(site, 'listening');
+          const sitePort = (site.address() as { port: number }).port;
+          const proxy = await startFilteringProxy({
+            allowedHosts: 'allowed.test',
+            ports: new Set([sitePort]),
+            resolve: async () => ({ address: '127.0.0.1', local: null }),
+          });
+          const sandboxed = async (script: string, proxied = proxy) => {
+            const env = await systemLaunchEnv({
+              cwd: project,
+              home,
+              tmp: temp,
+              command: script,
+              inner: { file: '/bin/sh', args: ['-c', script] },
+              containerName: '',
+              image,
+            });
+            env.proxy = { socket: proxied.socketPath, bridge: support.netBridge! };
+            const launch = buildLaunch({ kind: 'bwrap', network: false, filtered: true }, env, null);
+            // Asynchronous: the proxy serves the command from this same process.
+            const result = await execute(launch.file, launch.args, {
+              cwd: project,
+              timeout: 30_000,
+              env: sandboxEnv(hostEnv, process.platform, home, temp),
+            }).catch((error: { stdout?: string; stderr?: string }) => error);
+            return `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+          };
+          try {
+            const url = (host: string, path = '/') => `http://${host}:${sitePort}${path}`;
+            // Plain HTTP through the proxy variables, from a child process of the shell.
+            expect(await sandboxed(`curl -s ${url('allowed.test')}`)).toBe(`SITE:allowed.test:${sitePort}`);
+            // Entries are exact hostnames.
+            expect(await sandboxed(`curl -s ${url('sub.allowed.test')}`)).toContain('not on the network allow-list');
+            expect(await sandboxed(`curl -s ${url('denied.test')}`)).toContain(
+              'denied.test is not on the network allow-list',
+            );
+            // A redirect to another host is a new request, checked again.
+            expect(await sandboxed(`curl -sL ${url('allowed.test', '/redirect')}`)).toContain(
+              'denied.test is not on the network allow-list',
+            );
+            // HTTPS-style tunnels: CONNECT is checked the same way.
+            expect(await sandboxed(`curl -s -p ${url('allowed.test')}`)).toBe(`SITE:allowed.test:${sitePort}`);
+            expect(await sandboxed(`curl -s -p -o /dev/null -w '%{http_connect}' ${url('denied.test')}`)).toBe('403');
+            // Programs that ignore the proxy variables have no route and no resolver.
+            expect(
+              await sandboxed(`curl -s --noproxy '*' -o /dev/null -w '%{http_code}' http://127.0.0.1:${sitePort}/`),
+            ).toBe('000');
+            expect(
+              await sandboxed(
+                `./node -e "require('dns').lookup('example.com', (e) => console.log(e ? e.code : 'resolved'))"`,
+              ),
+            ).toMatch(/^(EAI_AGAIN|ENOTFOUND|ECONNREFUSED)\b/);
+            // A port that is not allowed, and an IP literal of a local service, are refused even when listed.
+            const strict = await startFilteringProxy({ allowedHosts: 'allowed.test\n127.0.0.1' });
+            try {
+              expect(await sandboxed(`curl -s ${url('allowed.test')}`, strict)).toContain(
+                `port ${sitePort} is not allowed`,
+              );
+              expect(await sandboxed(`curl -s http://127.0.0.1:80/`, strict)).toContain('resolves to a local address');
+            } finally {
+              await strict.close();
+            }
+            // No proxy left: nothing gets out, and nothing falls back to direct access.
+            const gone = await startFilteringProxy({ allowedHosts: 'allowed.test', ports: new Set([sitePort]) });
+            await gone.close();
+            expect(await sandboxed(`curl -s ${url('allowed.test')}`, gone)).not.toContain('SITE:');
+          } finally {
+            await proxy.close();
+            site.close();
+          }
+        },
+        90_000,
+      );
+
+      it.skipIf(kind !== 'bwrap' || !support.netBridge || !existsSync('/usr/bin/curl'))(
+        'filters an allow-list command through the production shell runner without asking (#97)',
+        async () => {
+          const runner = new ShellRunner(
+            () => project,
+            () => ({ mode: 'auto', network: 'allow-list', image: '', allowedHosts: 'registry.npmjs.org' }),
+            () => support,
+            () => hostEnv,
+          );
+          try {
+            const command = 'curl -s http://refused.example/';
+            expect(runner.mustAsk(command, {})).toBe(false);
+            expect(runner.describe(command).text).toContain('network only to the allowed hosts');
+            const refused = await runner.run(command);
+            expect(refused.output).toContain('refused.example is not on the network allow-list');
+            // A listed name that points at this machine would still be refused; a local IP literal never resolves out.
+            const local = await runner.run(
+              `curl -s --noproxy '*' -o /dev/null -w '%{http_code}' http://127.0.0.1:${port}/`,
+            );
+            expect(local.output.trim()).toBe('000');
+            // An explicit network request still means unrestricted network, and asks.
+            expect(runner.mustAsk(command, { network: true })).toBe(true);
+          } finally {
+            runner.stopAll();
+          }
         },
         60_000,
       );
