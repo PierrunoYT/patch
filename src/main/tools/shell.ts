@@ -355,12 +355,22 @@ export class ShellRunner {
         commandTemp = mkdtempSync(join(env.cwd, '.patch-command-tmp-'));
         env.tmp = commandTemp;
       }
-      launch = buildLaunch(decision, env, this.detect().container);
+      const support = this.detect();
+      launch = buildLaunch(decision, env, support.container, { scope: support.scope });
+      // The limits are not a security boundary, so a missing systemd user manager does not stop the command (#104).
+      if (decision.kind === 'bwrap' && !support.scope)
+        appLog.warn('sandbox', 'Process and memory limits were not applied: no systemd user scope.');
     }
     appLog.info('sandbox', 'Command started.', {
       kind: decision.kind,
       network: decision.kind === 'none' ? true : decision.network,
     });
+    const launcherEnv = Object.fromEntries(
+      (launch.launcherEnv ?? []).flatMap((name) => {
+        const value = this.env()[name];
+        return value === undefined ? [] : [[name, value]];
+      }),
+    );
     const child = spawn(launch.file, launch.args, {
       cwd: this.cwd(),
       env: {
@@ -373,6 +383,7 @@ export class ShellRunner {
               config,
             )
           : scrubEnv(this.env())),
+        ...launcherEnv,
         CI: '1',
         FORCE_COLOR: '0',
         NO_COLOR: '1',

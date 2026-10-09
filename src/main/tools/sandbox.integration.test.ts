@@ -280,6 +280,72 @@ for (const [kind, available] of [
         );
       });
 
+      // #104: a cgroup for the command and everything it starts. TasksMax counts threads, and Node alone runs about
+      // a dozen, so the process limit here leaves room for the runtime.
+      it.skipIf(kind !== 'bwrap' || !support.scope)(
+        'stops a process loop and a memory hog at the scope limits, and runs ordinary commands (#104)',
+        async () => {
+          const limited = async (script: string) => {
+            const command = `./node -e ${quote(script)}`;
+            const env = await systemLaunchEnv({
+              cwd: project,
+              home,
+              tmp: temp,
+              command,
+              inner: { file: '/bin/sh', args: ['-c', command] },
+              containerName: '',
+              image,
+            });
+            const launch = buildLaunch({ kind: 'bwrap', network: false }, env, null, {
+              scope: true,
+              limits: { processes: 48, memoryMb: 256 },
+            });
+            expect(launch.file).toBe('systemd-run');
+            const result = spawnSync(launch.file, launch.args, {
+              cwd: project,
+              encoding: 'utf8',
+              timeout: 30_000,
+              env: {
+                ...sandboxEnv(hostEnv, process.platform, home, temp),
+                XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR,
+              },
+            });
+            return { status: result.status, signal: result.signal, output: `${result.stdout}${result.stderr}` };
+          };
+          expect(await limited('console.log(6 * 7, process.env.XDG_RUNTIME_DIR ?? "unset")')).toMatchObject({
+            status: 0,
+            output: '42 unset\n',
+          });
+          const loop = await limited(`
+            const { spawn } = require('node:child_process');
+            let started = 0;
+            const children = [];
+            const next = () => {
+              if (started === 200) return finish('none');
+              const child = spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
+              child.once('spawn', () => { started++; children.push(child); next(); });
+              child.once('error', (error) => finish(error.code));
+            };
+            const finish = (error) => {
+              console.log(JSON.stringify({ started, error }));
+              for (const child of children) child.kill('SIGKILL');
+              process.exit(0);
+            };
+            next();
+          `);
+          const { started, error } = JSON.parse(loop.output.trim()) as { started: number; error: string };
+          expect(error).toBe('EAGAIN');
+          expect(started).toBeGreaterThan(0);
+          expect(started).toBeLessThan(48);
+          const hog = await limited(
+            'const kept = []; for (let i = 0; i < 80; i++) kept.push(Buffer.alloc(10 * 1024 * 1024, 1)); console.log("ALLOCATED")',
+          );
+          expect(hog.output).not.toContain('ALLOCATED');
+          expect(hog.status === 0).toBe(false);
+        },
+        60_000,
+      );
+
       // #102: bubblewrap with network shares the host's network namespace, which holds loopback-only services and
       // abstract Unix sockets (X11, some D-Bus setups). The approval card and settings say so; offline they are
       // out of reach. These tests pin that documented behavior until commands get their own namespace (#97).

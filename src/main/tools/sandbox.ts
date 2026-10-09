@@ -3,7 +3,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import { dirname, parse, posix, relative, resolve, sep } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
-import { findHelper } from './sandbox_windows';
+import { DEFAULT_LIMITS, findHelper } from './sandbox_windows';
 import { validateSandboxGit } from './sandbox_git';
 
 // Runs agent commands (run_command, background ones included) with limited rights. The planning code below is pure
@@ -23,6 +23,8 @@ export interface SandboxConfig {
 
 export interface SandboxSupport {
   bwrap: boolean;
+  // `systemd-run --user --scope` works, so bubblewrap commands can get process and memory limits (#104).
+  scope?: boolean;
   seatbelt: boolean;
   // Path of sandbox-helper.exe (Windows AppContainer).
   appcontainer: string | null;
@@ -154,6 +156,35 @@ export interface Launch {
   args: string[];
   // Extra work needed to stop it (a container outlives its client process).
   stop?: { file: string; args: string[] };
+  // Host variables the launcher itself needs; the sandbox unsets them before the command runs.
+  launcherEnv?: string[];
+}
+
+// Limits for one sandboxed command and everything it starts. Not a security boundary: they keep a fork loop or a
+// memory hog from taking the machine down. The Windows helper applies the same numbers (#104).
+export interface CommandLimits {
+  memoryMb: number;
+  processes: number;
+}
+
+// A transient systemd user scope is a cgroup: TasksMax and MemoryMax count every process of the command together,
+// unlike setrlimit, whose process limit counts all of the user's processes and whose address-space limit breaks
+// runtimes that reserve large virtual ranges (V8, the JVM). Swap is not allowed, so a hog is killed at the limit
+// instead of pushing the machine into swap.
+export function scopeArgs(limits: CommandLimits): string[] {
+  return [
+    '--user',
+    '--scope',
+    '--quiet',
+    '--collect',
+    '-p',
+    `TasksMax=${limits.processes}`,
+    '-p',
+    `MemoryMax=${limits.memoryMb}M`,
+    '-p',
+    'MemorySwapMax=0',
+    '--',
+  ];
 }
 
 function systemShell(inner: LaunchEnv['inner']): { file: string; args: string[] } {
@@ -310,6 +341,7 @@ export function containerArgs(
   engine: 'docker' | 'podman',
   env: LaunchEnv,
   network: boolean,
+  limits: CommandLimits = DEFAULT_LIMITS,
 ): { args: string[]; stop: Launch['stop'] } {
   if ([env.cwd, ...env.gitPaths].some((path) => path.includes(',')))
     throw new Error(
@@ -323,7 +355,10 @@ export function containerArgs(
     env.containerName,
     '--cap-drop=ALL',
     '--security-opt=no-new-privileges',
-    '--pids-limit=1024',
+    `--pids-limit=${limits.processes}`,
+    `--memory=${limits.memoryMb}m`,
+    // Equal to --memory: no swap on top.
+    `--memory-swap=${limits.memoryMb}m`,
   ];
   if (!network) args.push('--network', 'none');
   if (env.uid !== undefined && env.gid !== undefined) {
@@ -360,17 +395,27 @@ export function buildLaunch(
   decision: Exclude<SandboxDecision, { kind: 'unavailable' }>,
   env: LaunchEnv,
   engine: SandboxSupport['container'],
+  options: { scope?: boolean; limits?: CommandLimits } = {},
 ): Launch {
+  const limits = options.limits ?? DEFAULT_LIMITS;
   switch (decision.kind) {
     case 'bwrap':
-      return { file: 'bwrap', args: bwrapArgs(env, decision.network) };
+      // systemd-run finds the user manager through XDG_RUNTIME_DIR, then execs bubblewrap in the same process, so
+      // stopping the command still signals its process group.
+      return options.scope
+        ? {
+            file: 'systemd-run',
+            args: [...scopeArgs(limits), 'bwrap', '--unsetenv', 'XDG_RUNTIME_DIR', ...bwrapArgs(env, decision.network)],
+            launcherEnv: ['XDG_RUNTIME_DIR'],
+          }
+        : { file: 'bwrap', args: bwrapArgs(env, decision.network) };
     case 'seatbelt':
       return {
         file: '/usr/bin/sandbox-exec',
         args: ['-p', seatbeltProfile(env, decision.network), env.inner.file, ...env.inner.args],
       };
     case 'container': {
-      const { args, stop } = containerArgs(engine ?? 'docker', env, decision.network);
+      const { args, stop } = containerArgs(engine ?? 'docker', env, decision.network, limits);
       return { file: engine ?? 'docker', args, stop };
     }
     case 'appcontainer':
@@ -410,6 +455,7 @@ export function describeSandbox(decision: SandboxDecision, access: CommandAccess
 
 const CACHE_MS = 30_000;
 const BWRAP_PROBE: [string, string[]] = ['bwrap', ['--unshare-all', '--ro-bind', '/', '/', 'true']];
+const SCOPE_PROBE: [string, string[]] = ['systemd-run', [...scopeArgs({ processes: 8, memoryMb: 64 }), 'true']];
 const DOCKER_PROBE: [string, string[]] = ['docker', ['version', '--format', '{{.Server.Version}}']];
 const PODMAN_PROBE: [string, string[]] = ['podman', ['version']];
 
@@ -447,7 +493,7 @@ export async function refreshSandboxSupport(
   mode: SandboxMode,
   platform: NodeJS.Platform = process.platform,
 ): Promise<void> {
-  if (mode === 'auto' && platform === 'linux') await probe(BWRAP_PROBE);
+  if (mode === 'auto' && platform === 'linux') await Promise.all([probe(BWRAP_PROBE), probe(SCOPE_PROBE)]);
   if (mode === 'container' && !(await probe(DOCKER_PROBE))) await probe(PODMAN_PROBE);
 }
 
@@ -455,6 +501,7 @@ export async function refreshSandboxSupport(
 export function detectSandboxSupport(platform: NodeJS.Platform = process.platform): SandboxSupport {
   return {
     bwrap: platform === 'linux' && known(BWRAP_PROBE),
+    scope: platform === 'linux' && known(SCOPE_PROBE),
     seatbelt: platform === 'darwin' && existsSync('/usr/bin/sandbox-exec'),
     appcontainer: platform === 'win32' ? findHelper() : null,
     container: known(DOCKER_PROBE) ? 'docker' : known(PODMAN_PROBE) ? 'podman' : null,

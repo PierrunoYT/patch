@@ -378,6 +378,38 @@ describe('buildLaunch', () => {
       args: ['-lc', 'npm test'],
     });
   });
+
+  it('runs bubblewrap in a limited systemd user scope when one is available (#104)', () => {
+    const scoped = buildLaunch({ kind: 'bwrap', network: false }, env(), null, {
+      scope: true,
+      limits: { processes: 64, memoryMb: 512 },
+    });
+    expect(scoped.file).toBe('systemd-run');
+    const bwrap = scoped.args.indexOf('bwrap');
+    expect(scoped.args.slice(0, bwrap)).toEqual([
+      '--user',
+      '--scope',
+      '--quiet',
+      '--collect',
+      '-p',
+      'TasksMax=64',
+      '-p',
+      'MemoryMax=512M',
+      '-p',
+      'MemorySwapMax=0',
+      '--',
+    ]);
+    // The launcher's bus address is passed to systemd-run only, never to the command.
+    expect(scoped.launcherEnv).toEqual(['XDG_RUNTIME_DIR']);
+    expect(scoped.args.slice(bwrap + 1, bwrap + 3)).toEqual(['--unsetenv', 'XDG_RUNTIME_DIR']);
+    expect(scoped.args.slice(bwrap + 3)).toEqual(bwrapArgs(env(), false));
+    expect(buildLaunch({ kind: 'bwrap', network: false }, env(), null).launcherEnv).toBeUndefined();
+  });
+
+  it('limits container processes and memory with the Windows defaults (#104)', () => {
+    const { args } = containerArgs('docker', env(), false);
+    expect(args).toEqual(expect.arrayContaining(['--pids-limit=512', '--memory=8192m', '--memory-swap=8192m']));
+  });
 });
 
 describe('describeSandbox', () => {
