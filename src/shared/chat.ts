@@ -142,7 +142,6 @@ export interface ChatSummary {
   snippet?: string;
 }
 
-// What is searched in a saved chat besides its title: the user's and the assistant's messages.
 // Of the snapshot the window asked for at start-up and one pushed to it meanwhile, the one that includes more events.
 export function newerSnapshot(asked: ChatSnapshot, pushed: ChatSnapshot | null): ChatSnapshot {
   return pushed && (pushed.seq ?? 0) >= (asked.seq ?? 0) ? pushed : asked;
@@ -153,6 +152,7 @@ export function chatEventApplies(snapshot: ChatSnapshot, chatId: string, seq: nu
   return chatId === snapshot.id && seq > (snapshot.seq ?? 0);
 }
 
+// What is searched in a saved chat besides its title: the user's and the assistant's messages.
 export function transcriptSearchText(transcript: TranscriptItem[]): string {
   return transcript
     .flatMap((item) => (item.kind === 'user' || item.kind === 'assistant' ? [item.text] : []))
