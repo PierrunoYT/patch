@@ -91,7 +91,7 @@ export function commandUrlsAllowed(command: string, allowedHosts: string): boole
 }
 
 // Whether the sandbox gets network. Except where `filtersNetwork` holds, "allow-list" cannot filter by host
-// (Seatbelt, a plain container and the AppContainer helper cannot): matching command URLs request unrestricted
+// (Seatbelt and a plain container cannot): matching command URLs request unrestricted
 // network access, which must be approved for each run. That is a request heuristic, never a network boundary.
 export function wantsNetwork(command: string, config: SandboxConfig, access: CommandAccess): boolean {
   if (access.network || config.network === 'on') return true;
@@ -99,22 +99,18 @@ export function wantsNetwork(command: string, config: SandboxConfig, access: Com
 }
 
 // Whether an "allow-list" command gets network enforced by host instead (#97): bubblewrap on Linux, with the
-// net-bridge helper, gives the command its own network namespace whose only way out is Patch's filtering proxy.
+// net-bridge helper, gives the command its own network namespace whose only way out is Patch's filtering proxy. On
+// Windows the AppContainer gets no network capability at all; net-bridge inside it reaches the proxy only through a
+// pipe sandbox-helper relays, which no other AppContainer may open.
 export function filtersNetwork(
   config: SandboxConfig,
   support: SandboxSupport,
   access: CommandAccess,
   platform: NodeJS.Platform,
 ): boolean {
-  return (
-    config.mode === 'auto' &&
-    config.network === 'allow-list' &&
-    !access.network &&
-    !access.unsandboxed &&
-    platform === 'linux' &&
-    support.bwrap &&
-    Boolean(support.netBridge)
-  );
+  if (config.mode !== 'auto' || config.network !== 'allow-list' || access.network || access.unsandboxed) return false;
+  if (platform === 'win32') return Boolean(support.appcontainer);
+  return platform === 'linux' && support.bwrap && Boolean(support.netBridge);
 }
 
 export function decideSandbox(
@@ -142,7 +138,8 @@ export function decideSandbox(
     }
     return { kind: 'container', network };
   }
-  if (filtersNetwork(config, support, access, platform)) return { kind: 'bwrap', network: false, filtered: true };
+  if (filtersNetwork(config, support, access, platform))
+    return { kind: platform === 'win32' ? 'appcontainer' : 'bwrap', network: false, filtered: true };
   if (platform === 'linux' && support.bwrap) return { kind: 'bwrap', network };
   if (platform === 'darwin' && support.seatbelt) return { kind: 'seatbelt', network };
   if (platform === 'win32' && support.appcontainer) return { kind: 'appcontainer', network };

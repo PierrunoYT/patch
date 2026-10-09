@@ -429,12 +429,12 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field(
       'Run commands in a sandbox',
       sandboxMode,
-      'Applies to run_command and background commands. Automatic mode uses AppContainer on Windows (bundled helper), bubblewrap on Linux, or Seatbelt on macOS. Commands do not run when the selected sandbox is unavailable; the agent must request unsandboxed access for one run. Only the project and temporary folders are writable, and private home files are hidden. The terminal panel and MCP servers are not sandboxed.',
+      'Applies to run_command and background commands. Automatic mode uses AppContainer on Windows (bundled helper), bubblewrap on Linux, or Seatbelt on macOS. Commands do not run when the selected sandbox is unavailable; the agent must request unsandboxed access for one run. Only the project and temporary folders are writable, and private home files are hidden. The terminal panel is not sandboxed. MCP stdio servers can opt in with sandbox: true on Linux and Windows.',
     ),
     field(
       'Network in the sandbox',
       sandboxNetwork,
-      'Allow-list on Linux (Automatic mode): every command reaches only the allowed hosts, on ports 80 and 443, through a filtering proxy, and nothing else, without asking. Elsewhere, matching command URLs request unrestricted network access, not hostname filtering; you must approve each run, even in Auto mode or with an allow permission rule. Explicit network or unsandboxed requests also require approval each time. On grants unrestricted network access to all sandboxed commands, so they can also reach local network services such as databases and dev servers. On macOS, local Unix sockets (Docker, ssh-agent) stay blocked. On Linux, abstract Unix sockets such as the X11 display are reachable too.',
+      "Allow-list on Linux and Windows (Automatic mode): every command reaches only the allowed hosts, on ports 80 and 443, through a filtering proxy, and nothing else, without asking. On macOS and in container mode, matching command URLs request unrestricted network access, not hostname filtering; you must approve each run, even in Auto mode or with an allow permission rule. Explicit network or unsandboxed requests also require approval each time. On grants unrestricted network access to all sandboxed commands, so they can also reach local network services such as databases and dev servers. On macOS, local Unix sockets (Docker, ssh-agent) stay blocked. On Linux, abstract Unix sockets such as the X11 display are reachable too. On Windows, AppContainer network access does not include this machine's loopback address.",
     ),
     field(
       'Container image',

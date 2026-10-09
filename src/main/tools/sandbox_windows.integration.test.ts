@@ -13,6 +13,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { createServer as createHttpServer, type Server } from 'node:http';
 import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
@@ -29,6 +30,7 @@ import {
 } from './sandbox_windows';
 import { ShellRunner } from './shell';
 import { scrubEnv } from './env';
+import { startFilteringProxy, type FilteringProxy } from './net_proxy';
 
 // Runs real commands in a real AppContainer. Skipped unless this is Windows and sandbox-helper.exe has been built
 // (npm run build:sandbox).
@@ -49,6 +51,7 @@ function removeSubsts(matches: (target: string) => boolean): void {
   }
 }
 const within = (target: string, root: string) => target.toLowerCase().startsWith(`${root.toLowerCase()}\\`);
+const CURL = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'curl.exe');
 const NET_PROBE = `node -e "const s=require('net').connect({host:'1.1.1.1',port:443,timeout:4000});s.on('connect',()=>{console.log('CONNECTED');process.exit(0)});s.on('error',e=>{console.log('NOCONNECT '+e.code);process.exit(0)});s.on('timeout',()=>{console.log('NOCONNECT timeout');process.exit(0)})"`;
 
 describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
@@ -353,6 +356,124 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
     const result = await shell.run(NET_PROBE, { access: { network: true } });
     expect(result.output.trim()).toBe('CONNECTED');
   }, 60_000);
+
+  // #97: "allow-list" network through the filtering proxy. Fixture servers on loopback stand in for the internet:
+  // the test resolver names allowed.test and denied.test as public addresses of those servers, and the fixture port
+  // is allowed. Nothing leaves this machine.
+  describe.skipIf(!existsSync(CURL))('filtered network (#97)', () => {
+    let site: Server;
+    let sitePort: number;
+    let proxy: FilteringProxy;
+    let nextId = 100;
+    const url = (host: string, path = '/') => `http://${host}:${sitePort}${path}`;
+    const filtered = async (file: string, args: string[], proxied = proxy) => {
+      const request = buildHelperRequest({
+        id: nextId++,
+        shell: { file, args },
+        cwd: root,
+        env: sandboxEnv,
+        network: false,
+        home: homedir(),
+        exists: (path) => existsSync(path),
+        tooLarge: (path) => exceedsEntryLimit(path),
+        limits: { timeoutMs: 30_000 },
+      });
+      request.proxy = proxied.socketPath;
+      const child = new HelperProcess(helper!, request);
+      let output = '';
+      child.stdout.on('data', (chunk: Buffer) => (output += chunk));
+      child.stderr.on('data', (chunk: Buffer) => (output += chunk));
+      child.on('error', (error: Error) => (output += error.message));
+      await once(child, 'close');
+      return output.trim();
+    };
+
+    beforeAll(async () => {
+      site = createHttpServer((request, response) => {
+        if (request.url === '/redirect') {
+          response.writeHead(302, { location: `http://denied.test:${sitePort}/` });
+          return response.end();
+        }
+        response.end(`SITE:${request.headers.host}`);
+      });
+      site.listen(0, '127.0.0.1');
+      await once(site, 'listening');
+      sitePort = (site.address() as { port: number }).port;
+      proxy = await startFilteringProxy({
+        allowedHosts: 'allowed.test',
+        ports: new Set([sitePort]),
+        resolve: async () => ({ address: '127.0.0.1', local: null }),
+      });
+    });
+    afterAll(async () => {
+      await proxy?.close();
+      site?.close();
+    });
+
+    it('reaches allow-listed hosts through the proxy, from the command and its children', async () => {
+      expect(await filtered(CURL, ['-s', url('allowed.test')])).toBe(`SITE:allowed.test:${sitePort}`);
+      // CONNECT tunnels, as HTTPS uses them.
+      expect(await filtered(CURL, ['-s', '-p', url('allowed.test')])).toBe(`SITE:allowed.test:${sitePort}`);
+      // A child of the command sees the same proxy variables and reaches the same bridge.
+      expect(
+        await filtered(
+          join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+          ['-NoLogo', '-NoProfile', '-Command', `& '${CURL}' -s ${url('allowed.test')}`],
+        ),
+      ).toBe(`SITE:allowed.test:${sitePort}`);
+    }, 90_000);
+
+    it('refuses other hosts, subdomains and redirects to them', async () => {
+      expect(await filtered(CURL, ['-s', url('sub.allowed.test')])).toContain('not on the network allow-list');
+      expect(await filtered(CURL, ['-s', url('denied.test')])).toContain(
+        'denied.test is not on the network allow-list',
+      );
+      expect(await filtered(CURL, ['-sL', url('allowed.test', '/redirect')])).toContain(
+        'denied.test is not on the network allow-list',
+      );
+      expect(await filtered(CURL, ['-s', '-p', '-o', 'NUL', '-w', '%{http_connect}', url('denied.test')])).toBe('403');
+    }, 90_000);
+
+    // Windows does not isolate an AppContainer's loopback from services of this machine (nothing short of firewall rules
+    // does), so this pins what is enforced: no route to the outside and no resolver for programs that ignore the proxy.
+    it('leaves no direct route and no resolver to programs that ignore the proxy', async ({ skip }) => {
+      if (!hostCanConnect) skip('The host cannot reach the control endpoint; network isolation is unverified.');
+      expect(
+        await filtered(CURL, ['-s', '--noproxy', '*', '-m', '5', '-o', 'NUL', '-w', '%{http_code}', 'http://1.1.1.1/']),
+      ).toBe('000');
+      expect(
+        await filtered(sandboxNode, [
+          '-e',
+          "require('dns').lookup('example.com', (e) => console.log(e ? e.code : 'resolved'))",
+        ]),
+      ).toMatch(/^(ENOTFOUND|EAI_AGAIN|EAI_FAIL)$/);
+    }, 90_000);
+
+    it('lets nothing out once the proxy is gone', async () => {
+      const gone = await startFilteringProxy({ allowedHosts: 'allowed.test', ports: new Set([sitePort]) });
+      await gone.close();
+      expect(await filtered(CURL, ['-s', url('allowed.test')], gone)).not.toContain('SITE:');
+    }, 90_000);
+
+    it('filters an allow-list command through the production shell runner without asking', async () => {
+      const runner = new ShellRunner(
+        () => root,
+        () => ({ mode: 'auto', network: 'allow-list', image: '', allowedHosts: 'registry.npmjs.org' }),
+        undefined,
+        () => sandboxEnv,
+      );
+      try {
+        const command = `& '${CURL}' -s http://refused.example/`;
+        expect(runner.mustAsk(command, {})).toBe(false);
+        expect(runner.describe(command).text).toContain('network only to the allowed hosts');
+        const refused = await runner.run(command);
+        expect(refused.output).toContain('refused.example is not on the network allow-list');
+        expect(runner.mustAsk(command, { network: true })).toBe(true);
+      } finally {
+        runner.stopAll();
+      }
+    }, 90_000);
+  });
 
   it('removes its access entries from the project when the command ends', async () => {
     await shell.run('echo done');

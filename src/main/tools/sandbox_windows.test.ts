@@ -40,6 +40,19 @@ describe('windowsPolicy', () => {
     expect(policy.readOnly).toEqual([`${cwd}\\.git`]);
   });
 
+  it('adds extra writable folders besides the working directory (#87)', () => {
+    const state = 'C:\\Users\\me\\AppData\\Roaming\\patch\\mcp\\sandboxed\\x';
+    const policy = windowsPolicy({
+      ...base,
+      cwd: state,
+      writable: [cwd, state],
+      exists: () => false,
+      gitPaths: [`${cwd}\\.git`],
+    });
+    expect(policy.readWrite).toEqual([state, cwd]);
+    expect(policy.denyWrite).toEqual([`${cwd}\\.git`]);
+  });
+
   it('protects a gitfile and its in-project metadata directory', () => {
     const gitPaths = [`${cwd}\\.git`, `${cwd}\\metadata`];
     const policy = windowsPolicy({ ...base, exists: () => false, gitPaths });
@@ -276,6 +289,11 @@ describe('buildHelperRequest', () => {
 
   it('passes the network decision through', () => {
     expect(buildHelperRequest({ ...input, network: true }).network).toBe(true);
+  });
+
+  it('marks a workspace folder so the helper can live under application data (#87)', () => {
+    expect(buildHelperRequest({ ...input, workspace: true }).workspace).toBe(true);
+    expect(buildHelperRequest(input).workspace).toBeUndefined();
   });
 
   it('drops undefined environment values', () => {

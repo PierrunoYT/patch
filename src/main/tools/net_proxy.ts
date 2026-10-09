@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { request as httpRequest, createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { connect, isIP, type Socket } from 'node:net';
@@ -8,7 +9,8 @@ import { bareHostname, resolveDestination } from './net_address';
 
 // The only way out of a sandboxed command's network namespace when the network setting is "allow-list" (#97). The
 // command has no route and no resolver of its own; a bridge inside forwards 127.0.0.1:PROXY_PORT to this server's
-// Unix socket, mounted into the sandbox. Each request is checked here: the hostname must be on the allow-list
+// Unix socket, mounted into the sandbox (on Windows: a loopback port inside the AppContainer, relayed to this
+// server's named pipe by sandbox-helper). Each request is checked here: the hostname must be on the allow-list
 // (exactly, as everywhere in Patch: an entry does not cover its subdomains), the port 80 or 443, and every address
 // the name resolves to public. The proxy
 // resolves the name itself and dials only the address it checked, so DNS rebinding and IP literals of local
@@ -65,9 +67,14 @@ function parseTarget(target: string): { host: string; port: number } | null {
   return match ? { host: match[1]!, port: Number(match[2]) } : null;
 }
 
-export async function startFilteringProxy(policy: ProxyPolicy): Promise<FilteringProxy> {
-  const folder = mkdtempSync(join(tmpdir(), 'patch-net-'));
-  const socketPath = join(folder, 'proxy.sock');
+// On Windows the proxy listens on a named pipe that only this user can open; sandbox-helper relays the command's
+// AppContainer to it. Elsewhere it is a Unix socket in a private folder, mounted into the sandbox.
+export async function startFilteringProxy(
+  policy: ProxyPolicy,
+  platform: NodeJS.Platform = process.platform,
+): Promise<FilteringProxy> {
+  const folder = platform === 'win32' ? null : mkdtempSync(join(tmpdir(), 'patch-net-'));
+  const socketPath = folder ? join(folder, 'proxy.sock') : `\\\\.\\pipe\\patch-net-${randomBytes(16).toString('hex')}`;
   const open = new Set<Socket>();
   const track = (socket: Socket) => {
     open.add(socket);
@@ -143,7 +150,7 @@ export async function startFilteringProxy(policy: ProxyPolicy): Promise<Filterin
       new Promise<void>((resolve) => {
         for (const socket of open) socket.destroy();
         server.close(() => {
-          rmSync(folder, { recursive: true, force: true });
+          if (folder) rmSync(folder, { recursive: true, force: true });
           resolve();
         });
       }),

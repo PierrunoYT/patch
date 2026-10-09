@@ -33,7 +33,7 @@ export interface McpServerConfig {
   cwd?: string;
   // Stdio: run the server in the command sandbox (#87), with a private writable folder, the open project writable
   // only when its args or env name ${project}, the rest of the home folder hidden and no network unless
-  // sandboxNetwork is true. Linux (bubblewrap) only for now; elsewhere a sandboxed server refuses to start.
+  // sandboxNetwork is true. Linux (bubblewrap) and Windows (AppContainer); elsewhere a sandboxed server refuses to start.
   sandbox?: boolean;
   sandboxNetwork?: boolean;
   // The open project a sandboxed server may write, set when connecting, not stored.

@@ -1,5 +1,6 @@
-import { mkdirSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { McpServerConfig } from '@shared/settings';
 import { sandboxEnv } from './env';
 import {
@@ -10,6 +11,7 @@ import {
   systemLaunchEnv,
   type SandboxSupport,
 } from './sandbox';
+import { buildHelperRequest, exceedsEntryLimit } from './sandbox_windows';
 
 export interface McpLaunch {
   command: string;
@@ -19,18 +21,29 @@ export interface McpLaunch {
 
 // Why a sandboxed server cannot start here, or null when it can.
 export function mcpSandboxUnavailable(platform: NodeJS.Platform, support: SandboxSupport): string | null {
+  if (platform === 'win32') {
+    if (!support.appcontainer)
+      return 'This server is set to run sandboxed, but the Windows sandbox helper (sandbox-helper.exe) was not found.';
+    return null;
+  }
   if (platform !== 'linux')
-    return 'Sandboxed MCP servers run only on Linux (bubblewrap) so far. Remove "sandbox" to run this server with your full rights.';
+    return 'Sandboxed MCP servers run only on Linux (bubblewrap) and Windows so far. Remove "sandbox" to run this server with your full rights.';
   if (!support.bwrap)
     return 'This server is set to run sandboxed, but bubblewrap (bwrap) is not installed or cannot create a sandbox here.';
   return null;
 }
 
-// The bubblewrap launch for a stdio server with "sandbox": true (#87), like an agent command's: system folders and
+function definedEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) if (value !== undefined) out[name] = value;
+  return out;
+}
+
+// The sandbox launch for a stdio server with "sandbox": true (#87), like an agent command's: system folders and
 // toolchain caches read-only, the rest of the home folder hidden, no network unless sandboxNetwork. Writable: the
 // server's own folder (its HOME and working folder, kept between starts, so npx and uvx caches survive) and, when
 // its args or env name ${project}, the open project with its Git metadata read-only. Fails closed: an error, never
-// an unsandboxed start.
+// an unsandboxed start. Linux uses bubblewrap; Windows uses sandbox-helper --stdio so JSON-RPC stays on stdin/stdout.
 export async function mcpSandboxLaunch(
   config: McpServerConfig,
   command: string,
@@ -51,14 +64,39 @@ export async function mcpSandboxLaunch(
     ? await systemLaunchEnv({
         cwd: config.projectAccess,
         home,
-        tmp: '/tmp',
-        inner: { file: '/bin/sh', args: [] },
+        tmp: platform === 'win32' ? tmpdir() : '/tmp',
+        inner: { file: platform === 'win32' ? command : '/bin/sh', args: [] },
         command: '',
         containerName: '',
         image: '',
         sensitivePaths: options.sensitivePaths,
       })
     : null;
+  if (platform === 'win32') {
+    const helper = support.appcontainer!;
+    const childEnv = sandboxEnv(hostEnv, 'win32', state, tmpdir());
+    const merged: Record<string, string> = { ...(config.env ?? {}) };
+    for (const [key, value] of Object.entries(childEnv)) if (value !== undefined) merged[key] ??= value;
+    const request = buildHelperRequest({
+      id: 1,
+      shell: { file: command, args: config.args ?? [] },
+      // Only the working folder becomes a drive the server can walk up from (Node resolves the real path of its script,
+      // which fails on a folder whose parents are hidden), so a server that names ${project} starts in the project.
+      cwd: project?.cwd ?? state,
+      env: merged,
+      network: config.sandboxNetwork === true,
+      home,
+      exists: (path) => existsSync(path),
+      gitPaths: project?.gitPaths ?? [],
+      writable: project ? [state] : [],
+      workspace: true,
+      tooLarge: (path) => exceedsEntryLimit(path),
+      limits: { timeoutMs: 0 },
+    });
+    const requestPath = join(state, '.patch-sandbox-request.json');
+    writeFileSync(requestPath, `${JSON.stringify(request)}\n`);
+    return { command: helper, args: ['--stdio', requestPath], env: definedEnv(hostEnv) };
+  }
   // A program outside the system folders (nvm's node, a cargo binary) would be swapped for bash by the command
   // launcher, so the shell execs it with its own arguments instead.
   const inner = { file: '/bin/sh', args: ['-c', 'exec "$0" "$@"', command, ...(config.args ?? [])] };

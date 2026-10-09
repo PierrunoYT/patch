@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
 import { launchConfig, McpHub, resolveCommand } from './mcp';
 import { mcpSandboxUnavailable } from './mcp_sandbox';
+import { findHelper } from './sandbox_windows';
 
 // The mock MCP server used by the end-to-end tests; spawning it here exercises the real client over stdio.
 const mockServerScript = join(__dirname, '../../../tests/e2e/mock_mcp_server.mjs');
@@ -320,45 +321,52 @@ describe('launchConfig', () => {
   });
 });
 
-describe('sandboxed stdio servers off Linux (#87)', () => {
+describe('sandboxed stdio servers (#87)', () => {
   it('names why a sandboxed server cannot start, and never starts it unsandboxed', async () => {
     const support = { bwrap: false, seatbelt: true, appcontainer: 'helper.exe', container: null };
-    expect(mcpSandboxUnavailable('win32', support)).toMatch(/only on Linux/);
-    expect(mcpSandboxUnavailable('darwin', support)).toMatch(/only on Linux/);
+    expect(mcpSandboxUnavailable('win32', support)).toBeNull();
+    expect(mcpSandboxUnavailable('win32', { ...support, appcontainer: null })).toMatch(/sandbox helper/);
+    expect(mcpSandboxUnavailable('darwin', support)).toMatch(/Linux \(bubblewrap\) and Windows/);
     expect(mcpSandboxUnavailable('linux', support)).toMatch(/bubblewrap/);
     expect(mcpSandboxUnavailable('linux', { ...support, bwrap: true })).toBeNull();
   });
 
-  it.skipIf(process.platform === 'linux')('reports a sandboxed server as an error on this platform', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'mcp-unsandboxable-'));
-    const marker = join(dir, 'started.txt');
-    const servers: McpServerConfig[] = [
-      launchConfig(
-        {
-          name: 'boxed',
-          transport: 'stdio',
-          command: process.execPath,
-          args: [mockServerScript],
-          env: { MOCK_MCP_CLIENT_FILE: marker },
-          sandbox: true,
-        },
-        undefined,
-        dir,
-      ),
-    ];
-    const hub = new McpHub(
-      () => servers,
-      () => {},
-    );
-    try {
-      await hub.refresh();
-      expect(hub.status()[0]).toMatchObject({ state: 'error', error: expect.stringMatching(/only on Linux/) });
-      expect(existsSync(marker)).toBe(false);
-    } finally {
-      await hub.stop();
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
+  it.skipIf(process.platform === 'linux' || (process.platform === 'win32' && Boolean(findHelper())))(
+    'reports a sandboxed server as an error on this platform',
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'mcp-unsandboxable-'));
+      const marker = join(dir, 'started.txt');
+      const servers: McpServerConfig[] = [
+        launchConfig(
+          {
+            name: 'boxed',
+            transport: 'stdio',
+            command: process.execPath,
+            args: [mockServerScript],
+            env: { MOCK_MCP_CLIENT_FILE: marker },
+            sandbox: true,
+          },
+          undefined,
+          dir,
+        ),
+      ];
+      const hub = new McpHub(
+        () => servers,
+        () => {},
+      );
+      try {
+        await hub.refresh();
+        expect(hub.status()[0]).toMatchObject({
+          state: 'error',
+          error: expect.stringMatching(/Linux \(bubblewrap\) and Windows|sandbox helper/),
+        });
+        expect(existsSync(marker)).toBe(false);
+      } finally {
+        await hub.stop();
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe('resolveCommand', () => {

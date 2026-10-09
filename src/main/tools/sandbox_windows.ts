@@ -25,6 +25,10 @@ export interface HelperRequest {
   cwd: string;
   env: Record<string, string>;
   network: boolean;
+  // Patch's filtering proxy (a named pipe) when the network is filtered by host (#97); `network` is then false.
+  proxy?: string;
+  // The working folder may sit under application data (a sandboxed MCP server's own folder, #87).
+  workspace?: boolean;
   readWrite: string[];
   readOnly: string[];
   // Individual Program Files PATH directories; the helper checks package access before granting or staging.
@@ -106,6 +110,8 @@ export interface WindowsPolicyInput {
   pathEntries: string[];
   exists: (path: string) => boolean;
   gitPaths?: string[];
+  // Extra writable folders besides cwd (a sandboxed MCP server's project, #87).
+  writable?: string[];
   // Whether a folder is too big to grant whole; such a folder is replaced by its `bin` subfolder, or left closed.
   tooLarge?: (path: string) => boolean;
 }
@@ -168,7 +174,8 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   for (const rel of HOME_READ_ONLY_WINDOWS) add(win32.join(home, rel));
   for (const entry of input.pathEntries) if (entry && win32.isAbsolute(entry)) add(entry);
   const gitPaths = input.gitPaths ?? [win32.join(cwd, '.git')];
-  return { readWrite: [cwd], readOnly: [...readOnly, ...gitPaths], toolchains, denyWrite: gitPaths };
+  const extra = (input.writable ?? []).filter((path) => !same(path, cwd));
+  return { readWrite: [cwd, ...extra], readOnly: [...readOnly, ...gitPaths], toolchains, denyWrite: gitPaths };
 }
 
 export interface BuildRequestInput {
@@ -180,6 +187,8 @@ export interface BuildRequestInput {
   home: string;
   exists: (path: string) => boolean;
   gitPaths?: string[];
+  writable?: string[];
+  workspace?: boolean;
   tooLarge?: (path: string) => boolean;
   limits?: Partial<HelperLimits>;
 }
@@ -197,6 +206,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     pathEntries: lookup('path').split(';'),
     exists: input.exists,
     gitPaths: input.gitPaths,
+    writable: input.writable,
     tooLarge: input.tooLarge,
   });
   const shell = win32.isAbsolute(input.shell.file)
@@ -209,6 +219,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     cwd: input.cwd,
     env,
     network: input.network,
+    ...(input.workspace ? { workspace: true } : {}),
     ...policy,
     limits: { ...DEFAULT_LIMITS, timeoutMs: 0, ...input.limits },
   };

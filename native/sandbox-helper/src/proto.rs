@@ -21,6 +21,14 @@ pub struct Request {
     pub env: HashMap<String, String>,
     #[serde(default)]
     pub network: bool,
+    // Patch's filtering proxy (a named pipe) when the network is filtered by host (#97): the command then has no
+    // network capability and reaches only this, through net-bridge. Never together with `network`.
+    #[serde(default)]
+    pub proxy: Option<String>,
+    // The working folder may sit under application data (a sandboxed MCP server's own folder, #87). Still refuses
+    // the user profile, a volume root, and application-data roots themselves.
+    #[serde(default)]
+    pub workspace: bool,
     #[serde(default)]
     pub read_write: Vec<String>,
     #[serde(default)]
@@ -130,6 +138,8 @@ mod tests {
             panic!("not a run")
         };
         assert!(!req.network);
+        assert!(req.proxy.is_none());
+        assert!(!req.workspace);
         assert!(req.read_write.is_empty() && req.read_only.is_empty() && req.deny_write.is_empty());
         assert!(req.toolchains.is_empty());
         assert_eq!(req.limits, Limits::default());

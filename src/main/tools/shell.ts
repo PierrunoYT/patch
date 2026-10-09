@@ -339,7 +339,10 @@ export class ShellRunner {
     const config = this.sandbox();
     const inner = shellCommand(command, decision.kind !== 'none');
     if (decision.kind === 'appcontainer')
-      return { child: await this.spawnInAppContainer(inner, decision.network, signal), sandbox: decision.kind };
+      return {
+        child: await this.spawnInAppContainer(inner, decision.network, decision.filtered === true, signal),
+        sandbox: decision.kind,
+      };
     let launch: Launch;
     let commandTemp: string | undefined;
     let proxy: FilteringProxy | undefined;
@@ -431,6 +434,7 @@ export class ShellRunner {
   private async spawnInAppContainer(
     inner: { file: string; args: string[] },
     network: boolean,
+    filtered: boolean,
     signal?: AbortSignal,
   ): Promise<CommandProcess> {
     const helper = this.detect().appcontainer;
@@ -471,8 +475,23 @@ export class ShellRunner {
       gitPaths,
       tooLarge: (path) => exceedsEntryLimit(path),
     });
-    appLog.info('sandbox', 'Command started.', { kind: 'appcontainer', network });
-    return new HelperProcess(helper, request);
+    let proxy: FilteringProxy | undefined;
+    if (filtered) {
+      // A proxy that cannot start leaves the command without any network; it is not run unfiltered instead.
+      proxy = await startFilteringProxy({ allowedHosts: this.sandbox().allowedHosts });
+      if (signal?.aborted) {
+        await proxy.close();
+        signal.throwIfAborted();
+      }
+      request.proxy = proxy.socketPath;
+    }
+    appLog.info('sandbox', 'Command started.', { kind: 'appcontainer', network, filtered });
+    const child = new HelperProcess(helper, request);
+    if (proxy) {
+      const filtering = proxy;
+      child.once('close', () => void filtering.close());
+    }
+    return child;
   }
 }
 

@@ -1,3 +1,4 @@
+use crate::pipe_io;
 use crate::proto::{encode_event, parse_message, Event, Message, Request};
 use crate::text::{command_line, environment_block, Utf8Chunker};
 use serde::{Deserialize, Serialize};
@@ -18,7 +19,10 @@ use windows::Win32::Security::Isolation::*;
 use windows::Win32::Security::*;
 use windows::Win32::Storage::FileSystem::*;
 use windows::Win32::System::JobObjects::*;
-use windows::Win32::System::Pipes::CreatePipe;
+use windows::Win32::System::Pipes::{
+    CreateNamedPipeW, CreatePipe, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_BYTE,
+    PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
+};
 use windows::Win32::System::Threading::*;
 
 // SE_GROUP_ENABLED from winnt.h.
@@ -38,6 +42,10 @@ fn describe(what: &str, error: Error) -> String {
 struct Handle(HANDLE);
 unsafe impl Send for Handle {}
 unsafe impl Sync for Handle {}
+
+struct SendHandle(HANDLE);
+unsafe impl Send for SendHandle {}
+unsafe impl Sync for SendHandle {}
 impl Drop for Handle {
     fn drop(&mut self) {
         if !self.0.is_invalid() && !self.0 .0.is_null() {
@@ -281,6 +289,44 @@ pub fn serve() {
     }
 }
 
+// Starts one AppContainer process and splices this process's stdin/stdout/stderr to it (#87). The request is a JSON
+// file (the same object a command sends on stdin), deleted after it is read so the sandboxed program never sees it.
+pub fn serve_stdio(path: &str) {
+    if let Err(message) = recover_abandoned_runs(&|_, _, _| {}) {
+        eprintln!("Patch sandbox: {message}");
+        std::process::exit(126);
+    }
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) => {
+            eprintln!("Patch sandbox: cannot read the sandbox request: {error}");
+            std::process::exit(126);
+        }
+    };
+    let _ = fs::remove_file(path);
+    let request = match parse_message(&raw) {
+        Ok(Message::Run(request)) => request,
+        Ok(_) => {
+            eprintln!("Patch sandbox: the stdio request must start a program");
+            std::process::exit(126);
+        }
+        Err(message) => {
+            eprintln!("Patch sandbox: {message}");
+            std::process::exit(126);
+        }
+    };
+    let jobs: Jobs = Arc::new(Mutex::new(HashMap::new()));
+    jobs.lock().unwrap().insert(request.id, Some(0));
+    match run_inner(&request, None, &jobs) {
+        Ok(code) => std::process::exit(code),
+        Err(message) => {
+            eprintln!("Patch sandbox: {message}");
+            jobs.lock().unwrap().remove(&request.id);
+            std::process::exit(126);
+        }
+    }
+}
+
 fn kill_job(jobs: &Jobs, id: Option<u64>) {
     for (job_id, job) in jobs.lock().unwrap().iter_mut() {
         if id.is_none() || id == Some(*job_id) {
@@ -470,6 +516,41 @@ fn make_pipe() -> Result<Pipe> {
     })
 }
 
+fn copy_pipe(from: SendHandle, to: SendHandle) {
+    let (from, to) = (from.0, to.0);
+    let mut buffer = [0u8; 16 * 1024];
+    loop {
+        let mut read = 0u32;
+        let ok = unsafe {
+            windows::Win32::Storage::FileSystem::ReadFile(
+                from,
+                Some(&mut buffer),
+                Some(&mut read),
+                None,
+            )
+        };
+        if ok.is_err() || read == 0 {
+            break;
+        }
+        let mut offset = 0usize;
+        while offset < read as usize {
+            let mut written = 0u32;
+            let ok = unsafe {
+                windows::Win32::Storage::FileSystem::WriteFile(
+                    to,
+                    Some(&buffer[offset..read as usize]),
+                    Some(&mut written),
+                    None,
+                )
+            };
+            if ok.is_err() || written == 0 {
+                break;
+            }
+            offset += written as usize;
+        }
+    }
+}
+
 fn pump(id: u64, pipe: Handle, emitter: Emitter, stderr: bool) {
     let mut chunker = Utf8Chunker::default();
     let mut buffer = [0u8; 16 * 1024];
@@ -542,6 +623,137 @@ fn make_job(request: &Request) -> Result<Handle> {
         )
         .map_err(|e| describe("SetInformationJobObject (UI)", e))?;
         Ok(job)
+    }
+}
+
+fn sid_string(sid: PSID) -> Result<String> {
+    let mut text = PWSTR::null();
+    unsafe { ConvertSidToStringSidW(sid, &mut text) }
+        .map_err(|e| describe("ConvertSidToStringSid", e))?;
+    let _text = LocalMem(text.0 as *mut c_void);
+    unsafe { text.to_string() }.map_err(|_| "non-Unicode SID".to_string())
+}
+
+fn user_sid_string() -> Result<String> {
+    unsafe {
+        let mut token = HANDLE::default();
+        OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token)
+            .map_err(|e| describe("OpenProcessToken", e))?;
+        let token = Handle(token);
+        let mut size = 0u32;
+        let _ = GetTokenInformation(token.0, TokenUser, None, 0, &mut size);
+        let mut buffer = vec![0u64; (size as usize).div_ceil(8)];
+        GetTokenInformation(
+            token.0,
+            TokenUser,
+            Some(buffer.as_mut_ptr() as *mut c_void),
+            size,
+            &mut size,
+        )
+        .map_err(|e| describe("GetTokenInformation", e))?;
+        sid_string((*(buffer.as_ptr() as *const TOKEN_USER)).User.Sid)
+    }
+}
+
+// A pipe instance only this user, from inside this run's AppContainer, may open. The low integrity label lets the
+// AppContainer write to it; without it, the default medium label refuses writes from below.
+fn create_relay_pipe(name: &str, sddl: &str, first: bool) -> Result<pipe_io::Pipe> {
+    let sddl = wide(sddl);
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            PCWSTR(sddl.as_ptr()),
+            1,
+            &mut descriptor,
+            None,
+        )
+    }
+    .map_err(|e| describe("build the network relay permissions", e))?;
+    let _descriptor = LocalMem(descriptor.0);
+    let attributes = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: descriptor.0,
+        bInheritHandle: false.into(),
+    };
+    let name = wide(name);
+    let handle = unsafe {
+        CreateNamedPipeW(
+            PCWSTR(name.as_ptr()),
+            PIPE_ACCESS_DUPLEX
+                | FILE_FLAG_OVERLAPPED
+                | if first {
+                    // Fails if anything else already owns the name.
+                    FILE_FLAG_FIRST_PIPE_INSTANCE
+                } else {
+                    FILE_FLAGS_AND_ATTRIBUTES(0)
+                },
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+            PIPE_UNLIMITED_INSTANCES,
+            64 * 1024,
+            64 * 1024,
+            0,
+            Some(&attributes),
+        )
+    };
+    if handle.is_invalid() {
+        return Err(format!(
+            "cannot create the network relay pipe: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(pipe_io::Pipe::from_handle(handle))
+}
+
+// The only way out of a command whose network is filtered by host (#97). The command has no network capability;
+// net-bridge, inside the same AppContainer, forwards its loopback proxy port to this pipe, and every connection
+// is relayed to Patch's filtering proxy. Stops accepting when dropped; connections in flight end with their peers.
+struct ProxyRelay {
+    name: String,
+    stop: Arc<pipe_io::Event>,
+}
+
+impl ProxyRelay {
+    fn start(profile: &str, container: PSID, proxy: &str) -> Result<Self> {
+        let name = format!(r"\\.\pipe\patch-sbx-net-{profile}");
+        let sddl = format!(
+            "D:P(A;;GA;;;{})(A;;GRGW;;;{})S:(ML;;NW;;;LW)",
+            user_sid_string()?,
+            sid_string(container)?
+        );
+        let first = create_relay_pipe(&name, &sddl, true)?;
+        let stop = Arc::new(
+            pipe_io::Event::new().map_err(|e| format!("cannot start the network relay: {e}"))?,
+        );
+        let (accepting, pipe_name, proxy) = (stop.clone(), name.clone(), proxy.to_string());
+        thread::spawn(move || {
+            let mut next = Some(first);
+            loop {
+                let pipe = match next.take() {
+                    Some(pipe) => pipe,
+                    None => match create_relay_pipe(&pipe_name, &sddl, false) {
+                        Ok(pipe) => pipe,
+                        Err(_) => return,
+                    },
+                };
+                if pipe.accept(&accepting).is_err() {
+                    return;
+                }
+                let proxy = proxy.clone();
+                thread::spawn(move || {
+                    // A proxy that is gone lets nothing through: the bridge's client sees the connection close.
+                    if let Ok(upstream) = pipe_io::connect(&proxy, Duration::from_secs(5)) {
+                        pipe_io::relay(pipe, upstream);
+                    }
+                });
+            }
+        });
+        Ok(Self { name, stop })
+    }
+}
+
+impl Drop for ProxyRelay {
+    fn drop(&mut self) {
+        self.stop.set();
     }
 }
 
@@ -1678,7 +1890,7 @@ fn path_within(path: &Path, boundary: &Path) -> bool {
 }
 
 // This is deliberately independent of the Electron caller. It runs before locks, recovery, staging, or ACL work.
-fn validate_project_root(cwd: &str) -> Result<PathBuf> {
+fn validate_project_root(cwd: &str, workspace: bool) -> Result<PathBuf> {
     let project =
         fs::canonicalize(cwd).map_err(|e| format!("cannot resolve sandbox project root: {e}"))?;
     if project.parent().is_none() {
@@ -1715,17 +1927,51 @@ fn validate_project_root(cwd: &str) -> Result<PathBuf> {
     if !cargo_build {
         sensitive.push(install.parent().unwrap_or(install).to_path_buf());
     }
-    if sensitive
+    let nested = sensitive
         .iter()
-        .any(|boundary| path_within(&project, boundary) || path_within(boundary, &project))
-    {
+        .any(|boundary| path_within(&project, boundary) && !path_within(boundary, &project));
+    let overlaps = sensitive
+        .iter()
+        .any(|boundary| path_within(&project, boundary) || path_within(boundary, &project));
+    // A sandboxed MCP server's folder lives under userData (#87). That is a nested application-data path, never
+    // the profile or the application-data root itself.
+    if overlaps && !(workspace && nested) {
         return Err("sandbox refused a project root overlapping application data or installation files; choose a narrower project root or run with explicitly approved unsandboxed access".into());
     }
     Ok(project)
 }
 
+// Where net-bridge.exe ships: next to the helper.
+fn bridge_source() -> Result<PathBuf> {
+    let executable =
+        std::env::current_exe().map_err(|e| format!("cannot resolve helper install path: {e}"))?;
+    let bridge = executable
+        .parent()
+        .ok_or("helper install path has no parent")?
+        .join("net-bridge.exe");
+    if bridge.is_file() {
+        Ok(bridge)
+    } else {
+        Err("the network bridge (net-bridge.exe) is missing next to the sandbox helper".into())
+    }
+}
+
 fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
-    let _project = validate_project_root(&request.cwd)?;
+    run_inner(request, Some(emitter), jobs).map(|_| ())
+}
+
+fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Result<i32> {
+    let stdio = emitter.is_none();
+    let _project = validate_project_root(&request.cwd, request.workspace)?;
+    let bridge = match &request.proxy {
+        Some(_) if request.network => {
+            return Err(
+                "a command gets either network access or the filtering proxy, not both".into(),
+            )
+        }
+        Some(_) => Some(bridge_source()?),
+        None => None,
+    };
     let id = request.id;
     let mut package = PSID::default();
     unsafe { ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package) }
@@ -1782,12 +2028,14 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     let permission_lock = PermissionLock::acquire_while(
         || ensure_active(jobs, id),
         || {
-            emitter.send(&Event::Stderr {
-                id,
-                data: "Patch sandbox: waiting for another sandboxed command to finish setting up permissions. A \
-                       project's first command grants access to every file in it, which can take minutes in a large \
-                       project.\n",
-            })
+            if let Some(emitter) = emitter {
+                emitter.send(&Event::Stderr {
+                    id,
+                    data: "Patch sandbox: waiting for another sandboxed command to finish setting up permissions. A \
+                           project's first command grants access to every file in it, which can take minutes in a large \
+                           project.\n",
+                })
+            }
         },
     )?;
     let owners = recovery_records()?;
@@ -2050,7 +2298,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         read: input,
         write: input_write,
     } = stdin;
-    drop(input_write);
+    let input_write = if stdio { Some(input_write) } else { None };
     let mut inherited = [input.0, stdout.write.0, stderr.write.0];
 
     let mut list_size = 0usize;
@@ -2117,9 +2365,49 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     let temporary_drive = ProjectDrive::create(temporary)?;
     let temporary_prefix =
         String::from_utf16_lossy(&temporary_drive.cwd[..temporary_drive.cwd.len() - 1]);
+    // Filtered network (#97): the command starts under net-bridge, copied into its private temporary folder (an
+    // AppContainer cannot run it from the install folder), and has no network capability of its own.
+    let relay = match (&request.proxy, &bridge) {
+        (Some(proxy), Some(bridge)) => {
+            fs::copy(bridge, temporary_root.join("net-bridge.exe"))
+                .map_err(|e| format!("cannot prepare the network bridge: {e}"))?;
+            Some(ProxyRelay::start(&profile, sid, proxy)?)
+        }
+        _ => None,
+    };
     let command = mapped_path(&request.command, &mappings);
-    let mut cmdline = wide(&command_line(&command, &request.args));
-    let application = wide(&command);
+    // A sandboxed MCP server names its script by path (#87); inside, the project is only reachable as the mapped drive.
+    let program_args: Vec<String> = request
+        .args
+        .iter()
+        .map(|arg| {
+            if stdio {
+                mapped_path(arg, &mappings)
+            } else {
+                arg.clone()
+            }
+        })
+        .collect();
+    let (application, line) = match &relay {
+        Some(relay) => {
+            let bridge = format!("{temporary_prefix}net-bridge.exe");
+            let mut args = vec![
+                "0".to_string(),
+                relay.name.clone(),
+                "--".to_string(),
+                command,
+            ];
+            args.extend(program_args.iter().cloned());
+            let line = command_line(&bridge, &args);
+            (bridge, line)
+        }
+        None => {
+            let line = command_line(&command, &program_args);
+            (command, line)
+        }
+    };
+    let mut cmdline = wide(&line);
+    let application = wide(&application);
     // Process creation in a container fails (ERROR_ENVVAR_NOT_FOUND) without LOCALAPPDATA, which Windows rewrites.
     let mut vars = request.env.clone();
     let private_names = [
@@ -2152,6 +2440,9 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 .map(|entry| mapped_path(entry, &mappings))
                 .collect::<Vec<_>>()
                 .join(";");
+        } else if key.eq_ignore_ascii_case("HOME") || key.eq_ignore_ascii_case("USERPROFILE") {
+            // A sandboxed MCP server's HOME is its own folder, which is the mapped working directory (#87).
+            *value = mapped_path(value, &mappings);
         }
     }
     if !vars
@@ -2221,28 +2512,60 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         write: err_write,
     } = stderr;
     drop((out_write, err_write, input));
-    let readers = [
-        {
-            let emitter = emitter.clone();
-            thread::spawn(move || pump(id, out_read, emitter, false))
-        },
-        {
-            let emitter = emitter.clone();
-            thread::spawn(move || pump(id, err_read, emitter, true))
-        },
-    ];
+    let readers = if stdio {
+        let our_out = Handle(HANDLE(std::io::stdout().as_raw_handle()));
+        let our_err = Handle(HANDLE(std::io::stderr().as_raw_handle()));
+        let our_in = SendHandle(HANDLE(std::io::stdin().as_raw_handle()));
+        let input_write = input_write.expect("stdio keeps the input pipe");
+        let to_in = SendHandle(input_write.0);
+        let from_out = SendHandle(out_read.0);
+        let to_out = SendHandle(our_out.0);
+        let from_err = SendHandle(err_read.0);
+        let to_err = SendHandle(our_err.0);
+        vec![
+            thread::spawn(move || {
+                copy_pipe(our_in, to_in);
+                drop(input_write);
+            }),
+            thread::spawn(move || {
+                copy_pipe(from_out, to_out);
+                drop((out_read, our_out));
+            }),
+            thread::spawn(move || {
+                copy_pipe(from_err, to_err);
+                drop((err_read, our_err));
+            }),
+        ]
+    } else {
+        drop(input_write);
+        let json = emitter.cloned().expect("command mode has an event stream");
+        vec![
+            {
+                let emitter = json.clone();
+                thread::spawn(move || pump(id, out_read, emitter, false))
+            },
+            {
+                let emitter = json;
+                thread::spawn(move || pump(id, err_read, emitter, true))
+            },
+        ]
+    };
 
     // Before the command runs, so no output can arrive ahead of Started (#195).
-    emitter.send(&Event::Started {
-        id,
-        pid: info.dwProcessId,
-    });
-    unsafe { ResumeThread(thread_handle.0) };
-    for warning in &warnings {
-        emitter.send(&Event::Stderr {
+    if let Some(emitter) = emitter {
+        emitter.send(&Event::Started {
             id,
-            data: &format!("Patch sandbox: not readable in this command: {warning}\n"),
+            pid: info.dwProcessId,
         });
+    }
+    unsafe { ResumeThread(thread_handle.0) };
+    if let Some(emitter) = emitter {
+        for warning in &warnings {
+            emitter.send(&Event::Stderr {
+                id,
+                data: &format!("Patch sandbox: not readable in this command: {warning}\n"),
+            });
+        }
     }
 
     let timeout = if request.limits.timeout_ms > 0 {
@@ -2287,19 +2610,23 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     cleanup.finished = true;
     drop(cleanup);
     if let Err(message) = cleaned {
-        emitter.send(&Event::Stderr {
+        if let Some(emitter) = emitter {
+            emitter.send(&Event::Stderr {
+                id,
+                data: &format!(
+                    "\nPatch sandbox: cleanup failed ({message}); it is retried when the next command starts.\n"
+                ),
+            });
+        }
+    }
+    if let Some(emitter) = emitter {
+        emitter.send(&Event::Exit {
             id,
-            data: &format!(
-                "\nPatch sandbox: cleanup failed ({message}); it is retried when the next command starts.\n"
-            ),
+            exit_code,
+            timed_out,
         });
     }
-    emitter.send(&Event::Exit {
-        id,
-        exit_code,
-        timed_out,
-    });
-    Ok(())
+    Ok(exit_code.clamp(i32::MIN as i64, i32::MAX as i64) as i32)
 }
 
 #[cfg(test)]
@@ -2352,8 +2679,23 @@ mod tests {
         fs::remove_dir_all(fixture).unwrap();
         let safe = home.join(profile_name());
         fs::create_dir(&safe).unwrap();
-        assert!(validate_project_root(safe.to_str().unwrap()).is_ok());
+        assert!(validate_project_root(safe.to_str().unwrap(), false).is_ok());
         fs::remove_dir(safe).unwrap();
+    }
+
+    #[test]
+    fn a_workspace_folder_may_sit_inside_application_data() {
+        let data = fs::canonicalize(std::env::var_os("LOCALAPPDATA").unwrap()).unwrap();
+        let fixture = data.join(profile_name());
+        fs::create_dir(&fixture).unwrap();
+        assert!(validate_project_root(fixture.to_str().unwrap(), false)
+            .unwrap_err()
+            .contains("sandbox refused"));
+        assert!(validate_project_root(fixture.to_str().unwrap(), true).is_ok());
+        assert!(validate_project_root(data.to_str().unwrap(), true)
+            .unwrap_err()
+            .contains("sandbox refused"));
+        fs::remove_dir(fixture).unwrap();
     }
 
     #[test]

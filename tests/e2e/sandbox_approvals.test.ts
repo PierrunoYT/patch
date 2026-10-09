@@ -11,7 +11,9 @@ const support = detectSandboxSupport();
 // Where the allow-list is enforced by the filtering proxy (#97), a command that names an allowed URL runs without a
 // card: it gets network only to the allowed hosts, not the unrestricted network the card would grant.
 const probed = await probeSandboxSupport();
-const filtered = process.platform === 'linux' && probed.bwrap && Boolean(probed.netBridge);
+const filtered =
+  (process.platform === 'linux' && probed.bwrap && Boolean(probed.netBridge)) ||
+  (process.platform === 'win32' && Boolean(probed.appcontainer));
 
 describe('sandbox escalation approvals', () => {
   let running: RunningApp;
@@ -64,7 +66,7 @@ describe('sandbox escalation approvals', () => {
     await running.page.getByLabel('Run commands in a sandbox').scrollIntoViewIfNeeded();
     expect(await dialog.textContent()).toContain('Commands do not run when the selected sandbox is unavailable');
     expect(await dialog.textContent()).toContain('matching command URLs request unrestricted network access');
-    expect(await dialog.textContent()).toContain('Allow-list on Linux (Automatic mode)');
+    expect(await dialog.textContent()).toContain('Allow-list on Linux and Windows (Automatic mode)');
     expect(await running.page.getByLabel('Network in the sandbox').inputValue()).toBe('allow-list');
     if (captureDir) await dialog.screenshot({ path: join(captureDir, 'sandbox-settings.png') });
     await running.page.getByRole('button', { name: 'Cancel' }).click();

@@ -126,6 +126,10 @@
         {
           "from": "native/sandbox-helper/target/release/file-helper.exe",
           "to": "file-helper.exe"
+        },
+        {
+          "from": "native/sandbox-helper/target/release/net-bridge.exe",
+          "to": "net-bridge.exe"
         }
       ]
     },

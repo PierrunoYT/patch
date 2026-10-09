@@ -192,6 +192,37 @@ describe('wantsNetwork', () => {
     );
   });
 
+  it('filters the allow-list setting by host in the Windows AppContainer too (#97)', () => {
+    const list = { ...config, network: 'allow-list' as const };
+    const windows: SandboxSupport = { ...none, appcontainer: 'C:\\Patch\\resources\\sandbox-helper.exe' };
+    expect(decideSandbox('npm install', list, windows, {}, 'win32')).toEqual({
+      kind: 'appcontainer',
+      network: false,
+      filtered: true,
+    });
+    expect(decideSandbox('npm install', list, windows, { network: true }, 'win32')).toEqual({
+      kind: 'appcontainer',
+      network: true,
+    });
+    expect(decideSandbox('npm install', { ...list, network: 'off' }, windows, {}, 'win32')).toEqual({
+      kind: 'appcontainer',
+      network: false,
+    });
+    // Container mode keeps the approval-based heuristic.
+    expect(
+      decideSandbox(
+        'curl https://registry.npmjs.org/',
+        { ...list, mode: 'container', allowedHosts: 'registry.npmjs.org' },
+        { ...windows, container: 'docker' },
+        {},
+        'win32',
+      ),
+    ).toEqual({ kind: 'container', network: true });
+    expect(describeSandbox({ kind: 'appcontainer', network: false, filtered: true })).toContain(
+      'network only to the allowed hosts',
+    );
+  });
+
   it('mounts the proxy socket and bridge and starts the command through the bridge (#97)', () => {
     const args = bwrapArgs({ ...env(), proxy: { socket: '/tmp/patch-net-x/proxy.sock', bridge: '/opt/b' } }, false);
     expect(args).toContain('--unshare-all');
