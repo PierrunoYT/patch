@@ -35,7 +35,10 @@ export class TerminalService {
       // The bundled ConPTY implementation tears down synchronously without spawning that helper.
       ...(process.platform === 'win32' ? { useConptyDll: true } : {}),
     });
-    pty.onData((data) => this.onData(data));
+    // Output of a shell already replaced (a project switch) must not land in the new project's terminal (#259).
+    pty.onData((data) => {
+      if (this.pty === pty) this.onData(data);
+    });
     pty.onExit(() => {
       if (this.pty === pty) {
         this.pty = null;

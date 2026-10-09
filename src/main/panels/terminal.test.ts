@@ -90,6 +90,10 @@ describe('TerminalService', () => {
     expect(created).toHaveLength(2);
     expect(created[0]!.pty.kill).toHaveBeenCalled();
     expect(created[1]!.options).toMatchObject({ cwd: '/two' });
+    // Late output of the replaced shell does not reach the new project's terminal (#259).
+    created[0]!.pty.emitData('old project output');
+    created[1]!.pty.emitData('new project output');
+    expect(onData.mock.calls).toEqual([['new project output']]);
   });
 
   it('ignores resizes to tiny sizes and rounds fractional sizes', () => {
