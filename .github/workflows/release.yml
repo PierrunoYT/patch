@@ -78,7 +78,13 @@ jobs:
       # from this build output.
       - name: Build the Windows sandbox helper
         if: runner.os == 'Windows'
-        run: cargo build --release --locked --manifest-path native/sandbox-helper/Cargo.toml
+        run: cargo build --release --locked --bins --examples --manifest-path native/sandbox-helper/Cargo.toml
+
+      # The unit tests below run real commands through the helper, as in ci.yml: older Server images lack the
+      # null-device package ACE, and without it Git fails with "could not open '/dev/null'".
+      - name: Prepare the Windows CI null device for AppContainers
+        if: runner.os == 'Windows'
+        run: .\native\sandbox-helper\target\release\examples\prepare_ci_null.exe --apply-ci
 
       - run: npm run typecheck
       - run: npm run test:unit
