@@ -90,3 +90,45 @@ Other BaseContainer notes from the schema docs:
 ## 4. Win32 app isolation
 
 [Win32 app isolation](https://learn.microsoft.com/en-us/windows/win32/secauthz/app-isolation-overview) (MSIX-packaged apps in an AppContainer) is still marked preview; its release notes were last updated in December 2024. It isolates a whole packaged app, not commands an app starts, so it does not fit Patch's sandbox.
+
+## 5. MXC spike results (2026-10-09, #226)
+
+A throwaway test of the MXC SDK on one machine, outside the repository (no dependency was added). Host: Windows 11 25H2, build 26200.9457. The SDK ran under Electron 44.5.1's Node 24.21.0 (`ELECTRON_RUN_AS_NODE=1`), the same runtime Patch's main process uses. `getPlatformSupport()` reported `isolationTier: "base-container"`, so these results are for Tier 1, the OS process security environment (#227).
+
+Tested SDK 0.9.0 (the newest release older than a week) through `createConfigFromPolicy` + `spawnSandboxFromConfig`, then repeated with 1.0.0 (`@microsoft/mxc-sdk/v1`, `run`). Both gave the same results. Policy: the project and a scratch temp folder read-write, `.git/hooks` read-only inside the project, the `PATH` folders read-only, network egress and ingress denied, an explicit environment, UI allowed (PowerShell needs Win32k).
+
+### What worked
+
+| Check                                                                        | Result                                                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `cmd`, `node -v`, a Node script writing a project file                       | Run                                                                                            |
+| Write inside the project                                                     | Allowed                                                                                        |
+| Read or write a file outside the project                                     | Denied                                                                                         |
+| List the user profile                                                        | Denied                                                                                         |
+| Write `.git/hooks/pre-commit` (read-only path inside the read-write project) | Denied; the file is unchanged                                                                  |
+| Environment                                                                  | Only the variables passed in; nothing inherited from the parent process                        |
+| Network off                                                                  | `fetch` fails with `ENOTFOUND`                                                                 |
+| Host ACLs                                                                    | `icacls` output of the project and `.git/hooks` identical before and after: no ACEs were added |
+
+### What failed
+
+- **Git, npm and PowerShell cannot work in a project under the user profile.** `git status` exits 128 with `Unable to read current working directory: Permission denied`; `npm -v` fails with `EPERM ... lstat 'C:\'` from `realpath`; PowerShell starts in `C:\` instead of the project. They walk up through the project's parent folders, and BaseContainer denies folders that are not granted. MXC's fix, `processContainer.filesystem.enumeratePaths` (list a folder without reading its files), needs PSEC 1.1; on this build MXC refuses it: `enumeratePaths is not supported by this version of Windows`. Granting the parents read-only would open every file in them (the user profile), which Patch's sandbox exists to prevent. Patch's helper runs git, npm and PowerShell in the same layout.
+- **`getAvailableToolsPolicy` granted the whole drive.** This machine's `PATH` contains `C:\`, and the helper turned it into a read-only grant on `C:\`, which silently made every file on the drive readable (the profile listing and the outside file were readable until that entry was removed). Patch must never pass `PATH` folders through unchecked; its helper already refuses roots that contain the home folder or sensitive trees (#145).
+- **Node crashed after a network request.** With egress allowed, `fetch('https://example.com')` returned 200, then `process.exit` aborted in libuv (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94`, exit `0xC0000409`). It may be related to the libuv behavior behind #101; it was not investigated further.
+- **The SDK shells out to `whoami /user` by `PATH` lookup.** From Git Bash it found the wrong `whoami` and printed an error (the run continued). Patch would need to start it with a clean `PATH`.
+
+### Speed
+
+`cmd.exe /d /c exit 0`, median of 15 runs after one warm-up:
+
+|                           | First command | Median |
+| ------------------------- | ------------- | ------ |
+| Plain `spawn`             | 36 ms         | 31 ms  |
+| MXC, empty project        | 249 ms        | 96 ms  |
+| MXC, 100,000-file project | 104 ms        | 105 ms |
+
+Patch's own `tests/perf/windows_sandbox.perf.ts` on the same machine (a PowerShell `echo` through `ShellRunner`, 100,000 files): unsandboxed median 260 ms, sandboxed median 299 ms, so **39 ms overhead**, but the **first sandboxed command took 19.9 s** (propagating the project grant, #176). MXC adds about 65–75 ms per command instead, and nothing on the first command, whatever the project size. The two measurements use different commands and code paths, so compare the overheads, not the totals.
+
+### Conclusion
+
+Not ready to replace `sandbox-helper` on this build. The isolation itself is right (deny outside the project, read-only `.git/hooks`, no ACL changes, network off), and it removes the first-command propagation cost. But git, npm and PowerShell, the tools an agent runs most, fail in projects under the user profile until Windows ships PSEC 1.1 enumeration. Re-test when a Windows update reports `enumeratePaths` support, and pass only checked folders (never drive roots or the profile) as read-only paths.
