@@ -100,6 +100,8 @@ export class Agent {
   // something asks, also in Auto mode or under an allow rule, so plan mode holds even when the model skips the plan
   // or goes on after a declined one (#238).
   private planApproved = false;
+  // Whether a model turn of the current send has succeeded, i.e. the API accepted the history up to here.
+  private reachedModel = false;
   private lastOutcome: 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'paused' | 'refusal' | 'stopped' | 'other' =
     'other';
 
@@ -127,8 +129,19 @@ export class Agent {
   // send and resume resolve to true when the run was cut short by a stop, and false when it finished on its own.
   async send(input: UserInput, signal: AbortSignal): Promise<boolean> {
     this.planApproved = false;
+    this.reachedModel = false;
     this.options.conversation.addUserMessage(input);
-    return this.run(signal);
+    try {
+      return await this.run(signal);
+    } catch (error) {
+      // A request the API refused for good (bad image, too large) never became part of the chat: keeping the message
+      // would make every later request in it fail the same way (#240).
+      if (this.firstRequestRejected(error)) {
+        this.options.conversation.discardLastUserMessage();
+        this.options.onCheckpoint?.();
+      }
+      throw error;
+    }
   }
 
   // Why the last run ended, for a caller that needs more than the stopped/finished flag. A subagent only treats a
@@ -141,6 +154,11 @@ export class Agent {
   async resume(signal: AbortSignal, note = ''): Promise<boolean> {
     this.options.conversation.addUserMessage({ text: note ? `${note}\n\n${RESUME_INSTRUCTION}` : RESUME_INSTRUCTION });
     return this.run(signal);
+  }
+
+  private firstRequestRejected(error: unknown): boolean {
+    const status = (error as { status?: unknown } | null)?.status;
+    return !this.reachedModel && (status === 400 || status === 413);
   }
 
   private async run(signal: AbortSignal): Promise<boolean> {
@@ -157,6 +175,7 @@ export class Agent {
       }
       const tools = this.options.tools();
       const { result, messageId } = await this.runTurnWithRetries(tools, signal);
+      this.reachedModel = true;
       emit({ type: 'assistant-end', id: messageId, text: result.text });
 
       this.usage.inputTokens += result.usage.inputTokens;

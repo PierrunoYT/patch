@@ -126,6 +126,10 @@ export class OpenAIConversation implements Conversation {
     });
   }
 
+  discardLastUserMessage(): void {
+    if (this.messages.at(-1)?.role === 'user') this.messages.pop();
+  }
+
   addToolResults(results: ToolResult[]): void {
     for (const result of results) {
       const prefix = result.isError ? 'Error: ' : '';

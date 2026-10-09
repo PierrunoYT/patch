@@ -154,6 +154,10 @@ export class AnthropicConversation implements Conversation {
     this.messages.push({ role: 'user', content });
   }
 
+  discardLastUserMessage(): void {
+    if (this.messages.at(-1)?.role === 'user') this.messages.pop();
+  }
+
   // All results of one assistant turn go back in a single user message, as the API expects for parallel calls.
   addToolResults(results: ToolResult[]): void {
     const content: ContentBlockParam[] = results.map((result) => ({

@@ -478,6 +478,10 @@ export class CodexAuthedConversation implements Conversation {
     this.inner.addToolResults(results);
   }
 
+  discardLastUserMessage(): void {
+    this.inner.discardLastUserMessage();
+  }
+
   async runTurn(request: TurnRequest): Promise<TurnResult> {
     await this.prepare();
     try {

@@ -36,6 +36,8 @@ class ScriptedConversation implements Conversation {
 
   toolResults: ToolResult[][] = [];
 
+  discardLastUserMessage(): void {}
+
   hasPendingToolCalls(): boolean {
     return false;
   }

@@ -18,6 +18,8 @@ class IdleConversation implements Conversation {
 
   addUserMessage(): void {}
   addToolResults(): void {}
+  discardLastUserMessage(): void {}
+
   hasPendingToolCalls(): boolean {
     return false;
   }

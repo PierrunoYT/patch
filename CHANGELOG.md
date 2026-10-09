@@ -20,6 +20,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- A message the API refuses outright (400, or 413 for a request that is too large) no longer stays in the chat history: the agent takes it back, so the next message is not sent together with the refused image and does not fail the same way. Image sniffing, a size cap and text stand-ins for tool-result images are still open (refs #240).
 - The renderer's IPC arguments are checked at runtime with zod schemas: wrong types, unknown secret names or image types, oversized values, bad terminal sizes and a non-boolean approval are refused with an error naming the channel. The unused `project:set-instructions` channel is removed (fixes #32).
 - Saving an API key while the system cannot encrypt it (it would be stored as plain text) now asks for confirmation in a native dialog; removing a key never asks (fixes #35).
 - MCP servers now see the client as `Patch` with the app's version instead of `CodeCompanion 0.1.0`, and the installer's app id is `io.github.pierrunoyt.patch` instead of `patch`. No release has been published yet, so no install is affected (fixes #72).

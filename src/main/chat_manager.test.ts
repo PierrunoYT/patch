@@ -46,6 +46,7 @@ describe('project chat retention', () => {
       model: 'test',
       addUserMessage() {},
       addToolResults() {},
+      discardLastUserMessage() {},
       async runTurn() {
         return {
           text: 'Done',
@@ -409,6 +410,7 @@ describe('project chat retention', () => {
         model: 'test',
         addUserMessage() {},
         addToolResults() {},
+        discardLastUserMessage() {},
         async runTurn({ signal }) {
           if (turns++ < 2) {
             const launching = turns === 1;
@@ -517,6 +519,7 @@ describe('project chat retention', () => {
       model: 'test',
       addUserMessage() {},
       addToolResults() {},
+      discardLastUserMessage() {},
       async runTurn() {
         return {
           text: 'Done',

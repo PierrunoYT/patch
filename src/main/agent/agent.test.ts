@@ -42,6 +42,8 @@ class ScriptedConversation implements Conversation {
     this.pending = false;
   }
 
+  discardLastUserMessage(): void {}
+
   hasPendingToolCalls(): boolean {
     return this.pending;
   }

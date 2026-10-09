@@ -66,6 +66,25 @@ describe('AnthropicConversation', () => {
     expect(result.contextTokens).toBe(17);
   });
 
+  it('sends no trace of a user message the API refused once it is discarded (#240)', async () => {
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-opus-5-5',
+      effort: 'high',
+    });
+    server.queueJson(400, { type: 'error', error: { type: 'invalid_request_error', message: 'bad image' } });
+    conversation.addUserMessage({ text: 'look', images: [{ mediaType: 'image/png', base64: 'AAAA' }] });
+    await expect(conversation.runTurn(request())).rejects.toMatchObject({ status: 400 });
+    conversation.discardLastUserMessage();
+
+    server.queueSse(anthropicStream([{ type: 'text', text: 'ok' }], 'end_turn'));
+    conversation.addUserMessage({ text: 'again' });
+    await conversation.runTurn(request());
+
+    const sent = JSON.stringify(server.requests.at(-1)?.body);
+    expect(sent).not.toContain('"image"');
+    expect(sent).toContain('again');
+  });
+
   it('keeps the cache warm by re-sending the last request without output, ending with a placeholder', async () => {
     server.queueSse(anthropicStream([{ type: 'text', text: 'Here is the answer.' }], 'end_turn'));
     server.queueJson(200, {

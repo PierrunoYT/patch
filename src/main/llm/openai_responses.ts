@@ -158,6 +158,11 @@ export class OpenAIResponsesConversation implements Conversation {
     });
   }
 
+  discardLastUserMessage(): void {
+    const last = this.items.at(-1);
+    if (last && 'role' in last && last.role === 'user') this.items.pop();
+  }
+
   addToolResults(results: ToolResult[]): void {
     for (const result of results) {
       const prefix = result.isError ? 'Error: ' : '';

@@ -102,6 +102,10 @@ export interface Conversation {
   readonly model: string;
   addUserMessage(input: UserInput): void;
   addToolResults(results: ToolResult[]): void;
+  // Takes back the user message just added by addUserMessage, when the API rejected the request that carried it
+  // for good (400/413). A message the API never accepted is not part of the history. Does nothing when the history
+  // does not end with a user message.
+  discardLastUserMessage(): void;
   runTurn(request: TurnRequest): Promise<TurnResult>;
   serialize(): SerializedConversation;
   // Older turns as text for a summarizer, or null when there is not enough history to be worth compacting.

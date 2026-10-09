@@ -65,6 +65,13 @@ class ScriptedConversation implements Conversation {
 
   applyCompaction(): void {}
 
+  discarded = 0;
+
+  discardLastUserMessage(): void {
+    this.discarded++;
+    this.log.push('discard');
+  }
+
   hasPendingToolCalls(): boolean {
     return false;
   }
@@ -925,6 +932,25 @@ describe('Agent: retrying transient provider errors', () => {
       expect(conversation.turns).toBe(1);
       expect(sleep).not.toHaveBeenCalled();
     }
+  });
+
+  it('takes back the user message when the first request is refused for good, but not a later one', async () => {
+    for (const status of [400, 413]) {
+      const { agent, conversation } = setup([fail(httpError(status))]);
+      await expect(agent.send({ text: 'go' }, new AbortController().signal)).rejects.toThrow();
+      expect(conversation.log).toEqual(['user:go', 'turn', 'discard']);
+    }
+    for (const status of [401, 404, 503]) {
+      const { agent, conversation } = setup([fail(httpError(status))]);
+      await expect(agent.send({ text: 'go' }, new AbortController().signal)).rejects.toThrow();
+      expect(conversation.discarded).toBe(0);
+    }
+    const look = tool('look', () => ({ content: 'ok' }));
+    const { agent, conversation } = setup([{ toolCalls: [call('t1', 'look')] }, fail(httpError(400))], {
+      tools: [look],
+    });
+    await expect(agent.send({ text: 'go' }, new AbortController().signal)).rejects.toThrow();
+    expect(conversation.discarded).toBe(0);
   });
 
   it('waits as long as the provider asks', async () => {

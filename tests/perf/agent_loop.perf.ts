@@ -49,6 +49,8 @@ class InstantConversation implements Conversation {
     return null;
   }
   applyCompaction(): void {}
+  discardLastUserMessage(): void {}
+
   hasPendingToolCalls(): boolean {
     return false;
   }
