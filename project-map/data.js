@@ -536,7 +536,6 @@ const D = {
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
     [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
-    [239, 'Network allow-list proxy does not check the TLS server name after CONNECT', 'sandbox', 'medium', 0, '10-09'],
     [238, 'Plan mode is not enforced: a declined plan does not stop edits in Auto mode', 'tools', 'medium', 0, '10-09'],
     [237, 'Permission ask/reject rules match the raw input and are easy to bypass', 'security', 'medium', 0, '10-09'],
     [235, 'Browser tool pages can frame and fetch local and private addresses', 'security', 'medium', 0, '10-09'],
@@ -632,7 +631,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 173,
+  closedCount: 174,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

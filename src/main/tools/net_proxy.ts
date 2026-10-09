@@ -61,6 +61,94 @@ function refuse(response: ServerResponse, reason: string): void {
   response.end(`Patch sandbox: ${reason}.\n`);
 }
 
+// The server name (SNI) of the TLS ClientHello at the start of `data`: the name, null when the hello has none,
+// 'incomplete' while more bytes are needed, or 'not-tls' when the data is not a TLS handshake. The hello may be split
+// over several handshake records.
+export function clientHelloServerName(data: Buffer): string | null | 'incomplete' | 'not-tls' {
+  const fragments: Buffer[] = [];
+  let offset = 0;
+  let needed = -1;
+  for (;;) {
+    if (data.length < offset + 5) return 'incomplete';
+    if (data[offset] !== 0x16 || data[offset + 1] !== 0x03) return 'not-tls';
+    const length = data.readUInt16BE(offset + 3);
+    if (data.length < offset + 5 + length) return 'incomplete';
+    fragments.push(data.subarray(offset + 5, offset + 5 + length));
+    offset += 5 + length;
+    const handshake = Buffer.concat(fragments);
+    if (needed < 0 && handshake.length >= 4) {
+      if (handshake[0] !== 0x01) return 'not-tls';
+      needed = 4 + handshake.readUIntBE(1, 3);
+    }
+    if (needed >= 0 && handshake.length >= needed) return serverNameOf(handshake.subarray(4, needed));
+  }
+}
+
+function serverNameOf(hello: Buffer): string | null | 'not-tls' {
+  try {
+    let at = 2 + 32; // version, random
+    at += 1 + hello[at]!; // session id
+    at += 2 + hello.readUInt16BE(at); // cipher suites
+    at += 1 + hello[at]!; // compression methods
+    if (at >= hello.length) return null;
+    const end = at + 2 + hello.readUInt16BE(at);
+    at += 2;
+    while (at + 4 <= end) {
+      const type = hello.readUInt16BE(at);
+      const length = hello.readUInt16BE(at + 2);
+      at += 4;
+      if (type === 0x0000) {
+        // server_name_list: length, then entries of type (0 = host name), length, name.
+        let entry = at + 2;
+        while (entry + 3 <= at + length) {
+          const nameLength = hello.readUInt16BE(entry + 1);
+          if (hello[entry] === 0) return hello.toString('ascii', entry + 3, entry + 3 + nameLength);
+          entry += 3 + nameLength;
+        }
+        return null;
+      }
+      at += length;
+    }
+    return null;
+  } catch {
+    return 'not-tls';
+  }
+}
+
+// The TLS hello must name the host the CONNECT was checked for. Otherwise a command could CONNECT to an allowed host
+// on a shared CDN and then ask the CDN, by server name, for any other site there (#239). A connection to an IP
+// literal may have no server name. Plain HTTP goes through the proxy's absolute-URL path, so CONNECT carries TLS only.
+const MAX_HELLO_BYTES = 64 * 1024;
+const HELLO_TIMEOUT_MS = 10_000;
+
+function readClientHello(client: Socket, head: Buffer): Promise<{ name: string | null; data: Buffer } | null> {
+  return new Promise((resolve) => {
+    let data = head;
+    const finish = (result: { name: string | null; data: Buffer } | null) => {
+      clearTimeout(timer);
+      client.off('data', onData);
+      client.off('close', onClose);
+      client.pause();
+      resolve(result);
+    };
+    const check = () => {
+      const name = clientHelloServerName(data);
+      if (name === 'not-tls') return finish(null);
+      if (name !== 'incomplete') return finish({ name, data });
+      if (data.length > MAX_HELLO_BYTES) finish(null);
+    };
+    const onData = (chunk: Buffer) => {
+      data = Buffer.concat([data, chunk]);
+      check();
+    };
+    const onClose = () => finish(null);
+    const timer = setTimeout(() => finish(null), HELLO_TIMEOUT_MS);
+    client.on('data', onData);
+    client.once('close', onClose);
+    if (data.length > 0) check();
+  });
+}
+
 // host:port of a CONNECT target, with IPv6 literals in brackets.
 function parseTarget(target: string): { host: string; port: number } | null {
   const match = /^(\[[^\]]+\]|[^:]+):(\d+)$/.exec(target);
@@ -125,16 +213,23 @@ export async function startFilteringProxy(
       if ('refused' in checked) return deny(checked.refused);
       const upstream = connect({ host: checked.address, port: target.port });
       track(upstream);
-      upstream.once('connect', () => {
-        client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-        if (head.length > 0) upstream.write(head);
-        upstream.pipe(client);
-        client.pipe(upstream);
-      });
       const end = () => {
         upstream.destroy();
         client.destroy();
       };
+      upstream.once('connect', () => {
+        client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+        void readClientHello(client, head).then((hello) => {
+          const wanted = bareHostname(target.host);
+          const name = hello?.name ? bareHostname(hello.name) : null;
+          // Nothing is sent upstream unless the hello names the checked host (or, for an IP literal, no host).
+          if (!hello || (name === null ? isIP(wanted) === 0 : name !== wanted)) return end();
+          upstream.write(hello.data);
+          upstream.pipe(client);
+          client.pipe(upstream);
+          client.resume();
+        });
+      });
       upstream.once('error', () => (upstream.connecting ? deny(`cannot reach ${target.host}`) : end()));
       client.once('error', end);
       client.once('close', end);

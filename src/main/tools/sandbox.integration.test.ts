@@ -402,8 +402,11 @@ for (const [kind, available] of [
             expect(await sandboxed(`curl -sL ${url('allowed.test', '/redirect')}`)).toContain(
               'denied.test is not on the network allow-list',
             );
-            // HTTPS-style tunnels: CONNECT is checked the same way.
-            expect(await sandboxed(`curl -s -p ${url('allowed.test')}`)).toBe(`SITE:allowed.test:${sitePort}`);
+            // HTTPS-style tunnels: CONNECT is checked the same way, and carries only TLS that names the checked host
+            // (#239), so plain HTTP inside a tunnel is cut.
+            expect(
+              await sandboxed(`curl -s -p -o /dev/null -w '%{http_connect} %{http_code}' ${url('allowed.test')}`),
+            ).toBe('200 000');
             expect(await sandboxed(`curl -s -p -o /dev/null -w '%{http_connect}' ${url('denied.test')}`)).toBe('403');
             // Programs that ignore the proxy variables have no route and no resolver.
             expect(

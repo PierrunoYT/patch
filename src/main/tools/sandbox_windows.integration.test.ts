@@ -412,8 +412,10 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
 
     it('reaches allow-listed hosts through the proxy, from the command and its children', async () => {
       expect(await filtered(CURL, ['-s', url('allowed.test')])).toBe(`SITE:allowed.test:${sitePort}`);
-      // CONNECT tunnels, as HTTPS uses them.
-      expect(await filtered(CURL, ['-s', '-p', url('allowed.test')])).toBe(`SITE:allowed.test:${sitePort}`);
+      // A CONNECT tunnel opens, but carries only TLS that names the checked host (#239): plain HTTP inside it is cut.
+      expect(
+        await filtered(CURL, ['-s', '-p', '-o', 'NUL', '-w', '%{http_connect} %{http_code}', url('allowed.test')]),
+      ).toBe('200 000');
       // A child of the command sees the same proxy variables and reaches the same bridge.
       expect(
         await filtered(
