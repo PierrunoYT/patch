@@ -2,7 +2,7 @@ use std::ffi::CString;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
 pub struct Root(File);
@@ -11,7 +11,13 @@ pub struct Pending {
     parts: Vec<String>,
     parent: Option<File>,
     file: Option<File>,
+    before: Option<Vec<u8>>,
     after: Option<Vec<u8>>,
+    // What apply did, so undo can put it back (#242).
+    created_dirs: Vec<(File, String)>,
+    created_file: bool,
+    written: bool,
+    deleted: bool,
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -63,7 +69,13 @@ impl Root {
         Ok(Self(file))
     }
 
-    fn parent(&self, parts: &[String], create: bool) -> io::Result<Option<File>> {
+    // Folders it creates (with `create`) are added to `created` as (parent, name), outermost first.
+    fn parent(
+        &self,
+        parts: &[String],
+        create: bool,
+        created: &mut Vec<(File, String)>,
+    ) -> io::Result<Option<File>> {
         let mut parent = self.0.try_clone()?;
         for component in &parts[..parts.len() - 1] {
             let child = open_at(&parent, component, libc::O_RDONLY | libc::O_DIRECTORY);
@@ -74,10 +86,12 @@ impl Root {
                     let result = unsafe {
                         libc::mkdirat(parent.as_raw_fd(), component_name.as_ptr(), 0o777)
                     };
-                    if result < 0
-                        && io::Error::last_os_error().kind() != io::ErrorKind::AlreadyExists
-                    {
-                        return Err(io::Error::last_os_error());
+                    if result < 0 {
+                        if io::Error::last_os_error().kind() != io::ErrorKind::AlreadyExists {
+                            return Err(io::Error::last_os_error());
+                        }
+                    } else {
+                        created.push((parent.try_clone()?, component.clone()));
                     }
                     open_at(&parent, component, libc::O_RDONLY | libc::O_DIRECTORY)?
                 }
@@ -89,7 +103,7 @@ impl Root {
     }
 
     pub fn read(&self, parts: &[String]) -> io::Result<Option<Vec<u8>>> {
-        let Some(parent) = self.parent(parts, false)? else {
+        let Some(parent) = self.parent(parts, false, &mut Vec::new())? else {
             return Ok(None);
         };
         let mut file = match open_at(
@@ -113,7 +127,7 @@ impl Root {
         before: Option<Vec<u8>>,
         after: Option<Vec<u8>>,
     ) -> io::Result<Pending> {
-        let parent = self.parent(&parts, false)?;
+        let parent = self.parent(&parts, false, &mut Vec::new())?;
         let mut file = match &parent {
             Some(parent) => match open_at(
                 parent,
@@ -141,7 +155,12 @@ impl Root {
             parts,
             parent,
             file,
+            before,
             after,
+            created_dirs: Vec::new(),
+            created_file: false,
+            written: false,
+            deleted: false,
         })
     }
 
@@ -150,36 +169,74 @@ impl Root {
         if let Some(bytes) = &change.after {
             if change.file.is_none() {
                 if change.parent.is_none() {
-                    change.parent = self.parent(&change.parts, true)?;
+                    change.parent = self.parent(&change.parts, true, &mut change.created_dirs)?;
                 }
-                // Exclusivity prevents a newly planted link (or an unrelated file) from replacing an absent target.
                 change.file = Some(open_at(
                     change.parent.as_ref().unwrap(),
                     leaf,
                     libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
                 )?);
+                change.created_file = true;
             }
             let file = change.file.as_mut().unwrap();
             regular(file, true)?;
+            change.written = true;
             file.set_len(0)?;
             file.seek(SeekFrom::Start(0))?;
             file.write_all(bytes)?;
         } else if change.file.is_some() {
-            // unlinkat never follows the final component, and parent is an already-opened directory.
-            let leaf = name(leaf)?;
-            if unsafe {
-                libc::unlinkat(
-                    change.parent.as_ref().unwrap().as_raw_fd(),
-                    leaf.as_ptr(),
-                    0,
-                )
-            } < 0
-            {
-                return Err(io::Error::last_os_error());
-            }
+            unlink_at(change.parent.as_ref().unwrap(), leaf, 0)?;
+            change.deleted = true;
         }
         Ok(())
     }
+
+    // Puts back what apply did when a later change in the same request failed (#242): an edited file gets its old
+    // bytes, a created file and the folders created for it are removed, and a deleted file is written again with its
+    // old bytes and mode.
+    pub fn undo(&self, change: &mut Pending) -> io::Result<()> {
+        let leaf = change.parts.last().unwrap().clone();
+        if change.deleted {
+            let (Some(parent), Some(before)) = (change.parent.as_ref(), &change.before) else {
+                return Err(invalid("Missing the original content to restore."));
+            };
+            let mut restored =
+                open_at(parent, &leaf, libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL)?;
+            restored.write_all(before)?;
+            if let Some(old) = &change.file {
+                let mode = old.metadata()?.mode() & 0o7777;
+                restored.set_permissions(std::fs::Permissions::from_mode(mode))?;
+            }
+            change.deleted = false;
+        } else if change.created_file {
+            if let Some(parent) = change.parent.as_ref() {
+                unlink_at(parent, &leaf, 0)?;
+            }
+            change.file = None;
+            change.created_file = false;
+            // A folder another change still uses is not empty and stays.
+            for (parent, dir) in change.created_dirs.drain(..).rev() {
+                let _ = unlink_at(&parent, &dir, libc::AT_REMOVEDIR);
+            }
+        } else if change.written {
+            let (Some(file), Some(before)) = (change.file.as_mut(), &change.before) else {
+                return Err(invalid("Missing the original content to restore."));
+            };
+            file.set_len(0)?;
+            file.seek(SeekFrom::Start(0))?;
+            file.write_all(before)?;
+            change.written = false;
+        }
+        Ok(())
+    }
+}
+
+fn unlink_at(parent: &File, leaf: &str, flags: i32) -> io::Result<()> {
+    let leaf = name(leaf)?;
+    if unsafe { libc::unlinkat(parent.as_raw_fd(), leaf.as_ptr(), flags) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

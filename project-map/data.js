@@ -537,7 +537,6 @@ const D = {
   issues: [
     [259, 'Windows file helper truncates before writing; a crash can leave a short file', 'sandbox', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
-    [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
     [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
     [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
@@ -628,7 +627,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 181,
+  closedCount: 182,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -24,8 +24,33 @@ pub struct Pending {
     path: PathBuf,
     _parents: Vec<File>,
     file: Option<File>,
+    before: Option<Vec<u8>>,
     after: Option<Vec<u8>>,
+    // What apply did, so undo can put it back (#242).
+    created_dirs: Vec<PathBuf>,
+    created_file: bool,
+    written: bool,
+    deleted: bool,
 }
+
+// Marks the file behind a handle for deletion when its last handle closes, or takes the mark back.
+fn set_delete_on_close(file: &File, delete: bool) -> io::Result<()> {
+    let disposition = FILE_DISPOSITION_INFO {
+        DeleteFile: delete.into(),
+    };
+    unsafe {
+        SetFileInformationByHandle(
+            HANDLE(file.as_raw_handle()),
+            FileDispositionInfo,
+            &disposition as *const _ as *const _,
+            std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32,
+        )
+    }
+    .map_err(|e| invalid(&e.to_string()))
+}
+
+// Read, write and DELETE, so a file this helper created can be removed again through its own handle.
+const CREATED_FILE_ACCESS: u32 = 0x8000_0000 | 0x4000_0000 | 0x0001_0000;
 
 fn invalid(message: &str) -> io::Error {
     io::Error::other(message)
@@ -73,7 +98,13 @@ impl Root {
         })
     }
 
-    fn parent(&self, parts: &[String], create: bool) -> io::Result<(PathBuf, Vec<File>)> {
+    // Folders it creates (with `create`) are added to `created`, outermost first.
+    fn parent(
+        &self,
+        parts: &[String],
+        create: bool,
+        created: &mut Vec<PathBuf>,
+    ) -> io::Result<(PathBuf, Vec<File>)> {
         let mut path = self.path.clone();
         let mut handles = Vec::new();
         for component in &parts[..parts.len() - 1] {
@@ -82,7 +113,7 @@ impl Root {
                 Ok(handle) => handles.push(handle),
                 Err(e) if e.kind() == io::ErrorKind::NotFound && create => {
                     match std::fs::create_dir(&path) {
-                        Ok(()) => (),
+                        Ok(()) => created.push(path.clone()),
                         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => (),
                         Err(e) => return Err(e),
                     }
@@ -96,7 +127,7 @@ impl Root {
     }
 
     pub fn read(&self, parts: &[String]) -> io::Result<Option<Vec<u8>>> {
-        let (path, _parents) = match self.parent(parts, false) {
+        let (path, _parents) = match self.parent(parts, false, &mut Vec::new()) {
             Ok(value) => value,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e),
@@ -123,7 +154,7 @@ impl Root {
         before: Option<Vec<u8>>,
         after: Option<Vec<u8>>,
     ) -> io::Result<Pending> {
-        let (path, parents) = match self.parent(&parts, false) {
+        let (path, parents) = match self.parent(&parts, false, &mut Vec::new()) {
             Ok(value) => value,
             Err(e) if e.kind() == io::ErrorKind::NotFound && before.is_none() => {
                 return Ok(Pending {
@@ -131,7 +162,12 @@ impl Root {
                     parts,
                     _parents: Vec::new(),
                     file: None,
+                    before,
                     after,
+                    created_dirs: Vec::new(),
+                    created_file: false,
+                    written: false,
+                    deleted: false,
                 })
             }
             Err(e) => return Err(e),
@@ -167,7 +203,12 @@ impl Root {
             path,
             _parents: parents,
             file,
+            before,
             after,
+            created_dirs: Vec::new(),
+            created_file: false,
+            written: false,
+            deleted: false,
         })
     }
 
@@ -175,36 +216,60 @@ impl Root {
         if let Some(bytes) = &change.after {
             if change.file.is_none() {
                 // Rewalk (and retain) any previously missing parents before creating the file exclusively.
-                let (path, parents) = self.parent(&change.parts, true)?;
+                let (path, parents) = self.parent(&change.parts, true, &mut change.created_dirs)?;
                 change.path = path;
                 change._parents = parents;
                 change.file = Some(
                     OpenOptions::new()
                         .write(true)
                         .create_new(true)
+                        .access_mode(CREATED_FILE_ACCESS)
                         .share_mode(FILE_SHARE_READ.0)
                         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0)
                         .open(&change.path)?,
                 );
+                change.created_file = true;
             }
             let file = change.file.as_mut().unwrap();
             regular(file, true)?;
+            change.written = true;
             file.set_len(0)?;
             file.seek(SeekFrom::Start(0))?;
             file.write_all(bytes)?;
-        } else if let Some(file) = change.file.take() {
-            let disposition = FILE_DISPOSITION_INFO {
-                DeleteFile: true.into(),
-            };
-            unsafe {
-                SetFileInformationByHandle(
-                    HANDLE(file.as_raw_handle()),
-                    FileDispositionInfo,
-                    &disposition as *const _ as *const _,
-                    std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32,
-                )
+        } else if let Some(file) = &change.file {
+            // The file goes when the handle closes at the end of the request, so undo can still keep it.
+            set_delete_on_close(file, true)?;
+            change.deleted = true;
+        }
+        Ok(())
+    }
+
+    // Puts back what apply did when a later change in the same request failed (#242): an edited file gets its old
+    // bytes, a created file and the folders created for it are removed, and a deletion is taken back.
+    pub fn undo(&self, change: &mut Pending) -> io::Result<()> {
+        if change.deleted {
+            if let Some(file) = &change.file {
+                set_delete_on_close(file, false)?;
             }
-            .map_err(|e| invalid(&e.to_string()))?;
+            change.deleted = false;
+        } else if change.created_file {
+            if let Some(file) = change.file.take() {
+                set_delete_on_close(&file, true)?;
+            }
+            change.created_file = false;
+            // The folders' own handles are closed first; a folder another change still uses stays.
+            change._parents.clear();
+            for dir in change.created_dirs.drain(..).rev() {
+                let _ = std::fs::remove_dir(dir);
+            }
+        } else if change.written {
+            let (Some(file), Some(before)) = (change.file.as_mut(), &change.before) else {
+                return Err(invalid("Missing the original content to restore."));
+            };
+            file.set_len(0)?;
+            file.seek(SeekFrom::Start(0))?;
+            file.write_all(before)?;
+            change.written = false;
         }
         Ok(())
     }
@@ -246,9 +311,10 @@ mod tests {
             .unwrap();
         assert!(std::fs::rename(project.join("sub"), project.join("held")).is_err());
         root.apply(&mut deletion).unwrap();
-        assert!(!project.join("sub/x").exists());
         assert_eq!(std::fs::read(outside.join("x")).unwrap(), b"outside");
+        // The file goes when the request ends and its handle closes, so a failure before that could keep it (#242).
         drop(deletion);
+        assert!(!project.join("sub/x").exists());
         drop(root);
         // The same rename succeeds once the helper releases its handles.
         std::fs::rename(project.join("sub"), project.join("held")).unwrap();

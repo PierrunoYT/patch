@@ -9,7 +9,7 @@ builders.focus = () => {
         '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too; the fix removes a rejected trailing message, an exception to append-only history that needs a decision',
         '#232 (macOS): Seatbelt lets commands read and write every user tty; denying it also breaks programs that open their own pty',
         '#257 (macOS, unverified): hard links into the project may get past the hidden home folder and read-only .git',
-        '#242 and #259: the native file helper still applies a patch file by file without rollback, and truncates before writing',
+        '#259: the native file helper rewrites a file in place, so a crash in the middle of a write can leave it short',
       ],
       'The macOS items need a Mac to verify; the helper items are Rust changes in native/sandbox-helper.',
     ],
