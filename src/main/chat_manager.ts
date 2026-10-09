@@ -13,7 +13,7 @@ import { mergeAllowLists } from '@shared/project';
 import { loadAgentFile } from './agent/agent_file';
 import { isCommandAllowed } from './agent/allowed_commands';
 import { isNetworkUrlAllowed } from './agent/allowed_network_hosts';
-import { decidePermission } from './agent/permissions';
+import { decideCallPermission, type PathView } from './agent/permissions';
 import type { DroppedFieldError } from './agent/agent';
 import { buildSystemPrompt, promptListsSkills } from './agent/system_prompt';
 import { ChatSession, type SavedChat } from './agent/session';
@@ -319,6 +319,18 @@ export class ChatManager {
       conversation.provider === 'openai' &&
       conversation.serialize().api === 'chat' &&
       Boolean(this.deps.settings.get().openaiBaseUrl.trim());
+    // Permission rules see the paths a call names as project-relative and, where the file system ignores case,
+    // without regard to it (#237). A path outside the project stays as written.
+    const paths: PathView = {
+      ignoreCase: process.platform === 'win32' || process.platform === 'darwin',
+      relative: (path) => {
+        try {
+          return workspace.relative(workspace.resolve(path)).replace(/\\/g, '/');
+        } catch {
+          return null;
+        }
+      },
+    };
     const subagents = {
       createConversation: () => {
         const settings = this.deps.settings.get();
@@ -350,7 +362,7 @@ export class ChatManager {
       chatModel: conversation.model,
       recordUsage: (usage: UsageTotals, model: string) => session.recordUsage(usage, model),
       decidePermission: (name: string, input: Record<string, unknown>) =>
-        decidePermission(this.deps.settings.get().permissionRules, name, input, 'subagent'),
+        decideCallPermission(this.deps.settings.get().permissionRules, name, input, 'subagent', paths),
     };
     const taskTool = createTaskTool(subagents);
     const finderTool = createFinderTool(subagents);
@@ -385,7 +397,7 @@ export class ChatManager {
       approvalMode: () => this.deps.settings.get().approvalMode,
       planMode: () => this.deps.settings.get().planMode,
       decidePermission: (name, input) =>
-        decidePermission(this.deps.settings.get().permissionRules, name, input, 'thread'),
+        decideCallPermission(this.deps.settings.get().permissionRules, name, input, 'thread', paths),
       isPreApproved: (toolName, input) => {
         // The global lists plus this project's own, read on every call so a change applies at once.
         const settings = this.deps.settings.get();

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PermissionRule } from '@shared/settings';
-import { decidePermission, delegateCommand, globMatch, ruleMatches } from './permissions';
+import {
+  decideCallPermission,
+  decidePermission,
+  delegateCommand,
+  globMatch,
+  ruleMatches,
+  type PathView,
+} from './permissions';
 
 describe('globMatch', () => {
   it('matches * across any text and ? for one character', () => {
@@ -158,5 +165,90 @@ describe('delegateCommand', () => {
 
   it.each(['50%', '!x!', 'say "hi"', 'a\nb', 'a\rb'])('refuses to pass %j to a .cmd program', (arg) => {
     expect(() => delegateCommand(['check.cmd', arg], 'win32')).toThrow(/cmd\.exe cannot pass/);
+  });
+});
+
+describe('decideCallPermission (#237)', () => {
+  // A stand-in for the workspace: a project at /p, case-insensitive like Windows and macOS.
+  const paths: PathView = {
+    ignoreCase: true,
+    relative: (path) => {
+      const parts: string[] = [];
+      for (const part of path
+        .replace(/\\/g, '/')
+        .replace(/^\/p\//i, '')
+        .split('/')) {
+        if (part === '' || part === '.') continue;
+        if (part === '..') parts.pop();
+        else parts.push(part);
+      }
+      return parts.join('/');
+    },
+  };
+  const legacy: PermissionRule = {
+    tool: ['write_file', 'edit_file'],
+    matches: { path: 'src/legacy/*' },
+    action: 'ask',
+  };
+  const noPush: PermissionRule = { tool: 'run_command', matches: { command: 'git push*' }, action: 'reject' };
+  const decide = (rules: PermissionRule[], tool: string, input: Record<string, unknown>) =>
+    decideCallPermission(rules, tool, input, 'thread', paths);
+
+  it.each([
+    'src/legacy/a.ts',
+    './src/legacy/a.ts',
+    'src\\legacy\\a.ts',
+    'SRC/legacy/a.ts',
+    '/p/src/legacy/a.ts',
+    'src//legacy/a.ts',
+  ])('asks for %s, however the path is spelled', async (path) => {
+    expect(await decide([legacy], 'edit_file', { path, old_string: 'a', new_string: 'b' })).toEqual({
+      action: 'ask',
+      message: undefined,
+    });
+  });
+
+  it('checks every file an apply_patch touches, moves included, as edit_file', async () => {
+    const patch = (body: string) => `*** Begin Patch\n${body}\n*** End Patch`;
+    expect(
+      await decide([legacy], 'apply_patch', { patch: patch('*** Update File: src/legacy/a.ts\n@@\n-a\n+b') }),
+    ).toMatchObject({ action: 'ask' });
+    expect(
+      await decide([legacy], 'apply_patch', {
+        patch: patch('*** Update File: src/new.ts\n*** Move to: ./src/legacy/b.ts\n@@\n-a\n+b'),
+      }),
+    ).toMatchObject({ action: 'ask' });
+    expect(await decide([legacy], 'apply_patch', { patch: patch('*** Add File: src/other.ts\n+x') })).toBeNull();
+  });
+
+  it('allows a patch through a path rule only when every file it touches is allowed', async () => {
+    const docs: PermissionRule = { tool: 'edit_file', matches: { path: 'docs/*' }, action: 'allow' };
+    const patch = (...files: string[]) =>
+      `*** Begin Patch\n${files.map((file) => `*** Add File: ${file}\n+x`).join('\n')}\n*** End Patch`;
+    expect(await decide([docs], 'apply_patch', { patch: patch('docs/a.md', 'docs/b.md') })).toMatchObject({
+      action: 'allow',
+    });
+    expect(await decide([docs], 'apply_patch', { patch: patch('docs/a.md', 'src/b.ts') })).toBeNull();
+  });
+
+  it.each([
+    'git push',
+    ' git  push',
+    'git push origin main',
+    'cd . && git push',
+    'npm test; git push',
+    'echo hi | git push',
+  ])('rejects %j with a rule for git push*', async (command) => {
+    expect(await decide([noPush], 'run_command', { command })).toMatchObject({ action: 'reject' });
+  });
+
+  it('keeps an allow rule for a command from covering what follows a shell operator', async () => {
+    const allowTests: PermissionRule = { tool: 'run_command', matches: { command: 'npm test*' }, action: 'allow' };
+    expect(await decide([noPush, allowTests], 'run_command', { command: 'npm test && git push' })).toMatchObject({
+      action: 'reject',
+    });
+    expect(await decide([allowTests], 'run_command', { command: 'npm test -- --watch=false' })).toMatchObject({
+      action: 'allow',
+    });
   });
 });

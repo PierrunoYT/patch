@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptions } from 'node:child_process';
 import type { PermissionRule } from '@shared/settings';
+import { parsePatch } from '../tools/apply_patch';
 import { resolveCommand } from '../tools/mcp';
 
 export type PermissionContext = 'thread' | 'subagent';
@@ -14,16 +15,24 @@ const DELEGATE_TIMEOUT_MS = 15_000;
 const MAX_DELEGATE_OUTPUT = 4096;
 
 // `*` matches any run of characters (also across `/`), `?` one character. Everything else is literal.
-export function globMatch(pattern: string, text: string): boolean {
+export function globMatch(pattern: string, text: string, ignoreCase = false): boolean {
   const source = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*/g, '.*')
     .replace(/\?/g, '.');
-  return new RegExp(`^${source}$`, 's').test(text);
+  return new RegExp(`^${source}$`, ignoreCase ? 'si' : 's').test(text);
 }
 
-function anyGlob(patterns: string | string[], text: string): boolean {
-  return (Array.isArray(patterns) ? patterns : [patterns]).some((pattern) => globMatch(pattern, text));
+function anyGlob(patterns: string | string[], text: string, ignoreCase = false): boolean {
+  return (Array.isArray(patterns) ? patterns : [patterns]).some((pattern) => globMatch(pattern, text, ignoreCase));
+}
+
+// How the paths of a call are compared: `path` is matched project-relative with forward slashes, and without regard
+// to case where the file system ignores it (Windows, macOS), so `./src/a.ts` or `SRC\a.ts` cannot slip past a rule
+// for `src/*` (#237).
+export interface PathView {
+  relative(path: string): string | null;
+  ignoreCase: boolean;
 }
 
 export function ruleMatches(
@@ -31,15 +40,60 @@ export function ruleMatches(
   toolName: string,
   input: Record<string, unknown>,
   context: PermissionContext,
+  paths?: PathView,
 ): boolean {
   if (rule.context && rule.context !== context) return false;
   if (!anyGlob(rule.tool, toolName)) return false;
   for (const [field, patterns] of Object.entries(rule.matches ?? {})) {
     const value = input[field];
     if (value === undefined) return false;
-    if (!anyGlob(patterns, typeof value === 'string' ? value : JSON.stringify(value))) return false;
+    const ignoreCase = field === 'path' && Boolean(paths?.ignoreCase);
+    if (!anyGlob(patterns, typeof value === 'string' ? value : JSON.stringify(value), ignoreCase)) return false;
   }
   return true;
+}
+
+// What a call is checked as besides itself: every file an apply_patch touches, as an edit_file of it, and each part of
+// a command between shell operators, so an ask or reject rule for `git push*` also sees `cd . && git push`.
+interface Candidate {
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+const SHELL_SEPARATOR = /\s*(?:&&|\|\||[;&|\r\n])\s*/;
+
+export function permissionCandidates(
+  toolName: string,
+  input: Record<string, unknown>,
+  paths?: PathView,
+): { call: Candidate; parts: Candidate[][] } {
+  const normalized: Record<string, unknown> = { ...input };
+  if (typeof input.path === 'string' && paths) normalized.path = paths.relative(input.path) ?? input.path;
+  // Each part is one or more views of the same thing; a part is allowed when any of its views is.
+  const parts: Candidate[][] = [];
+  if (toolName === 'run_command' && typeof input.command === 'string') {
+    normalized.command = input.command.trim().replace(/[ \t]+/g, ' ');
+    const segments = (normalized.command as string).split(SHELL_SEPARATOR).filter(Boolean);
+    if (segments.length > 1)
+      parts.push(...segments.map((command) => [{ tool: toolName, input: { ...input, command } }]));
+  }
+  if (toolName === 'apply_patch' && typeof input.patch === 'string') {
+    try {
+      for (const op of parsePatch(input.patch)) {
+        for (const raw of [op.path, op.kind === 'update' ? op.moveTo : null]) {
+          if (!raw) continue;
+          const path = paths?.relative(raw) ?? raw;
+          parts.push([
+            { tool: toolName, input: { ...input, path } },
+            { tool: 'edit_file', input: { path } },
+          ]);
+        }
+      }
+    } catch {
+      // A patch that does not parse fails in the tool itself.
+    }
+  }
+  return { call: { tool: toolName, input: normalized }, parts };
 }
 
 // How a delegate's `to` reads in messages: the program, then its arguments.
@@ -55,8 +109,9 @@ export async function decidePermission(
   input: Record<string, unknown>,
   context: PermissionContext,
   delegate: (to: string | string[], payload: string) => Promise<string> = runDelegate,
+  paths?: PathView,
 ): Promise<PermissionDecision | null> {
-  const rule = rules.find((candidate) => ruleMatches(candidate, toolName, input, context));
+  const rule = rules.find((candidate) => ruleMatches(candidate, toolName, input, context, paths));
   if (!rule) return null;
   if (rule.action !== 'delegate') return { action: rule.action, message: rule.message };
 
@@ -71,6 +126,33 @@ export async function decidePermission(
     const reason = error instanceof Error ? error.message : String(error);
     return { action: 'reject', message: `The permission program "${program}" failed: ${reason}` };
   }
+}
+
+// The decision for a whole call: the call with its paths normalized, and each of its parts (permissionCandidates).
+// The strictest wins: any reject, then any ask. A call is allowed when it is allowed itself, or when every one of its
+// parts is, so an allow rule for one file does not let a patch that also touches another run without asking.
+export async function decideCallPermission(
+  rules: PermissionRule[],
+  toolName: string,
+  input: Record<string, unknown>,
+  context: PermissionContext,
+  paths?: PathView,
+  delegate: (to: string | string[], payload: string) => Promise<string> = runDelegate,
+): Promise<PermissionDecision | null> {
+  const { call, parts } = permissionCandidates(toolName, input, paths);
+  const main = await decidePermission(rules, call.tool, call.input, context, delegate, paths);
+  const derived = await Promise.all(
+    parts.map((views) =>
+      Promise.all(views.map((view) => decidePermission(rules, view.tool, view.input, context, delegate, paths))),
+    ),
+  );
+  const all = [main, ...derived.flat()];
+  const strictest = all.find((decision) => decision?.action === 'reject') ?? all.find((d) => d?.action === 'ask');
+  if (strictest) return strictest;
+  if (main?.action === 'allow') return main;
+  const allowed = derived.map((views) => views.find((decision) => decision?.action === 'allow'));
+  if (allowed.length > 0 && allowed.every(Boolean)) return allowed[0]!;
+  return null;
 }
 
 export interface DelegateCommand {
