@@ -13,7 +13,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GitFile } from '@shared/panels';
 import { validateSandboxGit } from '../tools/sandbox_git';
 import {
@@ -25,6 +26,12 @@ import {
   projectCommands,
   removeEntry,
 } from './git';
+
+// readFile passes through; tests check which files the Git panel reads.
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, readFile: vi.fn(actual.readFile) };
+});
 
 const tempFolderInsideRepo = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: tmpdir() }).status === 0;
 
@@ -138,6 +145,17 @@ describe('GitService', () => {
     const files = (await service.status()).files;
     expect(files.find((file) => file.path === 'three.txt')).toMatchObject({ added: 3, removed: 0 });
     expect(files.find((file) => file.path === 'image.bin')).toEqual({ path: 'image.bin', status: 'untracked' });
+  });
+
+  it('does not read a large new file to count its lines (#244)', async () => {
+    await initRepo();
+    const big = join(root, 'dump.sql');
+    writeFileSync(big, 'x\n'.repeat(1_500_000));
+    vi.mocked(readFile).mockClear();
+    const files = (await service.status()).files;
+    expect(files.find((file) => file.path === 'dump.sql')).toEqual({ path: 'dump.sql', status: 'untracked' });
+    const read = vi.mocked(readFile).mock.calls.map(([path]) => String(path));
+    expect(read.some((path) => path.endsWith('dump.sql'))).toBe(false);
   });
 
   it('discards every change at once', async () => {

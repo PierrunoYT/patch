@@ -1,5 +1,5 @@
 import { existsSync, realpathSync, statSync } from 'node:fs';
-import { lstat, readFile, rm, rmdir, unlink } from 'node:fs/promises';
+import { lstat, readFile, rm, rmdir, stat, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
@@ -128,6 +128,7 @@ export function isRepoAboveHome(topLevel: string, projectRoot: string, home: str
 
 // New files larger than this are not counted for the line counts in the Git panel.
 const MAX_COUNTED_BYTES = 2 * 1024 * 1024;
+const COUNT_CONCURRENCY = 16;
 
 // The Git panel: changed files, diffs, commit and discard for the open project.
 export class GitService {
@@ -226,21 +227,34 @@ export class GitService {
       ? await repo.diff([...safe, 'HEAD']).catch(() => '')
       : `${await repo.diff([...safe, '--cached']).catch(() => '')}\n${await repo.diff(safe).catch(() => '')}`;
     const counts = parseNumstat(output);
-    return Promise.all(
-      files.map(async (file) => {
-        if (file.status === 'untracked') {
-          const lines = await this.countLines(file.path);
-          return lines === null ? file : { ...file, added: lines, removed: 0 };
-        }
-        const count = counts.get(file.path);
-        return count ? { ...file, ...count } : file;
-      }),
-    );
+    const result: GitFile[] = [];
+    // A few files at a time, so many untracked files do not all sit in memory at once.
+    for (let start = 0; start < files.length; start += COUNT_CONCURRENCY) {
+      const batch = files.slice(start, start + COUNT_CONCURRENCY);
+      result.push(
+        ...(await Promise.all(
+          batch.map(async (file) => {
+            if (file.status === 'untracked') {
+              const lines = await this.countLines(file.path);
+              return lines === null ? file : { ...file, added: lines, removed: 0 };
+            }
+            const count = counts.get(file.path);
+            return count ? { ...file, ...count } : file;
+          }),
+        )),
+      );
+    }
+    return result;
   }
 
   private async countLines(path: string): Promise<number | null> {
     try {
-      const content = await readFile(this.workspace.resolve(path));
+      const absolute = this.workspace.resolve(path);
+      // The size is checked before reading: a large untracked file (a dump, a video) was read whole on every status
+      // refresh (#244).
+      const info = await stat(absolute);
+      if (!info.isFile() || info.size > MAX_COUNTED_BYTES) return null;
+      const content = await readFile(absolute);
       // Binary or large files are not counted, as git does not count binary files.
       if (content.length > MAX_COUNTED_BYTES || content.includes(0)) return null;
       const text = content.toString('utf8');
