@@ -56,6 +56,8 @@ By default the assistant asks before it changes anything. A card appears in the 
 
 Reading files, listing folders, finding files by name, searching the code, the todo list and web search never ask.
 
+Web search sends the query the model wrote to Google Custom Search without asking, so text from your project that the model puts in a query leaves your machine. Patch masks recognizable secrets (API keys, tokens, private keys, passwords in URLs) in the query first, but other code or names are sent as written. Leave the Google settings empty to turn web search off for confidential work.
+
 **Protected files** always ask, even in Auto mode: `.env` files (but not `.env.example`), keys and certificates (`*.pem`, `*.key`, `id_rsa`, …), `.ssh`, `.aws` and similar folders, `.git`, editor and agent folders (`.vscode`, `.idea`, `.cursor`, `.claude`), shell start-up files (`.bashrc`, `.zshrc`, …), databases (`*.sqlite`, `*.db`) and system folders. This applies to `edit_file`, `write_file` and every path in an `apply_patch`.
 
 Protection is case-insensitive, and Windows 8.3 names are expanded before checking the deepest existing parent. `.GIT/config` and a short-name alias of `.git` therefore ask too. If a safety check fails, Patch requires approval instead of silently allowing the edit, including with an `allow` or `delegate` permission rule (#143).

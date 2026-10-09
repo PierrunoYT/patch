@@ -14,6 +14,7 @@ import {
   fetchUrlTool,
   fetchWithoutCrossOriginRedirect,
   readBodyCapped,
+  webSearchTool,
   webTransport,
 } from './web';
 import { Workspace } from './workspace';
@@ -252,5 +253,18 @@ describe('fetch_url charsets', () => {
   it('falls back to UTF-8 for an unknown charset', async () => {
     const response = new Response('naïve', { headers: { 'content-type': 'text/plain; charset=not-a-charset' } });
     expect((await readBodyCapped(response)).text).toBe('naïve');
+  });
+});
+
+describe('web_search', () => {
+  it('masks secrets in the query before it is sent to Google', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ items: [] }));
+    const ctx = { ...context, webSearch: { googleApiKey: 'k', googleSearchEngineId: 'c' } };
+    const secret = 'sk-ant-' + 'a'.repeat(30);
+    const result = await webSearchTool.run({ query: `error with key ${secret}` }, ctx);
+    const sent = new URL(String(fetchMock.mock.calls[0]![0])).searchParams.get('q')!;
+    expect(sent).toContain('error with key');
+    expect(sent).not.toContain(secret);
+    expect(result.summary).not.toContain(secret);
   });
 });

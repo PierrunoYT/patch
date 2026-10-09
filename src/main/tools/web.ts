@@ -8,6 +8,7 @@ import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { parseHTML } from 'linkedom';
 import { z } from 'zod';
 import { destinationFor, resolveDestination, type Destination } from './net_address';
+import { redactSecrets } from './redact';
 import { defineTool, ToolError } from './types';
 
 // How long to wait for the response headers. Reading the body has its own limit, so a slow page still returns what
@@ -164,7 +165,9 @@ export const webSearchTool = defineTool({
     const url = new URL('https://www.googleapis.com/customsearch/v1');
     url.searchParams.set('key', context.webSearch.googleApiKey);
     url.searchParams.set('cx', context.webSearch.googleSearchEngineId);
-    url.searchParams.set('q', query);
+    // The query leaves the machine without approval, so a secret the model copied into it is masked first (#73).
+    const sent = redactSecrets(query);
+    url.searchParams.set('q', sent);
     url.searchParams.set('num', '8');
 
     const response = await fetch(url, { signal: withTimeout(context.signal) });
@@ -175,7 +178,7 @@ export const webSearchTool = defineTool({
       content:
         items.map((item, i) => `${i + 1}. ${item.title}\n   ${item.link}\n   ${item.snippet ?? ''}`).join('\n') ||
         'No results.',
-      summary: `Searched the web for "${query}"`,
+      summary: `Searched the web for "${sent}"`,
     };
   },
 });
