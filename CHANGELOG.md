@@ -93,6 +93,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Test maintenance
 
+- The transcript view end-to-end tests wait for the previous turn to finish before sending, the Undo test makes and approves its own edit instead of relying on the test before it, and a wait that times out reports the chat state and the number of requests the mock API got (fixes #125).
 - `tests/e2e/chat_controls.test.ts` covers the chat list (grouping by day, the open chat marked, the title filter and the message-text search, a new chat appearing through `history:changed`), the composer's model picker (used for a new chat, locked once a chat has started), the Ask / Auto-Approve and Plan Mode switches, and the status-bar branch (hidden without a project, `*` once files change), all checked on screen (fixes #62).
 - The Windows toolchain integration tests remove every `subst` drive they create before deleting their fixture, and remove drives an interrupted run left aimed at a deleted fixture (fixes #133).
 - The chat manager unit tests wait for background chat checkpoint writes (`flushJsonWrites` in `storage/json_file.ts`) before deleting their temporary folder, so they no longer fail now and then on macOS with `ENOTEMPTY` (fixes #220).

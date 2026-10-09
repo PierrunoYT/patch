@@ -580,7 +580,6 @@ const D = {
     [128, 'Isolate built-in file tools behind an OS-restricted executor', 'sandbox', 'medium', 0, '10-06'],
     [127, 'Protect agent, IDE and shell configuration from command writes', 'sandbox', 'medium', 0, '10-06'],
     [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 0, '10-06'],
-    [125, 'e2e: transcript_view approval-card and Undo tests fail intermittently', 'tests', 'low', 0, '10-06'],
     [121, 'Perplexity Decider V1 27B (OpenRouter) as a safety check on tool calls', 'tools', 'low', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
     [
@@ -631,7 +630,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 178,
+  closedCount: 179,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

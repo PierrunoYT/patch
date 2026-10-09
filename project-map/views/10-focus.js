@@ -51,7 +51,6 @@ builders.focus = () => {
         '#118 is fixed: full chat saves write the chat file in the background, like checkpoints. #112 is fixed: the .git check before sandboxed commands is asynchronous and cached, and stopping commands no longer uses spawnSync',
         '#114 is fixed: changes to protective rules or their ordered prefixes need native confirmation. #116 provider failure text kept out of local logs, #115 HTML-only Markdown and #113 MCP secret migration are also fixed',
         '#73 and #67 are fixed: web_search masks secrets in its query and the data flow is documented; browser guests always keep webSecurity on and new web contents are locked down by default',
-        '#125: two transcript_view e2e tests fail intermittently in full runs',
         '#138: the crash_kill approval e2e test still stalls intermittently on Windows CI, also after the sandbox probes became asynchronous (#112); it needs timing logs',
       ],
       'The known protective-rule confirmation gap is closed (#114), including reorders that leave the protective rule at the same index. Continue with contained fixes and regression tests for the remaining findings.',

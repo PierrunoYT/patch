@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { TranscriptItem } from '../../src/shared/chat';
+import type { Locator } from 'playwright-core';
+import type { ChatSnapshot, TranscriptItem } from '../../src/shared/chat';
 import { launchApp, type RunningApp } from './app';
 import { MockClaude } from './mock_claude';
 
@@ -32,6 +33,7 @@ describe('the transcript view (mock Claude API)', () => {
     project = mkdtempSync(join(tmpdir(), 'patch-view-project-'));
     profile = mkdtempSync(join(tmpdir(), 'patch-view-profile-'));
     writeFileSync(join(project, 'notes.txt'), 'hello\n');
+    writeFileSync(join(project, 'undo.txt'), 'a\n');
     mkdirSync(join(profile, 'chats'));
     writeFileSync(
       join(profile, 'chats', `${LONG_ID}.json`),
@@ -62,6 +64,34 @@ describe('the transcript view (mock Claude API)', () => {
     rmSync(project, { recursive: true, force: true });
     rmSync(profile, { recursive: true, force: true });
   });
+
+  // Waits until the chat is idle, so a test does not type while the previous turn still runs (#125). On a timeout the
+  // error says which step stalled: the busy flag, the transcript and how many requests the mock API got.
+  async function whenIdle(timeout = 20_000): Promise<ChatSnapshot> {
+    const deadline = Date.now() + timeout;
+    let chat = await running.page.evaluate(() => window.api.invoke('chat:snapshot'));
+    while (chat.busy && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      chat = await running.page.evaluate(() => window.api.invoke('chat:snapshot'));
+    }
+    if (chat.busy) throw new Error(`The chat is still busy. ${await diagnosis()}`);
+    return chat;
+  }
+
+  async function diagnosis(): Promise<string> {
+    const chat = await running.page.evaluate(() => window.api.invoke('chat:snapshot'));
+    const items = chat.transcript.slice(-6).map((item) => `${item.kind}${'status' in item ? ` (${item.status})` : ''}`);
+    return `busy=${chat.busy} last items=${JSON.stringify(items)} mock requests=${claude.agentRequests.length} ${running.mainErrors.join(' ')}`;
+  }
+
+  // Waits for a locator, and on a timeout reports the chat state instead of only the selector.
+  async function appears(locator: Locator, timeout = 30_000): Promise<void> {
+    try {
+      await locator.waitFor({ timeout });
+    } catch (error) {
+      throw new Error(`${(error as Error).message}\n${await diagnosis()}`, { cause: error });
+    }
+  }
 
   // How far the chat is scrolled from its bottom, in pixels.
   const distanceFromBottom = () =>
@@ -132,13 +162,14 @@ describe('the transcript view (mock Claude API)', () => {
       },
       { blocks: [{ type: 'text', text: 'Written.' }], stopReason: 'end_turn' },
     );
+    await whenIdle();
     await running.page.getByLabel('Message', { exact: true }).fill('Rewrite the notes');
     await running.page.getByLabel('Message', { exact: true }).press('Enter');
 
     const approve = running.page
       .getByRole('group', { name: /Approval needed/ })
       .getByRole('button', { name: 'Approve' });
-    await approve.waitFor();
+    await appears(approve);
     await expect.poll(distanceFromBottom, { timeout: 5_000 }).toBeLessThan(5);
     expect(await approve.isVisible()).toBe(true);
     const box = await approve.boundingBox();
@@ -153,7 +184,30 @@ describe('the transcript view (mock Claude API)', () => {
   });
 
   it('moves keyboard focus to the result after Undo instead of losing it', async () => {
-    const undo = running.page.getByRole('button', { name: /^Undo / });
+    // Its own edit, so it does not depend on the test before it (#125).
+    claude.script(
+      {
+        blocks: [{ type: 'tool_use', id: 'read-undo', name: 'read_file', input: { path: 'undo.txt' } }],
+        stopReason: 'tool_use',
+      },
+      {
+        blocks: [
+          { type: 'tool_use', id: 'undo-edit', name: 'write_file', input: { path: 'undo.txt', content: 'b\n' } },
+        ],
+        stopReason: 'tool_use',
+      },
+      { blocks: [{ type: 'text', text: 'Changed for undo.' }], stopReason: 'end_turn' },
+    );
+    await whenIdle();
+    await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Change the undo file' }));
+    const approve = running.page
+      .getByRole('group', { name: /Approval needed/ })
+      .getByRole('button', { name: 'Approve' });
+    await appears(approve);
+    await approve.click();
+    await appears(running.page.getByText('Changed for undo.', { exact: true }));
+
+    const undo = running.page.getByRole('button', { name: /^Undo .*undo\.txt/ });
     await undo.focus();
     await running.page.keyboard.press('Enter');
 
