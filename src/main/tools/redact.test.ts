@@ -31,11 +31,18 @@ describe('redactSecrets', () => {
     ['Anthropic key', `key sk-ant-${'x1'.repeat(20)}`],
     ['Slack token', 'xoxb-1234567890-abcdefghij'],
     ['JWT', 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkw.abcdefghij1234567890'],
+    ['Stripe key', `key sk_live_${'a1'.repeat(12)}`],
+    ['GitLab token', `glpat-${'x1'.repeat(10)}`],
+    ['npm token', `npm_${'aB3'.repeat(12)}`],
+    ['Twilio key', `SK${'0f'.repeat(16)}`],
+    ['DB_PASS line', 'DB_PASS=supersecret1'],
+    ['MYSQL_PWD line', 'MYSQL_PWD=supersecret1'],
     ['private key', '-----BEGIN RSA PRIVATE KEY-----\nMIIEvQ\nabc\n-----END RSA PRIVATE KEY-----'],
   ])('replaces a %s', (_name, text) => {
     const out = redactSecrets(text);
     expect(containsRedaction(out)).toBe(true);
     expect(out).not.toContain('EXAMPLE');
+    expect(out).not.toContain('supersecret1');
   });
 
   it('keeps the surrounding text', () => {

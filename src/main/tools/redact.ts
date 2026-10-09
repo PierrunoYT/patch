@@ -1,7 +1,8 @@
 // Secrets that show up in tool results (a `cat .env`, a read of a key file, a command that prints a token) are
 // replaced before the text reaches the model, the transcript or the saved chat. The patterns are well-known token
 // formats, passwords in URLs, plus quoted or .env-style values of credential-named variables; ordinary code such as
-// `token = getToken()` is left alone.
+// `token = getToken()` is left alone. This is best effort, not a security boundary: a secret in a format none of
+// these recognize reaches the model and the saved chat.
 
 export const REDACTION_MARK = '[REDACTED:_____]';
 
@@ -11,13 +12,19 @@ const SECRET_PATTERNS: RegExp[] = [
   /\bgh[pousr]_[A-Za-z0-9]{36,}\b/g,
   /\bgithub_pat_[A-Za-z0-9_]{50,}\b/g,
   /\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}/g,
+  /\b[sr]k_live_[A-Za-z0-9]{16,}/g,
+  /\bglpat-[A-Za-z0-9_-]{20,}/g,
+  /\bnpm_[A-Za-z0-9]{36}\b/g,
+  /\bpypi-[A-Za-z0-9_-]{50,}/g,
+  /\bdop_v1_[a-f0-9]{64}\b/g,
+  /\bSK[0-9a-f]{32}\b/g,
   /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
   /\bAIza[0-9A-Za-z_-]{35}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
   // password = "hunter2hunter2", "api_key": "…", client_secret: '…' (quoted values only)
   /(?<=\b[\w-]*(?:password|passwd|secret|token|api[_-]?key)[\w-]*["']?\s*[=:]\s*["'])[^\s"']{8,}(?=["'])/gi,
   // .env style: DB_PASSWORD=value, STRIPE_SECRET_KEY=value (whole line, upper case names)
-  /(?<=^[ \t]*(?:export[ \t]+)?[A-Z][A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|ACCESS_KEY)[A-Z0-9_]*[ \t]*=[ \t]*["']?)[^\s"'$(){}]{8,}/gm,
+  /(?<=^[ \t]*(?:export[ \t]+)?[A-Z][A-Z0-9_]*(?:PASSWORD|PASSWD|PASSPHRASE|SECRET|TOKEN|API_KEY|AUTH_KEY|PRIVATE_KEY|ACCESS_KEY|_PASS(?![A-Z0-9])|_PWD(?![A-Z0-9]))[A-Z0-9_]*[ \t]*=[ \t]*["']?)[^\s"'$(){}]{8,}/gm,
 ];
 
 // The password in a URL's user info: postgres://admin:hunter2@db/prod, mongodb+srv://user:P@ss@cluster/db,

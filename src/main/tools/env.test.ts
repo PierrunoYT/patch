@@ -18,6 +18,20 @@ describe('scrubEnv', () => {
     });
     expect(Object.keys(out).sort()).toEqual(['ComSpec', 'HOME', 'PATH', 'SESSIONNAME', 'SSH_AUTH_SOCK']);
   });
+
+  it('removes variables whose value holds a URL password or that name a credential file (#153)', () => {
+    const out = scrubEnv({
+      PATH: '/bin',
+      PWD: '/work',
+      DATABASE_URL: 'postgres://user:hunter2@db/prod',
+      REDIS_URL: 'redis://:secret@cache:6379',
+      KUBECONFIG: '/home/me/.kube/config',
+      MYSQL_PWD: 'x',
+      DB_PASS: 'x',
+      API_URL: 'https://example.com/path',
+    });
+    expect(Object.keys(out).sort()).toEqual(['API_URL', 'PATH', 'PWD']);
+  });
 });
 
 describe('sandboxEnv', () => {
