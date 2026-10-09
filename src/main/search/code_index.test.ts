@@ -116,6 +116,19 @@ describe('CodeIndex', () => {
     expect(index.fileCount).toBe(3);
   });
 
+  it('leaves out a file that disappears during the scan instead of failing the update (#245)', async () => {
+    const workspace = new Workspace(root);
+    const list = workspace.listFiles.bind(workspace);
+    vi.spyOn(workspace, 'listFiles').mockImplementation(async (...args) => [
+      ...(await list(...args)),
+      join(workspace.root, 'src', 'gone.ts'),
+    ]);
+    const index = new CodeIndex(workspace, new FakeEmbedder(), indexDir, () => 1000);
+    const hits = await index.search('validate session token', 5, signal);
+    expect(hits[0]).toMatchObject({ path: 'src/auth.ts' });
+    expect(index.fileCount).toBe(2);
+  });
+
   it('walks the project once per search tool call and still reports indexing progress', async () => {
     const workspace = new Workspace(root);
     const walk = vi.spyOn(workspace, 'listFiles');

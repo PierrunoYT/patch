@@ -291,14 +291,20 @@ export class CodeIndex implements CodeSearch {
           if (this.data.files[path]) dirty = this.forget(path) || dirty;
           continue;
         }
-        const info = await stat(absolute);
         const existing = this.data.files[path];
-        if (existing && existing.mtimeMs === info.mtimeMs && existing.size === info.size) continue;
-        if (info.size > MAX_FILE_BYTES || info.size === 0 || (await isBinaryFile(absolute))) {
+        // A file deleted since the listing, or one that cannot be read (locked, no access), is left out instead of
+        // failing the whole update (#245); it is indexed again once it can be read.
+        try {
+          const info = await stat(absolute);
+          if (existing && existing.mtimeMs === info.mtimeMs && existing.size === info.size) continue;
+          if (info.size > MAX_FILE_BYTES || info.size === 0 || (await isBinaryFile(absolute))) {
+            if (existing) dirty = this.forget(path) || dirty;
+            continue;
+          }
+          pending.push({ path, mtimeMs: info.mtimeMs, size: info.size, content: await readFile(absolute, 'utf8') });
+        } catch {
           if (existing) dirty = this.forget(path) || dirty;
-          continue;
         }
-        pending.push({ path, mtimeMs: info.mtimeMs, size: info.size, content: await readFile(absolute, 'utf8') });
       }
 
       for (const path of Object.keys(this.data.files)) {
