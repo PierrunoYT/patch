@@ -12,6 +12,7 @@ import { defineTool, type AgentTool, type CodeSearch } from '../tools/types';
 import type { Workspace } from '../tools/workspace';
 import { chunkFile } from './chunker';
 
+const DISPOSED = 'The search index was closed because the embedding settings changed.';
 // Bump when chunking or storage changes so existing indexes are rebuilt.
 const INDEX_VERSION = 1;
 const MAX_FILE_BYTES = 256 * 1024;
@@ -105,6 +106,8 @@ export class CodeIndex implements CodeSearch {
   private data: StoredIndex;
   private vectors = new Map<string, Float32Array[]>();
   private run: UpdateRun | null = null;
+  // Set once the index is replaced (the embedding key changed): nothing is embedded or saved any more (#248).
+  private disposed = false;
 
   constructor(
     private readonly workspace: Workspace,
@@ -127,6 +130,7 @@ export class CodeIndex implements CodeSearch {
   // when every caller waiting for it has stopped, and each caller's promise rejects as soon as its own signal aborts.
   update(signal?: AbortSignal, onProgress?: (progress: UpdateProgress) => void): Promise<void> {
     if (signal?.aborted) return Promise.reject(signal.reason);
+    if (this.disposed) return Promise.reject(new Error(DISPOSED));
     // A run that every caller stopped may still be winding down; a new caller starts a fresh run after it.
     if (!this.run || this.run.controller.signal.aborted) this.run = this.startRun(this.run?.promise);
     const run = this.run;
@@ -250,7 +254,7 @@ export class CodeIndex implements CodeSearch {
     await this.run?.promise.catch(() => {});
     this.data.files = {};
     this.vectors.clear();
-    writeJson(this.file, this.data);
+    this.save();
     await this.update(signal, onProgress);
   }
 
@@ -361,14 +365,25 @@ export class CodeIndex implements CodeSearch {
         });
         onProgress({ embedded: Math.min(i + EMBED_BATCH, work.length), total: work.length });
         if (++batches % SAVE_EVERY_BATCHES === 0 && dirty) {
-          writeJson(this.file, this.data);
+          this.save();
           dirty = false;
         }
       }
     } finally {
       // Also on failure or stop, so the embeddings already paid for are kept.
-      if (dirty) writeJson(this.file, this.data);
+      if (dirty) this.save();
     }
+  }
+
+  // Stops a running update after its current batch and keeps this index from embedding or saving again, so a
+  // replaced key is not used any more and the new index of the same project is not overwritten (#248).
+  dispose(): void {
+    this.disposed = true;
+    this.run?.controller.abort(new Error(DISPOSED));
+  }
+
+  private save(): void {
+    if (!this.disposed) writeJson(this.file, this.data);
   }
 
   // Replaces the file's entry in one step, so a search running meanwhile sees either the old or the new chunks.

@@ -129,6 +129,31 @@ describe('CodeIndex', () => {
     expect(index.fileCount).toBe(2);
   });
 
+  it('stops embedding and saving once disposed, as when the embedding key changes (#248)', async () => {
+    for (let i = 0; i < 200; i++) writeFileSync(join(root, 'src', `file${i}.ts`), `export const value${i} = ${i};\n`);
+    let release: () => void = () => {};
+    let started = 0;
+    class SlowEmbedder extends FakeEmbedder {
+      override async embed(texts: string[], input: EmbeddingInput): Promise<number[][]> {
+        started++;
+        await new Promise<void>((resolve) => (release = resolve));
+        return super.embed(texts, input);
+      }
+    }
+    const embedder = new SlowEmbedder();
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    const update = index.update();
+    // The first batch is on its way to the embedding service.
+    await vi.waitFor(() => expect(started).toBe(1));
+    index.dispose();
+    release();
+    await expect(update).rejects.toThrow('closed because the embedding settings changed');
+    // At most the batch that was already on its way; nothing written for the replaced index.
+    expect(embedder.calls.length).toBeLessThanOrEqual(1);
+    expect(readdirSync(indexDir)).toEqual([]);
+    await expect(index.update()).rejects.toThrow('closed');
+  });
+
   it('walks the project once per search tool call and still reports indexing progress', async () => {
     const workspace = new Workspace(root);
     const walk = vi.spyOn(workspace, 'listFiles');

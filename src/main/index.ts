@@ -183,6 +183,8 @@ function start(): void {
     const next = embeddingSettingsKey(settings);
     if (next === embeddingKey) return;
     embeddingKey = next;
+    // A running update stops instead of embedding the rest of the project with the old key (#248).
+    for (const index of codeIndexes.values()) index.dispose();
     codeIndexes.clear();
   });
 
