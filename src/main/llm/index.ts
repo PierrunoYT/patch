@@ -130,8 +130,8 @@ export class LlmService {
         accountId: () => tokens.accountId,
       });
       const inner = new OpenAIResponsesConversation(client, model, effort, messages as never, compaction, 'codex');
-      return new CodexAuthedConversation(inner, async () => {
-        const fresh = await ensureFreshCodexSession(this.settings);
+      return new CodexAuthedConversation(inner, async (force) => {
+        const fresh = await ensureFreshCodexSession(this.settings, undefined, force);
         tokens.accessToken = fresh.accessToken;
         tokens.accountId = fresh.accountId;
       });

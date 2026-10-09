@@ -9,6 +9,7 @@ import { appLog } from '../app_log';
 import { SettingsStore, type SecretCipher } from '../settings';
 import {
   CODEX_CALLBACK_PORT,
+  CodexAuthedConversation,
   CODEX_REDIRECT_URI,
   ensureFreshCodexSession,
   signInWithChatGpt,
@@ -770,5 +771,37 @@ describe('ChatGPT Codex precedence', () => {
       kind: 'platform',
       apiKey: 'sk-platform-key',
     });
+  });
+});
+
+describe('CodexAuthedConversation', () => {
+  it('refreshes the token and repeats the request once after a 401', async () => {
+    const result = { text: 'ok' };
+    const runTurn = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('revoked'), { status: 401 }))
+      .mockResolvedValueOnce(result);
+    const prepare = vi.fn().mockResolvedValue(undefined);
+    const conversation = new CodexAuthedConversation({ runTurn } as never, prepare);
+    const request = { signal: new AbortController().signal } as TurnRequest;
+
+    expect(await conversation.runTurn(request)).toBe(result);
+    expect(prepare.mock.calls).toEqual([[], [true]]);
+    expect(runTurn).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a second 401 and any other error as they are', async () => {
+    const unauthorized = Object.assign(new Error('revoked'), { status: 401 });
+    const runTurn = vi.fn().mockRejectedValue(unauthorized);
+    const conversation = new CodexAuthedConversation({ runTurn } as never, vi.fn().mockResolvedValue(undefined));
+    const request = { signal: new AbortController().signal } as TurnRequest;
+    await expect(conversation.runTurn(request)).rejects.toBe(unauthorized);
+    expect(runTurn).toHaveBeenCalledTimes(2);
+
+    const other = vi.fn().mockRejectedValue(Object.assign(new Error('bad'), { status: 400 }));
+    await expect(new CodexAuthedConversation({ runTurn: other } as never, vi.fn()).runTurn(request)).rejects.toThrow(
+      'bad',
+    );
+    expect(other).toHaveBeenCalledTimes(1);
   });
 });

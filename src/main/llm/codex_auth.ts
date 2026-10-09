@@ -316,10 +316,11 @@ let refreshFlight: { token: string; promise: Promise<ChatGptSession> } | null = 
 export async function ensureFreshCodexSession(
   settings: SettingsStore,
   tokenUrl = codexTokenUrl(),
+  force = false,
 ): Promise<ChatGptSession> {
   const session = settings.getChatGptSession();
   if (!session) throw new MissingApiKeyError('openai');
-  if (!accessTokenNeedsRefresh(session.expiresAt, Date.now())) return session;
+  if (!force && !accessTokenNeedsRefresh(session.expiresAt, Date.now())) return session;
   if (refreshFlight?.token === session.refreshToken) return refreshFlight.promise;
 
   const flight = refreshAndStore(settings, session, tokenUrl);
@@ -455,13 +456,14 @@ export function createCodexOpenAIClient(baseURL: string, auth: { accessToken(): 
   });
 }
 
-// Refreshes the ChatGPT session once before each Responses request, then uses that access token.
+// Refreshes the ChatGPT session once before each Responses request, then uses that access token. A 401 (a token
+// revoked before it expired) refreshes it once more and repeats the request.
 export class CodexAuthedConversation implements Conversation {
   readonly provider = 'openai' as const;
 
   constructor(
     private readonly inner: OpenAIResponsesConversation,
-    private readonly prepare: () => Promise<void>,
+    private readonly prepare: (force?: boolean) => Promise<void>,
   ) {}
 
   get model(): string {
@@ -478,7 +480,13 @@ export class CodexAuthedConversation implements Conversation {
 
   async runTurn(request: TurnRequest): Promise<TurnResult> {
     await this.prepare();
-    return this.inner.runTurn(request);
+    try {
+      return await this.inner.runTurn(request);
+    } catch (error) {
+      if ((error as { status?: unknown } | null)?.status !== 401 || request.signal.aborted) throw error;
+      await this.prepare(true);
+      return this.inner.runTurn(request);
+    }
   }
 
   serialize(): SerializedConversation {
