@@ -19,6 +19,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- GitHub Actions updated to checkout 7.0.1, setup-node 7.0.0, upload-artifact 7.0.1, download-artifact 8.0.1 and claude-code-action 1.0.240 (Dependabot PRs #221 to #225, applied directly on main). None of the changed behaviors apply here: no `pull_request_target` or `workflow_run` trigger, no git push with checkout credentials, explicit `cache: npm`, and artifacts are uploaded and downloaded by name pattern.
 - A window opened while a run is in progress no longer loses chat events sent during its start-up, such as the one that ends the run. Events are numbered, snapshots name the last event they include, and the renderer listens before it asks for the snapshot (fixes #192).
 - Windows sandbox: a command that is still running 5 s after it was stopped is reported as timed out (exit code -1) instead of Windows' exit code 259; `started` always comes before the command's output; `.git` restores the inheritance flag it was snapshotted with; the environment block is sorted by UTF-16 code units, as Windows expects; and a project path with non-ASCII letters in another case no longer propagates its grant again (fixes #195).
 - Windows sandbox: drive letters for sandboxed commands come from `Z:` down to `D:` instead of `P:`–`Z:` only, so about twice as many commands can run at once, and the error when none is left says how many Patch commands hold them (fixes #177; sharing one drive per project is #228).
