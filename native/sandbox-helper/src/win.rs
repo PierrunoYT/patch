@@ -876,19 +876,22 @@ fn toolchain_key(source: &str, mut entries: Vec<String>) -> String {
     )
 }
 
-// The cache root is mapped as a drive root, so packages need to read it; it is never writable for them.
-// Called under PermissionLock. The grant is made once, not per run.
-fn prepare_cache_root(package: PSID) -> Result<()> {
+// The cache root is mapped as a drive root, so sandboxed commands need to read it; it is never writable for them.
+// The read grant goes to the toolchain capability that Patch's sandbox tokens carry (#151). A cache granted to ALL
+// APPLICATION PACKAGES by an earlier version loses that entry here; revoking it re-propagates through the cache
+// once. Called under PermissionLock. The grant is made once, not per run.
+fn prepare_cache_root(package: PSID, toolchains: PSID) -> Result<()> {
     let cache = cache_root()?;
     fs::create_dir_all(&cache).map_err(|e| format!("cannot create toolchain cache: {e}"))?;
-    if !package_access(&cache, package)?.0 {
-        edit_acl(
-            cache.to_str().ok_or("non-Unicode toolchain cache path")?,
-            package,
-            FILE_READ_EXECUTE,
-            Change::Grant,
-        )?;
+    grant_cache(&cache, package, toolchains)
+}
+
+fn grant_cache(cache: &Path, package: PSID, toolchains: PSID) -> Result<()> {
+    let path = cache.to_str().ok_or("non-Unicode toolchain cache path")?;
+    if !package_access(cache, toolchains)?.0 {
+        edit_acl(path, toolchains, FILE_READ_EXECUTE, Change::Grant)?;
     }
+    edit_acl(path, package, 0, Change::Revoke)?;
     Ok(())
 }
 
@@ -954,7 +957,17 @@ impl OwnedSid {
 // project carries the capability; commands for other projects carry their own. Windows derives the SID from the name
 // with SHA-256, so no folder name can be chosen to collide with another project's capability.
 fn project_capability(cwd: &str) -> Result<OwnedSid> {
-    let name = wide(&format!("patch.project.{}", cwd.to_lowercase()));
+    named_capability(&format!("patch.project.{}", cwd.to_lowercase()))
+}
+
+// The toolchain cache is granted to this capability, which only Patch's sandbox tokens carry, instead of to ALL
+// APPLICATION PACKAGES, which every AppContainer on the machine has (#151).
+fn toolchain_capability() -> Result<OwnedSid> {
+    named_capability("patch.toolchains")
+}
+
+fn named_capability(name: &str) -> Result<OwnedSid> {
+    let name = wide(name);
     let (mut groups, mut group_count) = (std::ptr::null_mut::<PSID>(), 0u32);
     let (mut sids, mut sid_count) = (std::ptr::null_mut::<PSID>(), 0u32);
     unsafe {
@@ -2139,9 +2152,11 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     )?;
     // Defined whenever it is journaled: a reserved but undefined letter could later hold another run's mapping of
     // the same cache, which this record's exact-match removal would then delete.
+    // Commands that read the toolchain cache carry the capability it is granted to (#151).
+    let toolchain_sid = toolchain_capability()?;
     let toolchain_drive = match &cleanup.record.toolchain_drive {
         Some(mapping) => {
-            prepare_cache_root(package)?;
+            prepare_cache_root(package, toolchain_sid.psid())?;
             Some(ProjectDrive::define(mapping, true)?)
         }
         None => None,
@@ -2221,9 +2236,9 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
                 fs::create_dir_all(root.parent().ok_or("missing staging parent")?)
                     .map_err(|e| format!("cannot create staging parent: {e}"))?;
                 fs::create_dir(root).map_err(|e| format!("cannot create staging root: {e}"))?;
-                // Copies inherit this as they are written, so publishing needs no ACL propagation. Packages may
-                // read and execute the copy, never write it.
-                edit_acl(staged, package, FILE_READ_EXECUTE, Change::Grant)?;
+                // Copies inherit this as they are written, so publishing needs no ACL propagation. Patch's sandboxed
+                // commands may read and execute the copy, never write it; other packages get nothing (#151).
+                edit_acl(staged, toolchain_sid.psid(), FILE_READ_EXECUTE, Change::Grant)?;
                 staging_created = true;
             }
             let target = root.join(index.to_string());
@@ -2264,6 +2279,12 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
         Sid: capability.psid(),
         Attributes: SE_GROUP_ENABLED,
     }];
+    if toolchain_drive.is_some() {
+        capabilities.push(SID_AND_ATTRIBUTES {
+            Sid: toolchain_sid.psid(),
+            Attributes: SE_GROUP_ENABLED,
+        });
+    }
     if request.network {
         // internetClient: outgoing connections only.
         unsafe { ConvertStringSidToSidW(windows::core::w!("S-1-15-3-1"), &mut capability_sid) }
@@ -2943,6 +2964,39 @@ mod tests {
         assert!(inspect_toolchain(path, package, || Ok(()))
             .unwrap()
             .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_toolchain_cache_is_readable_by_patch_alone_not_every_package() {
+        // A cache an earlier version granted to ALL APPLICATION PACKAGES, with an entry inside it (#151).
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("node-1234")).unwrap();
+        let mut package = PSID::default();
+        unsafe {
+            ConvertStringSidToSidW(windows::core::w!("S-1-15-2-1"), &mut package).unwrap();
+        }
+        let _package = LocalMem(package.0);
+        let toolchains = toolchain_capability().unwrap();
+        edit_acl(
+            root.to_str().unwrap(),
+            package,
+            FILE_READ_EXECUTE,
+            Change::Grant,
+        )
+        .unwrap();
+        assert!(package_readable(&root.join("node-1234"), package).unwrap());
+
+        grant_cache(&root, package, toolchains.psid()).unwrap();
+        for path in [root.clone(), root.join("node-1234")] {
+            assert!(!package_readable(&path, package).unwrap());
+            assert!(package_readable(&path, toolchains.psid()).unwrap());
+        }
+        // A second run changes nothing.
+        grant_cache(&root, package, toolchains.psid()).unwrap();
+        assert!(package_readable(&root, toolchains.psid()).unwrap());
+        assert!(sid_text(toolchains.psid()).starts_with("S-1-15-3-1024-"));
         fs::remove_dir_all(root).unwrap();
     }
 

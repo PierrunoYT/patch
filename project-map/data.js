@@ -556,7 +556,6 @@ const D = {
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
-    [151, 'Windows sandbox: toolchain cache readable by every AppContainer', 'sandbox', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
     [149, 'Packaged builds run sandbox-helper.exe without checking its signature', 'sandbox', 'low', 0, '10-07'],
     [
@@ -630,7 +629,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 179,
+  closedCount: 180,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
