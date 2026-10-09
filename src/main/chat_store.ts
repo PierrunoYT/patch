@@ -12,8 +12,9 @@ const ID_PATTERN = /^[0-9a-f-]{36}$/;
 export class ChatStore {
   private index: ChatSummary[];
   private readonly textCache = new Map<string, { updatedAt: string; text: string }>();
-  // Checkpoints still being written, by chat id.
+  // Chat files still being written, by chat id, and the content each will hold, which load() returns meanwhile.
   private readonly checkpoints = new Map<string, Promise<void>>();
+  private readonly pending = new Map<string, SavedChat>();
 
   constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true });
@@ -27,19 +28,21 @@ export class ChatStore {
   }
 
   // A `checkpoint` save is a crash-resume checkpoint: it writes only the chat file, which is all a resume needs, and
-  // leaves the index to the next full save. The chat is serialized before this returns and its file is written in the
-  // background, so a tool batch in a long chat does not hold up the main process for the write. A chat missing from
-  // the index is saved and indexed at once, so it is never orphaned. Any other save is complete when this returns
-  // and replaces a checkpoint that is still being written.
+  // leaves the index to the next full save. A full save also updates the index. For a chat that is already listed,
+  // the chat is serialized before this returns and its file is written in the background, so saving a long chat does
+  // not hold up the main process for the write (#118); load() returns the newest content meanwhile, and quitting
+  // waits for flush(). A chat missing from the index is written and indexed at once, so it is never orphaned.
   // Returns whether the index was written, i.e. whether the chat list changed.
   save(chat: SavedChat, checkpoint = false): boolean {
     // The cached search text is keyed to the index timestamp, which a checkpoint leaves unchanged.
     this.textCache.delete(chat.id);
-    if (checkpoint && this.has(chat.id)) {
+    if (this.has(chat.id)) {
       this.writeLater(chat);
-      return false;
+      if (checkpoint) return false;
+    } else {
+      this.pending.delete(chat.id);
+      writeJson(this.chatFile(chat.id), chat, { compact: true });
     }
-    writeJson(this.chatFile(chat.id), chat);
     const summary = summarize(chat);
     this.index = [summary, ...this.index.filter((item) => item.id !== chat.id)];
     writeJson(this.indexFile, this.index);
@@ -48,21 +51,25 @@ export class ChatStore {
 
   private writeLater(chat: SavedChat): void {
     const id = chat.id;
-    const done = writeJsonLater(this.chatFile(id), chat);
-    // Checkpoints that join a write already running share its promise.
+    this.pending.set(id, chat);
+    const done = writeJsonLater(this.chatFile(id), chat, { compact: true });
+    // Writes that join one already running share its promise.
     if (this.checkpoints.get(id) === done) return;
     this.checkpoints.set(id, done);
     void done
       // The next save writes the chat again. The log gets the error only, never the chat.
-      .catch((error: unknown) => appLog.warn('chats', error, { operation: 'checkpoint' }))
+      .catch((error: unknown) => appLog.warn('chats', error, { operation: 'save' }))
       .finally(() => {
-        if (this.checkpoints.get(id) === done) this.checkpoints.delete(id);
+        if (this.checkpoints.get(id) === done) {
+          this.checkpoints.delete(id);
+          this.pending.delete(id);
+        }
         // A search may have read the file before the checkpoint replaced it.
         this.textCache.delete(id);
       });
   }
 
-  // Settles when the checkpoints still being written are on disk.
+  // Settles when the chat files still being written are on disk.
   async flush(): Promise<void> {
     while (this.checkpoints.size > 0) await Promise.allSettled([...this.checkpoints.values()]);
   }
@@ -111,6 +118,8 @@ export class ChatStore {
 
   load(id: string): SavedChat | null {
     if (!ID_PATTERN.test(id)) return null;
+    const pending = this.pending.get(id);
+    if (pending) return pending;
     const chat = readJson<SavedChat | null>(this.chatFile(id), null);
     return chat?.version === 1 ? chat : null;
   }
@@ -119,6 +128,7 @@ export class ChatStore {
     if (!ID_PATTERN.test(id)) return;
     // A checkpoint still being written would put the file back.
     cancelJsonWrite(this.chatFile(id));
+    this.pending.delete(id);
     rmSync(this.chatFile(id), { force: true });
     this.textCache.delete(id);
     this.index = this.index.filter((item) => item.id !== id);
@@ -131,6 +141,7 @@ export class ChatStore {
       rmSync(this.chatFile(item.id), { force: true });
     }
     this.textCache.clear();
+    this.pending.clear();
     this.index = [];
     writeJson(this.indexFile, this.index);
   }

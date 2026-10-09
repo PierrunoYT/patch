@@ -49,15 +49,24 @@ function tempName(path: string): string {
   return `${path}.${randomUUID()}.tmp`;
 }
 
+// How a value is written. Large files that nobody reads by hand (chats) are written without indentation.
+export interface JsonWriteOptions {
+  compact?: boolean;
+}
+
+function stringify(value: unknown, options: JsonWriteOptions): string {
+  return options.compact ? JSON.stringify(value) : JSON.stringify(value, null, 2);
+}
+
 // Writes via a temporary file and rename so a crash mid-write never leaves a truncated file behind.
-export function writeJson(path: string, value: unknown): void {
+export function writeJson(path: string, value: unknown, options: JsonWriteOptions = {}): void {
   mkdirSync(dirname(path), { recursive: true });
   const temp = tempName(path);
   // Throws before anything is created when the name is taken; that file is not ours to remove.
   const fd = openSync(temp, 'wx');
   try {
     try {
-      writeFileSync(fd, JSON.stringify(value, null, 2), 'utf8');
+      writeFileSync(fd, stringify(value, options), 'utf8');
     } finally {
       closeSync(fd);
     }
@@ -85,8 +94,8 @@ const laterWrites = new Map<string, LaterWrite>();
 // place when it is complete. Writes to one file land in the order they were asked for, and content that a newer
 // write replaced before it was written is skipped. A writeJson to the same file in the meantime wins. The promise
 // settles when no write to the file is left, and is the same one for calls that join a write already running.
-export function writeJsonLater(path: string, value: unknown): Promise<void> {
-  const text = JSON.stringify(value, null, 2);
+export function writeJsonLater(path: string, value: unknown, options: JsonWriteOptions = {}): Promise<void> {
+  const text = stringify(value, options);
   const running = laterWrites.get(path);
   if (running) {
     running.next = text;

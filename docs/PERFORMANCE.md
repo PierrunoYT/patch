@@ -283,6 +283,21 @@ Measured with `tests/perf/agent_loop.perf.ts` on a different machine from the ta
 - **What is left is `JSON.stringify`**, which grows linearly with the chat (about 1 ms per MB here). Removing it would need a different format (appending to the chat file instead of rewriting it) or serializing in a worker, which first has to copy the chat there.
 - **What a kill can lose:** a checkpoint that is still being written when the process is killed is lost, and the chat resumes from the checkpoint before it. That window is the "until on disk" column. The end-to-end kill tests (`tests/e2e/crash_kill.test.ts`) pass unchanged.
 
+### Full saves are written in the background too ([#118](https://github.com/PierrunoYT/patch/issues/118), 2026-10-09)
+
+The debounced full save (500 ms after chat activity), which also updates the index, now writes the chat file the way a checkpoint does: the call serializes it, and `writeJsonLater` writes it in the background. Only the small index is still written synchronously. `ChatStore.load` returns the content still on its way, quitting waits for `ChatStore.flush`, and deleting a chat cancels a write that has not landed. A chat that is not listed yet is still written and indexed synchronously. Chat files are written without indentation.
+
+`tests/perf/agent_loop.perf.ts`, one run on the same machine as the previous section, so read these as rough sizes. The "full save before" column is the synchronous save row (chat file plus index). The "now" column is the save call of a listed chat:
+
+| Chat                           | Full save before | Full save now (the call) |
+| ------------------------------ | ---------------- | ------------------------ |
+| 1,250 items (1.6 MB)           | 5.4–28 ms        | 2.0 ms                   |
+| 5,000 items (6.4 MB)           | 12–15 ms         | 8.0–8.7 ms               |
+| 20,000 items (25.9 MB)         | 36–52 ms         | 30–33 ms                 |
+| 5,000 items and 10 screenshots | 8.9–16 ms        | 6.6–8.1 ms               |
+
+What remains in the call is `JSON.stringify`, as for checkpoints. Without indentation the files are smaller, but in this run serializing took about as long as before, within the noise. A full save that is still being written when the process is killed is lost, as a checkpoint is, and the chat reopens from the save before it.
+
 ### Re-run of the renderer and main-process benchmarks (2026-10-01)
 
 After the MCP, plan mode, subagent, skills and UI-redesign merges, same machine, three runs each:

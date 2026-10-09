@@ -82,12 +82,30 @@ describe('ChatStore', () => {
     const store = new ChatStore(join(dir, 'chats'));
     store.save(chat(idA, '2026-01-01T00:00:00Z'));
     for (const title of ['One', 'Two', 'Three']) store.save({ ...chat(idA, '2026-01-01T00:00:00Z'), title }, true);
-    // Nothing is on disk yet: only the serializing happened before save returned.
-    expect(store.load(idA)?.title).toBe('Chat 1111');
+    const onDisk = () => JSON.parse(readFileSync(join(dir, 'chats', `${idA}.json`), 'utf8')).title;
+    // Nothing is on disk yet: only the serializing happened before save returned. Loading sees the newest content.
+    expect(onDisk()).toBe('Chat 1111');
+    expect(store.load(idA)?.title).toBe('Three');
 
     await store.flush();
-    expect(store.load(idA)?.title).toBe('Three');
+    expect(onDisk()).toBe('Three');
     expect(readdirSync(join(dir, 'chats')).sort()).toEqual([`${idA}.json`, 'index.json']);
+  });
+
+  it('writes a full save of a listed chat in the background, compact, and keeps the index current', async () => {
+    const store = new ChatStore(join(dir, 'chats'));
+    const file = join(dir, 'chats', `${idA}.json`);
+    store.save(chat(idA, '2026-01-01T00:00:00Z'));
+    expect(readFileSync(file, 'utf8')).not.toContain('\n');
+
+    expect(store.save({ ...chat(idA, '2026-01-02T00:00:00Z'), title: 'Renamed' })).toBe(true);
+    expect(store.list()[0]?.title).toBe('Renamed');
+    expect(JSON.parse(readFileSync(file, 'utf8')).title).toBe('Chat 1111');
+    expect(store.load(idA)?.title).toBe('Renamed');
+
+    await store.flush();
+    expect(JSON.parse(readFileSync(file, 'utf8')).title).toBe('Renamed');
+    expect(new ChatStore(join(dir, 'chats')).load(idA)?.title).toBe('Renamed');
   });
 
   it('keeps a full save that was made while a checkpoint was being written', async () => {
@@ -256,7 +274,7 @@ describe('ChatStore', () => {
     expect(new ChatStore(join(dir, 'chats')).list().map((item) => item.id)).toEqual([idA]);
   });
 
-  it('replaces a chat that is saved again instead of listing it twice', () => {
+  it('replaces a chat that is saved again instead of listing it twice', async () => {
     const store = new ChatStore(join(dir, 'chats'));
     store.save(chat(idA, '2026-01-01T00:00:00Z'));
     store.save({ ...chat(idA, '2026-01-02T00:00:00Z'), title: 'Renamed' });
@@ -265,6 +283,7 @@ describe('ChatStore', () => {
       // Model 'm' has no known price.
       { id: idA, title: 'Renamed', projectPath: null, updatedAt: '2026-01-02T00:00:00Z', cost: null, tokens: 0 },
     ]);
+    await store.flush();
     expect(new ChatStore(join(dir, 'chats')).load(idA)?.title).toBe('Renamed');
   });
 
