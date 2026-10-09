@@ -135,13 +135,22 @@ function start(): void {
       await agentBrowserSession.clearCache();
       await agentBrowserSession.clearAuthCache();
     },
+    // Offline means every connection goes to a proxy that does not exist, loopback included (Chromium otherwise sends
+    // localhost past a proxy), so DNS prefetching and WebRTC cannot reach the network either (#229).
+    async (offline) => {
+      await agentBrowserSession.setProxy(
+        offline
+          ? { mode: 'fixed_servers', proxyRules: 'http://0.0.0.0:9', proxyBypassRules: '<-loopback>' }
+          : { mode: 'system' },
+      );
+      await agentBrowserSession.closeAllConnections();
+    },
   );
-  // Both panel sessions filter requests the same way.
   for (const name of BROWSER_PARTITIONS) {
     session
       .fromPartition(name)
       .webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) =>
-        callback({ cancel: !browser.allowsRequest(details.url) }),
+        callback({ cancel: !browser.allowsRequest(details.url, name === AGENT_BROWSER_PARTITION) }),
       );
   }
   // A new chat or project gets an empty agent browser. The app starts with one anyway: its session is not saved.

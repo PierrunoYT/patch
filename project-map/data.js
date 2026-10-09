@@ -261,7 +261,7 @@ const D = {
     ['agent', 6],
     ['llm', 4],
     ['tools', 3],
-    ['panels', 1],
+    ['panels', 2],
     ['search', 1],
     ['preload', 1],
   ],
@@ -563,7 +563,6 @@ const D = {
     [234, 'search_code sends secrets unredacted to the embedding providers', 'security', 'medium', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
     [231, 'Git panel Initialize makes .git writable to running sandboxed commands', 'sandbox', 'high', 0, '10-09'],
-    [229, 'Browser tool project pages read project files and send them out, no card', 'security', 'high', 0, '10-09'],
     [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
     [
       227,
@@ -655,7 +654,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 156,
+  closedCount: 157,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

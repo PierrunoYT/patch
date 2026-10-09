@@ -16,6 +16,7 @@ class FakeGuest extends EventEmitter {
   getTitle = () => 'Title';
   capturePage = vi.fn();
   navigationHistory = { clear: vi.fn() };
+  setWebRTCIPHandlingPolicy = vi.fn();
 }
 
 function attach(service: BrowserService, guest: FakeGuest): void {
@@ -114,8 +115,46 @@ describe('BrowserService', () => {
     expect(service.allowsRequest('file:///project/frame.html')).toBe(true);
     expect(service.allowsRequest('file:///home/me/.ssh/id_rsa')).toBe(false);
     expect(service.allowsRequest('FILE:///home/me/.ssh/id_rsa')).toBe(false);
-    // Only file:// is filtered: web pages cannot load files themselves.
-    expect(service.allowsRequest('https://cdn.example/lib.js')).toBe(true);
+    // A project file gets no network in the agent's session (#229); the user's own session is not limited.
+    expect(service.allowsRequest('https://cdn.example/lib.js')).toBe(false);
+    expect(service.allowsRequest('https://cdn.example/lib.js', false)).toBe(true);
+  });
+
+  it('takes the agent session off the network while it shows a project file (#229)', async () => {
+    const calls: string[] = [];
+    const setOffline = vi.fn(async (offline: boolean) => void calls.push(offline ? 'offline' : 'online'));
+    const service = new BrowserService(
+      () => {},
+      async () => {},
+      setOffline,
+    );
+    const guest = new FakeGuest();
+    guest.loadURL.mockImplementation(async (url: string) => void calls.push(`load ${url}`));
+    attach(service, guest);
+    expect(guest.setWebRTCIPHandlingPolicy).toHaveBeenCalledWith('disable_non_proxied_udp');
+
+    await service.open('file:///project/page.html', new AbortController().signal, (url) =>
+      url.startsWith('file:///project/'),
+    );
+    // Offline before the page loads, so its scripts never see the network.
+    expect(calls).toEqual(['offline', 'load file:///project/page.html']);
+    expect(service.allowsRequest('https://attacker.example/?d=secret')).toBe(false);
+    expect(service.allowsRequest('ws://127.0.0.1:9000/')).toBe(false);
+    expect(service.allowsRequest('file:///project/.env')).toBe(true);
+    // The user's own browser session keeps its network.
+    expect(service.allowsRequest('https://example.com/', false)).toBe(true);
+
+    // Opening a web page replaces the file page before the network comes back.
+    calls.length = 0;
+    await service.open('https://example.com/', new AbortController().signal);
+    expect(calls).toEqual(['load about:blank', 'online', 'load https://example.com/']);
+    expect(service.allowsRequest('https://example.com/app.js')).toBe(true);
+
+    // A reset after a file page brings the network back too.
+    await service.open('file:///project/page.html', new AbortController().signal, () => true);
+    await service.reset();
+    expect(setOffline).toHaveBeenLastCalledWith(false);
+    expect(service.allowsRequest('https://example.com/')).toBe(true);
   });
 
   it('stops when the chat is stopped', async () => {

