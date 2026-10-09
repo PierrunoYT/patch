@@ -251,6 +251,10 @@ export const writeFileTool = defineTool({
   },
 });
 
+// The bytes each edit_file call's preview diffed, by call input: preview and run get the same input object. The edit
+// is refused when the file changed in between, so what runs is what the approved diff showed (#255).
+const previewedEdits = new WeakMap<object, string>();
+
 export const editFileTool = defineTool({
   name: 'edit_file',
   strictInput: true,
@@ -272,6 +276,7 @@ export const editFileTool = defineTool({
     const bytes = await readProjectFile(context.workspace, input.path);
     if (bytes === null) throw new ToolError(`File not found: ${input.path}`);
     const before = requireUtf8ForEdit(bytes, input.path).toString('utf8');
+    previewedEdits.set(input, sha256(bytes));
     return { title: `Edit ${rel}`, diff: unifiedDiff(rel, before, applyEdit(before, input)) };
   },
   async run(input, context) {
@@ -281,6 +286,12 @@ export const editFileTool = defineTool({
     const rel = context.workspace.relative(file);
     const bytes = await readProjectFile(context.workspace, input.path);
     if (bytes === null) throw new ToolError(`File not found: ${input.path}`);
+    const previewed = previewedEdits.get(input);
+    if (previewed !== undefined && previewed !== sha256(bytes)) {
+      throw new ToolError(
+        `${input.path} changed after the edit was shown for approval. Read it again and redo the edit.`,
+      );
+    }
     const before = requireUtf8ForEdit(bytes, input.path).toString('utf8');
     const after = applyEdit(before, input);
     await changeProjectFiles(context.workspace, [{ path: input.path, before: bytes, after: Buffer.from(after) }]);

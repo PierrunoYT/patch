@@ -536,7 +536,6 @@ const D = {
     [258, 'Linux keys may show as encrypted with the basic_text safeStorage backend', 'security', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [256, 'MCP sandbox: the project root check skips the app’s own folders', 'mcp', 'low', 0, '10-09'],
-    [255, 'edit_file does not re-check the file between the approved diff and the write', 'tools', 'low', 0, '10-09'],
     [254, 'Model-written markdown keeps class and id, so it can draw fake app UI', 'ui', 'low', 0, '10-09'],
     [253, 'Command output redacted after truncation; live progress not redacted', 'security', 'low', 0, '10-09'],
     [248, 'search_code: changing the OpenRouter key leaves an index update running', 'tools', 'low', 0, '10-09'],
@@ -639,7 +638,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 166,
+  closedCount: 167,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

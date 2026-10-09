@@ -54,6 +54,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - The terminal panel keeps keys typed while the shell starts and sends them once it is ready, and asks a reattached shell to redraw (fixes #191).
 - Removing a secret and deleting or clearing chat history show an error instead of failing silently, and a second Commit is ignored while one runs (fixes #193).
 - A generated commit message no longer overwrites text typed meanwhile or lands in another project, the composer keeps text typed while a message is sent, and a failed file listing is not cached for @-mentions (part of #194).
+- `edit_file` refuses to run when the file changed after its diff was shown for approval (by you, or by a command still running), so what is written is what you approved (fixes #255).
 - `apply_patch` keeps the file's own text for the context lines of a hunk. When a hunk matched only with whitespace-tolerant matching, the patch's copy replaced them, which dropped a UTF-8 BOM, turned tabs into spaces and stripped trailing spaces on lines the model meant to leave alone (fixes #246).
 - OpenAI Responses chats see a function call as unanswered when the model wrote a message after it, so a chat interrupted there (a crash between saving the model's turn and the tool results) gets the call closed instead of failing every later request (fixes #250).
 - A damaged chat file (for example one without its conversation) is skipped when the chat list is rebuilt, instead of stopping the app from starting on every launch (fixes #249).

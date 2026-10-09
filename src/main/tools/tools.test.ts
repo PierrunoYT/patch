@@ -437,6 +437,25 @@ describe('file tools', () => {
     expect(result.content).toContain('+const a = 10;');
   });
 
+  it('refuses an edit when the file changed after its diff was shown for approval (#255)', async () => {
+    await call(readFileTool, { path: 'src/app.ts' });
+    const app = join(context.workspace.root, 'src', 'app.ts');
+    // The agent passes one parsed input object to the preview and the run, as here.
+    const parse = () =>
+      editFileTool.schema!.parse({ path: 'src/app.ts', old_string: 'const a = 1;', new_string: 'const a = 10;' });
+    const input = parse();
+    await editFileTool.preview!(input, context);
+    const changed = readFileSync(app, 'utf8').replace('const a = 1;', 'const a = 1; // user note');
+    writeFileSync(app, changed);
+    await expect(editFileTool.run(input, context)).rejects.toThrow('changed after the edit was shown for approval');
+    expect(readFileSync(app, 'utf8')).toBe(changed);
+    // A new call is previewed again and applies to the current content.
+    const again = parse();
+    await editFileTool.preview!(again, context);
+    await editFileTool.run(again, context);
+    expect(readFileSync(app, 'utf8')).toContain('const a = 10; // user note');
+  });
+
   it('creates new files and folders without a prior read', async () => {
     await call(writeFileTool, { path: 'lib/new/util.ts', content: 'export {};\n' });
     expect(readFileSync(join(root, 'lib', 'new', 'util.ts'), 'utf8')).toBe('export {};\n');
