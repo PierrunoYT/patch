@@ -83,6 +83,19 @@ describe('the transcript view (mock Claude API)', () => {
     expect(layout.ids).toEqual(longTranscript().map((item) => item.id));
   });
 
+  it('keeps the scroll position when the theme changes', async () => {
+    const box = (await running.page.locator('.chat-scroll-wrap').boundingBox())!;
+    await running.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await running.page.mouse.wheel(0, -2000);
+    await expect.poll(distanceFromBottom).toBeGreaterThan(1000);
+    const before = await distanceFromBottom();
+    await running.page.evaluate(() => window.api.invoke('settings:update', { theme: 'light' }));
+    await expect.poll(() => running.page.evaluate(() => document.documentElement.dataset.bsTheme)).toBe('light');
+    await running.page.waitForTimeout(300);
+    expect(Math.abs((await distanceFromBottom()) - before)).toBeLessThan(5);
+    await running.page.evaluate(() => window.api.invoke('settings:update', { theme: 'dark' }));
+  });
+
   it('jumps to the bottom on send after the user scrolled up, so a quick approval card is in view', async () => {
     const box = (await running.page.locator('.chat-scroll-wrap').boundingBox())!;
     await running.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

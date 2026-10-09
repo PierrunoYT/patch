@@ -14,6 +14,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - A run that ends because a transient provider error outlasted its retries offers Resume (fixes #204).
 - Projects are stored under their native real path, so the same folder typed with different casing on Windows is one project. Recent projects saved in other casing by an older version are merged on start, keeping their settings (fixes #185).
 - ChatGPT sign-in: a 401 for a token revoked before it expired refreshes the session once and repeats the request. Keep-alive does not apply to the OpenAI provider, which has none (fixes #202).
+- The composer file list for @-mentions is read again after the agent changes files, the git status bar ignores an older refresh than the panel's, and the transcript is redrawn in place when the theme changes, keeping its scroll position and opened details (fixes #194).
 - `grep` and `glob` report `Not found: <path>` for a missing folder, and `glob` reads a backslash in a pattern as `/` (fixes #198).
 - Small cleanups: the resize handle handles a cancelled drag, the shell drain timer is cleared on close, and the unread `HelperProcess.timedOut` is gone (fixes #205).
 - CI runs with read-only `GITHUB_TOKEN` permissions and fails on a high-severity production dependency advisory; the build-only advisories stay open in #211 (fixes #119).

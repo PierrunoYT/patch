@@ -128,7 +128,11 @@ export class App {
   private readonly panels = new Panels(
     (error) => this.toast(error),
     () => this.project !== null,
-    (status) => this.showGitStatus(status),
+    (status) => {
+      // The panel has the newest status: drop an older refresh of the status bar still on its way.
+      this.gitGeneration++;
+      this.showGitStatus(status);
+    },
   );
   private readonly compactButton = h(
     'button',
@@ -173,8 +177,11 @@ export class App {
 
     api.on('history:changed', (chats) => this.sidebar.update(chats));
     api.on('settings:changed', (settings) => {
+      const themeChanged = settings.theme !== this.settings.theme;
       this.settings = settings;
       this.applyTheme();
+      // Diffs already shown keep the colors of the old theme until they are drawn again.
+      if (themeChanged) this.transcript.redraw(this.chat.transcript);
       this.renderHeader();
       void this.renderWelcome();
       void this.refreshIndex();
@@ -204,6 +211,7 @@ export class App {
       this.pendingEvents.push(event);
       if (event.type === 'tool-end') {
         this.panels.filesChanged();
+        this.composer.filesChanged();
         // search_code builds the index on its first call.
         if (event.status === 'done') void this.refreshIndex();
       }

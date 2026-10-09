@@ -220,6 +220,11 @@ export class Composer {
     }
   }
 
+  // Files the agent created or removed: the next @-mention reads the project's file list again.
+  filesChanged(): void {
+    this.files = null;
+  }
+
   private async submit(): Promise<void> {
     const text = this.input.value.trim();
     if (this.busy || (!text && this.images.length === 0 && this.mentions.length === 0)) return;

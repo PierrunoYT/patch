@@ -128,7 +128,8 @@ export class TranscriptView {
   });
   private readonly announced = new Set<string>();
   private primed = false;
-  private readonly nodes = new Map<string, { item: TranscriptItem; leads: boolean; node: HTMLElement }>();
+  // `item` is null for an item that must be drawn again although it has not changed (see redraw).
+  private readonly nodes = new Map<string, { item: TranscriptItem | null; leads: boolean; node: HTMLElement }>();
   // Items are placed in containers of CHUNK_SIZE items each (see CHUNK_SIZE).
   private readonly chunks: HTMLElement[] = [];
   // <details> the user opened, so re-rendering a card does not collapse it.
@@ -244,6 +245,13 @@ export class TranscriptView {
     new ResizeObserver(() => {
       if (this.stuck) container.scrollTop = container.scrollHeight;
     }).observe(container);
+  }
+
+  // Draws every item again in place (after a theme change, for the diffs' colors). The elements are kept, so the
+  // scroll position and the details the user opened stay as they are.
+  redraw(items: TranscriptItem[]): void {
+    for (const entry of this.nodes.values()) entry.item = null;
+    this.render(items);
   }
 
   reset(): void {
