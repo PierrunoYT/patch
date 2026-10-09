@@ -2,12 +2,16 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { detectSandboxSupport } from '../../src/main/tools/sandbox';
+import { detectSandboxSupport, probeSandboxSupport } from '../../src/main/tools/sandbox';
 import { GIT_RESERVATION } from '../../src/main/tools/sandbox_git';
 import { launchApp, type RunningApp } from './app';
 import { MockClaude } from './mock_claude';
 
 const support = detectSandboxSupport();
+// Where the allow-list is enforced by the filtering proxy (#97), a command that names an allowed URL runs without a
+// card: it gets network only to the allowed hosts, not the unrestricted network the card would grant.
+const probed = await probeSandboxSupport();
+const filtered = process.platform === 'linux' && probed.bwrap && Boolean(probed.netBridge);
 
 describe('sandbox escalation approvals', () => {
   let running: RunningApp;
@@ -137,16 +141,31 @@ describe('sandbox escalation approvals', () => {
     { background: true },
   ])('does not let Auto or an allow rule bypass escalation: %j', async (access) => {
     await running.page.evaluate(() => window.api.invoke('chat:new'));
-    // A literal allow-listed URL must not authorize arbitrary code or background work without a card.
-    const command =
-      'network' in access || 'unsandboxed' in access
-        ? 'echo denied > denied.txt'
-        : 'echo https://allowed.test > denied.txt';
+    // A literal allow-listed URL must not authorize unrestricted network, arbitrary code or background work without
+    // a card. Where the allow-list is enforced, the command runs, but with network only to the allowed hosts.
+    const escalates = 'network' in access || 'unsandboxed' in access;
+    const command = escalates ? 'echo denied > denied.txt' : 'echo https://allowed.test > denied.txt';
     claude.script({
       blocks: [{ type: 'tool_use', id: 'request', name: 'run_command', input: { command, ...access } }],
       stopReason: 'tool_use',
     });
+    if (filtered && !escalates)
+      claude.script({ blocks: [{ type: 'text', text: 'Ran filtered.' }], stopReason: 'end_turn' });
     await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Run the test command' }));
+    if (filtered && !escalates) {
+      await expect
+        .poll(() => running.page.evaluate(async () => (await window.api.invoke('chat:snapshot')).busy), {
+          timeout: 30_000,
+        })
+        .toBe(false);
+      const tool = (await running.page.evaluate(() => window.api.invoke('chat:snapshot'))).transcript.find(
+        (item) => item.kind === 'tool',
+      );
+      expect(tool?.preview?.note).toContain('network only to the allowed hosts');
+      expect(await running.page.locator('.tool-card.awaiting').count()).toBe(0);
+      rmSync(join(project, 'denied.txt'), { force: true });
+      return;
+    }
     const card = running.page.locator('.tool-card.awaiting');
     await card.waitFor();
     expect(existsSync(join(project, 'denied.txt'))).toBe(false);
