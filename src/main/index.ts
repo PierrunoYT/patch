@@ -26,7 +26,7 @@ import { ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
 import { removeStaleTempFiles } from './storage/json_file';
-import { changesToConfirm, projectChangesToConfirm } from './settings_confirm';
+import { changesToConfirm, projectChangesToConfirm, secretToConfirm } from './settings_confirm';
 import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
 import { releaseProjectGrant } from './tools/sandbox_windows';
 import { commandStopsSettled } from './tools/shell';
@@ -181,7 +181,10 @@ function start(): void {
   const mcpServers = () =>
     settings.mcpServers().map((server) => launchConfig(server, projects.current()?.path, mcpDir));
   let appliedMcpConfig = '';
-  const mcp = new McpHub(mcpServers, () => send(mainWindow, 'app:notice', 'MCP servers updated'));
+  const mcp = new McpHub(mcpServers, () => send(mainWindow, 'app:notice', 'MCP servers updated'), {
+    name: 'Patch',
+    version: app.getVersion(),
+  });
   // Not awaited: connections happen in the background and the tool list refreshes when they settle.
   const refreshMcp = () => {
     const next = JSON.stringify(mcpServers());
