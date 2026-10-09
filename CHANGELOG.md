@@ -19,6 +19,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- A window opened while a run is in progress no longer loses chat events sent during its start-up, such as the one that ends the run. Events are numbered, snapshots name the last event they include, and the renderer listens before it asks for the snapshot (fixes #192).
+- Windows sandbox: a command that is still running 5 s after it was stopped is reported as timed out (exit code -1) instead of Windows' exit code 259; `started` always comes before the command's output; `.git` restores the inheritance flag it was snapshotted with; the environment block is sorted by UTF-16 code units, as Windows expects; and a project path with non-ASCII letters in another case no longer propagates its grant again (fixes #195).
+- Windows sandbox: drive letters for sandboxed commands come from `Z:` down to `D:` instead of `P:`–`Z:` only, so about twice as many commands can run at once, and the error when none is left says how many Patch commands hold them (fixes #177; sharing one drive per project is #228).
+- Windows sandbox: closing a project revokes its grant on a worker thread of the helper, so a kill message is never queued behind it. Grant propagation into existing files deeper than 260 characters is covered by a real-helper test; it already worked (fixes #206).
 - `web_search` masks recognizable secrets in the query before it is sent to Google, and the docs name the outgoing query as a data flow (fixes #73).
 - Browser-panel guests always run with `webSecurity` on and insecure content off, a `disablewebsecurity` attribute is dropped, and every new web contents gets a deny-all popup handler and, for app windows, a block on navigating away (fixes #67).
 - GitHub Actions are pinned to commit SHAs, with Dependabot keeping the pins current after a week-long cooldown (fixes #70).
@@ -44,6 +48,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Added
 
+- **Undo for patches.** An `apply_patch` card offers Undo like an edit: every file the patch changed, added, deleted or moved goes back together, and nothing is touched if any of them changed since (fixes #197).
 - Add Claude Haiku 5.5, Claude Fable 5.1 and GPT-6.1 Sol with their context windows, capabilities and tiered price estimates. Haiku 5.5 becomes the Anthropic small model and GPT-6.1 Sol the OpenAI mid model; Haiku 4.5 and GPT-6 Sol remain compatible with their existing prices. Haiku 5.5 uses adaptive thinking, images, strict tool inputs and server-side compaction, without refusal fallback.
 - `npm run test:sandbox`: real bubblewrap, Seatbelt and Docker/Podman isolation tests with disposable fake-home credentials, hook/symlink protection and local TCP network controls. The Windows integration suite also checks credential isolation. Linux bubblewrap and Docker probes pass in an orb; native macOS/Windows checks require their hosts. Missing backends/images skip explicitly, and the CI matrix requires its native backend instead of silently accepting an unavailable sandbox (refs #76).
 - Agent commands (including background ones) run in a sandbox: bubblewrap on Linux, Seatbelt on macOS, or an opt-in Docker/Podman container on every platform, with the project folder writable, the rest of the home folder hidden and the network off by default. New settings: sandbox mode, sandbox network and container image. The approval card describes confinement, and the model can request network or unsandboxed access for one command, which always asks (refs #76).

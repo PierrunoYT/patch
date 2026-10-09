@@ -529,6 +529,7 @@ const D = {
     ['7778e01', 'fix: keep Windows sandbox toolchain copies across commands'],
   ],
   issues: [
+    [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
     [
       227,
       'Windows sandbox: use the OS process security environment (PSEC) where available',
@@ -541,13 +542,8 @@ const D = {
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
-    [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
     [200, 'Rendering cost grows with transcript length while an answer streams', 'perf', 'low', 0, '10-07'],
-    [197, 'apply_patch changes have no Undo', 'tools', 'low', 0, '10-07'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
-    [195, 'Sandbox helper: exit code 259, .git restore, Started order, env sort', 'sandbox', 'low', 0, '10-07'],
-    [192, 'Renderer can miss chat events sent during startup', 'ui', 'low', 0, '10-07'],
-    [177, 'Windows sandbox: concurrent commands run out of drive letters', 'sandbox', 'medium', 0, '10-07'],
     [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
@@ -635,7 +631,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 135,
+  closedCount: 140,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

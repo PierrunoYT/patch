@@ -81,7 +81,8 @@ Every approved file edit keeps a copy of the file as it was. The edit's card in 
 - Undo only works while the file is exactly as the edit left it, so it never throws away something you or a later edit wrote afterwards. If the file changed, you get a message saying so and nothing is touched. Undo the later edits first (newest first), or restore the file with Git.
 - It is available while the assistant is idle. Stop the task first if it is still working.
 - The assistant is told with your next message that you undid the edit, and has to read the file again before it changes it. The card then shows **Undone**.
-- Only file edits made with the assistant's edit and write tools can be undone. Changes made by commands it ran (`npm install`, `git checkout`, a code generator) cannot; the Git panel and Git itself are the way back for those.
+- A patch (`apply_patch`) is undone as a whole: every file it changed, added, deleted or moved goes back, or, if any of them changed since, none does.
+- Only file edits made with the assistant's edit, write and patch tools can be undone. Changes made by commands it ran (`npm install`, `git checkout`, a code generator) cannot; the Git panel and Git itself are the way back for those.
 - The copies are kept in the app's data folder (`edit-backups`), the last 50 edits of each chat, and are deleted with the chat. They are copies of your own project files, so they are as sensitive as the files.
 
 ### Ask first or Auto
