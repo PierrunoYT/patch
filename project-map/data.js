@@ -378,6 +378,7 @@ const D = {
     ['long_run', 2],
     ['openai_responses', 4],
     ['secrets_restart', 2],
+    ['chat_controls', 8],
     ['crash_resume', 1],
     ['grep_redos', 1],
     ['mcp', 1],
@@ -595,7 +596,6 @@ const D = {
     [78, 'Cheaper subagents: run task and oracle on a mid-size model', 'perf', 'low', 0, '10-03'],
     [74, 'Decide whether the release dry run should run on every push to main', 'release', 'low', 0, '10-03'],
     [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
-    [62, 'e2e tests for chat list, header model picker, status-bar branch', 'tests', 'low', 0, '10-01'],
     [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
     [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
     [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
@@ -616,7 +616,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 149,
+  closedCount: 150,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -68,7 +68,7 @@ builders.focus = () => {
           .map(([lines, file]) => `${file.split('/').pop()} (${lines})`)
           .join(', ')} have no test file`,
         'app.ts is also among the most-changed source files (29 changes in 60 days)',
-        '#62 asks for e2e tests of the chat list, model picker and status-bar branch',
+        '#62 is fixed: chat_controls.test.ts checks the chat list, model picker, mode switches and status-bar branch on screen',
         'transcript.ts has a first test file, for its pure helpers; its DOM rendering is still covered only end to end',
       ],
       'Start with the pure logic in transcript and app (event handling) rather than DOM details.',
