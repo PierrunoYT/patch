@@ -64,7 +64,7 @@ Protection is case-insensitive, and Windows 8.3 names are expanded before checki
 
 `read_file`, edit previews and writes, `apply_patch` mutations and Undo use a native helper that never follows symlinks or junctions beneath the project, even when they point inside it (#144). Use the real project-relative path instead. Writes also refuse hard-linked targets. Expected bytes and existing batch targets are checked before the first change; this is not a filesystem transaction, so a later I/O failure can leave some files changed. A missing helper refuses the operation without a host-write fallback; source builds require Rust and `npm run build:sandbox`.
 
-**Local addresses** always ask, even in Auto mode: `fetch_url` and `browser` calls to `localhost`, your local network, link-local addresses such as cloud metadata (169.254.169.254), or a name that resolves to one of them, unless the host is in the network allow-list. Redirects must stay on the same scheme, host and port.
+**Local addresses** always ask, even in Auto mode: `fetch_url` and `browser` calls to `localhost`, your local network, link-local addresses such as cloud metadata (169.254.169.254), multicast and other reserved ranges, IPv6 addresses that carry one of these (NAT64, 6to4), or a name that resolves to one of them, unless the host is in the network allow-list. Redirects must stay on the same scheme, host and port.
 
 Very large diffs are shown only in part: the first 2,000 lines. The approval card then says so in a yellow warning, because approving applies the whole change, including the part you cannot see. Decline and ask for smaller edits if you want to review everything. Long command output shows its last 20,000 characters, with a note that the start was left out.
 

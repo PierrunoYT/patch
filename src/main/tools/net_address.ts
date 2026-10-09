@@ -11,10 +11,47 @@ LOCAL.addSubnet('127.0.0.0', 8, 'ipv4');
 LOCAL.addSubnet('169.254.0.0', 16, 'ipv4'); // link-local, including 169.254.169.254 cloud metadata
 LOCAL.addSubnet('172.16.0.0', 12, 'ipv4');
 LOCAL.addSubnet('192.168.0.0', 16, 'ipv4');
+LOCAL.addSubnet('192.0.0.0', 24, 'ipv4'); // IETF protocol assignments, including Oracle Cloud's 192.0.0.192 metadata
+LOCAL.addSubnet('198.18.0.0', 15, 'ipv4'); // benchmarking, routed inside some networks
+LOCAL.addSubnet('224.0.0.0', 4, 'ipv4'); // multicast
+LOCAL.addSubnet('240.0.0.0', 4, 'ipv4'); // reserved, and 255.255.255.255 broadcast
 LOCAL.addAddress('::', 'ipv6');
 LOCAL.addAddress('::1', 'ipv6');
 LOCAL.addSubnet('fc00::', 7, 'ipv6'); // unique local
 LOCAL.addSubnet('fe80::', 10, 'ipv6'); // link-local
+LOCAL.addSubnet('fec0::', 10, 'ipv6'); // site-local (deprecated, still routed by some networks)
+LOCAL.addSubnet('ff00::', 8, 'ipv6'); // multicast
+LOCAL.addSubnet('64:ff9b:1::', 48, 'ipv6'); // NAT64 for local use
+
+// The 16 bytes of an IPv6 address, or null when it is not one.
+function ipv6Bytes(address: string): number[] | null {
+  let text = address.replace(/%.*$/, '');
+  if (isIP(text) !== 6) return null;
+  const dotted = /(\d+\.\d+\.\d+\.\d+)$/.exec(text);
+  if (dotted) {
+    const [a, b, c, d] = dotted[1]!.split('.').map(Number) as [number, number, number, number];
+    text = `${text.slice(0, dotted.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const [head, tail] = text.split('::') as [string, string | undefined];
+  const groups = (part: string | undefined) => (part ? part.split(':').map((group) => parseInt(group, 16)) : []);
+  const front = groups(head);
+  const back = groups(tail);
+  const words = tail === undefined ? front : [...front, ...new Array(8 - front.length - back.length).fill(0), ...back];
+  return words.flatMap((word) => [word >> 8, word & 0xff]);
+}
+
+// The IPv4 address inside a NAT64 (64:ff9b::/96), 6to4 (2002::/16) or IPv4-compatible (::/96) address, which
+// reaches that IPv4 address: 64:ff9b::7f00:1 is 127.0.0.1 (#252). Null for other addresses.
+function embeddedIpv4(address: string): string | null {
+  const bytes = ipv6Bytes(address);
+  if (!bytes) return null;
+  const zero = (from: number, to: number) => bytes.slice(from, to).every((byte) => byte === 0);
+  let at = -1;
+  if (bytes[0] === 0x00 && bytes[1] === 0x64 && bytes[2] === 0xff && bytes[3] === 0x9b && zero(4, 12)) at = 12;
+  else if (bytes[0] === 0x20 && bytes[1] === 0x02) at = 2;
+  else if (zero(0, 12)) at = 12;
+  return at < 0 ? null : bytes.slice(at, at + 4).join('.');
+}
 
 // URL.hostname keeps the brackets of an IPv6 literal; DNS names may end in a dot.
 export function bareHostname(hostname: string): string {
@@ -26,6 +63,10 @@ export function isLocalAddress(address: string): boolean {
   const bare = bareHostname(address);
   const family = isIP(bare);
   if (family === 0) return false;
+  if (family === 6) {
+    const ipv4 = embeddedIpv4(bare);
+    if (ipv4 !== null && LOCAL.check(ipv4, 'ipv4')) return true;
+  }
   return LOCAL.check(bare, family === 4 ? 'ipv4' : 'ipv6');
 }
 

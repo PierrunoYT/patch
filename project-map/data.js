@@ -539,14 +539,6 @@ const D = {
     [255, 'edit_file does not re-check the file between the approved diff and the write', 'tools', 'low', 0, '10-09'],
     [254, 'Model-written markdown keeps class and id, so it can draw fake app UI', 'ui', 'low', 0, '10-09'],
     [253, 'Command output redacted after truncation; live progress not redacted', 'security', 'low', 0, '10-09'],
-    [
-      252,
-      'Local-address blocklist misses NAT64, 6to4, 192.0.0.0/24 and reserved ranges',
-      'security',
-      'low',
-      0,
-      '10-09',
-    ],
     [248, 'search_code: changing the OpenRouter key leaves an index update running', 'tools', 'low', 0, '10-09'],
     [243, 'MCP: a server that crashes is never reconnected', 'mcp', 'medium', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
@@ -647,7 +639,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 165,
+  closedCount: 166,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

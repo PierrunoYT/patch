@@ -33,6 +33,21 @@ describe('isLocalAddress', () => {
     ['[::ffff:7f00:1]', 'IPv4-mapped loopback, hex form'],
     ['::ffff:169.254.169.254', 'IPv4-mapped metadata'],
     ['::ffff:10.1.2.3', 'IPv4-mapped private'],
+    // #252: special-purpose ranges and IPv4 addresses inside NAT64, 6to4 and IPv4-compatible IPv6 addresses.
+    ['192.0.0.192', 'Oracle Cloud metadata (192.0.0.0/24)'],
+    ['198.18.0.1', 'benchmarking 198.18/15'],
+    ['224.0.0.1', 'multicast'],
+    ['240.0.0.1', 'reserved'],
+    ['255.255.255.255', 'broadcast'],
+    ['fec0::1', 'IPv6 site-local'],
+    ['ff02::1', 'IPv6 multicast'],
+    ['64:ff9b::7f00:1', 'NAT64 of 127.0.0.1'],
+    ['64:ff9b::a9fe:a9fe', 'NAT64 of the cloud metadata address'],
+    ['64:ff9b::10.0.0.1', 'NAT64 of a private address, dotted form'],
+    ['64:ff9b:1::1', 'NAT64 for local use'],
+    ['::7f00:1', 'IPv4-compatible 127.0.0.1'],
+    ['2002:7f00:1::1', '6to4 of 127.0.0.1'],
+    ['[2002:a9fe:a9fe::]', '6to4 of the cloud metadata address, bracketed'],
   ])('%s is local (%s)', (address) => {
     expect(isLocalAddress(address)).toBe(true);
   });
@@ -48,9 +63,13 @@ describe('isLocalAddress', () => {
     ['192.169.0.1', 'just above 192.168/16'],
     ['11.0.0.1', 'just above 10/8'],
     ['2606:4700::1111', 'public IPv6'],
-    ['fec0::1', 'just above fe80::/10'],
+    ['fe00::1', 'just below fe80::/10'],
     ['fbff::1', 'just below fc00::/7'],
     ['::ffff:8.8.8.8', 'IPv4-mapped public'],
+    ['64:ff9b::808:808', 'NAT64 of a public address (DNS64 networks reach every IPv4 site this way)'],
+    ['2002:808:808::1', '6to4 of a public address'],
+    ['223.255.255.255', 'just below multicast'],
+    ['198.20.0.1', 'just above 198.18/15'],
     ['example.com', 'a name is not an address'],
     ['localhost', 'a name is not an address'],
   ])('%s is not local (%s)', (address) => {
