@@ -157,6 +157,30 @@ describe('BrowserService', () => {
     expect(service.allowsRequest('https://example.com/')).toBe(true);
   });
 
+  it('keeps a public page from reaching local addresses, but not a local page (#235)', async () => {
+    const service = new BrowserService(() => {});
+    attach(service, new FakeGuest());
+    await service.open('https://example.com/', new AbortController().signal);
+    for (const url of [
+      'http://127.0.0.1:8080/',
+      'http://localhost:3000/api',
+      'http://169.254.169.254/latest/meta-data/',
+      'http://192.168.1.1/',
+      'ws://[::1]:9000/',
+      'http://[64:ff9b::7f00:1]/',
+    ]) {
+      expect(service.allowsRequest(url)).toBe(false);
+    }
+    expect(service.allowsRequest('https://cdn.example/app.js')).toBe(true);
+    // The user's own browser is not limited.
+    expect(service.allowsRequest('http://127.0.0.1:8080/', false)).toBe(true);
+
+    // A dev server the agent opened on purpose may load from local addresses.
+    await service.open('http://localhost:5173/', new AbortController().signal);
+    expect(service.allowsRequest('http://127.0.0.1:5173/@vite/client')).toBe(true);
+    expect(service.allowsRequest('ws://localhost:5173/')).toBe(true);
+  });
+
   it('stops when the chat is stopped', async () => {
     const service = new BrowserService(() => {});
     const guest = new FakeGuest();

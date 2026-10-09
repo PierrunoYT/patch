@@ -1,5 +1,15 @@
 import type { WebContents } from 'electron';
 import type { BrowserController, PageLoadResult } from '../tools/browser';
+import { isLocalHostname } from '../tools/net_address';
+
+// The hostname of a URL, or '' when it does not parse.
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
 
 const LOAD_TIMEOUT_MS = 20_000;
 // Screenshots are scaled down so they stay within the image size models accept.
@@ -19,6 +29,8 @@ export class BrowserService implements BrowserController {
   // Set while the agent's page is a project file. Such a page opens without asking, even in Ask mode, and may read
   // other project files (.env), so its session gets no network at all and nothing it reads can leave (#229).
   private offline = false;
+  // Set while the agent's page is a web page on a public host: it may not reach local addresses (#235).
+  private publicPage = false;
 
   constructor(
     private readonly show: () => void,
@@ -53,9 +65,15 @@ export class BrowserService implements BrowserController {
   // Asked by both panel sessions' request filters for every request, frames and sub-resources included: those never
   // fire will-navigate, so a project page could otherwise show a file from outside the project in an <iframe> and a
   // screenshot would hand it to the model. file:// is checked in both sessions; web pages cannot load file://
-  // themselves. Network requests are refused only in the agent's session, and only while it shows a project file.
+  // themselves. Network requests are refused only in the agent's session: all of them while it shows a project file,
+  // and those to this machine or the local network while it shows a page that is not itself local, so a public page
+  // cannot frame or fetch a local service or cloud metadata for a screenshot to pass on (#235). Only names and
+  // address literals are checked here; a public name that resolves to a local address is not.
   allowsRequest(url: string, fromAgentSession = true): boolean {
     if (fromAgentSession && this.offline && /^(https?|wss?|ftp):/i.test(url)) return false;
+    if (fromAgentSession && this.publicPage && /^(https?|wss?):/i.test(url) && isLocalHostname(hostnameOf(url))) {
+      return false;
+    }
     if (!/^file:/i.test(url) || !this.isNavigationAllowed) return true;
     return this.isNavigationAllowed(url);
   }
@@ -73,6 +91,7 @@ export class BrowserService implements BrowserController {
   async reset(): Promise<void> {
     this.isNavigationAllowed = null;
     this.blockedNavigation = null;
+    this.publicPage = false;
     const guest = this.available ? this.guest! : null;
     if (guest) {
       await guest.loadURL('about:blank').catch(() => {});
@@ -122,6 +141,7 @@ export class BrowserService implements BrowserController {
       // The chat may have been stopped while waiting for the panel, before the abort listener existed.
       if (signal.aborted) throw new Error('Stopped.');
       await this.setNetwork(guest, /^file:/i.test(url));
+      this.publicPage = /^https?:/i.test(url) && !isLocalHostname(hostnameOf(url));
       await Promise.race([
         guest.loadURL(url).catch((loadError: Error) => {
           error ??= loadError.message;
