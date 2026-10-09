@@ -148,10 +148,21 @@ function start(): void {
     (data) => send(mainWindow, 'terminal:data', data),
     () => send(mainWindow, 'terminal:exit', null),
   );
+  // One service per project, so its filter-driver list is read once rather than on every panel call (#199).
+  const gitServices = new Map<string, GitService>();
   const git = () => {
     const project = projects.current();
     if (!project) throw new Error('No project is open.');
-    return new GitService(project.path);
+    let service = gitServices.get(project.path);
+    if (!service) {
+      service = new GitService(project.path);
+      gitServices.set(project.path, service);
+    }
+    return service;
+  };
+  const forgetClosedGitServices = () => {
+    const open = new Set(projects.opened().map((project) => project.path));
+    for (const path of gitServices.keys()) if (!open.has(path)) gitServices.delete(path);
   };
   const codeIndexes = new Map<string, CodeIndex>();
   // A changed key means a new embedding client; drop cached indexes so they are rebuilt with it. Other changes keep
@@ -334,6 +345,7 @@ function start(): void {
     manager.closeProject(path);
     revokeSandboxGrant(path);
     projects.close(path);
+    forgetClosedGitServices();
     if (projects.current()?.path !== before) {
       manager.projectChanged();
       refreshMcp();
@@ -353,6 +365,7 @@ function start(): void {
     manager.closeProject(path);
     revokeSandboxGrant(path);
     projects.remove(path);
+    forgetClosedGitServices();
     if (projects.current()?.path !== before) {
       manager.projectChanged();
       refreshMcp();

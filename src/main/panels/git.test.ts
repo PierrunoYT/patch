@@ -16,7 +16,15 @@ import { simpleGit } from 'simple-git';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { GitFile } from '@shared/panels';
 import { validateSandboxGit } from '../tools/sandbox_git';
-import { filterNames, GitService, hardenedConfig, isRepoAboveHome, projectCommands, removeEntry } from './git';
+import {
+  filterNames,
+  GitService,
+  hardenedConfig,
+  isRepoAboveHome,
+  parseConfigListing,
+  projectCommands,
+  removeEntry,
+} from './git';
 
 const tempFolderInsideRepo = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: tmpdir() }).status === 0;
 
@@ -614,6 +622,59 @@ describe('GitService with a hostile repository config', () => {
     expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('one\n');
     expect(existsSync(marker('clean'))).toBe(false);
     expect(existsSync(marker('smudge'))).toBe(false);
+  });
+
+  it('neutralizes a filter added after the service read the config (#199)', async () => {
+    await initRepo();
+    await service.status();
+    writeFileSync(join(root, '.gitattributes'), '*.txt filter=late\n');
+    config('filter.late.clean', markerCommand('late-clean'));
+    config('filter.late.smudge', markerCommand('late-smudge'));
+    writeFileSync(join(root, 'a.txt'), 'two\n');
+
+    expect(kinds((await service.status()).files)).toContainEqual({ path: 'a.txt', status: 'modified' });
+    await service.discard('a.txt');
+    expect(existsSync(marker('late-clean'))).toBe(false);
+    expect(existsSync(marker('late-smudge'))).toBe(false);
+  });
+
+  it('neutralizes a filter written into an included file while .git/config stays the same (#199)', async () => {
+    await initRepo();
+    writeFileSync(join(root, 'extra.cfg'), '');
+    config('include.path', '../extra.cfg');
+    await service.status();
+    writeFileSync(join(root, '.gitattributes'), '*.txt filter=inc\n');
+    const command = markerCommand('inc-clean').replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+    writeFileSync(join(root, 'extra.cfg'), `[filter "inc"]\n\tclean = "${command}"\n\tsmudge = "${command}"\n`);
+    writeFileSync(join(root, 'a.txt'), 'two\n');
+
+    expect(kinds((await service.status()).files)).toContainEqual({ path: 'a.txt', status: 'modified' });
+    await service.discard('a.txt');
+    expect(existsSync(marker('inc-clean'))).toBe(false);
+  });
+});
+
+describe('parseConfigListing', () => {
+  it('lists the filters and every file the config was read from or includes', () => {
+    const root = join(tmpdir(), 'project');
+    const listing = [
+      'file:.git/config',
+      'core.bare\nfalse',
+      'file:.git/config',
+      'filter.x.clean\ncat',
+      'file:.git/config',
+      'include.path\n../extra.cfg',
+      'file:.git/config',
+      'includeIf.gitdir:~/work/.path\nmissing.cfg',
+      'file:.git/../extra.cfg',
+      'filter.y.smudge\ncat',
+      '',
+    ].join('\0');
+    expect(parseConfigListing(listing, root)).toEqual({
+      filters: ['x', 'y'],
+      files: [join(root, '.git', 'config'), join(root, 'extra.cfg'), join(root, '.git', 'missing.cfg')],
+    });
+    expect(parseConfigListing('', root)).toEqual({ filters: [], files: [] });
   });
 });
 

@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { lstat, readFile, rm, rmdir, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -73,6 +73,43 @@ export function filterNames(configListing: string): string[] {
   return [...new Set(names)];
 }
 
+// From `git config --local --includes --show-origin --null --list` run in `root`: the filter drivers it defines, and
+// every file the result depends on (each file an entry came from, and each file an include names, which may not
+// exist or may have no entries yet).
+export function parseConfigListing(listing: string, root: string): { filters: string[]; files: string[] } {
+  const parts = listing.split('\0');
+  const keys: string[] = [];
+  const files = new Set<string>();
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const origin = parts[i]!.replace(/^file:/, '');
+    const entry = parts[i + 1]!;
+    const newline = entry.indexOf('\n');
+    const key = newline === -1 ? entry : entry.slice(0, newline);
+    const value = newline === -1 ? '' : entry.slice(newline + 1);
+    const file = resolve(root, origin);
+    files.add(file);
+    keys.push(key);
+    if (/^(include|includeif\..*)\.path$/i.test(key) && value) {
+      files.add(value.startsWith('~/') ? join(homedir(), value.slice(2)) : resolve(dirname(file), value));
+    }
+  }
+  return { filters: filterNames(keys.join('\n')), files: [...files] };
+}
+
+// Size and times of a file, or '-' when it is missing, so a change, a new file or a removed one changes the key.
+function statKey(files: string[]): string {
+  return files
+    .map((file) => {
+      try {
+        const stat = statSync(file);
+        return `${file}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}:${stat.ino}`;
+      } catch {
+        return `${file}:-`;
+      }
+    })
+    .join('|');
+}
+
 // A repository whose root is the user's home folder or a folder above it (often left by an accidental `git init`)
 // is not the project's repository: `git status` there scans the whole profile, which can take minutes and gigabytes
 // of memory. A project inside such a repository is shown as not a repository, unless the project is its root.
@@ -95,7 +132,10 @@ const MAX_COUNTED_BYTES = 2 * 1024 * 1024;
 // The Git panel: changed files, diffs, commit and discard for the open project.
 export class GitService {
   private readonly workspace: Workspace;
-  private hardened: Promise<SimpleGit> | null = null;
+  // The hardened instance and the stat key of the config files its filter list was read from (null: not a
+  // repository when it was read, so it is read again every time).
+  private hardened: { key: string | null; files: string[]; repo: SimpleGit } | null = null;
+  private loading: Promise<SimpleGit> | null = null;
 
   constructor(root: string) {
     this.workspace = new Workspace(root);
@@ -103,21 +143,42 @@ export class GitService {
 
   // A simple-git instance with the overrides above. simple-git refuses to set hooksPath, fsmonitor and filters
   // unless allowed, which protects against attacker-chosen values; here the values are fixed and only disable them.
+  // The service is kept per project, so the filter list is read again only when a config file it came from (or one
+  // that could add filters: the local and worktree config, an included file) changes.
   private repo(): Promise<SimpleGit> {
-    this.hardened ??= (async () => {
-      // An empty sandbox reservation is not a repository. Do not discover planted bare metadata in the
-      // writable project root instead; this guard must cover the config query as well as panel operations.
-      const plain = simpleGit({ baseDir: this.workspace.root, config: ['safe.bareRepository=explicit'] });
-      const listing = await plain
-        .raw(['config', '--local', '--includes', '--name-only', '--get-regexp', '^filter\\.'])
-        .catch(() => '');
-      return simpleGit({
-        baseDir: this.workspace.root,
-        config: hardenedConfig(filterNames(listing)),
-        unsafe: { allowUnsafeHooksPath: true, allowUnsafeFsMonitor: true, allowUnsafeFilter: true },
-      });
-    })();
-    return this.hardened;
+    const cached = this.hardened;
+    if (cached && cached.key !== null && cached.key === statKey(cached.files)) return Promise.resolve(cached.repo);
+    this.loading ??= this.loadRepo().finally(() => (this.loading = null));
+    return this.loading;
+  }
+
+  private async loadRepo(): Promise<SimpleGit> {
+    // An empty sandbox reservation is not a repository. Do not discover planted bare metadata in the
+    // writable project root instead; this guard must cover the config query as well as panel operations.
+    const plain = simpleGit({ baseDir: this.workspace.root, config: ['safe.bareRepository=explicit'] });
+    const dirs = await plain
+      .revparse(['--git-common-dir', '--git-dir'])
+      .then((output) => output.split(/\r?\n/).map((dir) => resolve(this.workspace.root, dir.trim())))
+      .catch(() => null);
+    // Stat before reading, so a change made while git reads the config makes the next call read it again.
+    const known = dirs
+      ? [join(dirs[0]!, 'config'), join(dirs[1] ?? dirs[0]!, 'config.worktree'), ...(this.hardened?.files ?? [])]
+      : [];
+    const unique = [...new Set(known)];
+    const key = dirs ? statKey(unique) : null;
+    const listing = await plain
+      .raw(['config', '--local', '--includes', '--show-origin', '--null', '--list'])
+      .catch(() => '');
+    const { filters, files } = parseConfigListing(listing, this.workspace.root);
+    const all = [...new Set([...unique, ...files])];
+    const repo = simpleGit({
+      baseDir: this.workspace.root,
+      config: hardenedConfig(filters),
+      unsafe: { allowUnsafeHooksPath: true, allowUnsafeFsMonitor: true, allowUnsafeFilter: true },
+    });
+    // Files found only now were not in the key: the next call reads again, then the set is complete.
+    this.hardened = { key: all.length === unique.length ? key : null, files: all, repo };
+    return repo;
   }
 
   async status(): Promise<GitStatus> {

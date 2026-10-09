@@ -56,7 +56,7 @@ const D = {
       proc: 'main',
       files: 14,
       tests: 11,
-      lines: 2560,
+      lines: 2573,
       testLines: 2533,
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
@@ -174,8 +174,8 @@ const D = {
       proc: 'main',
       files: 4,
       tests: 4,
-      lines: 663,
-      testLines: 1083,
+      lines: 724,
+      testLines: 1144,
       desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
       list: [
         'terminal.ts',
@@ -349,8 +349,8 @@ const D = {
     { a: 'main/agent', f: 11, c: 233, src: 1754, tl: 3628 },
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
     { a: 'main/tools', f: 28, c: 601, src: 5068, tl: 7592 },
-    { a: 'main/panels', f: 4, c: 73, src: 667, tl: 1087 },
-    { a: 'main/other', f: 13, c: 212, src: 3342, tl: 3333 },
+    { a: 'main/panels', f: 4, c: 76, src: 728, tl: 1148 },
+    { a: 'main/other', f: 13, c: 212, src: 3355, tl: 3333 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
     { a: 'renderer', f: 5, c: 16, src: 6491, tl: 158 },
     { a: 'preload', f: 0, c: 0, src: 39, tl: 0 },
@@ -535,7 +535,6 @@ const D = {
     [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
     [201, 'Reuse regex workers across grep and glob calls', 'perf', 'low', 0, '10-07'],
     [200, 'Rendering cost grows with transcript length while an answer streams', 'perf', 'low', 0, '10-07'],
-    [199, 'Reuse one GitService per project instead of one per IPC call', 'perf', 'low', 0, '10-07'],
     [197, 'apply_patch changes have no Undo', 'tools', 'low', 0, '10-07'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [195, 'Sandbox helper: exit code 259, .git restore, Started order, env sort', 'sandbox', 'low', 0, '10-07'],
@@ -632,7 +631,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 129,
+  closedCount: 130,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

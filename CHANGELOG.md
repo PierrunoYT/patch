@@ -105,6 +105,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- The Git panel keeps one Git service per open project instead of building one, with an extra `git config` run, on every call. Its list of the repository's filter drivers is read again whenever the local config or a file it includes changes, so a filter added later is still neutralized (fixes #199).
 - A failed tool card says why it failed: its summary and result chip carry the error's first line, up to 80 characters ("grep failed (Invalid regular expression: …)"), and the full message stays in its output. Screen readers announce the same summary, and the agent benchmark records it (fixes #47).
 - The project ignore file is `.patchignore` (`.gitignore` syntax, applied after `.gitignore`). The old name `.ccignore` is still read, before `.patchignore`, so existing projects keep their rules (fixes #38).
 - One license file: `LICENSE` holds the Apache-2.0 text, now with the copyright line filled in, followed by the preserved MIT notice for earlier releases. `LICENSE-MIT` is removed and no longer listed in the packaged files. The licensing terms are unchanged.
