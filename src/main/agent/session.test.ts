@@ -163,3 +163,101 @@ describe('prompt cache keep-alive', () => {
     chat.dispose();
   });
 });
+
+// A conversation whose turns are scripted: each step is a result, an error to throw, or 'hang' until the run is stopped.
+class ScriptedTurns extends IdleConversation {
+  readonly sent: string[] = [];
+  steps: Array<'ok' | 'hang' | Error> = [];
+
+  override addUserMessage(input?: { text: string }): void {
+    this.sent.push(input?.text ?? '');
+  }
+
+  override async runTurn(request: TurnRequest): Promise<TurnResult> {
+    const step = this.steps.shift() ?? 'ok';
+    if (step === 'hang') {
+      await new Promise<void>((resolve) => request.signal.addEventListener('abort', () => resolve(), { once: true }));
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    }
+    if (step instanceof Error) throw step;
+    return super.runTurn(request);
+  }
+}
+
+describe('stopping and resuming a run', () => {
+  const resumableOf = (chat: ChatSession) => chat.snapshot().resumable;
+
+  it('offers Resume after a stop, and a resumed run that finishes clears it', async () => {
+    const conversation = new ScriptedTurns();
+    conversation.steps = ['hang'];
+    const { chat, events } = session(conversation, () => false);
+    const run = chat.send({ text: 'go' });
+    await vi.waitFor(() => expect(chat.snapshot().busy).toBe(true));
+    chat.stop();
+    await run;
+
+    expect(resumableOf(chat)).toBe(true);
+    expect(events).toContainEqual({ type: 'resumable', resumable: true });
+    expect(events.some((event) => event.type === 'notice' && event.text === 'Stopped.')).toBe(true);
+
+    await chat.resume();
+    expect(resumableOf(chat)).toBe(false);
+    expect(chat.snapshot().busy).toBe(false);
+    chat.dispose();
+  });
+
+  it('does not offer Resume for a run that finished on its own, and refuses to resume one', async () => {
+    const { chat } = session(new ScriptedTurns(), () => false);
+    await chat.send({ text: 'go' });
+    expect(resumableOf(chat)).toBe(false);
+    await expect(chat.resume()).rejects.toThrow('There is no stopped run to resume.');
+    chat.dispose();
+  });
+
+  it('offers Resume after a provider error that outlasted the retries, but not after one that cannot pass', async () => {
+    const waitLonger = Object.assign(new Error('rate limited'), {
+      status: 429,
+      headers: new Headers({ 'retry-after': '99999' }),
+    });
+    const refused = Object.assign(new Error('bad request'), { status: 400 });
+    for (const [error, resumable] of [
+      [waitLonger, true],
+      [refused, false],
+    ] as const) {
+      const conversation = new ScriptedTurns();
+      conversation.steps = [error];
+      const { chat, events } = session(conversation, () => false);
+      await chat.send({ text: 'go' });
+      expect(events.filter((event) => event.type === 'error')).toHaveLength(1);
+      expect(resumableOf(chat)).toBe(resumable);
+      chat.dispose();
+    }
+  });
+
+  it('refuses a second send while a run is going', async () => {
+    const conversation = new ScriptedTurns();
+    conversation.steps = ['hang'];
+    const { chat } = session(conversation, () => false);
+    const run = chat.send({ text: 'go' });
+    await vi.waitFor(() => expect(chat.snapshot().busy).toBe(true));
+    await expect(chat.send({ text: 'again' })).rejects.toThrow('still working');
+    chat.stop();
+    await run;
+    chat.dispose();
+  });
+
+  it('tells the model about an undone edit with the next message, once', async () => {
+    const conversation = new ScriptedTurns();
+    const { chat, events } = session(conversation, () => false);
+    await chat.send({ text: 'first' });
+    chat.editUndone('tool-1', { path: 'a.ts', action: 'restored' }, '/project/a.ts');
+    expect(events).toContainEqual({ type: 'tool-undone', id: 'tool-1' });
+
+    await chat.send({ text: 'second' });
+    await chat.send({ text: 'third' });
+    expect(conversation.sent[1]).toContain('The user undid your edit to a.ts');
+    expect(conversation.sent[1]).toContain('second');
+    expect(conversation.sent[2]).toBe('third');
+    chat.dispose();
+  });
+});

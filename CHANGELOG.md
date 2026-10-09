@@ -237,6 +237,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Test maintenance
 
+- `session.test.ts` covers stopping and resuming a run: Resume is offered after a stop and after a provider error that outlasted the retries but not after a finished run or an error that cannot pass, a second send during a run is refused, and an undone edit is told to the model once with the next message. A 400/413 refusal is covered in `agent_loop.test.ts` and `anthropic.test.ts` (refs #196).
 - The transcript view end-to-end tests wait for the previous turn to finish before sending, the Undo test makes and approves its own edit instead of relying on the test before it, and a wait that times out reports the chat state and the number of requests the mock API got (fixes #125).
 - `tests/e2e/chat_controls.test.ts` covers the chat list (grouping by day, the open chat marked, the title filter and the message-text search, a new chat appearing through `history:changed`), the composer's model picker (used for a new chat, locked once a chat has started), the Ask / Auto-Approve and Plan Mode switches, and the status-bar branch (hidden without a project, `*` once files change), all checked on screen (fixes #62).
 - The Windows toolchain integration tests remove every `subst` drive they create before deleting their fixture, and remove drives an interrupted run left aimed at a deleted fixture (fixes #133).

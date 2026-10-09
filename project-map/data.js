@@ -355,9 +355,9 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 265, src: 1887, tl: 3828 },
-    { a: 'main/llm', f: 8, c: 112, src: 2218, tl: 3114 },
-    { a: 'main/tools', f: 30, c: 710, src: 6085, tl: 9121 },
+    { a: 'main/agent', f: 11, c: 271, src: 1887, tl: 3828 },
+    { a: 'main/llm', f: 8, c: 113, src: 2218, tl: 3114 },
+    { a: 'main/tools', f: 30, c: 717, src: 6085, tl: 9121 },
     { a: 'main/panels', f: 4, c: 83, src: 829, tl: 1314 },
     { a: 'main/other', f: 15, c: 235, src: 3776, tl: 3624 },
     { a: 'shared', f: 8, c: 94, src: 1379, tl: 1089 },
