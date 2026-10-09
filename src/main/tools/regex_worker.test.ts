@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { RegexWorker } from './regex_worker';
+import { idleRegexWorkers, RegexWorker } from './regex_worker';
 
 const CATASTROPHIC = `${'a'.repeat(10_000)}!`;
 
@@ -45,6 +45,23 @@ describe('RegexWorker', () => {
     expect(Date.now() - started).toBeLessThan(2000);
     // A terminated worker is not used again.
     expect(await worker.match({ text: 'aab' }, { timeoutMs: 200 })).toEqual({ status: 'aborted' });
+  });
+
+  it('hands a finished worker to the next search, with its own pattern, but never a timed-out one', async () => {
+    const first = new RegexWorker('^a', '');
+    expect(await first.match({ items: ['ab', 'ba'] }, { timeoutMs: 2000 })).toMatchObject({ found: [0] });
+    const before = idleRegexWorkers();
+    first.close();
+    expect(idleRegexWorkers()).toBe(before + 1);
+
+    const second = start('A$', 'i');
+    expect(await second.match({ items: ['ab', 'ba'] }, { timeoutMs: 2000 })).toMatchObject({ found: [1] });
+    expect(idleRegexWorkers()).toBe(before);
+
+    const stuck = new RegexWorker('(a+)+b', '');
+    expect(await stuck.match({ text: CATASTROPHIC }, { timeoutMs: 200 })).toEqual({ status: 'timeout' });
+    stuck.close();
+    expect(idleRegexWorkers()).toBe(before);
   });
 
   it('stops at once when the signal aborts, including before it starts', async () => {

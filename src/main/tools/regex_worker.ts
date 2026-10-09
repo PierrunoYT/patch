@@ -4,11 +4,17 @@ import { Worker } from 'node:worker_threads';
 // backtracks catastrophically, such as (a+)+b, would otherwise block the event loop: the whole app freezes, and Stop
 // cannot interrupt it because Stop needs the same event loop. A worker can be terminated instead (#122).
 
-// Plain JavaScript evaluated by the worker, so the build needs no separate worker entry.
+// Plain JavaScript evaluated by the worker, so the build needs no separate worker entry. Each message names its
+// pattern, so one worker serves any number of grep and glob calls; the last pattern stays compiled.
 const WORKER_SOURCE = `
-const { parentPort, workerData } = require('node:worker_threads');
-const regex = new RegExp(workerData.source, workerData.flags);
-parentPort.on('message', ({ id, text, items, take }) => {
+const { parentPort } = require('node:worker_threads');
+let key = null;
+let regex = null;
+parentPort.on('message', ({ id, source, flags, text, items, take }) => {
+  if (key !== flags + '/' + source) {
+    regex = new RegExp(source, flags);
+    key = flags + '/' + source;
+  }
   const list = items ?? text.split(/\\r?\\n/);
   const found = [];
   let more = false;
@@ -24,6 +30,43 @@ parentPort.on('message', ({ id, text, items, take }) => {
 });
 `;
 
+// Starting a worker costs tens of milliseconds, and the model often sends several searches at once (#201). A worker
+// that finished its search goes back here for the next one; one that timed out or was stopped is terminated instead.
+const MAX_IDLE_WORKERS = 4;
+const idle: Worker[] = [];
+
+function takeWorker(): Worker {
+  const reused = idle.pop();
+  if (reused) {
+    reused.ref();
+    return reused;
+  }
+  const worker = new Worker(WORKER_SOURCE, { eval: true });
+  // Errors surface as a failed match below; an unhandled 'error' event would crash the main process.
+  worker.on('error', () => {});
+  // A worker that exits by itself (it should not) is never handed out again.
+  worker.once('exit', () => {
+    const index = idle.indexOf(worker);
+    if (index >= 0) idle.splice(index, 1);
+  });
+  return worker;
+}
+
+function returnWorker(worker: Worker): void {
+  if (idle.length >= MAX_IDLE_WORKERS) {
+    void worker.terminate();
+    return;
+  }
+  // Idle workers must not keep the app (or a test run) alive.
+  worker.unref();
+  idle.push(worker);
+}
+
+// For tests: how many finished workers wait for the next search.
+export function idleRegexWorkers(): number {
+  return idle.length;
+}
+
 export type MatchResult =
   // Indexes of the matching lines or items, at most `take`, and whether another one matched after them.
   | { status: 'done'; found: number[]; more: boolean }
@@ -31,17 +74,17 @@ export type MatchResult =
   | { status: 'timeout' }
   | { status: 'aborted' };
 
+// One search with one pattern, on a worker borrowed from the pool until close().
 export class RegexWorker {
-  private readonly worker: Worker;
+  private worker: Worker | null = null;
   private nextId = 0;
   private closed = false;
 
   // The pattern must already be known to compile (callers build a RegExp first to report syntax errors).
-  constructor(source: string, flags: string) {
-    this.worker = new Worker(WORKER_SOURCE, { eval: true, workerData: { source, flags } });
-    // Errors surface as a failed match below; an unhandled 'error' event would crash the main process.
-    this.worker.on('error', () => {});
-  }
+  constructor(
+    private readonly source: string,
+    private readonly flags: string,
+  ) {}
 
   // Tests each line of `text`, or each entry of `items`. Without `take`, every match is returned.
   match(
@@ -50,19 +93,24 @@ export class RegexWorker {
   ): Promise<MatchResult> {
     if (this.closed) return Promise.resolve({ status: 'aborted' });
     if (options.signal?.aborted) {
-      this.close();
+      this.terminate();
       return Promise.resolve({ status: 'aborted' });
     }
+    const worker = (this.worker ??= takeWorker());
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const finish = (result: MatchResult | Error) => {
         clearTimeout(timer);
         options.signal?.removeEventListener('abort', onAbort);
-        this.worker.off('message', onMessage);
-        this.worker.off('error', onError);
-        this.worker.off('exit', onExit);
-        if (result instanceof Error) reject(result);
-        else resolve(result);
+        worker.off('message', onMessage);
+        worker.off('error', onError);
+        worker.off('exit', onExit);
+        if (result instanceof Error) {
+          this.terminate();
+          reject(result);
+        } else {
+          resolve(result);
+        }
       };
       const onMessage = (message: { id: number; found: number[]; more: boolean }) => {
         if (message.id === id) finish({ status: 'done', found: message.found, more: message.more });
@@ -70,24 +118,41 @@ export class RegexWorker {
       const onError = (error: Error) => finish(error);
       const onExit = () => finish(new Error('The search worker stopped unexpectedly.'));
       const onAbort = () => {
-        this.close();
+        this.terminate();
         finish({ status: 'aborted' });
       };
       const timer = setTimeout(() => {
-        this.close();
+        this.terminate();
         finish({ status: 'timeout' });
       }, options.timeoutMs);
-      this.worker.on('message', onMessage);
-      this.worker.on('error', onError);
-      this.worker.on('exit', onExit);
+      worker.on('message', onMessage);
+      worker.on('error', onError);
+      worker.on('exit', onExit);
       options.signal?.addEventListener('abort', onAbort, { once: true });
-      this.worker.postMessage({ id, take: options.take ?? Number.POSITIVE_INFINITY, ...input });
+      worker.postMessage({
+        id,
+        source: this.source,
+        flags: this.flags,
+        take: options.take ?? Number.POSITIVE_INFINITY,
+        ...input,
+      });
     });
   }
 
+  // Ends the search and hands the worker back to the pool. Callers close only after their last match has settled.
   close(): void {
     if (this.closed) return;
     this.closed = true;
-    void this.worker.terminate();
+    const worker = this.worker;
+    this.worker = null;
+    if (worker) returnWorker(worker);
+  }
+
+  // A worker stuck in a pattern, or one whose search was stopped, cannot be trusted with the next search.
+  private terminate(): void {
+    this.closed = true;
+    const worker = this.worker;
+    this.worker = null;
+    if (worker) void worker.terminate();
   }
 }
