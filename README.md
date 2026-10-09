@@ -22,7 +22,7 @@ The application and installer are named Patch (`Patch.exe` and `Patch-Installer.
 - File replacements on supported Claude models use strict tool inputs to prevent omitted required fields in batched edits; every edit still validates locally and follows the approval rules
 - Every file change and command is shown first (diffs, command text) and waits for **Approve** or **Decline** — or switch to **Auto** mode
 - Decline with a note ("use pnpm instead") and the assistant adjusts
-- Optional **Plan mode**: before multi-step changes, the assistant shows its plan as an approval card, also in Auto mode; the latest app mode note stays in effect across tool results and screenshots until another mode note changes it
+- Optional **Plan mode**: before multi-step changes, the assistant shows its plan as an approval card, also in Auto mode, and edits and commands ask until a plan is approved; the latest app mode note stays in effect across tool results and screenshots until another mode note changes it
 - **Undo** on the card of any approved file edit or patch puts the files back (or deletes files the assistant created), as long as they are still as the edit left them; the assistant is told and has to read them again
 - Semantic code search over the project (needs an OpenRouter key: files are embedded with Voyage `voyage-code-4` and results reranked with Voyage `rerank-3`, both through OpenRouter; the key can be added mid-chat); Settings shows whether the project is indexed (with progress while it builds) and can reindex it
 - Built-in browser the assistant uses to check web apps: console output and screenshots

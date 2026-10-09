@@ -96,6 +96,10 @@ function cloneByModel(byModel: Record<string, ModelUsage>): Record<string, Model
 // needed), send the results back, and repeat until the model answers without tool calls.
 export class Agent {
   private usage: UsageTotals = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  // Whether the user approved a plan since their last message. In plan mode, until then, every call that changes
+  // something asks, also in Auto mode or under an allow rule, so plan mode holds even when the model skips the plan
+  // or goes on after a declined one (#238).
+  private planApproved = false;
   private lastOutcome: 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'paused' | 'refusal' | 'stopped' | 'other' =
     'other';
 
@@ -122,6 +126,7 @@ export class Agent {
 
   // send and resume resolve to true when the run was cut short by a stop, and false when it finished on its own.
   async send(input: UserInput, signal: AbortSignal): Promise<boolean> {
+    this.planApproved = false;
     this.options.conversation.addUserMessage(input);
     return this.run(signal);
   }
@@ -470,7 +475,16 @@ export class Agent {
       emit({ type: 'tool-end', id: eventId, status: 'error', summary: `${tool.name} blocked`, output: content });
       return { result: { id: call.id, content, isError: true } };
     }
+    // Commands the user allowed without asking stay allowed; they trust them whatever the plan.
+    // Only where plan mode is a setting (a chat), not for agents without it such as subagents.
+    const waitsForPlan =
+      this.options.planMode?.() === true &&
+      !this.planApproved &&
+      tool.requiresApproval &&
+      tool.name !== 'propose_plan' &&
+      !this.options.isPreApproved?.(tool.name, input);
     const needsApproval =
+      waitsForPlan ||
       (await mustAsk(tool, input, context)) ||
       (rule
         ? rule.action === 'ask'
@@ -521,6 +535,7 @@ export class Agent {
           declinedWithoutFeedback: !feedback,
         };
       }
+      if (tool.name === 'propose_plan') this.planApproved = true;
       emit({ type: 'tool-running', id: eventId });
     }
 

@@ -319,6 +319,48 @@ describe('agent loop', () => {
     );
   });
 
+  it('asks before changes in Auto mode until a plan is approved, also after a declined plan (#238)', async () => {
+    const { session, nextApproval } = setup(
+      [
+        { toolCalls: [{ id: 'plan', name: 'propose_plan', input: { summary: 'Do it' } }] },
+        { toolCalls: [{ id: 'edit1', name: 'change', input: { to: 'x' } }] },
+        { toolCalls: [{ id: 'plan2', name: 'propose_plan', input: { summary: 'Do it better' } }] },
+        { toolCalls: [{ id: 'edit2', name: 'change', input: { to: 'y' } }] },
+        { text: 'done' },
+      ],
+      { mode: 'auto', tools: () => [lookTool, changeTool, planTool], planMode: () => true },
+    );
+    // A card stays in the transcript until its decision is applied, so wait for the next one.
+    const decided = new Set<string>();
+    const nextCard = async () => {
+      for (;;) {
+        const id = await nextApproval();
+        if (!decided.has(id)) return decided.add(id) && id;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+    };
+    const sending = session.send({ text: 'go' });
+    // The first plan is declined with feedback; the edit that follows still asks, and is declined with a note too.
+    session.decide(await nextCard(), { approved: false, feedback: 'revise it' });
+    session.decide(await nextCard(), { approved: false, feedback: 'plan first' });
+    expect(ran).toEqual([]);
+    // Once a plan is approved, edits run without a card again in Auto mode.
+    session.decide(await nextCard(), { approved: true });
+    await sending;
+    expect(ran).toEqual(['plan', 'change:y']);
+  });
+
+  it('asks before changes in plan mode even when the model never proposes a plan (#238)', async () => {
+    const { session, nextApproval } = setup(
+      [{ toolCalls: [{ id: 'edit', name: 'change', input: { to: 'x' } }] }, { text: 'done' }],
+      { mode: 'auto', tools: () => [lookTool, changeTool, planTool], planMode: () => true },
+    );
+    const sending = session.send({ text: 'go' });
+    session.decide(await nextApproval(), { approved: true });
+    await sending;
+    expect(ran).toEqual(['change:x']);
+  });
+
   // propose_plan is always in the tool list (#44), so the model can call it while plan mode is off.
   it('answers a plan without a card when plan mode is off, and runs the rest of the batch', async () => {
     const { session, conversation, events } = setup(
