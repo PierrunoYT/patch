@@ -61,12 +61,15 @@ builders.focus = () => {
       `${D.areas
         .filter((area) => area.proc === 'renderer')
         .reduce((sum, area) => sum + area.lines, 0)
-        .toLocaleString()} renderer TypeScript lines have 138 unit-test lines (ratio 0.04), against 0.7 to 2.1 for the main-process areas.`,
+        .toLocaleString()} renderer TypeScript lines have ${D.testsByArea.find((area) => area.a === 'renderer').tl} unit-test lines, against 0.7 to 2.1 test lines per source line for the main-process areas.`,
       [
-        'app.ts (826), dialogs.ts (742), panels.ts (648), transcript.ts (572) have no test file',
+        `${D.untested
+          .filter(([, file]) => file.startsWith('renderer/'))
+          .map(([lines, file]) => `${file.split('/').pop()} (${lines})`)
+          .join(', ')} have no test file`,
         'app.ts is also among the most-changed source files (29 changes in 60 days)',
         '#62 asks for e2e tests of the chat list, model picker and status-bar branch',
-        '#47 (failed tool cards should say why) is a UI change that would land in this untested code',
+        'transcript.ts has a first test file, for its pure helpers; its DOM rendering is still covered only end to end',
       ],
       'Start with the pure logic in transcript and app (event handling) rather than DOM details.',
     ],

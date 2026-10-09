@@ -20,6 +20,25 @@ const RESUME_INSTRUCTION =
   'Continue the task that I stopped. Use the completed conversation and tool results above; do not repeat the original request. Some interrupted tool actions may have completed even when their result says they were stopped, so inspect the current state before repeating any action with side effects.';
 
 // A tool call whose input left out required fields. Field names only, never their values (they can hold file contents).
+const FAILURE_REASON_MAX = 80;
+
+// The summary of a failed tool card: "grep failed (Invalid regular expression: …)". The reason is the first line of
+// the error, cut to FAILURE_REASON_MAX characters; the card's output keeps the whole message. The card shows the part
+// in parentheses as its result chip, so parentheses inside the reason become brackets.
+export function failureSummary(tool: string, message: string): string {
+  const line = message
+    .split('\n')
+    .map((part) => part.trim())
+    .find(Boolean);
+  const reason = line
+    ?.replace(/^Error:\s*/, '')
+    .replace(/\(/g, '[')
+    .replace(/\)/g, ']');
+  if (!reason) return `${tool} failed`;
+  const cut = reason.length > FAILURE_REASON_MAX ? `${reason.slice(0, FAILURE_REASON_MAX - 1).trimEnd()}…` : reason;
+  return `${tool} failed (${cut})`;
+}
+
 export interface DroppedFieldError {
   tool: string;
   model: string;
@@ -463,9 +482,15 @@ export class Agent {
         preview = await tool.preview(input, context);
       } catch (error) {
         // A preview that cannot be built (e.g. edit target missing) means the call would fail anyway.
-        const message = error instanceof Error ? error.message : String(error);
+        const message = redactSecrets(error instanceof Error ? error.message : String(error));
         emit({ type: 'tool-start', id: eventId, name: tool.name, awaitingApproval: false });
-        emit({ type: 'tool-end', id: eventId, status: 'error', summary: `${tool.name} failed`, output: message });
+        emit({
+          type: 'tool-end',
+          id: eventId,
+          status: 'error',
+          summary: failureSummary(tool.name, message),
+          output: message,
+        });
         return { result: { id: call.id, content: message, isError: true } };
       }
     }
@@ -523,7 +548,7 @@ export class Agent {
         id: eventId,
         status: 'error',
         durationMs: durationMs(),
-        summary: `${tool.name} failed`,
+        summary: failureSummary(tool.name, message),
         output: message,
       });
       return { result: { id: call.id, content: expected ? message : `Error: ${message}`, isError: true } };

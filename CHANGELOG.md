@@ -105,6 +105,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- A failed tool card says why it failed: its summary and result chip carry the error's first line, up to 80 characters ("grep failed (Invalid regular expression: …)"), and the full message stays in its output. Screen readers announce the same summary, and the agent benchmark records it (fixes #47).
 - The project ignore file is `.patchignore` (`.gitignore` syntax, applied after `.gitignore`). The old name `.ccignore` is still read, before `.patchignore`, so existing projects keep their rules (fixes #38).
 - One license file: `LICENSE` holds the Apache-2.0 text, now with the copyright line filled in, followed by the preserved MIT notice for earlier releases. `LICENSE-MIT` is removed and no longer listed in the packaged files. The licensing terms are unchanged.
 - Starting a background command that exits within its first three seconds returns its result as soon as it exits instead of always waiting the full three seconds. Unit tests shorten that wait (`backgroundStartup.waitMs`), and the Git panel tests copy a repository built once per file instead of creating one per test, which cuts their runtime on Windows.

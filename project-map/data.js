@@ -82,8 +82,8 @@ const D = {
       proc: 'main',
       files: 10,
       tests: 11,
-      lines: 1711,
-      testLines: 3591,
+      lines: 1736,
+      testLines: 3606,
       desc: 'The agent loop: turns, retries, permissions, allow-lists, system prompt, project map, session (approvals, events, prompt-cache keep-alive).',
       list: [
         'agent.ts (546; failed mustAsk checks require approval, #143; malformed JSON rejected before schema checks, #179)',
@@ -346,7 +346,7 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 11, c: 231, src: 1729, tl: 3613 },
+    { a: 'main/agent', f: 11, c: 233, src: 1754, tl: 3628 },
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
     { a: 'main/tools', f: 28, c: 601, src: 5068, tl: 7592 },
     { a: 'main/panels', f: 4, c: 73, src: 667, tl: 1087 },
@@ -611,7 +611,6 @@ const D = {
     [62, 'e2e tests for chat list, header model picker, status-bar branch', 'tests', 'low', 0, '10-01'],
     [50, 'Windows shell cancellation test times out, leaves temp folder locked', 'tests', 'low', 0, '10-01'],
     [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
-    [47, 'Failed tool cards should say why they failed', 'ui', 'low', 0, '10-01'],
     [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
     [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
     [35, 'API keys fall back to plaintext without safeStorage', 'security', 'low', 0, '09-30'],
@@ -633,7 +632,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 128,
+  closedCount: 129,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

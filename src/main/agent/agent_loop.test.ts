@@ -13,7 +13,7 @@ import {
   type ToolContext,
   type ToolOutput,
 } from '../tools/types';
-import { Agent, type AgentOptions, type DroppedFieldError } from './agent';
+import { Agent, failureSummary, type AgentOptions, type DroppedFieldError } from './agent';
 
 type Step = Partial<TurnResult> | ((request: TurnRequest) => Promise<Partial<TurnResult>>);
 
@@ -193,8 +193,8 @@ describe('Agent: tool-result pairing', () => {
     expect(new Set(starts.map((event) => event.id))).toHaveLength(4);
     expect(eventsOf(events, 'tool-end').map((event) => [event.id, event.status, event.summary])).toEqual([
       [starts[0]!.id, 'done', 'Saw a'],
-      [starts[1]!.id, 'error', 'denied failed'],
-      [starts[2]!.id, 'error', 'crash failed'],
+      [starts[1]!.id, 'error', 'denied failed (not allowed here)'],
+      [starts[2]!.id, 'error', 'crash failed (kaput)'],
       [starts[3]!.id, 'error', 'Soft fail'],
     ]);
   });
@@ -270,6 +270,21 @@ describe('Agent: tool-result pairing', () => {
       status: 'error',
       output: 'target file is missing',
     });
+  });
+});
+
+describe('failureSummary', () => {
+  it('names the first line of the error, without parentheses that would split the result chip', () => {
+    expect(failureSummary('grep', 'Invalid regular expression: /(a/: Unterminated group\nat line 1')).toBe(
+      'grep failed (Invalid regular expression: /[a/: Unterminated group)',
+    );
+    expect(failureSummary('run_command', '\n  Error: spawn ENOENT\n')).toBe('run_command failed (spawn ENOENT)');
+    expect(failureSummary('edit_file', '   ')).toBe('edit_file failed');
+  });
+
+  it('cuts a long reason to 80 characters', () => {
+    const summary = failureSummary('read_file', 'x'.repeat(200));
+    expect(summary).toBe(`read_file failed (${'x'.repeat(79)}…)`);
   });
 });
 

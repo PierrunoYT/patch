@@ -15,7 +15,7 @@ The paperclip, model and mode controls, and Send share a compact toolbar below t
 
 The OpenCode Desktop-inspired window uses neutral light/dark surfaces, project navigation and the chat list (**Sessions**) on the left, a centered chat in the middle, and the side panel on the right. **Open project** adds a folder to the sidebar; each project's close button appears on hover or keyboard focus. **New Chat** sits above Sessions. The header's sidebar button shows or hides the left navigation, and its breadcrumb names the project and current session. Model selection, **Ask** / **Auto-Approve**, and **Plan Mode** live inside the message composer. The header's right-hand actions are Compact chat, Export chat, Send feedback (opens a new GitHub issue in your browser; nothing is sent by the app), Chat history, the side panel button, the project menu and Settings. The status bar shows the branch, loaded instructions, model, context, index state, tokens and estimated cost; secondary details are hidden in narrow windows.
 
-In the chat, each tool call is a row with the tool's name, its target and its result ("2 lines", "exit 0"), how long it ran, and Undo and Open-in-editor buttons where they apply; click a row to see its diff or output.
+In the chat, each tool call is a row with the tool's name, its target and its result ("2 lines", "exit 0", or why it failed, from the first line of the error), how long it ran, and Undo and Open-in-editor buttons where they apply; click a row to see its diff or output.
 
 ### Tell it about your project
 
