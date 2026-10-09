@@ -121,42 +121,57 @@ describe('Workspace', () => {
     expect(files).toEqual(['.gitignore', 'src/app.ts']);
   });
 
-  it.for(['.gitignore', '.ccignore'])('ignores external %s links without applying their rules', async (name, test) => {
-    const outside = mkdtempSync(join(tmpdir(), 'cc-ignore-outside-'));
-    try {
-      const target = join(outside, 'rules');
-      writeFileSync(target, 'src/app.ts\n');
-      rmSync(join(root, name), { force: true });
-      try {
-        symlinkSync(target, join(root, name), 'file');
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'EPERM') return test.skip();
-        throw error;
-      }
-      const ordinary = name === '.gitignore' ? '.ccignore' : '.gitignore';
-      writeFileSync(join(root, ordinary), '*.log\n');
-      const files = (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));
-      expect(files).toContain('src/app.ts');
-      expect(files).not.toContain('src/dist.log');
-      expect(files).not.toContain(name);
-    } finally {
-      rmSync(outside, { recursive: true, force: true });
-    }
+  it('applies .patchignore and the older .ccignore, .patchignore last', async () => {
+    writeFileSync(join(root, 'src', 'old.ts'), 'const a = 1;');
+    writeFileSync(join(root, 'src', 'new.ts'), 'const a = 1;');
+    writeFileSync(join(root, '.ccignore'), 'src/old.ts\nsrc/app.ts\n');
+    writeFileSync(join(root, '.patchignore'), 'src/new.ts\n!src/app.ts\n');
+    const files = (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));
+    expect(files).toEqual(['.ccignore', '.gitignore', '.patchignore', 'src/app.ts']);
   });
 
-  it.each(['.gitignore', '.ccignore'])('ignores external %s junctions without trying to read them', async (name) => {
-    const outside = mkdtempSync(join(tmpdir(), 'cc-ignore-junction-'));
-    try {
-      rmSync(join(root, name), { force: true });
-      symlinkSync(outside, join(root, name), 'junction');
-      const files = (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));
-      expect(files).toContain('src/app.ts');
-      expect(files).not.toContain(name);
-    } finally {
-      rmSync(join(root, name), { recursive: true, force: true });
-      rmSync(outside, { recursive: true, force: true });
-    }
-  });
+  it.for(['.gitignore', '.ccignore', '.patchignore'])(
+    'ignores external %s links without applying their rules',
+    async (name, test) => {
+      const outside = mkdtempSync(join(tmpdir(), 'cc-ignore-outside-'));
+      try {
+        const target = join(outside, 'rules');
+        writeFileSync(target, 'src/app.ts\n');
+        rmSync(join(root, name), { force: true });
+        try {
+          symlinkSync(target, join(root, name), 'file');
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'EPERM') return test.skip();
+          throw error;
+        }
+        const ordinary = name === '.gitignore' ? '.ccignore' : '.gitignore';
+        writeFileSync(join(root, ordinary), '*.log\n');
+        const files = (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));
+        expect(files).toContain('src/app.ts');
+        expect(files).not.toContain('src/dist.log');
+        expect(files).not.toContain(name);
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.each(['.gitignore', '.ccignore', '.patchignore'])(
+    'ignores external %s junctions without trying to read them',
+    async (name) => {
+      const outside = mkdtempSync(join(tmpdir(), 'cc-ignore-junction-'));
+      try {
+        rmSync(join(root, name), { force: true });
+        symlinkSync(outside, join(root, name), 'junction');
+        const files = (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));
+        expect(files).toContain('src/app.ts');
+        expect(files).not.toContain(name);
+      } finally {
+        rmSync(join(root, name), { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
+    },
+  );
 
   describe('nested and changing ignore rules', () => {
     const listed = async () => (await context.workspace.listFiles()).map((file) => context.workspace.relative(file));

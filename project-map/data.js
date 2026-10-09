@@ -127,8 +127,8 @@ const D = {
       proc: 'main',
       files: 26,
       tests: 28,
-      lines: 4941,
-      testLines: 7420,
+      lines: 4942,
+      testLines: 7429,
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata, Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Matching URLs request unrestricted network, not hostname filtering. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
       list: [
         'registry.ts',
@@ -158,7 +158,7 @@ const D = {
         'skills.ts',
         'guard.ts',
         'redact.ts',
-        'workspace.ts (native path canonicalization, including Windows case and short-name aliases, #143)',
+        'workspace.ts (native path canonicalization, including Windows case and short-name aliases, #143; .patchignore with .ccignore fallback, #38)',
         'workspace.test.ts (Windows case and 8.3 regression fixtures; explicit skips on other platforms)',
         'edit_backups.ts',
         'text_files.ts',
@@ -348,7 +348,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 231, src: 1729, tl: 3613 },
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
-    { a: 'main/tools', f: 28, c: 598, src: 5067, tl: 7583 },
+    { a: 'main/tools', f: 28, c: 601, src: 5068, tl: 7592 },
     { a: 'main/panels', f: 4, c: 73, src: 667, tl: 1087 },
     { a: 'main/other', f: 13, c: 212, src: 3342, tl: 3333 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
@@ -613,7 +613,6 @@ const D = {
     [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
     [47, 'Failed tool cards should say why they failed', 'ui', 'low', 0, '10-01'],
     [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
-    [38, 'Rename .ccignore to .patchignore', 'docs', 'low', 0, '09-30'],
     [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
     [35, 'API keys fall back to plaintext without safeStorage', 'security', 'low', 0, '09-30'],
     [32, 'Validate IPC payloads at runtime with zod', 'security', 'low', 0, '09-30'],
@@ -634,7 +633,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 127,
+  closedCount: 128,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

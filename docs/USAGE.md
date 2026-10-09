@@ -40,6 +40,10 @@ Bump the version in package.json, add the CHANGELOG section, then tag v<version>
 - A chat keeps the skill list it started with. Start a new chat after adding or removing skills.
 - The folder must be inside the project. A skills folder that links elsewhere is ignored.
 
+### Files the assistant skips
+
+Listing folders, finding files, searching and the code index skip what git ignores (`.gitignore` files and `.git/info/exclude`), `.git` and `node_modules`. To hide more from the assistant without changing git, add a `.patchignore` to the project root, in `.gitignore` syntax; its rules come last, so it can also show a file that `.gitignore` hides (`!path`). The older name `.ccignore` is still read. Ignored files can still be read and edited by path; the file must be inside the project.
+
 ## Approvals
 
 By default the assistant asks before it changes anything. A card appears in the chat showing what it wants to do, with **Approve** and **Decline** buttons.

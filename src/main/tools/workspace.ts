@@ -8,8 +8,9 @@ import { ToolError } from './types';
 // gitfiles and the sandbox's reservation file.
 const ALWAYS_IGNORED = ['.git', 'node_modules/', '.DS_Store', 'Thumbs.db'];
 
-// Read in this order, so .gitignore overrides .git/info/exclude (as in git) and .ccignore overrides both.
-const ROOT_IGNORE_FILES = ['.git/info/exclude', '.gitignore', '.ccignore'];
+// Read in this order, so .gitignore overrides .git/info/exclude (as in git) and .patchignore overrides them all.
+// .ccignore is the old name of .patchignore, still read so existing projects keep their rules.
+const ROOT_IGNORE_FILES = ['.git/info/exclude', '.gitignore', '.ccignore', '.patchignore'];
 
 // Size and times of a regular file (through links), or null when it is missing, a folder or unreadable.
 function fileStat(path: string): Stats | null {
@@ -74,7 +75,7 @@ export class Workspace {
     return relative(this.root, absolute).split(sep).join('/') || '.';
   }
 
-  // Whether git (plus .ccignore and the always-skipped names) would ignore this path, checking every folder above it.
+  // Whether git (plus .patchignore and the always-skipped names) would ignore this path, checking every folder above it.
   isIgnored(absolute: string, isDirectory: boolean): boolean {
     const rel = this.relative(absolute);
     if (rel === '.') return false;
@@ -152,7 +153,7 @@ export class Workspace {
     };
   }
 
-  // The root's rules come from the always-skipped names, .git/info/exclude, .gitignore and .ccignore; any other folder's
+  // The root's rules come from the always-skipped names, .git/info/exclude, .gitignore, .ccignore and .patchignore; any other folder's
   // from its own .gitignore. They are cached until a source file changes, appears or disappears, so edits made by any
   // tool, a command, Undo or the user are picked up without anyone invalidating the cache.
   private folderRulesFor(dir: string): Ignore | null {
