@@ -154,6 +154,20 @@ describe('CodeIndex', () => {
     await expect(index.update()).rejects.toThrow('closed');
   });
 
+  it('indexes files named like Object properties once, and keeps them across a reload (#259)', async () => {
+    writeFileSync(join(root, '__proto__'), 'export const prototypeNamed = 1;\n');
+    writeFileSync(join(root, 'constructor'), 'export const constructorNamed = 2;\n');
+    const embedder = new FakeEmbedder();
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+    await index.update();
+    expect(index.fileCount).toBe(4);
+    const embedded = embedder.embeddedTexts;
+    // A second update and a fresh index read from disk embed nothing again.
+    await index.update();
+    await new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000).update();
+    expect(embedder.embeddedTexts).toBe(embedded);
+  });
+
   it('walks the project once per search tool call and still reports indexing progress', async () => {
     const workspace = new Workspace(root);
     const walk = vi.spyOn(workspace, 'listFiles');

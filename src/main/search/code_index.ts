@@ -13,6 +13,9 @@ import type { Workspace } from '../tools/workspace';
 import { chunkFile } from './chunker';
 
 const DISPOSED = 'The search index was closed because the embedding settings changed.';
+
+// Indexed files by path. Without a prototype, a file named __proto__ or constructor is an ordinary entry (#259).
+const noPrototype = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 // Bump when chunking or storage changes so existing indexes are rebuilt.
 const INDEX_VERSION = 1;
 const MAX_FILE_BYTES = 256 * 1024;
@@ -120,8 +123,8 @@ export class CodeIndex implements CodeSearch {
     const stored = readJson<StoredIndex | null>(this.file, null);
     this.data =
       stored?.version === INDEX_VERSION && stored.model === embedder.model && stored.root === workspace.root
-        ? stored
-        : { version: INDEX_VERSION, model: embedder.model, root: workspace.root, files: {} };
+        ? { ...stored, files: Object.assign(noPrototype(), stored.files) }
+        : { version: INDEX_VERSION, model: embedder.model, root: workspace.root, files: noPrototype() };
   }
 
   private readonly file: string;
@@ -252,7 +255,7 @@ export class CodeIndex implements CodeSearch {
   // Throws away everything indexed so far and embeds the whole project again.
   async rebuild(signal?: AbortSignal, onProgress?: (progress: UpdateProgress) => void): Promise<void> {
     await this.run?.promise.catch(() => {});
-    this.data.files = {};
+    this.data.files = noPrototype();
     this.vectors.clear();
     this.save();
     await this.update(signal, onProgress);
