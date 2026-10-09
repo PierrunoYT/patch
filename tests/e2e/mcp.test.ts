@@ -84,6 +84,12 @@ describe('MCP tools end to end', () => {
 
     // The MCP tool waits for approval like file edits do; approve it.
     const pending = (await snapshot()).transcript.find(isPendingTool);
+    // The card shows what the server will be asked to do, not only the tool's name (#230).
+    expect(pending!.preview).toMatchObject({ title: 'test: echo' });
+    expect(JSON.parse(pending!.preview!.arguments!)).toEqual({ text: 'hello' });
+    await expect
+      .poll(() => running.page.locator('.tool-card.awaiting .tool-command').textContent())
+      .toContain('"text": "hello"');
     await running.page.evaluate((id) => window.api.invoke('chat:decide', id, { approved: true }), pending!.id);
 
     const finished = await waitFor((chat) => !chat.busy);

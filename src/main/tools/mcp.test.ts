@@ -43,6 +43,24 @@ describe('McpHub', () => {
     }
   });
 
+  it('shows the arguments of a call on its approval card (#230)', async () => {
+    const servers: McpServerConfig[] = [
+      { name: 'test', transport: 'stdio', command: process.execPath, args: [mockServerScript] },
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+    );
+    try {
+      await hub.refresh();
+      const preview = await hub.tools()[0]!.preview!({ text: 'SECRET=abc', repo: 'evil/x' }, {} as never);
+      expect(preview.title).toBe('test: echo');
+      expect(JSON.parse(preview.arguments!)).toEqual({ text: 'SECRET=abc', repo: 'evil/x' });
+    } finally {
+      await hub.stop();
+    }
+  });
+
   it('introduces itself to servers with the name and version it was given (#72)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'cc-mcp-client-'));
     const file = join(dir, 'client.json');

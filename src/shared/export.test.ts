@@ -112,6 +112,22 @@ describe('chatToMarkdown', () => {
     expect(markdown).toContain('_(Command too long to show in full: the last 12 characters are not shown.)_');
   });
 
+  it('shows the arguments of an MCP call (#230)', () => {
+    const markdown = chatToMarkdown(
+      chat([
+        {
+          kind: 'tool',
+          id: 't',
+          name: 'mcp_github_create_issue',
+          status: 'done',
+          preview: { title: 'github: create_issue', arguments: '{\n  "repo": "a/b"\n}', argumentsOmittedChars: 3 },
+        },
+      ]),
+    );
+    expect(markdown).toContain('```json\n{\n  "repo": "a/b"\n}\n```');
+    expect(markdown).toContain('_(Arguments too long to show in full: the last 3 characters are not shown.');
+  });
+
   it('uses a longer fence when the content contains backticks', () => {
     const markdown = chatToMarkdown(
       chat([

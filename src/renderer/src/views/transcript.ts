@@ -1,5 +1,6 @@
 import { markAnnounced, newAnnouncements } from '@shared/announce';
 import {
+  argumentsNotice,
   commandNotice,
   countDiffLines,
   diffNotice,
@@ -503,7 +504,9 @@ export class TranscriptView {
       );
     }
 
-    const hasBody = Boolean(item.preview?.diff || item.preview?.command || item.preview?.text || item.output);
+    const hasBody = Boolean(
+      item.preview?.diff || item.preview?.command || item.preview?.text || item.preview?.arguments || item.output,
+    );
     return h(
       'div',
       { class: `tool-card ${item.status}`, dataset: { id: item.id } },
@@ -556,6 +559,15 @@ export class TranscriptView {
         {},
         trustedHtml('div', 'markdown tool-plan', renderMarkdown(preview.text)),
         preview.textOmittedChars ? notice(planNotice(preview.textOmittedChars)) : null,
+      );
+    }
+    // The call's arguments (MCP tools): what the server is asked to do.
+    if (preview?.arguments) {
+      return h(
+        'div',
+        {},
+        h('pre', { class: 'tool-command' }, `${preview.arguments}${preview.argumentsOmittedChars ? ' …' : ''}`),
+        preview.argumentsOmittedChars ? notice(argumentsNotice(preview.argumentsOmittedChars)) : null,
       );
     }
     return null;

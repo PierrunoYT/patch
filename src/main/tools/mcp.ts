@@ -258,6 +258,11 @@ export class McpHub {
       // MCP tools come from outside the app and run programs the user configured, so they ask even in Auto mode.
       requiresApproval: true,
       alwaysAsk: true,
+      // The tool name alone does not say what a call does; the card shows the arguments the server will get.
+      preview: async (input) => ({
+        title: `${config.name}: ${tool.name}`,
+        arguments: JSON.stringify(input ?? {}, null, 2),
+      }),
       run: async (input, context) => {
         const client = state.client;
         if (!client) throw new ToolError(`The MCP server "${config.name}" is not connected.`);

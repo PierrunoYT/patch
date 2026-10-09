@@ -153,7 +153,7 @@ const D = {
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process, pooled workers)',
         'browser.ts',
-        'mcp.ts (stdio servers start in userData/mcp with an absolute command; ${project} opts a server into the project, #142; stopping one kills its whole process tree, #117)',
+        'mcp.ts (stdio servers start in userData/mcp with an absolute command; ${project} opts a server into the project, #142; stopping one kills its whole process tree, #117; approval cards show the call arguments, #230)',
         'net_proxy.ts (host-filtering proxy for allow-list commands on Linux and Windows, #97)',
         'mcp_sandbox.ts (bubblewrap or AppContainer --stdio launch for a stdio server with sandbox: true, fails closed on macOS, #87)',
         'task.ts',
@@ -581,7 +581,6 @@ const D = {
     ],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
     [231, 'Git panel Initialize makes .git writable to running sandboxed commands', 'sandbox', 'high', 0, '10-09'],
-    [230, 'MCP approval cards do not show the call’s arguments', 'mcp', 'high', 0, '10-09'],
     [229, 'Browser tool project pages read project files and send them out, no card', 'security', 'high', 0, '10-09'],
     [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
     [
@@ -674,7 +673,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 151,
+  closedCount: 152,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

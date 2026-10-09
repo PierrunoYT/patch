@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyChatEvent,
   chatEventApplies,
+  argumentsNotice,
   countDiffLines,
   diffNotice,
   filterChats,
@@ -267,6 +268,13 @@ describe('size limits for tool cards', () => {
     const preview = limitPreview({ title: 't', command: 'echo '.repeat(10_000) })!;
     expect(preview.command).toHaveLength(TRANSCRIPT_LIMITS.commandChars);
     expect(preview.commandOmittedChars).toBe(50_000 - TRANSCRIPT_LIMITS.commandChars);
+  });
+
+  it('keeps the start of very long tool arguments and says how much was left out', () => {
+    const preview = limitPreview({ title: 't', arguments: 'args '.repeat(10_000) })!;
+    expect(preview.arguments).toHaveLength(TRANSCRIPT_LIMITS.argumentsChars);
+    expect(preview.argumentsOmittedChars).toBe(50_000 - TRANSCRIPT_LIMITS.argumentsChars);
+    expect(argumentsNotice(preview.argumentsOmittedChars!)).toContain('Approving sends all of them');
   });
 
   it('leaves small previews untouched', () => {

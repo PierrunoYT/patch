@@ -55,6 +55,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - Removing a secret and deleting or clearing chat history show an error instead of failing silently, and a second Commit is ignored while one runs (fixes #193).
 - A generated commit message no longer overwrites text typed meanwhile or lands in another project, the composer keeps text typed while a message is sent, and a failed file listing is not cached for @-mentions (part of #194).
 
+### Security
+
+- MCP approval cards show the call's arguments as JSON under the server and tool name, and chat exports include them. Before, the card showed only the tool name, so a call could send anything to the server without the user seeing it (fixes #230).
+
 ### Test maintenance
 
 - `tests/e2e/chat_controls.test.ts` covers the chat list (grouping by day, the open chat marked, the title filter and the message-text search, a new chat appearing through `history:changed`), the composer's model picker (used for a new chat, locked once a chat has started), the Ask / Auto-Approve and Plan Mode switches, and the status-bar branch (hidden without a project, `*` once files change), all checked on screen (fixes #62).

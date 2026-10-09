@@ -15,6 +15,10 @@ export interface ToolPreviewView {
   text?: string;
   // Set when that text was cut: the start is kept, these many characters are left out.
   textOmittedChars?: number;
+  // The call's input as JSON (MCP tools), shown on the card so the user sees what they approve.
+  arguments?: string;
+  // Set when the arguments were cut: the start is kept, these many characters are left out.
+  argumentsOmittedChars?: number;
 }
 
 export type ToolStatus = 'awaiting-approval' | 'running' | 'done' | 'error' | 'declined';
@@ -196,6 +200,7 @@ export const TRANSCRIPT_LIMITS = {
   commandChars: 20_000,
   // A plan is meant to be read in a minute; beyond this the card keeps the start and says how much was left out.
   planChars: 20_000,
+  argumentsChars: 20_000,
 };
 
 const count = (value: number) => value.toLocaleString('en-US');
@@ -236,6 +241,10 @@ export function planNotice(omittedChars: number): string {
   return `Plan too long to show in full: the last ${count(omittedChars)} characters are not shown. Approving applies to the whole plan, including the part not shown.`;
 }
 
+export function argumentsNotice(omittedChars: number): string {
+  return `Arguments too long to show in full: the last ${count(omittedChars)} characters are not shown. Approving sends all of them.`;
+}
+
 // Keeps the end of the output, adding what is cut to the count of characters already left out.
 function limitOutput(output: string, omitted = 0): { output: string; outputOmittedChars?: number } {
   const cut = Math.max(0, output.length - TRANSCRIPT_LIMITS.outputChars);
@@ -274,6 +283,13 @@ export function limitPreview(preview: ToolPreviewView | undefined): ToolPreviewV
       ...result,
       text: preview.text.slice(0, TRANSCRIPT_LIMITS.planChars),
       textOmittedChars: preview.text.length - TRANSCRIPT_LIMITS.planChars,
+    };
+  }
+  if (preview.arguments && preview.arguments.length > TRANSCRIPT_LIMITS.argumentsChars) {
+    result = {
+      ...result,
+      arguments: preview.arguments.slice(0, TRANSCRIPT_LIMITS.argumentsChars),
+      argumentsOmittedChars: preview.arguments.length - TRANSCRIPT_LIMITS.argumentsChars,
     };
   }
   return result;

@@ -45,6 +45,8 @@ export interface ToolPreview {
   note?: string;
   // Free-form markdown (the plan in plan mode) shown on the approval card instead of a diff or command.
   text?: string;
+  // The call's input as JSON, for tools whose effect only their arguments show (MCP tools).
+  arguments?: string;
 }
 
 export interface CodeSearch {
