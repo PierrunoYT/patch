@@ -529,6 +529,15 @@ const D = {
     ['7778e01', 'fix: keep Windows sandbox toolchain copies across commands'],
   ],
   issues: [
+    [
+      227,
+      'Windows sandbox: use the OS process security environment (PSEC) where available',
+      'sandbox',
+      'low',
+      0,
+      '10-09',
+    ],
+    [226, 'Evaluate Microsoft Execution Containers (MXC) as the command sandbox backend', 'sandbox', 'low', 0, '10-09'],
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],

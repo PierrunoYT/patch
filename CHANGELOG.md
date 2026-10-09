@@ -8,6 +8,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Documentation
+
+- `docs/WINDOWS_SANDBOX_RESEARCH.md`: what changed outside Patch for Windows sandboxing (Microsoft Execution Containers GA, the OS process security environment, libuv 1.53 for `node --test`, how Codex sandboxes), with follow-up issues #226 and #227.
+
 ### Performance
 
 - `grep` and `glob` reuse a small pool of regex workers instead of starting one per call; a worker that timed out or was stopped is never reused (fixes #201).

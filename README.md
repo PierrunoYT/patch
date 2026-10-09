@@ -132,6 +132,7 @@ Details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#security-model).
 - [Architecture](docs/ARCHITECTURE.md) — processes, IPC contract, agent loop, providers, tools, storage, security model
 - [Development guide](docs/DEVELOPMENT.md) — setup, scripts, tests, where to change things
 - [Performance](docs/PERFORMANCE.md) — long-chat measurements and what was changed
+- [Windows sandboxing research](docs/WINDOWS_SANDBOX_RESEARCH.md) — outside developments (Microsoft Execution Containers, the OS process security environment, libuv for `node --test`) and how they relate to open issues
 - [Contributing](CONTRIBUTING.md)
 - [Issues](https://github.com/PierrunoYT/patch/issues) — open work, bugs and ideas
 - [AGENTS.md](AGENTS.md) — guidance for AI coding agents working on this repo
