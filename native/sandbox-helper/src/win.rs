@@ -81,6 +81,11 @@ struct DriveMapping {
     target: String,
 }
 
+// Letters a sandbox drive may use, picked from Z down so the usual removable-drive letters come last. Each run holds
+// a project and a temporary drive, plus one for toolchains when they are staged; P to Z alone ran out at about four
+// concurrent commands (#177). A, B (floppy) and C (system) are never used.
+const DRIVE_LETTERS: std::ops::RangeInclusive<u8> = b'D'..=b'Z';
+
 impl DriveMapping {
     // The caller holds PermissionLock through journaling and creation, so helpers cannot pick the same letter.
     // `taken` lists letters this run reserved but has not defined yet.
@@ -89,7 +94,7 @@ impl DriveMapping {
         if used == 0 {
             return Err("cannot enumerate sandbox drive letters".into());
         }
-        for letter in (b'P'..=b'Z').rev() {
+        for letter in DRIVE_LETTERS.rev() {
             let name = format!("{}:", letter as char);
             if used & (1 << (letter - b'A')) == 0 && taken.iter().all(|other| other.name != name) {
                 return Ok(Self {
@@ -98,13 +103,18 @@ impl DriveMapping {
                 });
             }
         }
-        Err("no drive letter is available for the sandbox working directory".to_string())
+        let running = recovery_records().map(|records| records.len()).unwrap_or(0);
+        Err(format!(
+            "no drive letter is available for the sandbox working directory: D: to Z: are all in use, and {running} \
+             sandboxed command(s) of Patch hold two or three of them each. Wait for a background command to end, or \
+             stop one, and try again"
+        ))
     }
 
     fn remove(&self) -> Result<()> {
         let bytes = self.name.as_bytes();
         if bytes.len() != 2
-            || !(b'P'..=b'Z').contains(&bytes[0])
+            || !DRIVE_LETTERS.contains(&bytes[0])
             || bytes[1] != b':'
             || !Path::new(&self.target).is_absolute()
         {
@@ -240,13 +250,18 @@ pub fn serve() {
                     jobs.lock().unwrap().remove(&id);
                 }));
             }
+            // On a worker like a run, so a slow revoke (it waits for the permission lock) never delays reading the
+            // next message, such as a kill for a command (#206). End of input still waits for it below.
             Ok(Message::Revoke(revoke)) => {
-                if let Err(message) = revoke_project(&revoke.revoke_project) {
-                    emitter.send(&Event::Error {
-                        id: None,
-                        message: &message,
-                    });
-                }
+                let emitter = emitter.clone();
+                workers.push(thread::spawn(move || {
+                    if let Err(message) = revoke_project(&revoke.revoke_project) {
+                        emitter.send(&Event::Error {
+                            id: None,
+                            message: &message,
+                        });
+                    }
+                }));
             }
             Ok(Message::Kill(kill)) => {
                 if kill.kill {
@@ -559,6 +574,10 @@ struct RecoveryRecord {
 struct ProtectedPath {
     path: String,
     dacl: String,
+    // Whether the original DACL was protected from inheritance, so restoring sets the same flag (#195). Records
+    // written before this field are of unprotected paths, the only ones snapshotted then.
+    #[serde(default)]
+    dacl_protected: bool,
 }
 
 impl ProtectedPath {
@@ -583,7 +602,12 @@ impl ProtectedPath {
             let status = SetNamedSecurityInfoW(
                 PCWSTR(path.as_ptr()),
                 SE_FILE_OBJECT,
-                DACL_SECURITY_INFORMATION | UNPROTECTED_DACL_SECURITY_INFORMATION,
+                DACL_SECURITY_INFORMATION
+                    | if self.dacl_protected {
+                        PROTECTED_DACL_SECURITY_INFORMATION
+                    } else {
+                        UNPROTECTED_DACL_SECURITY_INFORMATION
+                    },
                 None,
                 None,
                 Some(acl),
@@ -881,7 +905,9 @@ fn ensure_project_grant(cwd: &str, capability: PSID) -> Result<()> {
     let recorded = fs::read(&marker)
         .ok()
         .and_then(|bytes| serde_json::from_slice::<ProjectGrant>(&bytes).ok())
-        .is_some_and(|grant| grant.complete && grant.path.eq_ignore_ascii_case(cwd));
+        // Compared with the same Unicode lowercasing that names the capability, so a non-ASCII path in another case is
+        // not granted again on every run (#195).
+        .is_some_and(|grant| grant.complete && grant.path.to_lowercase() == cwd.to_lowercase());
     // The root check notices permissions reset by the user since the grant.
     if recorded && path_allows(cwd, capability)? {
         return Ok(());
@@ -1271,7 +1297,7 @@ impl RecoveryRecord {
             if Path::new(directory) != expected {
                 return Err(format!("invalid sandbox {kind} path"));
             }
-            for letter in b'P'..=b'Z' {
+            for letter in DRIVE_LETTERS {
                 let name = wide(&format!("{}:", letter as char));
                 let target = wide(&format!(r"\??\{directory}"));
                 unsafe {
@@ -1463,6 +1489,7 @@ fn original_inheritance(path: &str) -> Result<Option<ProtectedPath>> {
         let _sddl = LocalMem(sddl.0 as *mut c_void);
         Ok(Some(ProtectedPath {
             path: path.to_string(),
+            dacl_protected: control.contains(SE_DACL_PROTECTED),
             dacl: sddl
                 .to_string()
                 .map_err(|e| describe("decode original sandbox permissions", e.into()))?,
@@ -2167,11 +2194,12 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         },
     ];
 
-    unsafe { ResumeThread(thread_handle.0) };
+    // Before the command runs, so no output can arrive ahead of Started (#195).
     emitter.send(&Event::Started {
         id,
         pid: info.dwProcessId,
     });
+    unsafe { ResumeThread(thread_handle.0) };
     for warning in &warnings {
         emitter.send(&Event::Stderr {
             id,
@@ -2185,18 +2213,28 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
         INFINITE
     };
     let waited = unsafe { WaitForSingleObject(process.0, timeout) };
-    let timed_out = waited == WAIT_TIMEOUT;
-    unsafe {
-        // Also ends anything the command left running.
+    let mut timed_out = waited == WAIT_TIMEOUT;
+    // Also ends anything the command left running.
+    let exited = unsafe {
         let _ = TerminateJobObject(job.0, 1);
-        WaitForSingleObject(process.0, 5000);
-    }
+        WaitForSingleObject(process.0, 5000)
+    } == WAIT_OBJECT_0;
     let mut code = 0u32;
     unsafe {
         let _ = GetExitCodeProcess(process.0, &mut code);
     }
-    for reader in readers {
-        let _ = reader.join();
+    // A process still running after the terminate has no exit code yet (GetExitCodeProcess would report
+    // STILL_ACTIVE, 259), and may still hold its pipes, so its readers are left to end on their own (#195).
+    let exit_code = if exited {
+        code as i64
+    } else {
+        timed_out = true;
+        -1
+    };
+    if exited {
+        for reader in readers {
+            let _ = reader.join();
+        }
     }
     jobs.lock().unwrap().remove(&id);
     drop(job);
@@ -2220,7 +2258,7 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     }
     emitter.send(&Event::Exit {
         id,
-        exit_code: code as i64,
+        exit_code,
         timed_out,
     });
     Ok(())

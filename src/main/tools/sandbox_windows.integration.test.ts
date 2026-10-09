@@ -133,7 +133,7 @@ console.log(JSON.stringify(result));`,
       { ok: boolean; value?: unknown }
     >;
     expect(result.initialCwd.ok).toBe(true);
-    expect(result.initialCwd.value).toMatch(/^[P-Z]:\\$/i);
+    expect(result.initialCwd.value).toMatch(/^[D-Z]:\\$/i);
     expect(result.listProject.ok).toBe(true);
     expect(result.relativeWrite).toEqual({ ok: true, value: true });
     expect(readFileSync(join(root, 'native-probe.txt'), 'utf8')).toBe('written');
@@ -146,7 +146,7 @@ console.log(JSON.stringify(result));`,
       'Write-Output (Get-Location).Path; Set-Content -Path inside.txt -Value written; Get-Content inside.txt',
     );
     expect(result.exitCode, result.output).toBe(0);
-    expect(result.output).toMatch(/[P-Z]:\\/i);
+    expect(result.output).toMatch(/[D-Z]:\\/i);
     expect(result.output).toContain('written');
     expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toContain('written');
   }, 60_000);
@@ -224,12 +224,12 @@ console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, pr
         NODE_OPTIONS: null,
         SSH_AUTH_SOCK: null,
         CC: 'fixture-compiler',
-        PATH: expect.stringMatching(/^[P-Z]:\\$/i),
+        PATH: expect.stringMatching(/^[D-Z]:\\$/i),
         userconfig: '',
       });
       // The launcher expands 8.3 aliases (RUNNER~1 on CI); compare filesystem identity, not spelling.
       expect(realpathSync.native(environment.HOME!)).toBe(realpathSync.native(homedir()));
-      expect(environment.TMPDIR).toMatch(/^[P-Z]:\\tmp$/i);
+      expect(environment.TMPDIR).toMatch(/^[D-Z]:\\tmp$/i);
       expect(environment.NPM_CONFIG_CACHE).toBe(environment.TMPDIR!.replace(/tmp$/, 'npm-cache'));
       expect(environment.NPM_CONFIG_USERCONFIG).toBe(environment.TMPDIR!.replace(/tmp$/, 'npmrc'));
       expect(environment.TMPDIR!.slice(0, 2)).not.toBe(environment.cwd!.slice(0, 2));
@@ -495,7 +495,7 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   const cacheEntries = () => (existsSync(cacheRoot) ? readdirSync(cacheRoot) : []);
   let cachedBefore: string[];
   // A staged command runs Node from the cache drive: <letter>:\<install hash>-<contents hash>\node.exe.
-  const cachedNode = /^[P-Z]:\\[0-9a-f]{16}-[0-9a-f]{16}\\node\.exe$/im;
+  const cachedNode = /^[D-Z]:\\[0-9a-f]{16}-[0-9a-f]{16}\\node\.exe$/im;
   const acl = (path: string) => execFileSync('icacls', [path], { encoding: 'utf8' });
   // Whether the DACL has an ALL APPLICATION PACKAGES entry. icacls prints names in the system language, so read
   // the SDDL that `icacls /save` writes (UTF-16), where the group is always the alias AC.
@@ -727,7 +727,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     expect(result.output).toMatch(/not readable in this command: .*linked: .*(reparse point|escaping path)/i);
     // Neither granted nor copied: PATH still names the original folder, and its ACL is unchanged.
     expect(result.output).toContain(linked);
-    expect(result.output).not.toMatch(/[P-Z]:\\[0-9a-f]{16}-/i);
+    expect(result.output).not.toMatch(/[D-Z]:\\[0-9a-f]{16}-/i);
     expect(acl(linked)).toBe(original);
   }, 60_000);
 
@@ -828,7 +828,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       await recover();
       // Fallback for a failed assertion: remove only this fixture's exact project mapping.
       for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
-        const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
+        const mapping = /^([D-Z]:)\\: => (.+)$/.exec(line);
         if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
       }
     }
@@ -962,6 +962,50 @@ describe.skipIf(!helper)('Project write grant (real helper, #103)', () => {
   }, 60_000);
 });
 
+describe.skipIf(!helper)('Project write grant in paths longer than MAX_PATH (real helper, #206)', () => {
+  let project: string;
+  let runner: ShellRunner;
+  const capability = /S-1-15-3-1024-/;
+  // Five 60-character folders put the file well past 260 characters, as in deep node_modules or pnpm trees.
+  const segments = Array.from({ length: 5 }, (_, index) => `${index}`.padEnd(60, 'd'));
+  const deepRelative = join(...segments, 'deep.txt');
+  // icacls cannot open the path without the \\?\ prefix either.
+  const acl = (path: string) => execFileSync('icacls', [`\\\\?\\${path}`], { encoding: 'utf8' });
+
+  beforeAll(() => {
+    project = mkdtempSync(join(homedir(), 'patch-sbx-long-'));
+    mkdirSync(join(project, ...segments), { recursive: true });
+    writeFileSync(join(project, deepRelative), 'old');
+    copyFileSync(process.execPath, join(project, 'node.exe'));
+    const env = Object.fromEntries(
+      Object.entries(scrubEnv(process.env)).filter(([name]) => name.toLowerCase() !== 'path'),
+    );
+    runner = new ShellRunner(
+      () => project,
+      () => config,
+      undefined,
+      () => ({ ...env, PATH: project }),
+    );
+  });
+  afterAll(async () => {
+    runner.stopAll();
+    await revokeProjectGrant(project, helper);
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it('propagates the first grant into an existing file deeper than 260 characters', async () => {
+    const deep = join(project, deepRelative);
+    expect(deep.length).toBeGreaterThan(300);
+    const result = await runner.run(
+      `node -e "require('fs').appendFileSync('${[...segments, 'deep.txt'].join('/')}', '-new'); console.log('WROTE')"`,
+    );
+    expect(result.exitCode, result.output).toBe(0);
+    expect(result.output).toContain('WROTE');
+    expect(readFileSync(deep, 'utf8')).toBe('old-new');
+    expect(acl(deep)).toMatch(capability);
+  }, 60_000);
+});
+
 describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
   it.each(['normal exit', 'forced termination'])(
     'keeps metadata protected through an overlapping helper %s',
@@ -1007,7 +1051,7 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
       const projectMappings = () =>
         execFileSync('subst', { encoding: 'utf8' })
           .split(/\r?\n/)
-          .filter((line) => /^([P-Z]:)\\: => (.+)$/.exec(line)?.[2]?.toLowerCase() === project.toLowerCase());
+          .filter((line) => /^([D-Z]:)\\: => (.+)$/.exec(line)?.[2]?.toLowerCase() === project.toLowerCase());
       const originalHooksAcl = acl(hooks);
       expect(originalHooksAcl).toContain('(I)');
       expect(originalHooksAcl).toContain(':(R)');
@@ -1097,7 +1141,7 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         // Fallback for a failed assertion: successful cleanup and recovery are checked above before teardown.
         // Remove only this fixture's exact project mapping so a failed test cannot pollute later runs.
         for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
-          const mapping = /^([P-Z]:)\\: => (.+)$/.exec(line);
+          const mapping = /^([D-Z]:)\\: => (.+)$/.exec(line);
           if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
         }
         rmSync(fixture, { recursive: true, force: true });

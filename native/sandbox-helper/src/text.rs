@@ -37,13 +37,31 @@ pub fn command_line(command: &str, args: &[String]) -> String {
     line
 }
 
+// The order Windows expects for environment blocks: ordinal and case-insensitive on UTF-16 code units, like
+// CompareStringOrdinal(..., TRUE). Each unit is upper-cased on its own; units without a one-unit upper case (and
+// surrogates) compare as they are. String::to_uppercase would instead expand characters such as ß to "SS" (#195).
+fn ordinal_ignore_case_key(name: &str) -> Vec<u16> {
+    name.encode_utf16()
+        .map(|unit| {
+            let Some(c) = char::from_u32(unit as u32) else {
+                return unit;
+            };
+            let mut upper = c.to_uppercase();
+            match (upper.next(), upper.next()) {
+                (Some(u), None) if (u as u32) <= 0xFFFF => u as u32 as u16,
+                _ => unit,
+            }
+        })
+        .collect()
+}
+
 // UTF-16 environment block: sorted case-insensitively, each entry and the block end-terminated by NUL.
 pub fn environment_block(env: &HashMap<String, String>) -> Vec<u16> {
     let mut entries: Vec<(&String, &String)> = env
         .iter()
         .filter(|(k, _)| !k.is_empty() && !k.contains('='))
         .collect();
-    entries.sort_by_key(|(k, _)| k.to_uppercase());
+    entries.sort_by_cached_key(|(k, _)| ordinal_ignore_case_key(k));
     let mut block = Vec::new();
     for (key, value) in entries {
         block.extend(format!("{key}={value}").encode_utf16());
@@ -143,6 +161,18 @@ mod tests {
         env.insert("bad=name".to_string(), "x".to_string());
         let text = String::from_utf16(&environment_block(&env)).unwrap();
         assert_eq!(text, "A=1\0b=2\0\0");
+    }
+
+    #[test]
+    fn environment_block_sorts_by_utf16_units_without_expanding_characters() {
+        let mut env = HashMap::new();
+        // "ß" upper-cases to "SS" as a string, which would sort it before "ST"; per code unit it stays U+00DF,
+        // after every ASCII letter, which is where Windows expects it.
+        env.insert("\u{df}x".to_string(), "1".to_string());
+        env.insert("st".to_string(), "2".to_string());
+        env.insert("_a".to_string(), "3".to_string());
+        let text = String::from_utf16(&environment_block(&env)).unwrap();
+        assert_eq!(text, "st=2\0_a=3\0\u{df}x=1\0\0");
     }
 
     #[test]
