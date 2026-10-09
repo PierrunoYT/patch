@@ -164,7 +164,7 @@ const D = {
         'edit_backups.ts',
         'text_files.ts',
         'types.ts',
-        'native/sandbox-helper/src/win.rs (2971; independently refuses sensitive roots before ACL changes, #145; project-drive ownership, toolchain cache and per-project grants)',
+        'native/sandbox-helper/src/win.rs (3088; independently refuses sensitive roots before ACL changes, #145; project-drive ownership, toolchain cache and per-project grants; the permission lock waits while its holder lives, #176)',
         'native/sandbox-helper/src/file_helper.rs + file_ops/unix.rs + file_ops/windows.rs (no-follow handle-based operations; Unix descriptor and Windows sharing-lock regressions, #144)',
         'scripts/build-native.mjs (locked native builds; universal macOS file helper)',
       ],
@@ -544,7 +544,6 @@ const D = {
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
-    [176, 'Windows sandbox: first grant in a large project outlasts the 60 s lock', 'sandbox', 'medium', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [
       157,
@@ -628,7 +627,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 144,
+  closedCount: 145,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

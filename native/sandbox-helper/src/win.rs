@@ -1184,8 +1184,19 @@ fn recovery_dir() -> Result<PathBuf> {
 // inheritance snapshot; the last remaining record restores it, including after forced termination.
 struct PermissionLock(Handle);
 
+// How long a run waits for the lock before it says why it is waiting.
+const LOCK_NOTICE_AFTER: Duration = Duration::from_secs(5);
+
 impl PermissionLock {
     fn acquire() -> Result<Self> {
+        Self::acquire_while(|| Ok(()), || {})
+    }
+
+    // Waits as long as the holder lives, with no fixed limit: a project's first grant walks every file in it and can
+    // take minutes in a large project (#176). A holder that dies abandons the mutex, which Windows hands to the next
+    // waiter, so a crashed helper never blocks the others. `check` ends the wait (a stopped command), and `slow` is
+    // called once when the wait passes LOCK_NOTICE_AFTER.
+    fn acquire_while(check: impl Fn() -> Result<()>, slow: impl FnOnce()) -> Result<Self> {
         let handle = Handle(
             unsafe {
                 CreateMutexW(
@@ -1196,9 +1207,26 @@ impl PermissionLock {
             }
             .map_err(|e| describe("create sandbox permission lock", e))?,
         );
-        match unsafe { WaitForSingleObject(handle.0, 60_000) } {
-            WAIT_OBJECT_0 | WAIT_ABANDONED => Ok(Self(handle)),
-            _ => Err("cannot acquire sandbox permission lock".into()),
+        let started = Instant::now();
+        let mut slow = Some(slow);
+        loop {
+            match unsafe { WaitForSingleObject(handle.0, 250) } {
+                WAIT_OBJECT_0 | WAIT_ABANDONED => return Ok(Self(handle)),
+                WAIT_TIMEOUT => {
+                    check()?;
+                    if started.elapsed() >= LOCK_NOTICE_AFTER {
+                        if let Some(slow) = slow.take() {
+                            slow();
+                        }
+                    }
+                }
+                _ => {
+                    return Err(describe(
+                        "wait for the sandbox permission lock",
+                        Error::from_thread(),
+                    ))
+                }
+            }
         }
     }
 }
@@ -1751,7 +1779,17 @@ fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
                 .to_string(),
         )
     };
-    let permission_lock = PermissionLock::acquire()?;
+    let permission_lock = PermissionLock::acquire_while(
+        || ensure_active(jobs, id),
+        || {
+            emitter.send(&Event::Stderr {
+                id,
+                data: "Patch sandbox: waiting for another sandboxed command to finish setting up permissions. A \
+                       project's first command grants access to every file in it, which can take minutes in a large \
+                       project.\n",
+            })
+        },
+    )?;
     let owners = recovery_records()?;
     let git = Path::new(&request.cwd).join(".git");
     let git = git.to_string_lossy().into_owned();
@@ -2316,6 +2354,47 @@ mod tests {
         fs::create_dir(&safe).unwrap();
         assert!(validate_project_root(safe.to_str().unwrap()).is_ok());
         fs::remove_dir(safe).unwrap();
+    }
+
+    #[test]
+    fn the_permission_lock_wait_ends_when_stopped_and_survives_a_dead_holder() {
+        let (held_tx, held_rx) = std::sync::mpsc::channel::<()>();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let holder = thread::spawn(move || {
+            let lock = PermissionLock::acquire().unwrap();
+            held_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            drop(lock);
+        });
+        held_rx.recv().unwrap();
+        // A stopped command ends the wait, and the notice says why it was waiting.
+        let noticed = std::cell::Cell::new(false);
+        let stopped = PermissionLock::acquire_while(
+            || {
+                if noticed.get() {
+                    Err("stopped".to_string())
+                } else {
+                    Ok(())
+                }
+            },
+            || noticed.set(true),
+        );
+        assert_eq!(stopped.err().as_deref(), Some("stopped"));
+        release_tx.send(()).unwrap();
+        holder.join().unwrap();
+        // A holder that exits without releasing abandons the mutex; the next waiter gets it.
+        thread::spawn(|| std::mem::forget(PermissionLock::acquire().unwrap()))
+            .join()
+            .unwrap();
+        let started = Instant::now();
+        let deadline = || {
+            if started.elapsed() > Duration::from_secs(30) {
+                Err("timed out".to_string())
+            } else {
+                Ok(())
+            }
+        };
+        assert!(PermissionLock::acquire_while(deadline, || {}).is_ok());
     }
 
     #[test]
