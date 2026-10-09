@@ -41,6 +41,14 @@ const noTestIsolation = process.allowedNodeEnvironmentFlags.has('--test-isolatio
   ? '--test-isolation=none'
   : '--experimental-test-isolation=none';
 // Hosts the machine can reach, so the "network on" check does not fail only because it is offline.
+// Removes the `subst` drives whose target matches, so an interrupted run leaves no dead drive in This PC (#133).
+function removeSubsts(matches: (target: string) => boolean): void {
+  for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
+    const mapping = /^([D-Z]:)\\: => (.+)$/.exec(line);
+    if (mapping && matches(mapping[2]!)) execFileSync('subst', [mapping[1]!, '/D']);
+  }
+}
+const within = (target: string, root: string) => target.toLowerCase().startsWith(`${root.toLowerCase()}\\`);
 const NET_PROBE = `node -e "const s=require('net').connect({host:'1.1.1.1',port:443,timeout:4000});s.on('connect',()=>{console.log('CONNECTED');process.exit(0)});s.on('error',e=>{console.log('NOCONNECT '+e.code);process.exit(0)});s.on('timeout',()=>{console.log('NOCONNECT timeout');process.exit(0)})"`;
 
 describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
@@ -509,6 +517,8 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
     }
   };
   beforeAll(() => {
+    // A worker killed before its teardown leaves drives aimed at a fixture that no longer exists.
+    removeSubsts((target) => /\\patch-toolchain-[^\\]+\\/i.test(target) && !existsSync(target));
     cachedBefore = cacheEntries();
     fixture = mkdtempSync(join(homedir(), 'patch-toolchain-'));
     project = join(fixture, 'project');
@@ -545,6 +555,8 @@ describe.skipIf(!helper)('Program Files toolchains (real helper)', () => {
   });
   afterAll(() => {
     shell.stopAll();
+    // Before the fixture goes, so no drive is left pointing at a deleted folder.
+    removeSubsts((target) => within(target, fixture));
     rmSync(fixture, { recursive: true, force: true });
     // Fixture installs live in a temp folder that is now gone; their copies would only expire after 30 days.
     for (const name of cacheEntries().filter((entry) => !cachedBefore.includes(entry)))
@@ -827,10 +839,7 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
       await closed;
       await recover();
       // Fallback for a failed assertion: remove only this fixture's exact project mapping.
-      for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
-        const mapping = /^([D-Z]:)\\: => (.+)$/.exec(line);
-        if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
-      }
+      removeSubsts((target) => target.toLowerCase() === project.toLowerCase());
     }
   }, 60_000);
 
@@ -1140,10 +1149,7 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         await recover();
         // Fallback for a failed assertion: successful cleanup and recovery are checked above before teardown.
         // Remove only this fixture's exact project mapping so a failed test cannot pollute later runs.
-        for (const line of execFileSync('subst', { encoding: 'utf8' }).split(/\r?\n/)) {
-          const mapping = /^([D-Z]:)\\: => (.+)$/.exec(line);
-          if (mapping?.[2]?.toLowerCase() === project.toLowerCase()) execFileSync('subst', [mapping[1]!, '/D']);
-        }
+        removeSubsts((target) => target.toLowerCase() === project.toLowerCase());
         rmSync(fixture, { recursive: true, force: true });
       }
     },

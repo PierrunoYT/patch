@@ -575,14 +575,6 @@ const D = {
       '10-07',
     ],
     [135, 'Agent benchmark: a current baseline, more runs per task and regression checks', 'tests', 'low', 0, '10-06'],
-    [
-      133,
-      'Windows toolchain tests leak subst drives after the temp Node fixture is deleted',
-      'tests',
-      'low',
-      0,
-      '10-06',
-    ],
     [128, 'Isolate built-in file tools behind an OS-restricted executor', 'sandbox', 'medium', 0, '10-06'],
     [127, 'Protect agent, IDE and shell configuration from command writes', 'sandbox', 'medium', 0, '10-06'],
     [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 0, '10-06'],
@@ -634,7 +626,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 145,
+  closedCount: 146,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
