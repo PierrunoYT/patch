@@ -605,7 +605,6 @@ const D = {
     [74, 'Decide whether the release dry run should run on every push to main', 'release', 'low', 0, '10-03'],
     [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
     [62, 'e2e tests for chat list, header model picker, status-bar branch', 'tests', 'low', 0, '10-01'],
-    [50, 'Windows shell cancellation test times out, leaves temp folder locked', 'tests', 'low', 0, '10-01'],
     [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
     [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
     [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
@@ -626,7 +625,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 146,
+  closedCount: 147,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

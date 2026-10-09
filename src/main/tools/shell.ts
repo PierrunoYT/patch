@@ -51,6 +51,8 @@ export interface CommandProcess extends EventEmitter {
   stderr: Readable | null;
   pid?: number;
   exitCode: number | null;
+  // Set instead of exitCode when a signal ended the process.
+  signalCode?: NodeJS.Signals | null;
   kill(signal?: NodeJS.Signals): boolean;
 }
 
@@ -467,8 +469,22 @@ function trackStop(work: Promise<unknown>): void {
   void tracked.then(() => pendingStops.delete(tracked));
 }
 
+// A settling stop can start another (the leftover sweep after a shell exits), so this waits until none is left.
 export async function commandStopsSettled(): Promise<void> {
-  await Promise.all([...pendingStops]);
+  while (pendingStops.size > 0) await Promise.all([...pendingStops]);
+}
+
+// Resolves once the process has exited, or after `ms`. On Windows a stopped command's folder stays busy until then,
+// so a stop is not settled before it (#50).
+function exited(child: CommandProcess, ms = 5000): Promise<void> {
+  if (child.exitCode !== null || child.signalCode) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 // Whether a program ran and exited with 0. Never rejects.
@@ -496,6 +512,9 @@ function killTree(child: CommandProcess): void {
       // taskkill's snapshot. Terminate our native process handle immediately instead.
       if (!spawned.has(child)) {
         child.kill('SIGKILL');
+        // The shell can have started a program before it was killed, which would keep its output pipes and folder
+        // busy. Sweep for it once the shell is gone.
+        trackStop(exited(child).then(() => sweepWindowsLeftovers(child)));
         return;
       }
       // taskkill can lose a startup race before Windows exposes the new process to its process-tree query.
@@ -503,6 +522,7 @@ function killTree(child: CommandProcess): void {
       trackStop(
         runQuietly('taskkill', ['/pid', String(child.pid), '/T', '/F']).then((killed) => {
           if (!killed) child.kill('SIGKILL');
+          return exited(child);
         }),
       );
     } else {
@@ -519,16 +539,20 @@ function killTree(child: CommandProcess): void {
 function killLeftovers(child: CommandProcess): void {
   if (!child.pid || child instanceof HelperProcess) return;
   if (process.platform === 'win32') {
-    const lifetime = lifetimes.get(child);
-    if (!lifetime || child.exitCode === null) return;
-    const ended = { startedAt: lifetime.startedAt, endedAt: lifetime.endedAt ?? Date.now() };
-    return trackStop(killWindowsLeftovers(child.pid, ended));
+    if (child.exitCode === null) return;
+    return trackStop(sweepWindowsLeftovers(child));
   }
   try {
     process.kill(-child.pid, 'SIGKILL');
   } catch {
     // Nothing left in the group.
   }
+}
+
+async function sweepWindowsLeftovers(child: CommandProcess): Promise<void> {
+  const lifetime = lifetimes.get(child);
+  if (!child.pid || !lifetime) return;
+  await killWindowsLeftovers(child.pid, { startedAt: lifetime.startedAt, endedAt: lifetime.endedAt ?? Date.now() });
 }
 
 // libuv before 1.53 (every Node.js release so far) names child-process pipes outside the AppContainer's LOCAL\

@@ -117,7 +117,7 @@ builders.overview = () => {
             'li',
             null,
             h('b', null, 'CI tests all three platforms, with one Windows flake left: '),
-            'Windows, Linux and macOS run the tests and packaged apps are smoke-tested. #54 is fixed; #50 still times out intermittently.',
+            'Windows, Linux and macOS run the tests and packaged apps are smoke-tested. #54 and #50 are fixed.',
           ),
           h(
             'li',

@@ -70,6 +70,18 @@ describe('background command cancellation', () => {
     expect(entry.unread).toBe('✓😀é');
   });
 
+  it('settles a stop only once the stopped process has exited, so its folder can be removed (#50)', async () => {
+    const folder = join(root, 'busy');
+    mkdirSync(folder);
+    const busy = new ShellRunner(() => folder);
+    const entry = await busy.startBackground(command);
+    expect(entry.process.exitCode).toBeNull();
+    busy.stopAll();
+    await commandStopsSettled();
+    expect(entry.process.exitCode ?? entry.process.signalCode).not.toBeNull();
+    expect(() => rmSync(folder, { recursive: true })).not.toThrow();
+  }, 20_000);
+
   it('does not launch a background command with an already-aborted signal', async () => {
     controller.abort();
     await expect(
