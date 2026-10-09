@@ -532,6 +532,14 @@ const D = {
     ['11822db', 'perf: reuse regex workers across grep and glob calls'],
   ],
   issues: [
+    [
+      260,
+      'Agent browser pages reach local addresses through names that resolve to them',
+      'security',
+      'low',
+      0,
+      '10-09',
+    ],
     [259, 'Minor reliability issues from the Oct 9 audit', 'other', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
