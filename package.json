@@ -31,7 +31,7 @@
     "dist": "node scripts/ensure-closed.mjs && node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && npm run build && electron-builder --publish never"
   },
   "build": {
-    "appId": "patch",
+    "appId": "io.github.pierrunoyt.patch",
     "publish": null,
     "productName": "Patch",
     "files": [

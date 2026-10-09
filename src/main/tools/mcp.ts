@@ -107,7 +107,8 @@ export class McpHub {
   constructor(
     private readonly getServers: () => McpServerConfig[],
     private readonly onToolsChanged: () => void,
-    private readonly clientInfo = { name: 'CodeCompanion', version: '0.1.0' },
+    // What MCP servers see as the client; index.ts passes the app's own version.
+    private readonly clientInfo = { name: 'Patch', version: '0.0.0' },
   ) {}
 
   // Reconnects every configured server in the background. Called at startup and when the servers setting changes.

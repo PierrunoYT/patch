@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -37,6 +37,32 @@ describe('McpHub', () => {
       expect(output.isError).toBeUndefined();
     } finally {
       await hub.stop();
+    }
+  });
+
+  it('introduces itself to servers with the name and version it was given (#72)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cc-mcp-client-'));
+    const file = join(dir, 'client.json');
+    const servers: McpServerConfig[] = [
+      {
+        name: 'test',
+        transport: 'stdio',
+        command: process.execPath,
+        args: [mockServerScript],
+        env: { MOCK_MCP_CLIENT_FILE: file },
+      },
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+      { name: 'Patch', version: '9.8.7' },
+    );
+    try {
+      await hub.refresh();
+      expect(JSON.parse(readFileSync(file, 'utf8'))).toMatchObject({ name: 'Patch', version: '9.8.7' });
+    } finally {
+      await hub.stop();
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 

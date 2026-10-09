@@ -1,5 +1,6 @@
 // A minimal Model Context Protocol server over stdio (newline-delimited JSON-RPC), used by the unit and end-to-end
 // tests to exercise the real client code without any external service. Offers one tool: echo.
+import { writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 
 const tools = [
@@ -24,6 +25,9 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   }
   if (message.id === undefined) return; // a notification needs no answer
   if (message.method === 'initialize') {
+    // Lets a test see how the client introduced itself.
+    if (process.env.MOCK_MCP_CLIENT_FILE)
+      writeFileSync(process.env.MOCK_MCP_CLIENT_FILE, JSON.stringify(message.params.clientInfo));
     send({
       jsonrpc: '2.0',
       id: message.id,
