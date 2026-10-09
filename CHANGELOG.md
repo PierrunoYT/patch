@@ -54,6 +54,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - The terminal panel keeps keys typed while the shell starts and sends them once it is ready, and asks a reattached shell to redraw (fixes #191).
 - Removing a secret and deleting or clearing chat history show an error instead of failing silently, and a second Commit is ignored while one runs (fixes #193).
 - A generated commit message no longer overwrites text typed meanwhile or lands in another project, the composer keeps text typed while a message is sent, and a failed file listing is not cached for @-mentions (part of #194).
+- Opening a chat from another project in History reconnects MCP servers that use `${project}` for that project. Before, they kept reading and writing the previous project, and a sandboxed server kept its write access there, until some unrelated setting changed (fixes #241).
 
 ### Security
 

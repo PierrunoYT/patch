@@ -20,6 +20,8 @@ if (process.env.MOCK_MCP_PROBE)
   });
 
 function probe({ action, target }) {
+  // Reports one of the server's environment variables, to check which project a ${project} server was started for.
+  if (action === 'env') return Promise.resolve(`env:${process.env[target] ?? ''}`);
   if (action === 'connect') {
     const [host, port] = target.split(':');
     return new Promise((resolve) => {

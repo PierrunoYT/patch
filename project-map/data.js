@@ -278,7 +278,7 @@ const D = {
       ['index', 2],
       ['app', 1],
       ['log', 1],
-      ['mcp', 1],
+      ['mcp', 2],
       ['edit', 1],
     ],
     invokeNames: {
@@ -555,7 +555,6 @@ const D = {
     [244, 'Git panel status reads every untracked file fully before the size check', 'perf', 'medium', 0, '10-09'],
     [243, 'MCP: a server that crashes is never reconnected', 'mcp', 'medium', 0, '10-09'],
     [242, 'apply_patch can be applied halfway on Windows, with no undo', 'tools', 'medium', 0, '10-09'],
-    [241, 'Opening another project’s chat leaves MCP servers on the old project', 'mcp', 'medium', 0, '10-09'],
     [240, 'A request the API rejects (400/413) keeps its message and breaks the chat', 'other', 'high', 0, '10-09'],
     [239, 'Network allow-list proxy does not check the TLS server name after CONNECT', 'sandbox', 'medium', 0, '10-09'],
     [238, 'Plan mode is not enforced: a declined plan does not stop edits in Auto mode', 'tools', 'medium', 0, '10-09'],
@@ -656,7 +655,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 155,
+  closedCount: 156,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

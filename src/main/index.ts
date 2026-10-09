@@ -264,15 +264,21 @@ function start(): void {
     ],
   });
 
+  // What every switch of the current project restarts: MCP servers that use ${project}, the terminal and the agent's
+  // browser. Opening a chat from History switches projects too, and once forgot the MCP servers (#241).
+  const projectSwitched = () => {
+    refreshMcp();
+    terminal.stop();
+    resetAgentBrowser();
+  };
+
   const openProject = (path: string) => {
     manager.requireIdle();
     const before = projects.current()?.path;
     const project = projects.open(path);
     if (project.path !== before) {
       manager.projectChanged();
-      refreshMcp();
-      terminal.stop();
-      resetAgentBrowser();
+      projectSwitched();
     }
     send(mainWindow, 'project:changed', project);
     return project;
@@ -369,9 +375,7 @@ function start(): void {
     forgetClosedGitServices();
     if (projects.current()?.path !== before) {
       manager.projectChanged();
-      refreshMcp();
-      terminal.stop();
-      resetAgentBrowser();
+      projectSwitched();
     }
     send(mainWindow, 'project:changed', projects.current());
   });
@@ -388,9 +392,7 @@ function start(): void {
     forgetClosedGitServices();
     if (projects.current()?.path !== before) {
       manager.projectChanged();
-      refreshMcp();
-      terminal.stop();
-      resetAgentBrowser();
+      projectSwitched();
     }
     send(mainWindow, 'project:changed', projects.current());
     return projects.list();
@@ -428,7 +430,8 @@ function start(): void {
       resetAgentBrowser();
       return snapshot;
     } finally {
-      if (projects.current()?.path !== before) terminal.stop();
+      // ChatManager.open already switched the chat; the rest of the app follows the project it opened.
+      if (projects.current()?.path !== before) projectSwitched();
       send(mainWindow, 'project:changed', projects.current());
     }
   });
