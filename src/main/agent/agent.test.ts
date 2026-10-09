@@ -492,6 +492,25 @@ describe('agent loop', () => {
     expect(session.snapshot().resumable).toBe(false);
   });
 
+  it('offers resume when a transient provider error outlasts the retries, but not for a setup error', async () => {
+    vi.useFakeTimers();
+    try {
+      const overloaded = Object.assign(new Error('overloaded'), { status: 503 });
+      const { session } = setup(Array.from({ length: 20 }, () => async () => Promise.reject(overloaded)));
+      const sending = session.send({ text: 'go' });
+      await vi.runAllTimersAsync();
+      await sending;
+      expect(session.snapshot().resumable).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+    const { session: setupError } = setup([
+      async () => Promise.reject(Object.assign(new Error('bad key'), { status: 401 })),
+    ]);
+    await setupError.send({ text: 'go' });
+    expect(setupError.snapshot().resumable).toBe(false);
+  });
+
   it('does not offer resume when a stop arrives as the run finishes on its own', async () => {
     let stopNow = () => {};
     const { session } = setup([

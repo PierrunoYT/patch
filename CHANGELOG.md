@@ -11,6 +11,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 ### Fixed
 
 - Sending a message after scrolling up jumps the chat to the bottom again even when the reply starts in the same frame, so an approval card that arrives right away is in view instead of thousands of pixels below it.
+- A run that ends because a transient provider error outlasted its retries offers Resume (fixes #204).
 - `grep` and `glob` report `Not found: <path>` for a missing folder, and `glob` reads a backslash in a pattern as `/` (fixes #198).
 - Small cleanups: the resize handle handles a cancelled drag, the shell drain timer is cleared on close, and the unread `HelperProcess.timedOut` is gone (fixes #205).
 - CI runs with read-only `GITHUB_TOKEN` permissions and fails on a high-severity production dependency advisory; the build-only advisories stay open in #211 (fixes #119).

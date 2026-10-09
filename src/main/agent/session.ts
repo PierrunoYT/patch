@@ -18,6 +18,7 @@ import type { AgentTool, EditUndo, ToolContext } from '../tools/types';
 import { appLog } from '../app_log';
 import { compactionPrompt } from '../llm/compaction';
 import { Agent, type AgentOptions, type DroppedFieldError } from './agent';
+import { retryDecision } from './retry';
 
 export interface SavedChat {
   version: 1;
@@ -262,6 +263,7 @@ export class ChatSession {
     this.stopRequested = false;
     this.running = true;
     let interrupted = false;
+    let providerFailure = false;
     this.emit({ type: 'busy', busy: true });
     try {
       interrupted = await work(controller.signal);
@@ -270,6 +272,8 @@ export class ChatSession {
         interrupted = true;
         this.emit({ type: 'notice', id: randomUUID(), text: 'Stopped.' });
       } else {
+        // A transient provider error that outlasted the retries leaves the chat after its last finished tool batch.
+        providerFailure = retryDecision(error, 0) !== null;
         this.emit({ type: 'error', id: randomUUID(), text: error instanceof Error ? error.message : String(error) });
       }
     } finally {
@@ -278,7 +282,7 @@ export class ChatSession {
       this.controller = null;
       this.running = false;
       this.rejectPendingApprovals();
-      if (stopped) this.setResumable(true);
+      if (stopped || providerFailure) this.setResumable(true);
       this.emit({ type: 'busy', busy: false });
       this.keepAlivesLeft = KEEP_ALIVE_MAX;
       this.scheduleKeepAlive();

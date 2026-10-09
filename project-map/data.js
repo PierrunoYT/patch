@@ -533,7 +533,6 @@ const D = {
     [211, 'Build-time dependency advisories in electron-builder and vite', 'release', 'low', 0, '10-07'],
     [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [206, 'Sandbox helper: long paths; revoke requests on the input thread', 'sandbox', 'low', 0, '10-07'],
-    [204, 'Offer Resume after a run fails once its retries are used up', 'ui', 'low', 0, '10-07'],
     [202, 'ChatGPT sign-in: keep-cache-warm does nothing; no refresh after a 401', 'other', 'low', 0, '10-07'],
     [201, 'Reuse regex workers across grep and glob calls', 'perf', 'low', 0, '10-07'],
     [200, 'Rendering cost grows with transcript length while an answer streams', 'perf', 'low', 0, '10-07'],
@@ -640,7 +639,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 121,
+  closedCount: 122,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
