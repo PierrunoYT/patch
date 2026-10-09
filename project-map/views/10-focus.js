@@ -3,6 +3,18 @@
 builders.focus = () => {
   const items = [
     [
+      'Fix the high findings from the Oct 9 audit: #229 to #232 and #240',
+      'A full audit with a second pass found no Windows sandbox escape on its own. The worst issues are chains that get past the approval card, plus one bug that breaks a chat for good.',
+      [
+        '#229: a project HTML file opens in the browser without a card (even in Ask mode), reads .env through file:// and sends it out over http(s)',
+        '#230: MCP approval cards show only the tool name, never the arguments being approved',
+        '#231: Git panel Initialize while a sandboxed background command runs hands it a writable .git (hooks, core.sshCommand)',
+        '#232 (macOS, unverified): Seatbelt allows reading and writing every user tty',
+        '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too',
+      ],
+      'Quick wins next: #233 (git log --output in allowed commands), #236 (guard AGENTS.md and skills), #251 (confirm delegate rule removal), #241 (MCP project switch from History), #234 (secrets sent for embedding).',
+    ],
+    [
       'Continue with medium sandbox hardening: #127 and #96',
       'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
@@ -11,7 +23,7 @@ builders.focus = () => {
         '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
       ],
-      'No high-severity findings remain in this snapshot. Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux and Windows, #97) to macOS and containers (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
+      'Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux and Windows, #97) to macOS and containers (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',
