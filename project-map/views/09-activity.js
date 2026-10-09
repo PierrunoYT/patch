@@ -7,7 +7,7 @@ builders.activity = () => {
     h(
       'p',
       { class: 'lead' },
-      `${D.commitsByDay.reduce((a, d) => a + d[1], 0)} commits in total. Apart from 3 commits on 2024-07-29, all of them landed from 2026-09-29 to ${D.commitsByDay.at(-1)[0]}. The project is moving fast, which is part of why it feels big.`,
+      `${D.commitsByDay.reduce((a, d) => a + d[1], 0)} commits in total. Apart from ${D.commitsByDay[0][1]} commits on ${D.commitsByDay[0][0]}, all of them landed from 2026-09-29 to ${D.commitsByDay.at(-1)[0]}. The project is moving fast, which is part of why it feels big.`,
     ),
     h(
       'div',
@@ -49,7 +49,7 @@ builders.activity = () => {
       'div',
       { class: 'grid g2', style: 'margin-top:14px' },
       card(
-        'Most-changed files, last 60 days',
+        'Most-changed files, all history',
         bars(
           D.churn.map(([f, n]) => [f, n, f.startsWith('src/') ? 'var(--c-main)' : 'var(--c-ext)']),
           { mono: true },
@@ -66,7 +66,7 @@ builders.activity = () => {
         { class: 'grid', style: 'align-content:start' },
         card('Authors', bars(D.authors, { color: 'var(--c-renderer)' })),
         card(
-          '15 most recent commits, merges left out (2026-10-05 to 10-06)',
+          `${D.recent.length} most recent commits, merges left out`,
           h(
             'div',
             { class: 'tablewrap' },

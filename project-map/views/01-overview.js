@@ -105,7 +105,7 @@ builders.overview = () => {
             'li',
             null,
             h('b', null, 'Renderer is barely unit-tested: '),
-            '6343 source lines (CSS included) vs 138 test lines; its 4 biggest files have no test file (e2e covers some of it).',
+            `${fmt(D.testsByArea.find((area) => area.a === 'renderer').src)} source lines (CSS included) vs ${fmt(D.testsByArea.find((area) => area.a === 'renderer').tl)} test lines; ${D.untested.filter(([, file]) => file.startsWith('renderer/')).length} of its biggest files have no test file (e2e covers some of it).`,
           ),
           h(
             'li',
@@ -129,7 +129,7 @@ builders.overview = () => {
         h(
           'div',
           { class: 'callout', style: 'margin-top:12px' },
-          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100), protected toolchains such as the official Node are copied once, not per command (#108), and a large project is granted once instead of on every command (#103). The .git check before each command no longer blocks the app (#112). Most Oct 9 audit findings are fixed; #240 and macOS items remain (see the Focus tab). Next, #101 once Node bundles libuv 1.53. See',
+          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100), protected toolchains such as the official Node are copied once, not per command (#108), and a large project is granted once instead of on every command (#103). The .git check before each command no longer blocks the app (#112). Most Oct 9 audit findings are fixed; #240, the macOS items and in-place writes in the native helper (#259) remain (see the Focus tab). Next, #101 once Node bundles libuv 1.53. See',
           h(
             'a',
             {

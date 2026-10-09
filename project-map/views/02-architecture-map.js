@@ -83,8 +83,14 @@ builders.arch = () => {
   }
   D.edges.forEach(([a, b, n]) => addEdge(a, b, n));
   addEdge('views', 'preload', 1, true, 'window.api');
-  addEdge('preload', 'mainroot', 1, true, 'IPC 47+10');
-  addEdge('mainroot', 'shared', 16, false, '+ every area → shared');
+  addEdge(
+    'preload',
+    'mainroot',
+    1,
+    true,
+    `IPC ${D.ipc.invoke.reduce((sum, [, n]) => sum + n, 0)}+${D.ipc.events.length}`,
+  );
+  addEdge('mainroot', 'shared', D.sharedEdges.find(([area]) => area === 'mainroot')[1], false, '+ every area → shared');
   const nodes = {};
   for (const [id, [x, y]] of Object.entries(pos)) {
     const a = byId[id];

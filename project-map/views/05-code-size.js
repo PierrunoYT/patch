@@ -167,7 +167,7 @@ builders.size = () => {
         ),
       ),
       card(
-        '15 largest source files',
+        `${D.largest.length} largest source files`,
         bars(
           D.largest.map(([n, f]) => [f, n, untested.has(f) ? 'var(--bad)' : 'var(--c-main)']),
           { mono: true },

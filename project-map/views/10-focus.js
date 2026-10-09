@@ -1,10 +1,12 @@
 'use strict';
 /* ---------------- 10. Focus ---------------- */
 builders.focus = () => {
+  // Test lines per source line in the main-process areas.
+  const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
       'Finish the Oct 9 audit: #240, then the macOS and native-helper items',
-      'A full audit with a second pass found no Windows sandbox escape on its own; the worst issues were chains past the approval card. Most of its findings are fixed: the agent browser goes offline for project files and keeps public pages off local addresses (#229, #235), MCP cards show arguments (#230), Initialize stops sandboxed processes first (#231), the proxy checks TLS server names (#239), plan mode and permission rules are enforced as documented (#237, #238), and secrets stay out of embeddings and truncated output (#234, #253).',
+      'A full audit with a second pass found no Windows sandbox escape on its own; the worst issues were chains past the approval card. Most of its findings are fixed: the agent browser goes offline for project files and keeps public pages off local addresses (#229, #235), MCP cards show arguments (#230), Initialize stops sandboxed processes first (#231), the proxy checks TLS server names (#239), plan mode and permission rules are enforced as documented (#237, #238), and secrets stay out of embeddings and truncated output (#234, #253). A public page cannot reach local services by a name that resolves to one (#260), a failed patch is undone in the native helper (#242), and only the Patch sandbox can read the Windows toolchain cache (#151).',
       [
         '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too; the fix removes a rejected trailing message, an exception to append-only history that needs a decision',
         '#232 (macOS): Seatbelt lets commands read and write every user tty; denying it also breaks programs that open their own pty',
@@ -71,13 +73,13 @@ builders.focus = () => {
       `${D.areas
         .filter((area) => area.proc === 'renderer')
         .reduce((sum, area) => sum + area.lines, 0)
-        .toLocaleString()} renderer TypeScript lines have ${D.testsByArea.find((area) => area.a === 'renderer').tl} unit-test lines, against 0.7 to 2.1 test lines per source line for the main-process areas.`,
+        .toLocaleString()} renderer TypeScript lines have ${D.testsByArea.find((area) => area.a === 'renderer').tl} unit-test lines, against ${Math.min(...mainRatios).toFixed(1)} to ${Math.max(...mainRatios).toFixed(1)} test lines per source line for the main-process areas.`,
       [
         `${D.untested
           .filter(([, file]) => file.startsWith('renderer/'))
           .map(([lines, file]) => `${file.split('/').pop()} (${lines})`)
           .join(', ')} have no test file`,
-        'app.ts is also among the most-changed source files (29 changes in 60 days)',
+        `app.ts is also among the most-changed source files (${D.churn.find(([file]) => file === 'src/renderer/src/app.ts')[1]} changes)`,
         '#62 is fixed: chat_controls.test.ts checks the chat list, model picker, mode switches and status-bar branch on screen',
         'transcript.ts has a first test file, for its pure helpers; its DOM rendering is still covered only end to end',
       ],
@@ -85,7 +87,7 @@ builders.focus = () => {
     ],
     [
       'Get release bookkeeping straight before the next tag',
-      'package.json says 0.1.0 while old tags already go to v0.3.0; the CHANGELOG has only [Unreleased] with 134 bullets; Windows signing waits on a certificate.',
+      `package.json says 0.1.0 while old tags already go to v0.3.0; the CHANGELOG has only [Unreleased] with ${D.changelogEntries} entries; Windows signing waits on a certificate.`,
       [
         'release.yml checks the tag against package.json, and tag v0.1.0 already points at an old commit',
         '#26 (signing, checksums) and #28 (macOS entitlements) are sev:medium',

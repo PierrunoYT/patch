@@ -86,14 +86,14 @@ builders.deps = () => {
         h(
           'p',
           { class: 'small muted', style: 'margin:8px 0 0' },
-          'Darker = more imports. shared is imported by every area, most of all by main (root) with 16 and renderer/views with 13. Inside shared, ipc.ts imports chat, panels, project and settings.',
+          `Darker = more imports. shared is imported by every area, most of all by main (root) with ${D.sharedEdges.find(([area]) => area === 'mainroot')[1]} and renderer/views with ${D.sharedEdges.find(([area]) => area === 'views')[1]}. Inside shared, ipc.ts imports chat, panels, project and settings.`,
         ),
       ),
       h(
         'div',
         { class: 'grid', style: 'align-content:start' },
         card(
-          '47 IPC invoke channels, by prefix',
+          `${D.ipc.invoke.reduce((sum, [, n]) => sum + n, 0)} IPC invoke channels, by prefix`,
           bars(
             D.ipc.invoke.map(([p, n]) => [p + ':', n]),
             { mono: true, color: 'var(--c-preload)' },
@@ -110,7 +110,7 @@ builders.deps = () => {
           ),
         ),
         card(
-          '10 event channels (main → renderer)',
+          `${D.ipc.events.length} event channels (main → renderer)`,
           h(
             'div',
             { class: 'chips' },
@@ -123,7 +123,7 @@ builders.deps = () => {
       'div',
       { class: 'grid g2', style: 'margin-top:14px' },
       card(
-        '18 chat event types (shared/chat.ts)',
+        `${Object.values(D.chatEvents).flat().length} chat event types (shared/chat.ts)`,
         h(
           'div',
           { class: 'layers' },

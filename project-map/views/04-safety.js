@@ -38,7 +38,7 @@ builders.safety = () => {
           layer(
             'Permission rules',
             'var(--c-main)',
-            'User rules: allow / reject / ask / delegate (external program, 15 s timeout). First match wins; overrides alwaysAsk.',
+            'User rules: allow / reject / ask / delegate (external program, 15 s timeout). First match wins; overrides alwaysAsk. Rules see project-relative paths, every file a patch touches and each part of a command; the strictest answer wins (#237).',
             'agent/permissions.ts',
           ),
           layer(
@@ -50,13 +50,13 @@ builders.safety = () => {
           layer(
             'Allow-lists',
             'var(--c-main)',
-            'Commands: whole-word prefix, refused if it contains ; & | < > ` $ ( ) { } or a newline. Network: exact hostname.',
+            'Commands: whole-word prefix, refused if it contains ; & | < > ` $ ( ) { } or a newline, or an argument that writes a file or runs a program (--output, -o, find -exec …, #233). Network: exact hostname.',
             'allowed_commands.ts, allowed_network_hosts.ts',
           ),
           layer(
             'Protected files',
             'var(--warn)',
-            'Case-insensitive protected names and canonical Windows aliases ask even in Auto; a failed safety check asks too (#143).',
+            'Case-insensitive protected names and canonical Windows aliases ask even in Auto; a failed safety check asks too (#143). AGENTS.md, CLAUDE.md, .patch skills, .mcp.json, .envrc and .husky are protected too (#236).',
             'tools/guard.ts',
           ),
           layer(
@@ -68,7 +68,7 @@ builders.safety = () => {
           layer(
             'Secret redaction',
             'var(--c-shared)',
-            'PEM keys, AWS / GitHub / OpenAI / Anthropic / Slack / Google keys, JWTs, passwords in connection-string URLs and password-like values are replaced before the model sees them.',
+            'PEM keys, AWS / GitHub / OpenAI / Anthropic / Slack / Google keys, JWTs, passwords in connection-string URLs and password-like values are replaced before the model sees them, also before long output is shortened and while command output streams (#253).',
             'tools/redact.ts',
           ),
           layer(
@@ -144,7 +144,7 @@ builders.safety = () => {
           h(
             'p',
             { class: 'small muted', style: 'margin:8px 0 0' },
-            '"subagents" marks the 6 read-only tools that task, finder and oracle get. Subagents can\'t ask for approval and run at most 25 turns.',
+            `"subagents" marks the ${D.readOnly.length} read-only tools that task, finder and oracle get. Subagents can't ask for approval and run at most 25 turns.`,
           ),
         ),
         card(
