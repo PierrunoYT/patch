@@ -416,6 +416,32 @@ describe('OpenAIResponsesConversation', () => {
     expect(conversation.hasPendingToolCalls()).toBe(false);
   });
 
+  it('sees a call as pending when the model wrote a message after it (#250)', () => {
+    const conversation = new OpenAIResponsesConversation(createOpenAIClient('sk-test', baseURL), model, 'high', [
+      { role: 'user', content: [{ type: 'input_text', text: 'read it' }] },
+      {
+        type: 'function_call',
+        call_id: 'call_m',
+        name: 'read_file',
+        arguments: '{}',
+        id: 'fc_m',
+        status: 'completed',
+      } as never,
+      {
+        type: 'message',
+        role: 'assistant',
+        id: 'msg_m',
+        status: 'completed',
+        content: [{ type: 'output_text', text: 'Reading it now.', annotations: [] }],
+      } as never,
+    ]);
+    expect(conversation.hasPendingToolCalls()).toBe(true);
+    conversation.addUserMessage({ text: 'Continue.' });
+    const items = conversation.serialize().messages as Array<Record<string, unknown>>;
+    expect(items.filter((item) => item.type === 'function_call_output' && item.call_id === 'call_m')).toHaveLength(1);
+    expect(conversation.hasPendingToolCalls()).toBe(false);
+  });
+
   it('closes function calls left pending by an interrupted task when the next message is added', () => {
     const conversation = new OpenAIResponsesConversation(createOpenAIClient('sk-test', baseURL), model, 'high', [
       { role: 'user', content: [{ type: 'input_text', text: 'read a.ts' }] },

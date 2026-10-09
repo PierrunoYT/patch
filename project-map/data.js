@@ -547,7 +547,6 @@ const D = {
       0,
       '10-09',
     ],
-    [250, 'Responses API: a function_call followed by a message is not seen as pending', 'other', 'low', 0, '10-09'],
     [248, 'search_code: changing the OpenRouter key leaves an index update running', 'tools', 'low', 0, '10-09'],
     [246, 'apply_patch fuzzy matching rewrites unchanged context lines (BOM, tabs)', 'tools', 'low', 0, '10-09'],
     [243, 'MCP: a server that crashes is never reconnected', 'mcp', 'medium', 0, '10-09'],
@@ -649,7 +648,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 163,
+  closedCount: 164,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

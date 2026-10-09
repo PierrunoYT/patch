@@ -192,6 +192,9 @@ export class OpenAIResponsesConversation implements Conversation {
         if (calls.length > 0) break;
         answered.add(item.call_id);
       } else if (item.type === 'function_call') calls.unshift(item.call_id);
+      // The model's own text and reasoning can come before or after its calls in one turn ([call, message] too), so
+      // they do not end the batch; the user's message before the turn does (#250).
+      else if ((item.type === 'message' && item.role !== 'user') || item.type === 'reasoning') continue;
       else break;
     }
     return calls.filter((id) => !answered.has(id));
