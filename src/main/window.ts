@@ -99,7 +99,8 @@ function hardenWebContents(window: BrowserWindow, onAgentBrowserAttached: (guest
     webPreferences.nodeIntegrationInSubFrames = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
-    params.allowpopups = 'false';
+    // A present allowpopups attribute turns popups on whatever its value.
+    delete params.allowpopups;
   });
 
   window.webContents.on('did-attach-webview', (_event, guest) => {

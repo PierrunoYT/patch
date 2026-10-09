@@ -586,7 +586,6 @@ const D = {
     [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 0, '10-06'],
     [125, 'e2e: transcript_view approval-card and Undo tests fail intermittently', 'tests', 'low', 0, '10-06'],
     [121, 'Perplexity Decider V1 27B (OpenRouter) as a safety check on tool calls', 'tools', 'low', 0, '10-05'],
-    [120, 'Hide DevTools in packaged builds; delete the webview allowpopups value', 'security', 'low', 0, '10-05'],
     [118, 'Full chat saves are synchronous and pretty-printed on the main process', 'perf', 'low', 0, '10-05'],
     [117, 'Stopping an MCP stdio server kills only its direct child on macOS/Linux', 'mcp', 'low', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
@@ -636,7 +635,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 125,
+  closedCount: 126,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

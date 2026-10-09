@@ -40,7 +40,8 @@ export function buildMenu(getWindow: () => BrowserWindow | null, logFolder: stri
       label: 'View',
       submenu: [
         { role: 'reload' },
-        { role: 'toggleDevTools' },
+        // A console on the app page has the whole window.api: only in development.
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
