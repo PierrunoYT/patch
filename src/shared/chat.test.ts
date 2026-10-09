@@ -115,6 +115,27 @@ describe('applyChatEvent', () => {
     expect(items).toEqual([{ kind: 'assistant', id: 'a', text: 'Hello.', thinking: '', streaming: false }]);
   });
 
+  it('updates the newest item without touching the others, and an older item as well (#200)', () => {
+    const before = run([
+      { type: 'user', id: 'u', text: 'hi', imageCount: 0 },
+      { type: 'assistant-start', id: 'a' },
+      { type: 'tool-start', id: 't', name: 'read_file', awaitingApproval: false },
+    ]);
+    // The newest item is the target: the array is new, every other item is the same object.
+    const newest = applyChatEvent(before, { type: 'tool-progress', id: 't', text: 'out' });
+    expect(newest).not.toBe(before);
+    expect(newest[0]).toBe(before[0]);
+    expect(newest[1]).toBe(before[1]);
+    expect(newest[2]).toMatchObject({ kind: 'tool', output: 'out' });
+    expect(before[2]).not.toHaveProperty('output');
+    // An older item is still found.
+    const older = applyChatEvent(before, { type: 'assistant-delta', id: 'a', text: 'late' });
+    expect(older[1]).toMatchObject({ kind: 'assistant', text: 'late' });
+    expect(older[2]).toBe(before[2]);
+    // An id that matches nothing leaves the content alone.
+    expect(applyChatEvent(before, { type: 'assistant-delta', id: 'zzz', text: 'x' })).toEqual(before);
+  });
+
   it('drops empty assistant bubbles from tool-only turns', () => {
     expect(
       run([

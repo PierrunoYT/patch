@@ -298,6 +298,18 @@ The debounced full save (500 ms after chat activity), which also updates the ind
 
 What remains in the call is `JSON.stringify`, as for checkpoints. Without indentation the files are smaller, but in this run serializing took about as long as before, within the noise. A full save that is still being written when the process is killed is lost, as a checkpoint is, and the chat reopens from the save before it.
 
+### The reducer updates the newest item directly ([#200](https://github.com/PierrunoYT/patch/issues/200), 2026-10-09)
+
+`applyChatEvent` mapped every transcript item for each streamed delta, in the main process and in the renderer. An event for the newest item (nearly all of them) now copies the array and replaces that item. `tests/perf/main_process.perf.ts` (1,594 text deltas, one run, same machine as the sections above, reducer time per delta):
+
+| Transcript items | Before | After |
+| ---------------- | ------ | ----- |
+| 1,250            | 8 µs   | 1 µs  |
+| 5,000            | 30 µs  | 3 µs  |
+| 20,000           | 256 µs | 61 µs |
+
+The renderer also draws a streaming answer without syntax highlighting and highlights it once it ends (`renderMarkdown(text, false)`), so the per-frame cost no longer grows with the code blocks of a long answer. That part was not measured separately: the app-level numbers of `tests/perf/long_chat.perf.ts` were not re-run.
+
 ### Re-run of the renderer and main-process benchmarks (2026-10-01)
 
 After the MCP, plan mode, subagent, skills and UI-redesign merges, same machine, three runs each:

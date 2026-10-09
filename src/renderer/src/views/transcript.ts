@@ -310,7 +310,7 @@ export class TranscriptView {
                   trustedHtml('div', 'markdown thinking', renderMarkdown(item.thinking)),
                 ])
               : null,
-            item.text ? trustedHtml('div', 'markdown', renderMarkdown(item.text)) : null,
+            item.text ? trustedHtml('div', 'markdown', renderMarkdown(item.text, !item.streaming)) : null,
             item.streaming && !item.text ? h('div', { class: 'typing' }, h('span'), h('span'), h('span')) : null,
           ),
         );

@@ -282,8 +282,18 @@ export function limitPreview(preview: ToolPreviewView | undefined): ToolPreviewV
 // Applies one event to a transcript, returning a new array. Events that only change session metadata (busy,
 // usage, title) leave the transcript unchanged.
 export function applyChatEvent(items: TranscriptItem[], event: ChatEvent): TranscriptItem[] {
-  const update = (id: string, change: (item: TranscriptItem) => TranscriptItem) =>
-    items.map((item) => (item.id === id ? change(item) : item));
+  const update = (id: string, change: (item: TranscriptItem) => TranscriptItem) => {
+    // Almost every streamed event is for the newest item. Copying the array and replacing that one item avoids
+    // calling a function for every item of a long transcript on every delta (#200); the other items are untouched.
+    // Item ids are unique (random ids and the provider's tool-call ids), so the newest item is the only match.
+    const last = items.length - 1;
+    if (last >= 0 && items[last]!.id === id) {
+      const next = items.slice();
+      next[last] = change(items[last]!);
+      return next;
+    }
+    return items.map((item) => (item.id === id ? change(item) : item));
+  };
 
   switch (event.type) {
     case 'user':

@@ -5,6 +5,11 @@ import hljs from 'highlight.js/lib/common';
 import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 
+const markedOptions = { gfm: true, breaks: false };
+
+// Without highlighting: used while an answer streams (see renderMarkdown).
+const plainMarked = new Marked(markedOptions);
+
 const marked = new Marked(
   markedHighlight({
     emptyLangClass: 'hljs',
@@ -14,7 +19,7 @@ const marked = new Marked(
       return hljs.highlight(code, { language }).value;
     },
   }),
-  { gfm: true, breaks: false },
+  markedOptions,
 );
 
 // Sanitized HTML for trustedHtml(). The app page enforces Trusted Types and its CSP allows only DOMPurify's own policy,
@@ -28,8 +33,12 @@ function sanitize(html: string, config: Parameters<typeof DOMPurify.sanitize>[1]
 
 // Model output is untrusted: rendered markdown is always sanitized before it reaches the DOM. Images and embeds are
 // removed too, because an image URL written by a prompt-injected model is a way to leak data.
-export function renderMarkdown(text: string): SanitizedHtml {
-  return sanitize(marked.parse(text, { async: false }) as string, {
+//
+// `highlight: false` skips syntax highlighting. A streaming answer is parsed again from its start on every frame, and
+// highlighting its code blocks every time made that cost grow with the answer's length (#200); the finished message is
+// rendered with highlighting.
+export function renderMarkdown(text: string, highlight = true): SanitizedHtml {
+  return sanitize((highlight ? marked : plainMarked).parse(text, { async: false }) as string, {
     USE_PROFILES: { html: true },
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['img', 'picture', 'video', 'audio', 'source', 'iframe', 'object', 'embed', 'form', 'input', 'style'],
