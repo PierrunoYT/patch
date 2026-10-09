@@ -36,7 +36,7 @@ import { BrowserService } from './panels/browser';
 import { suggestCommitMessage } from './panels/commit_message';
 import { GitService } from './panels/git';
 import { TerminalService } from './panels/terminal';
-import { createMainWindow } from './window';
+import { createMainWindow, guardNewWebContents } from './window';
 import { hardenExecutableSearch } from './exec_search';
 
 // Before anything is spawned: bare program names (git, powershell.exe, docker) must never resolve to a file in the
@@ -80,6 +80,7 @@ app.on('child-process-gone', (_event, details) => {
     });
   }
 });
+guardNewWebContents();
 
 // End-to-end tests run in an invisible window (see window.ts). Chromium would treat it as hidden or covered and slow
 // its timers and rendering, which makes tests time out, so that is switched off for test runs only.

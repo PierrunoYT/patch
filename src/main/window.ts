@@ -58,6 +58,19 @@ export function createMainWindow(onAgentBrowserAttached: (guest: WebContents) =>
   return window;
 }
 
+// Defaults for every web contents the app ever creates, so a future window or webview is locked down even if nobody
+// remembers to call hardenWebContents for it: popups are denied (the main window and the browser panel install their
+// own handlers over this), and an app window may not navigate away from its page.
+export function guardNewWebContents(): void {
+  app.on('web-contents-created', (_event, contents) => {
+    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    if (contents.getType() !== 'window') return;
+    contents.on('will-navigate', (event, url) => {
+      if (url !== contents.getURL()) event.preventDefault();
+    });
+  });
+}
+
 // A window that hangs, or an app page that fails to load, is otherwise invisible to anyone but the person looking at it.
 function logWindowProblems(window: BrowserWindow): void {
   window.on('unresponsive', () => appLog.warn('window', 'The window stopped responding.'));
@@ -99,8 +112,11 @@ function hardenWebContents(window: BrowserWindow, onAgentBrowserAttached: (guest
     webPreferences.nodeIntegrationInSubFrames = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
-    // A present allowpopups attribute turns popups on whatever its value.
+    webPreferences.webSecurity = true;
+    webPreferences.allowRunningInsecureContent = false;
+    // A present allowpopups or disablewebsecurity attribute turns the feature on whatever its value.
     delete params.allowpopups;
+    delete params.disablewebsecurity;
   });
 
   window.webContents.on('did-attach-webview', (_event, guest) => {
