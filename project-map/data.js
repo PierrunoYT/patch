@@ -561,14 +561,6 @@ const D = {
     [239, 'Network allow-list proxy does not check the TLS server name after CONNECT', 'sandbox', 'medium', 0, '10-09'],
     [238, 'Plan mode is not enforced: a declined plan does not stop edits in Auto mode', 'tools', 'medium', 0, '10-09'],
     [237, 'Permission ask/reject rules match the raw input and are easy to bypass', 'security', 'medium', 0, '10-09'],
-    [
-      236,
-      'Protected-path guard misses AGENTS.md, .patch/skills and auto-run configs',
-      'security',
-      'medium',
-      0,
-      '10-09',
-    ],
     [235, 'Browser tool pages can frame and fetch local and private addresses', 'security', 'medium', 0, '10-09'],
     [234, 'search_code sends secrets unredacted to the embedding providers', 'security', 'medium', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
@@ -665,7 +657,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 153,
+  closedCount: 154,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -21,6 +21,18 @@ describe('isGuardedPath', () => {
     'data/app.sqlite',
     'C:\\Windows\\System32\\drivers\\etc\\hosts',
     '/etc/passwd',
+    // Patch's own instructions and files other programs run (#236).
+    'AGENTS.md',
+    'claude.md',
+    '.patch/skills/release.md',
+    '.mcp.json',
+    '.gemini/settings.json',
+    '.zed/settings.json',
+    '.continue/config.json',
+    '.kilocode/mcp.json',
+    '.envrc',
+    'services/api/.envrc',
+    '.husky/pre-commit',
   ])('guards %s', (path) => {
     expect(isGuardedPath(path)).toBe(true);
   });
@@ -32,7 +44,9 @@ describe('isGuardedPath', () => {
     '.gitignore',
     '.github/workflows/ci.yml',
     'docs/environment.md',
-    'AGENTS.md',
+    // Only the project's own instruction files are read into chats.
+    'docs/AGENTS.md',
+    'src/patch/index.ts',
     'src/keyboard.ts',
     '.ENV.EXAMPLE',
   ])('does not guard %s', (path) => {

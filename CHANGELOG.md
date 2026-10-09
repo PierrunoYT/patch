@@ -59,6 +59,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 - MCP approval cards show the call's arguments as JSON under the server and tool name, and chat exports include them. Before, the card showed only the tool name, so a call could send anything to the server without the user seeing it (fixes #230).
 - An allowed command (Settings, "Commands allowed without asking") is asked about when an argument writes a file or runs another program, such as `git log --output=<file>`, which wrote any bytes to any path through `--format` escapes, `git grep -O<program>` or `find -exec` (fixes #233).
+- Edits to the project's `AGENTS.md` or `CLAUDE.md` and its `.patch` folder (skills) ask even in Auto mode, since they go into every new chat's system prompt and an injected edit would carry over. So do `.mcp.json`, `.envrc`, `.husky/` hooks and the `.gemini`, `.zed`, `.continue`, `.kilo` and `.kilocode` folders (fixes #236).
 
 ### Test maintenance
 
