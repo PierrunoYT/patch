@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { posix, win32 } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -7,6 +6,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { McpServerConfig, McpStatus } from '@shared/settings';
 import { fixedSearchPath } from '../exec_search';
 import type { JsonObjectSchema } from '../llm/types';
+import { killSurvivors, listProcesses, processTree } from './shell_leftovers';
 import { ToolError, truncateOutput, type AgentTool, type ToolOutput } from './types';
 
 const CONNECT_TIMEOUT_MS = 10_000;
@@ -313,35 +313,24 @@ async function closeClient(state: ServerState): Promise<void> {
   // Cleared first, so the client's onclose sees a close the hub asked for and does not report the server as stopped.
   state.client = null;
   state.connecting = null;
+  // close() ends the server it spawned, but not what that started (`npx`, `uvx` and shell wrappers make the real
+  // server a grandchild). Once the server is gone its children are re-parented, and `taskkill /T` cannot walk the
+  // tree of a dead pid either, so the tree is listed and whatever outlives close() is killed after it (#117). On POSIX
+  // the listing (`ps`, fast) must finish before the server can exit. Windows keeps the parent pid of an orphan, so
+  // its slower listing runs while close() waits for the server.
+  const listing = pid ? listProcesses() : Promise.resolve(null);
+  if (process.platform !== 'win32') await listing;
   try {
     await client?.close();
   } catch {
     // A server that will not close cleanly is killed below; the process is going away anyway.
   }
-  await killProcessTree(pid);
+  if (pid) await killSurvivors(processTree((await listing) ?? [], pid));
 }
 
 function stdioPid(client: Client): number | undefined {
   const transport = (client as unknown as { transport?: { pid?: number | null } }).transport;
   return typeof transport?.pid === 'number' ? transport.pid : undefined;
-}
-
-// close() kills the spawned process but not what it started. `npx` runs under cmd.exe on Windows, and killing that
-// leaves the node grandchild running, so the whole tree goes.
-// Asynchronous, so the main process keeps running meanwhile; stop() and quitting still wait for it.
-async function killProcessTree(pid: number | undefined): Promise<void> {
-  if (!pid) return;
-  try {
-    if (process.platform === 'win32') {
-      await new Promise<void>((resolve) =>
-        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true }, () => resolve()),
-      );
-    } else {
-      process.kill(pid, 'SIGKILL');
-    }
-  } catch {
-    // Already gone.
-  }
 }
 
 async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {

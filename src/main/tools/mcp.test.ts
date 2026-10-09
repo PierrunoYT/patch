@@ -1,7 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { pathToFileURL } from 'node:url';
+import { describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
 import { launchConfig, McpHub, resolveCommand } from './mcp';
 
@@ -186,6 +187,53 @@ describe('McpHub', () => {
       await hub.stop();
     }
   });
+
+  // #117: wrappers such as npx make the real server a grandchild; stopping must not leave it running.
+  it('stops the processes a stdio server started, not only the server', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mcp-tree-'));
+    const script = join(dir, 'wrapper.mjs');
+    const pidFile = join(dir, 'child.pid');
+    // Starts a child that ignores stdin and runs until killed, then serves MCP itself. Detached, because on Windows
+    // Node otherwise ends its children with it (a kill-on-close job), which cmd.exe running npx does not do.
+    writeFileSync(
+      script,
+      [
+        "import { spawn } from 'node:child_process';",
+        "import { writeFileSync } from 'node:fs';",
+        `const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: true });`,
+        `writeFileSync(${JSON.stringify(pidFile)}, String(child.pid));`,
+        `await import(${JSON.stringify(pathToFileURL(mockServerScript).href)});`,
+      ].join('\n'),
+    );
+    const servers: McpServerConfig[] = [
+      { name: 'wrapped', transport: 'stdio', command: process.execPath, args: [script] },
+    ];
+    const hub = new McpHub(
+      () => servers,
+      () => {},
+    );
+    const alive = (pid: number) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    let child = 0;
+    try {
+      await hub.refresh();
+      expect(hub.status()[0]).toMatchObject({ state: 'connected' });
+      child = Number(readFileSync(pidFile, 'utf8'));
+      expect(alive(child)).toBe(true);
+      await hub.stop();
+      await vi.waitFor(() => expect(alive(child)).toBe(false), { timeout: 5_000 });
+    } finally {
+      await hub.stop();
+      if (child && alive(child)) process.kill(child, 'SIGKILL');
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   // #190: quitting while a server is still connecting must not wait out the connect and tool-list timeouts.
   it('stops at once while a server is still connecting', async () => {

@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { findLeftovers, parseProcessRows, type ProcessRow } from './shell_leftovers';
+import { findLeftovers, parseProcessRows, parsePsRows, processTree, type ProcessRow } from './shell_leftovers';
+
+describe('processTree and parsePsRows (#117)', () => {
+  it('reads ps output with its start times and walks a tree from its root', () => {
+    const rows = parsePsRows(
+      [
+        '    1     0 Mon Oct  5 09:00:00 2026',
+        '  100     1 Fri Oct  9 10:00:00 2026',
+        '  200   100 Fri Oct  9 10:00:01 2026',
+        '  300   200 Fri Oct  9 10:00:02 2026',
+        '  400     1 Fri Oct  9 10:00:03 2026',
+        'garbage',
+      ].join('\n'),
+    );
+    expect(rows[2]).toEqual({ pid: 200, parent: 100, started: 'Fri Oct  9 10:00:01 2026' });
+    expect(processTree(rows, 100).map((row) => row.pid)).toEqual([100, 200, 300]);
+    expect(processTree(rows, 999)).toEqual([]);
+    // The root has exited, but its children still name it as their parent (Windows).
+    expect(processTree(rows.slice(2), 100).map((row) => row.pid)).toEqual([200, 300]);
+  });
+
+  it('stops at a cycle in the listing', () => {
+    const rows = [
+      { pid: 10, parent: 20, started: 'a' },
+      { pid: 20, parent: 10, started: 'b' },
+    ];
+    expect(processTree(rows, 10).map((row) => row.pid)).toEqual([10, 20]);
+  });
+});
 
 const lifetime = { startedAt: 10_000, endedAt: 20_000 };
 const row = (pid: number, parent: number, created: number): ProcessRow => ({ pid, parent, created });

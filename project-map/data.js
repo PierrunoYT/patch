@@ -134,7 +134,7 @@ const D = {
       list: [
         'registry.ts',
         'shell.ts (628; refuses sensitive roots, #145; project-local macOS temp, #144; streaming UTF-8 and process-tree cleanup; asynchronous sandbox probes)',
-        'shell_leftovers.ts (97; finds and kills what a Windows shell left running through its parent pid, #165)',
+        'shell_leftovers.ts (163; finds and kills what a Windows shell left running through its parent pid, #165; lists the process tree of an MCP server it stops, #117)',
         'sandbox_windows.ts (434, Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152) and the project-grant revoke on close, #103)',
         'sandbox.ts (safe canonical project roots before Git preparation, #145; project-only Seatbelt writes and command-local temp, #144; asynchronous support probes, #112)',
         'files.ts (376; native no-follow reads and writes, #144; read-before-write and UTF-8-only edits)',
@@ -152,7 +152,7 @@ const D = {
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process, pooled workers)',
         'browser.ts',
-        'mcp.ts (stdio servers start in userData/mcp with an absolute command; ${project} opts a server into the project, #142)',
+        'mcp.ts (stdio servers start in userData/mcp with an absolute command; ${project} opts a server into the project, #142; stopping one kills its whole process tree, #117)',
         'task.ts',
         'todo.ts',
         'plan.ts',
@@ -349,7 +349,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 11, c: 233, src: 1754, tl: 3628 },
     { a: 'main/llm', f: 8, c: 107, src: 2196, tl: 3016 },
-    { a: 'main/tools', f: 28, c: 603, src: 5075, tl: 7602 },
+    { a: 'main/tools', f: 28, c: 606, src: 5075, tl: 7602 },
     { a: 'main/panels', f: 4, c: 76, src: 728, tl: 1148 },
     { a: 'main/other', f: 13, c: 213, src: 3355, tl: 3333 },
     { a: 'shared', f: 8, c: 88, src: 1329, tl: 1006 },
@@ -572,7 +572,6 @@ const D = {
     [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 0, '10-06'],
     [125, 'e2e: transcript_view approval-card and Undo tests fail intermittently', 'tests', 'low', 0, '10-06'],
     [121, 'Perplexity Decider V1 27B (OpenRouter) as a safety check on tool calls', 'tools', 'low', 0, '10-05'],
-    [117, 'Stopping an MCP stdio server kills only its direct child on macOS/Linux', 'mcp', 'low', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
     [104, 'No process or memory limits for sandboxed commands on Linux and macOS', 'sandbox', 'low', 0, '10-05'],
     [
@@ -617,7 +616,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 148,
+  closedCount: 149,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

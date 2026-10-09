@@ -81,6 +81,72 @@ async function killPids(pids: number[]): Promise<void> {
   await run('taskkill', ['/F', ...pids.flatMap((pid) => ['/PID', String(pid)])], 10_000);
 }
 
+// A process as listed for a tree walk. `started` identifies the process together with its pid, so one that took a
+// pid meanwhile is not mistaken for it: creation time in epoch milliseconds on Windows, `ps` lstart elsewhere.
+export interface TreeRow {
+  pid: number;
+  parent: number;
+  started: string;
+}
+
+// `ps -A -o pid= -o ppid= -o lstart=` output.
+export function parsePsRows(text: string): TreeRow[] {
+  const rows: TreeRow[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s*(\d+)\s+(\d+)\s+(\S.*?)\s*$/.exec(line);
+    if (match) rows.push({ pid: Number(match[1]), parent: Number(match[2]), started: match[3]! });
+  }
+  return rows;
+}
+
+// `root` and everything below it. Children are found even when `root` itself has already exited: Windows keeps a
+// process's ParentProcessId after its parent ends.
+export function processTree(rows: readonly TreeRow[], root: number): TreeRow[] {
+  const found = rows.filter((row) => row.pid === root);
+  const pending = [root];
+  const seen = new Set([root]);
+  for (let parent = pending.pop(); parent !== undefined; parent = pending.pop()) {
+    for (const row of rows) {
+      if (row.parent !== parent || seen.has(row.pid)) continue;
+      seen.add(row.pid);
+      found.push(row);
+      pending.push(row.pid);
+    }
+  }
+  return found;
+}
+
+// Every process with its parent, or null when they cannot be listed. Never rejects.
+export async function listProcesses(): Promise<TreeRow[] | null> {
+  if (process.platform === 'win32') {
+    const listed = await run('powershell.exe', POWERSHELL_ARGS, SWEEP_TIMEOUT_MS);
+    return listed === null
+      ? null
+      : parseProcessRows(listed).map((row) => ({ pid: row.pid, parent: row.parent, started: String(row.created) }));
+  }
+  const listed = await run('ps', ['-A', '-o', 'pid=', '-o', 'ppid=', '-o', 'lstart='], SWEEP_TIMEOUT_MS);
+  return listed === null ? null : parsePsRows(listed);
+}
+
+// Kills the processes of `tree` that still run as the same process (same pid and start time). Never rejects.
+export async function killSurvivors(tree: readonly TreeRow[]): Promise<void> {
+  if (tree.length === 0) return;
+  const now = await listProcesses();
+  if (!now) return;
+  const pids = now
+    .filter((row) => tree.some((old) => old.pid === row.pid && old.started === row.started))
+    .map((row) => row.pid)
+    .filter((pid) => pid > 4 && pid !== process.pid);
+  if (process.platform === 'win32') return killPids(pids);
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
 // Kills what the shell `root` left running. Asynchronous, so the process listing (a few hundred milliseconds, up to
 // the sweep timeout) does not freeze the main process (#112); quitting waits for it. Never rejects.
 export async function killWindowsLeftovers(
