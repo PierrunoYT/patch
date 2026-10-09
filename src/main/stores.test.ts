@@ -21,7 +21,7 @@ let dir: string;
 beforeEach(() => {
   // Resolved, because ProjectStore keeps real paths: on macOS the temp folder /var/... is a link to /private/var/...,
   // and looking a project up by the unresolved path would not find it.
-  dir = realpathSync(mkdtempSync(join(tmpdir(), 'cc-stores-')));
+  dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'cc-stores-')));
 });
 
 afterEach(() => {

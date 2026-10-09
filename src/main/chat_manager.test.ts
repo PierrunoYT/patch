@@ -29,7 +29,7 @@ describe('project chat retention', () => {
 
   beforeEach(() => {
     // Real path: on macOS the temp folder is under /var, a link to /private/var, and projects are stored by real path.
-    root = realpathSync(mkdtempSync(join(tmpdir(), 'cc-manager-')));
+    root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cc-manager-')));
     mkdirSync(join(root, 'alpha'));
     mkdirSync(join(root, 'beta'));
     projects = new ProjectStore(join(root, 'projects.json'));
