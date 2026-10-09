@@ -38,12 +38,41 @@ function sanitize(html: string, config: Parameters<typeof DOMPurify.sanitize>[1]
 // highlighting its code blocks every time made that cost grow with the answer's length (#200); the finished message is
 // rendered with highlighting.
 export function renderMarkdown(text: string, highlight = true): SanitizedHtml {
-  return sanitize((highlight ? marked : plainMarked).parse(text, { async: false }) as string, {
-    USE_PROFILES: { html: true },
-    ADD_ATTR: ['target'],
-    FORBID_TAGS: ['img', 'picture', 'video', 'audio', 'source', 'iframe', 'object', 'embed', 'form', 'input', 'style'],
-    FORBID_ATTR: ['style'],
-  });
+  // Model text must not borrow the app's own classes or ids to draw something that looks like Patch (a fake Approve
+  // button, an overlay, hidden text) (#254). Only the code highlighting classes stay. The hook is added for this call
+  // only: diffs rely on their own classes.
+  DOMPurify.addHook('uponSanitizeAttribute', keepHighlightClasses);
+  try {
+    return sanitize((highlight ? marked : plainMarked).parse(text, { async: false }) as string, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ['target'],
+      FORBID_TAGS: [
+        'img',
+        'picture',
+        'video',
+        'audio',
+        'source',
+        'iframe',
+        'object',
+        'embed',
+        'form',
+        'input',
+        'style',
+      ],
+      FORBID_ATTR: ['style', 'id', 'hidden'],
+    });
+  } finally {
+    DOMPurify.removeHook('uponSanitizeAttribute', keepHighlightClasses);
+  }
+}
+
+const HIGHLIGHT_CLASS = /^(hljs(-[\w-]+)?|language-[\w+#.-]+)$/;
+
+function keepHighlightClasses(_node: Element, data: { attrName: string; attrValue: string; keepAttr: boolean }): void {
+  if (data.attrName !== 'class') return;
+  const kept = data.attrValue.split(/\s+/).filter((name) => HIGHLIGHT_CLASS.test(name));
+  if (kept.length === 0) data.keepAttr = false;
+  else data.attrValue = kept.join(' ');
 }
 
 export function renderDiff(diff: string, theme: 'dark' | 'light'): SanitizedHtml {

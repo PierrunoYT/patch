@@ -164,4 +164,28 @@ describe('the transcript view (mock Claude API)', () => {
       )
       .toBe('Undone');
   });
+  it("does not let model text borrow the app's classes or ids to draw fake controls (#254)", async () => {
+    const fake =
+      '<div class="position-fixed top-0 w-100 bg-body z-3" id="app" hidden>OVERLAY-254</div>' +
+      '<a class="btn btn-primary fake-approve-254" href="https://evil.example/">Approve</a>';
+    claude.script({
+      blocks: [{ type: 'text', text: `${fake}\n\nDone with the check.\n\n${'```'}ts\nconst x = 1;\n${'```'}` }],
+      stopReason: 'end_turn',
+    });
+    await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Show the fake controls' }));
+    await running.page.getByText('Done with the check.', { exact: true }).waitFor();
+    const found = await running.page.evaluate(() => {
+      const message = [...document.querySelectorAll('.markdown')].find((element) =>
+        element.textContent?.includes('Done with the check.'),
+      )!;
+      return {
+        classed: message.querySelectorAll('.btn, .position-fixed, .fake-approve-254').length,
+        ids: message.querySelectorAll('[id]').length,
+        hidden: message.querySelectorAll('[hidden]').length,
+        highlighted: message.querySelectorAll('.hljs-keyword').length,
+        apps: document.querySelectorAll('#app').length,
+      };
+    });
+    expect(found).toEqual({ classed: 0, ids: 0, hidden: 0, highlighted: 1, apps: 1 });
+  });
 });

@@ -3,11 +3,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 // DOMPurify needs a window when it is first imported, so the module is loaded after one is installed.
 let renderMarkdown: typeof import('./markdown').renderMarkdown;
+let renderDiff: typeof import('./markdown').renderDiff;
 
 beforeAll(async () => {
   const { window } = parseHTML('<!doctype html><html><body></body></html>');
   Object.assign(globalThis, { window, document: window.document });
-  ({ renderMarkdown } = await import('./markdown'));
+  ({ renderMarkdown, renderDiff } = await import('./markdown'));
 });
 
 const html = (value: unknown) => String(value);
@@ -23,5 +24,13 @@ describe('renderMarkdown', () => {
     expect(streaming).not.toContain('hljs-keyword');
     expect(streaming).toContain('<pre><code');
     expect(streaming).toContain('const a: number = 1;');
+  });
+
+  // DOMPurify does not sanitize under linkedom, so what model text keeps is checked end to end in the app
+  // (transcript_view.test.ts, #254). This checks that the class filter for markdown is removed again afterwards.
+  it('leaves the classes of a diff alone, which uses the same sanitizer', () => {
+    renderMarkdown(answer);
+    const diff = html(renderDiff('--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n', 'light'));
+    expect(diff).toContain('d2h-');
   });
 });

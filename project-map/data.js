@@ -376,7 +376,7 @@ const D = {
     ['images', 4],
     ['projects', 3],
     ['retry', 3],
-    ['transcript_view', 5],
+    ['transcript_view', 6],
     ['crash_kill', 2],
     ['documentation-visuals', 2],
     ['large_output', 2],
@@ -535,7 +535,6 @@ const D = {
     [259, 'Minor reliability issues from the Oct 9 audit', 'other', 'low', 0, '10-09'],
     [258, 'Linux keys may show as encrypted with the basic_text safeStorage backend', 'security', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
-    [254, 'Model-written markdown keeps class and id, so it can draw fake app UI', 'ui', 'low', 0, '10-09'],
     [253, 'Command output redacted after truncation; live progress not redacted', 'security', 'low', 0, '10-09'],
     [248, 'search_code: changing the OpenRouter key leaves an index update running', 'tools', 'low', 0, '10-09'],
     [243, 'MCP: a server that crashes is never reconnected', 'mcp', 'medium', 0, '10-09'],
@@ -637,7 +636,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 168,
+  closedCount: 169,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
