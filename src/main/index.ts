@@ -361,7 +361,6 @@ function start(): void {
     }
     send(mainWindow, 'project:changed', projects.current());
   });
-  handle('project:set-instructions', (path, instructions) => projects.setInstructions(path, instructions));
   handle('project:update-settings', async (path, projectSettings) => {
     await confirmChanges(projectChangesToConfirm(projects.get(path), projectSettings));
     return projects.updateSettings(path, projectSettings);

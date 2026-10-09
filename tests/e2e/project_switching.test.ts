@@ -82,7 +82,12 @@ describe('switching between open projects (mock Claude API)', () => {
     await running.page.evaluate((path) => window.api.invoke('project:open', path), beta);
     await tab('Beta').waitFor();
     await running.page.evaluate(
-      (path) => window.api.invoke('project:set-instructions', path, 'BETA-PROJECT-INSTRUCTIONS'),
+      (path) =>
+        window.api.invoke('project:update-settings', path, {
+          instructions: 'BETA-PROJECT-INSTRUCTIONS',
+          allowedCommands: '',
+          allowedNetworkHosts: '',
+        }),
       beta,
     );
     betaChatId = (await ask('Hello Beta', 'Beta answered.')).id;

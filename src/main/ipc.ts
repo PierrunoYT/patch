@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import type { EventChannel, EventMap, InvokeApi, InvokeChannel } from '@shared/ipc';
 import { appLog } from './app_log';
+import { parseIpcArgs } from './ipc_schemas';
 import { isAppPageUrl } from './renderer_url';
 
 type Handler<K extends InvokeChannel> = (
@@ -22,7 +23,8 @@ export function handle<K extends InvokeChannel>(channel: K, handler: Handler<K>)
       throw new Error('Blocked IPC call from a frame that is not the app page.');
     }
     try {
-      return await handler(...(args as Parameters<InvokeApi[K]>));
+      // Arguments come from the renderer as untyped data: refuse anything the channel does not take (#32).
+      return await handler(...(parseIpcArgs(channel, args) as Parameters<InvokeApi[K]>));
     } catch (error) {
       // Only the channel is logged, not the arguments, which can hold messages and file contents.
       appLog.error('ipc', error, { channel });

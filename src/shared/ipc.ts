@@ -70,7 +70,6 @@ export interface InvokeApi {
   'project:list': () => ProjectInfo[];
   'project:opened': () => ProjectInfo[];
   'project:close': (path: string) => void;
-  'project:set-instructions': (path: string, instructions: string) => ProjectInfo;
   // The instructions and the project's own allow-lists (added to the global ones in Settings).
   'project:update-settings': (path: string, settings: ProjectSettings) => ProjectInfo;
   'project:remove': (path: string) => ProjectInfo[];
@@ -154,7 +153,6 @@ const INVOKE: Record<InvokeChannel, true> = {
   'project:list': true,
   'project:opened': true,
   'project:close': true,
-  'project:set-instructions': true,
   'project:update-settings': true,
   'project:remove': true,
   'chat:snapshot': true,
