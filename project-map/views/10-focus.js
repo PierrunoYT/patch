@@ -3,12 +3,12 @@
 builders.focus = () => {
   const items = [
     [
-      'Fix the high findings from the Oct 9 audit: #231, #232 and #240',
+      'Fix the high findings from the Oct 9 audit: #232 and #240',
       'A full audit with a second pass found no Windows sandbox escape on its own. The worst issues are chains that get past the approval card, plus one bug that breaks a chat for good.',
       [
         '#229 is fixed: the agent browser has no network while it shows a project file, so a page that reads .env cannot send it anywhere',
         '#230 is fixed: MCP approval cards show the call arguments as JSON, not only the tool name',
-        '#231: Git panel Initialize while a sandboxed background command runs hands it a writable .git (hooks, core.sshCommand)',
+        '#231 is fixed: Git panel Initialize stops background commands and sandboxed project MCP servers before creating .git',
         '#232 (macOS, unverified): Seatbelt allows reading and writing every user tty',
         '#240: a request the API rejects for good (400/413) keeps its message in history, so every later message fails too',
       ],

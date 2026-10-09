@@ -112,6 +112,13 @@ export class ChatManager {
     this.shell?.stopAll();
   }
 
+  // Stops the current project's background commands, e.g. before Git metadata is created that a sandboxed command
+  // still running would otherwise be able to write (#231). Await commandStopsSettled() for them to have exited.
+  stopBackgroundCommands(): void {
+    this.requireIdle();
+    this.shell?.stopAll();
+  }
+
   resume(): Promise<void> {
     if (this.busy) throw new Error('The assistant is still working. Stop it or wait for it to finish.');
     if (!this.session?.snapshot().resumable) throw new Error('There is no stopped run to resume.');

@@ -188,8 +188,13 @@ function start(): void {
 
   const mcpDir = join(userData, 'mcp');
   mkdirSync(mcpDir, { recursive: true });
+  // Set while Git panel's Initialize runs: sandboxed servers with project access are stopped meanwhile (#231).
+  let pauseProjectMcpServers = false;
   const mcpServers = () =>
-    settings.mcpServers().map((server) => launchConfig(server, projects.current()?.path, mcpDir));
+    settings
+      .mcpServers()
+      .map((server) => launchConfig(server, projects.current()?.path, mcpDir))
+      .filter((server) => !(pauseProjectMcpServers && server.projectAccess));
   let appliedMcpConfig = '';
   const mcp = new McpHub(mcpServers, () => send(mainWindow, 'app:notice', 'MCP servers updated'), {
     name: 'Patch',
@@ -509,7 +514,22 @@ function start(): void {
   handle('git:commit', (message) => git().commit(message));
   handle('git:discard', (path) => git().discard(path));
   handle('git:discard-all', () => git().discardAll());
-  handle('git:init', () => git().init());
+  // The new .git is protected only from sandboxed processes started after it exists: one still running (a background
+  // command, a sandboxed MCP server given the project) would be able to write its config and hooks (#231). They are
+  // stopped first, and the servers start again once the repository is there.
+  handle('git:init', async () => {
+    manager.stopBackgroundCommands();
+    pauseProjectMcpServers = true;
+    try {
+      appliedMcpConfig = JSON.stringify(mcpServers());
+      await mcp.refresh();
+      await commandStopsSettled();
+      return await git().init();
+    } finally {
+      pauseProjectMcpServers = false;
+      refreshMcp();
+    }
+  });
   handle('git:push', () => git().push());
   handle('git:suggest-message', async () => {
     const service = git();

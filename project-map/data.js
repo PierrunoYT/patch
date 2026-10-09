@@ -279,6 +279,7 @@ const D = {
       ['app', 1],
       ['log', 1],
       ['mcp', 2],
+      ['git_init', 1],
       ['edit', 1],
     ],
     invokeNames: {
@@ -561,7 +562,6 @@ const D = {
     [237, 'Permission ask/reject rules match the raw input and are easy to bypass', 'security', 'medium', 0, '10-09'],
     [235, 'Browser tool pages can frame and fetch local and private addresses', 'security', 'medium', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
-    [231, 'Git panel Initialize makes .git writable to running sandboxed commands', 'sandbox', 'high', 0, '10-09'],
     [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
     [
       227,
@@ -653,7 +653,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 158,
+  closedCount: 159,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
