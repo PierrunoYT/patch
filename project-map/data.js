@@ -546,7 +546,6 @@ const D = {
       0,
       '10-09',
     ],
-    [251, 'Removing or reordering a delegate permission rule needs no confirmation', 'security', 'low', 0, '10-09'],
     [250, 'Responses API: a function_call followed by a message is not seen as pending', 'other', 'low', 0, '10-09'],
     [249, 'A malformed chat file stops the app from starting on an index rebuild', 'other', 'low', 0, '10-09'],
     [248, 'search_code: changing the OpenRouter key leaves an index update running', 'tools', 'low', 0, '10-09'],
@@ -657,7 +656,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 154,
+  closedCount: 155,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

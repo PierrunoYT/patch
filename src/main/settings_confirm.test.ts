@@ -268,6 +268,7 @@ describe('changesToConfirm', () => {
     const changed = { ...delegate, to: ['node', 'check.js', '--lenient'] };
     expect(changesToConfirm(configured, { permissionRules: [changed] })).toEqual([
       'Let the program "node check.js --lenient" decide calls to fetch_url (permission rule).',
+      'Change the rule that lets the program "node check.js --strict" decide calls to fetch_url, or its preceding rules (permission rule).',
     ]);
   });
 
@@ -277,6 +278,22 @@ describe('changesToConfirm', () => {
     expect(changesToConfirm(configured, { permissionRules: [] })).toEqual([
       `Change the ${action} protection for run_command matching {"command":"git push*"} or its preceding rules (permission rule).`,
     ]);
+  });
+
+  it('asks before removing a delegate rule or changing the rules before it, even in Auto mode (#251)', () => {
+    const delegate: PermissionRule = { tool: 'run_command', action: 'delegate', to: 'C:\\policy.exe' };
+    const allow: PermissionRule = { tool: 'run_command', action: 'allow' };
+    const configured = { ...current, approvalMode: 'auto' as const, permissionRules: [delegate] };
+    const expected = [
+      'Change the rule that lets the program "C:\\policy.exe" decide calls to run_command, or its preceding rules (permission rule).',
+    ];
+    expect(changesToConfirm(configured, { permissionRules: [] })).toEqual(expected);
+    // An allow rule put in front shadows the delegate; the new allow rule is listed too.
+    expect(changesToConfirm(configured, { permissionRules: [allow, delegate] })).toEqual([
+      'Allow run_command without asking (permission rule).',
+      ...expected,
+    ]);
+    expect(changesToConfirm(configured, { permissionRules: [delegate] })).toEqual([]);
   });
 
   it('asks when a protective rule changes its matching fields, tool, context or action', () => {
