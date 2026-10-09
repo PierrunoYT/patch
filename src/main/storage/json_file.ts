@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   closeSync,
   type Dirent,
+  fsyncSync,
   lstatSync,
   mkdirSync,
   openSync,
@@ -11,7 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, open } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { appLog } from '../app_log';
 
@@ -67,6 +68,8 @@ export function writeJson(path: string, value: unknown, options: JsonWriteOption
   try {
     try {
       writeFileSync(fd, stringify(value, options), 'utf8');
+      // On disk before the rename, so a power loss cannot leave an empty file under the real name (#259).
+      fsyncSync(fd);
     } finally {
       closeSync(fd);
     }
@@ -118,7 +121,13 @@ async function drain(path: string, write: LaterWrite): Promise<void> {
       const text = write.next;
       write.next = null;
       write.stale = false;
-      await writeFile(temp, text, { encoding: 'utf8', flag: 'wx' });
+      const handle = await open(temp, 'wx');
+      try {
+        await handle.writeFile(text, 'utf8');
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
       // Checked and renamed in one synchronous step, so nothing newer can land in between.
       if (!write.stale) renameSync(temp, path);
       else rmSync(temp, { force: true });
