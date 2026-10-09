@@ -5,7 +5,7 @@ import { changeProjectFiles, readProjectFile } from './file_operations';
 import { isGuardedPath } from './guard';
 import { containsRedaction } from './redact';
 import { detectEol, requireUtf8ForEdit, isBinaryFile, sha256 } from './text_files';
-import { defineTool, ToolError, type ToolContext } from './types';
+import { defineTool, ToolError, type FileUndo, type ToolContext } from './types';
 
 // The patch format of OpenAI's Codex CLI:
 //
@@ -322,8 +322,19 @@ export const applyPatchTool = defineTool({
       context.readFiles.set(change.absolute, sha256(change.after));
       if (change.rel.endsWith('.gitignore')) context.workspace.invalidateIgnoreRules();
     }
+    // One backup per file the patch touched, so Undo on the card puts them all back together (#197). A move is the
+    // new path created plus the old path deleted.
+    const files: FileUndo[] = changes.flatMap((change) => [
+      {
+        path: change.rel,
+        before: change.fromRel ? null : (change.beforeBytes ?? null),
+        afterHash: change.after === null ? null : sha256(change.after),
+      },
+      ...(change.fromRel ? [{ path: change.fromRel, before: change.beforeBytes ?? null, afterHash: null }] : []),
+    ]);
     const lines = changes.map(describeChange);
     return {
+      undo: { ...files[0]!, more: files.slice(1) },
       content: `Applied the patch:\n${lines.join('\n')}`,
       summary: changes.length === 1 ? lines[0]! : `Patched ${changes.length} files`,
       path: changes.length === 1 && changes[0]!.after !== null ? changes[0]!.rel : undefined,

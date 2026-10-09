@@ -758,6 +758,21 @@ describe('agent loop', () => {
       expect(conversation.users[1]!.text.endsWith('go on')).toBe(true);
     });
 
+    it('tells the model about every file of an undone patch (#197)', async () => {
+      const { session, conversation, kept } = edited();
+      await session.send({ text: 'edit it' });
+      session.editUndone(
+        kept[0]!,
+        { path: 'src/a.ts', action: 'restored', others: [{ path: 'src/new.ts', action: 'deleted' }] },
+        ['/abs/a.ts', '/abs/new.ts'],
+      );
+      await session.send({ text: 'go on' });
+
+      expect(conversation.users[1]!.text).toContain(
+        'The user undid your patch: src/a.ts is back to how it was, src/new.ts was deleted. Read these files again',
+      );
+    });
+
     it('makes the model read the file again: it no longer counts as read', async () => {
       const { session, kept } = edited();
       await session.send({ text: 'edit it' });

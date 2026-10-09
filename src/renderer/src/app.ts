@@ -757,7 +757,15 @@ export class App {
       return;
     try {
       const result = await api.invoke('edit:undo', id);
-      this.toast(result.action === 'deleted' ? `Deleted ${result.path}` : `Restored ${result.path}`, 'success');
+      const count = 1 + (result.others?.length ?? 0);
+      this.toast(
+        count > 1
+          ? `Undid the patch on ${count} files`
+          : result.action === 'deleted'
+            ? `Deleted ${result.path}`
+            : `Restored ${result.path}`,
+        'success',
+      );
       // Files changed outside a tool call, so the Git view has to be refreshed here.
       this.panels.filesChanged();
       void this.refreshGit();

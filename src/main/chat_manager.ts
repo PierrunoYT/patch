@@ -141,8 +141,12 @@ export class ChatManager {
     if (!projectPath) throw new Error('This chat has no project.');
     this.undoing = true;
     try {
-      const { absolute, ...result } = await edits.undo(session.id, toolId, new Workspace(projectPath));
-      session.editUndone(toolId, result, absolute);
+      const {
+        absolute: _absolute,
+        absolutes,
+        ...result
+      } = await edits.undo(session.id, toolId, new Workspace(projectPath));
+      session.editUndone(toolId, result, absolutes);
       this.save(session);
       return result;
     } finally {

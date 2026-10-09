@@ -220,12 +220,17 @@ export class ChatSession {
 
   // The edit of a tool card was undone by the user (the file has already been put back). The model is told with the
   // next message, and must read the file again before it edits it: what it last read is no longer what is on disk.
-  editUndone(toolId: string, result: UndoResult, absolutePath: string): void {
-    this.readFiles.delete(absolutePath);
+  editUndone(toolId: string, result: UndoResult, absolutePaths: string | string[]): void {
+    for (const path of [absolutePaths].flat()) this.readFiles.delete(path);
+    const files = [result, ...(result.others ?? [])];
     this.notes.push(
-      result.action === 'deleted'
-        ? `The user undid your creation of ${result.path}: the file was deleted.`
-        : `The user undid your edit to ${result.path}: the file is back to how it was before that edit. Read it again before editing it.`,
+      files.length > 1
+        ? `The user undid your patch: ${files
+            .map((file) => `${file.path} ${file.action === 'deleted' ? 'was deleted' : 'is back to how it was'}`)
+            .join(', ')}. Read these files again before editing them.`
+        : result.action === 'deleted'
+          ? `The user undid your creation of ${result.path}: the file was deleted.`
+          : `The user undid your edit to ${result.path}: the file is back to how it was before that edit. Read it again before editing it.`,
     );
     this.emit({ type: 'tool-undone', id: toolId });
   }

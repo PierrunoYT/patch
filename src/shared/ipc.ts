@@ -39,6 +39,8 @@ export interface RendererErrorReport {
 export interface UndoResult {
   path: string;
   action: 'restored' | 'deleted';
+  // The other files of a multi-file change (apply_patch) that the undo put back, deleted or recreated.
+  others?: Array<{ path: string; action: 'restored' | 'deleted' }>;
 }
 
 export type MenuCommand = 'open-project' | 'new-chat' | 'stop' | 'settings';

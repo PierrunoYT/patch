@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyHunks, applyPatchTool, parsePatch } from './apply_patch';
+import { EditBackups } from './edit_backups';
 import { writeFileTool } from './files';
 import { commandStopsSettled, ShellRunner } from './shell';
 import type { ToolContext } from './types';
@@ -176,6 +177,88 @@ describe('apply_patch tool', () => {
     expect(existsSync(join(root, 'src', 'b.ts'))).toBe(false);
     expect(result.content).toContain('Moved src/b.ts to src/c.ts');
     expect(result.summary).toBe('Patched 3 files');
+  });
+
+  describe('Undo (#197)', () => {
+    const chatId = '11111111-1111-1111-1111-111111111111';
+    const multiFile = () =>
+      patch(
+        '*** Update File: src/a.ts',
+        '@@',
+        ' one',
+        '-two',
+        '+TWO',
+        '*** Add File: src/new.ts',
+        '+export {};',
+        '*** Update File: src/b.ts',
+        '*** Move to: src/c.ts',
+        '@@',
+        '-alpha',
+        '+ALPHA',
+      );
+    const record = async (text: string) => {
+      const backups = new EditBackups(join(root, '.backups'));
+      const result = await run(text);
+      expect(result.undo).toBeDefined();
+      backups.record(chatId, 'p1', result.undo!);
+      return backups;
+    };
+
+    it('puts every file of a patch back, including added and moved files', async () => {
+      const backups = await record(multiFile());
+      const result = await backups.undo(chatId, 'p1', context.workspace);
+
+      expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
+      expect(read('src/b.ts')).toBe('alpha\nbeta\n');
+      expect(existsSync(join(root, 'src', 'new.ts'))).toBe(false);
+      expect(existsSync(join(root, 'src', 'c.ts'))).toBe(false);
+      expect(result).toMatchObject({ path: 'src/a.ts', action: 'restored' });
+      expect(result.others).toEqual([
+        { path: 'src/new.ts', action: 'deleted' },
+        { path: 'src/c.ts', action: 'deleted' },
+        { path: 'src/b.ts', action: 'restored' },
+      ]);
+      expect(result.absolutes).toHaveLength(4);
+    });
+
+    it('restores a deleted file', async () => {
+      const backups = await record(
+        patch('*** Delete File: src/b.ts', '*** Update File: src/a.ts', '@@', '-one', '+ONE'),
+      );
+      await backups.undo(chatId, 'p1', context.workspace);
+      expect(read('src/b.ts')).toBe('alpha\nbeta\n');
+      expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\n');
+    });
+
+    it('changes nothing when any file of the patch was changed since', async () => {
+      const backups = await record(multiFile());
+      writeFileSync(join(root, 'src', 'c.ts'), 'edited by the user\n');
+
+      await expect(backups.undo(chatId, 'p1', context.workspace)).rejects.toThrow(/src\/c\.ts was changed/);
+      expect(read('src/a.ts')).toBe('one\nTWO\nthree\nfour\n');
+      expect(read('src/new.ts')).toBe('export {};\n');
+      expect(existsSync(join(root, 'src', 'b.ts'))).toBe(false);
+    });
+
+    it('refuses when a file the patch deleted was created again', async () => {
+      const backups = await record(
+        patch('*** Delete File: src/b.ts', '*** Update File: src/a.ts', '@@', '-one', '+ONE'),
+      );
+      writeFileSync(join(root, 'src', 'b.ts'), 'new content\n');
+
+      await expect(backups.undo(chatId, 'p1', context.workspace)).rejects.toThrow(/src\/b\.ts was created again/);
+      expect(read('src/b.ts')).toBe('new content\n');
+      expect(read('src/a.ts')).toBe('ONE\ntwo\nthree\nfour\n');
+    });
+
+    it('undoes a patch that only deletes a file', async () => {
+      const backups = await record(patch('*** Delete File: src/b.ts'));
+      await expect(backups.undo(chatId, 'p1', context.workspace)).resolves.toMatchObject({
+        path: 'src/b.ts',
+        action: 'restored',
+      });
+      expect(read('src/b.ts')).toBe('alpha\nbeta\n');
+    });
   });
 
   it.each(['src/a.ts', './src/a.ts', 'src/../src/a.ts'])(

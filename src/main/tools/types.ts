@@ -23,8 +23,18 @@ export interface EditUndo {
   path: string;
   // The exact bytes the file had before, or null when the tool created it.
   before: Buffer | null;
-  // SHA-256 of the bytes the tool wrote. Undoing is only allowed while the file still has exactly these.
-  afterHash: string;
+  // SHA-256 of the bytes the tool wrote. Undoing is only allowed while the file still has exactly these. Null when
+  // the change deleted the file (only apply_patch does): undoing then requires that it is still absent.
+  afterHash: string | null;
+  // The other files of a multi-file change (apply_patch, #197), undone together with this one or not at all.
+  more?: FileUndo[];
+}
+
+// One more file of a multi-file change, recorded like the first (a move is its new path plus its old, deleted path).
+export interface FileUndo {
+  path: string;
+  before: Buffer | null;
+  afterHash: string | null;
 }
 
 // Shown to the user before an approval-gated tool runs.
