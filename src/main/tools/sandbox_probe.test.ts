@@ -35,12 +35,13 @@ describe('sandbox support probes (#112)', () => {
     expect(detectSandboxSupport(platform).container).toBeNull();
   });
 
-  it('probes only bwrap for "auto" mode on Linux', async () => {
+  it('probes only bwrap and the systemd user scope for "auto" mode on Linux', async () => {
     const refreshed = refreshSandboxSupport('auto', 'linux');
-    expect(programs()).toEqual(['bwrap']);
+    expect(programs()).toEqual(['bwrap', 'systemd-run']);
     finish('bwrap', true);
+    finish('systemd-run', false);
     await refreshed;
-    expect(detectSandboxSupport('linux')).toMatchObject({ bwrap: true, container: null });
+    expect(detectSandboxSupport('linux')).toMatchObject({ bwrap: true, scope: false, container: null });
   });
 
   it('does not block while Docker answers, and reports it once it has', async () => {
@@ -85,7 +86,8 @@ describe('sandbox support probes (#112)', () => {
   it('probes every program for tests that need the whole picture', async () => {
     const probed = probeSandboxSupport('linux');
     finish('bwrap', false);
+    finish('systemd-run', true);
     finish('docker', true);
-    expect(await probed).toMatchObject({ bwrap: false, container: 'docker' });
+    expect(await probed).toMatchObject({ bwrap: false, scope: true, container: 'docker' });
   });
 });
