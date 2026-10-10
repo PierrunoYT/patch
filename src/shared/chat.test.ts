@@ -348,3 +348,41 @@ describe('undoing an edit', () => {
     expect(applyChatEvent(items, { type: 'tool-undone', id: 'missing' })).toEqual(items);
   });
 });
+
+describe('Claude Code tool cards (#261)', () => {
+  const apply = (events: ChatEvent[]) =>
+    events.reduce<TranscriptItem[]>((items, event) => applyChatEvent(items, event), []);
+  const awaiting = {
+    type: 'tool-start',
+    id: 't1',
+    name: 'Bash',
+    preview: { title: 'Run tests', command: 'npm test' },
+    awaitingApproval: true,
+  } as const;
+
+  it('shows a call once when it is announced again after its approval card', () => {
+    const items = apply([awaiting, { ...awaiting, awaitingApproval: false }]);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: 'tool', status: 'running', preview: { command: 'npm test' } });
+  });
+
+  it('keeps the limited preview of a long command on the updated card', () => {
+    const long = 'x'.repeat(TRANSCRIPT_LIMITS.commandChars + 10);
+    const [item] = apply([
+      awaiting,
+      { ...awaiting, preview: { title: 'Run', command: long }, awaitingApproval: false },
+    ]);
+    expect(item).toMatchObject({ kind: 'tool', preview: { commandOmittedChars: 10 } });
+    expect((item as { preview: { command: string } }).preview.command).toHaveLength(TRANSCRIPT_LIMITS.commandChars);
+  });
+
+  it('keeps the output a card already shows when the call is announced again', () => {
+    const items = apply([
+      awaiting,
+      { type: 'tool-running', id: 't1' },
+      { type: 'tool-progress', id: 't1', text: 'partial\n' },
+      { ...awaiting, awaitingApproval: false },
+    ]);
+    expect(items[0]).toMatchObject({ kind: 'tool', status: 'running', output: 'partial\n' });
+  });
+});

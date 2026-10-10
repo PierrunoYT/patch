@@ -39,12 +39,35 @@ function checklist(todos: unknown): string {
     .join('\n');
 }
 
-export function describeClaudeCodeTool(name: string, input: Record<string, unknown>, cwd: string): ClaudeCodeToolView {
+export function alwaysAsks(name: string, input: Record<string, unknown>): boolean {
+  return (
+    name.startsWith('mcp__') || name === 'ExitPlanMode' || (name === 'Bash' && input.dangerouslyDisableSandbox === true)
+  );
+}
+
+function bashNote(platform: NodeJS.Platform, outsideSandbox: boolean): string {
+  const where =
+    platform === 'win32'
+      ? 'Claude Code runs this command unsandboxed, with your rights: Windows has no sandbox for its commands, and Patch’s command sandbox does not apply.'
+      : 'Claude Code runs this command under its own permissions and sandbox settings, not Patch’s command sandbox.';
+  return outsideSandbox ? `${where} It asks to run outside the sandbox.` : where;
+}
+
+export function describeClaudeCodeTool(
+  name: string,
+  input: Record<string, unknown>,
+  cwd: string,
+  platform: NodeJS.Platform = process.platform,
+): ClaudeCodeToolView {
   const filePath = displayPath(str(input.file_path) || str(input.notebook_path), cwd);
   switch (name) {
     case 'Bash':
       return {
-        preview: { title: str(input.description) || 'Run command', command: str(input.command) },
+        preview: {
+          title: str(input.description) || 'Run command',
+          command: str(input.command),
+          note: bashNote(platform, input.dangerouslyDisableSandbox === true),
+        },
         showsOutput: true,
       };
     case 'Read':

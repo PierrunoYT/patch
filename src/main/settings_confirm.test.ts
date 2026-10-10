@@ -344,3 +344,27 @@ describe('changesToConfirm', () => {
     expect(changesToConfirm(current, { approvalMode: 'auto', editorCommand: 'vim' })).toHaveLength(2);
   });
 });
+
+describe('Claude Code settings (#261)', () => {
+  it('asks before Claude Code chats run a different program, with the path trimmed', () => {
+    expect(changesToConfirm(current, { claudeCodePath: '  C:\\Tools\\claude.exe ' })).toEqual([
+      'Run Claude Code chats with the program "C:\\Tools\\claude.exe".',
+    ]);
+  });
+
+  it('needs no confirmation for an empty path or an unchanged one', () => {
+    expect(changesToConfirm(current, { claudeCodePath: '' })).toEqual([]);
+    const set = { ...current, claudeCodePath: '/opt/claude' };
+    expect(changesToConfirm(set, { claudeCodePath: ' /opt/claude ' })).toEqual([]);
+    expect(changesToConfirm(set, { claudeCodePath: '/opt/other' })).toHaveLength(1);
+  });
+
+  it('asks before giving the Anthropic key to Claude Code, not when it is already given or switched off', () => {
+    expect(changesToConfirm(current, { claudeCodeUsesApiKey: true })).toEqual([
+      'Give your Anthropic API key to Claude Code, which then bills Claude Code chats to it.',
+    ]);
+    const given = { ...current, claudeCodeUsesApiKey: true };
+    expect(changesToConfirm(given, { claudeCodeUsesApiKey: true })).toEqual([]);
+    expect(changesToConfirm(given, { claudeCodeUsesApiKey: false })).toEqual([]);
+  });
+});

@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { posix, win32 } from 'node:path';
 import { fixedSearchPath } from '../exec_search';
+import { ANTHROPIC_API_URL } from '../llm/endpoints';
 
 // Finding and starting the user's Claude Code. Patch does not ship Claude Code: the SDK's own copy is about 250 MB
 // per platform, and the installed one already has the user's sign-in and settings.
@@ -30,10 +31,13 @@ function isFile(path: string): boolean {
 export function findClaudeCode(configured: string, options: FindOptions = {}): string | null {
   const exists = options.isFile ?? isFile;
   const platform = options.platform ?? process.platform;
-  if (configured.trim()) return exists(configured.trim()) ? configured.trim() : null;
+  const { join, isAbsolute } = platform === 'win32' ? win32 : posix;
+  if (configured.trim()) {
+    const path = configured.trim();
+    return isAbsolute(path) && fixedSearchPath(path, platform).path === path && exists(path) ? path : null;
+  }
   const env = options.env ?? process.env;
   const home = options.home ?? homedir();
-  const { join } = platform === 'win32' ? win32 : posix;
   // npm's claude.cmd shim on Windows needs a shell to start; the native installer's claude.exe does not.
   const name = platform === 'win32' ? 'claude.exe' : 'claude';
   const pathKey = Object.keys(env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
@@ -63,7 +67,7 @@ export function claudeCodeEnv(
     env.ANTHROPIC_API_KEY = apiKey.key;
     // A token or helper set up for Claude Code would win over the key.
     delete env.ANTHROPIC_AUTH_TOKEN;
-    if (apiKey.baseUrl) env.ANTHROPIC_BASE_URL = apiKey.baseUrl;
+    env.ANTHROPIC_BASE_URL = apiKey.baseUrl || ANTHROPIC_API_URL;
   }
   return env;
 }

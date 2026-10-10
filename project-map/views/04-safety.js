@@ -36,6 +36,12 @@ builders.safety = () => {
             'preload/index.ts, shared/ipc.ts, main/ipc.ts',
           ),
           layer(
+            'External Claude Code layer',
+            'var(--c-ext)',
+            'Claude Code runs its own tools, which do not pass Patch permission rules, workspace confinement, protected-file checks or secret redaction. Native Windows commands are unsandboxed; Claude Code’s sandbox on macOS, Linux and WSL2 follows its own settings. Its CLI config, hooks and MCP servers are trusted. MCP tools, ExitPlanMode and sandbox-disabled Bash always ask.',
+            'agent/claude_code.ts, agent/claude_code_launch.ts',
+          ),
+          layer(
             'Permission rules',
             'var(--c-main)',
             'User rules: allow / reject / ask / delegate (external program, 15 s timeout). First match wins; overrides alwaysAsk. Rules see project-relative paths, every file a patch touches and each part of a command; the strictest answer wins (#237).',

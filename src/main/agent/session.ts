@@ -491,10 +491,14 @@ export class ChatSession {
   private waitForApproval(id: string, signal: AbortSignal): Promise<ApprovalDecision> {
     if (signal.aborted) return Promise.resolve({ approved: false });
     return new Promise((resolve) => {
-      this.approvals.set(id, (decision) => {
+      const finish = (decision: ApprovalDecision) => {
+        signal.removeEventListener('abort', onAbort);
         this.approvals.delete(id);
         resolve(decision);
-      });
+      };
+      const onAbort = () => finish({ approved: false });
+      signal.addEventListener('abort', onAbort, { once: true });
+      this.approvals.set(id, finish);
     });
   }
 

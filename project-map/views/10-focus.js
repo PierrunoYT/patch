@@ -95,6 +95,16 @@ builders.focus = () => {
       ],
       'Mostly a decision (what to do with the old v0.1.0 to v0.3.0 tags) plus a CHANGELOG cut.',
     ],
+    [
+      'Claude Code integration (#261) is done: approval, stop, restart and resume are verified',
+      'Chats on a claude-code model run in the installed Claude Code through the Agent SDK. The real-CLI end-to-end test checks approval, stop, restart and resume against a local mock.',
+      [
+        'Mock real-CLI verified; live accounts and billing were not tested',
+        'Native Windows commands run unsandboxed; the command sandbox is deliberately not forced on Claude Code',
+        'Keep the separation clear when tool or UI controls are added: Patch controls do not apply to externally owned tools',
+      ],
+      'No open follow-up is recorded for this item.',
+    ],
   ];
   return [
     h('h2', null, 'What to focus on next'),

@@ -144,3 +144,35 @@ describe('LlmService summarizer selection', () => {
     expect(custom.requests).toEqual([]);
   });
 });
+
+describe('LlmService Claude Code chats (#261)', () => {
+  it('creates a Claude Code chat without an API key, and restores its session and usage', async () => {
+    const { LlmService } = await import('./index');
+    const llm = new LlmService({
+      get: () => ({ model: 'claude-code/claude-opus-5-5', effort: 'high', openaiBaseUrl: '', anthropicBaseUrl: '' }),
+      getSecret: () => '',
+      getChatGptSession: () => null,
+    } as unknown as SettingsStore);
+    const sessionUsage = { inputTokens: 100, outputTokens: 20, cacheReadTokens: 30, cacheWriteTokens: 40 };
+
+    expect(llm.createConversation().serialize()).toEqual({
+      provider: 'anthropic',
+      model: 'claude-code/claude-opus-5-5',
+      messages: [],
+    });
+    const restored = llm.restoreConversation({
+      provider: 'anthropic',
+      model: 'claude-code/claude-opus-5-5',
+      messages: [],
+      sessionId: 's1',
+      sessionUsage,
+    });
+    expect(restored.serialize()).toEqual({
+      provider: 'anthropic',
+      model: 'claude-code/claude-opus-5-5',
+      messages: [],
+      sessionId: 's1',
+      sessionUsage,
+    });
+  });
+});

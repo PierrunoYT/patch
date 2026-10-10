@@ -113,7 +113,7 @@ describe('user interface', () => {
 
   it('saves an API key through the settings dialog', async () => {
     await running.page.getByTitle('Settings (Ctrl+,)').click();
-    await running.page.getByLabel('Anthropic API key').fill('sk-ant-ui-test');
+    await running.page.getByLabel('Anthropic API key', { exact: true }).fill('sk-ant-ui-test');
     await running.page.getByText('Network hosts allowed without asking').scrollIntoViewIfNeeded();
     await shot('2-settings');
     await running.page.getByRole('button', { name: 'Save' }).click();

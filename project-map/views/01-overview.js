@@ -125,6 +125,12 @@ builders.overview = () => {
             h('b', null, "Release isn't ready: "),
             'package.json is 0.1.0, but old tags v0.1.0 to v0.3.0 already exist, the CHANGELOG only has [Unreleased], and Windows signing is waiting on a certificate (#26).',
           ),
+          h(
+            'li',
+            null,
+            h('b', null, 'Claude Code integration checked: '),
+            'installed CLI approval, stop, restart and resume tested against a local mock, not a live account or billing.',
+          ),
         ),
         h(
           'div',
@@ -144,6 +150,11 @@ builders.overview = () => {
           ' for the ranked list.',
         ),
       ),
+    ),
+    h(
+      'div',
+      { class: 'callout', style: 'margin-top:14px' },
+      'Claude Code chats use their own tools and sandbox settings; native Windows commands are unsandboxed.',
     ),
   ];
 };

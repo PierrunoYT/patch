@@ -231,7 +231,7 @@ builders.flow = () => {
     h(
       'p',
       { class: 'lead' },
-      'Read top to bottom. Each column is a part of the app; each box is a step. The dashed blue arrow is the agent loop: steps 7 to 13 repeat while the model keeps asking for tools. Click a step for detail and file names.',
+      'Read top to bottom. Each column is a part of the app; each box is a step. The dashed blue arrow is the agent loop: steps 7 to 13 repeat while the model keeps asking for tools. Click a step for detail and file names. Patch-owned agent flow. Claude Code models use ClaudeCodeAgent through createAgent instead: query/resume, Claude tools, permission callbacks and shared chat events.',
     ),
     h(
       'div',
@@ -260,6 +260,14 @@ builders.flow = () => {
             'p',
             { class: 'small', style: 'margin:0' },
             'A small model summarizes the head of the chat. Stored messages are never changed; only the request is built from summary + messages after keepFrom. The last ~40,000 characters are always kept. The UI suggests compacting at 150,000 tokens.',
+          ),
+        ),
+        card(
+          'Claude Code chats (claude-code/ models)',
+          h(
+            'p',
+            { class: 'small', style: 'margin:0' },
+            '/compact runs in Claude Code’s own resumed session, so its history is externally owned. MCP tools, leaving plan mode and sandbox-disabled Bash always ask for approval, even in Auto mode. Patch’s Undo, secret redaction and prompt-cache keep-alive do not apply to these tools.',
           ),
         ),
       ),

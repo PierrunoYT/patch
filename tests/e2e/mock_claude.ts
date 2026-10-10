@@ -41,6 +41,11 @@ export class MockClaude {
       req.on('data', (chunk) => (raw += chunk));
       req.on('end', () => {
         const body = JSON.parse(raw || '{}');
+        if (req.url?.startsWith('/v1/messages/count_tokens')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ input_tokens: 1 }));
+          return;
+        }
         if (!body.stream) {
           // A request to compact the chat asks for a summary; everything else asked for a title.
           const prompt = JSON.stringify(body.messages?.[0]?.content ?? '');

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ChatEvent } from '@shared/chat';
+import type { ApprovalDecision, ChatEvent } from '@shared/chat';
 import type { Conversation, TurnRequest, TurnResult } from '../llm/types';
-import { ChatSession } from './session';
+import { ChatSession, type ChatAgentHooks } from './session';
 
 // A conversation that answers every turn at once and counts keep-alives.
 class IdleConversation implements Conversation {
@@ -259,5 +259,81 @@ describe('stopping and resuming a run', () => {
     expect(conversation.sent[1]).toContain('second');
     expect(conversation.sent[2]).toBe('third');
     chat.dispose();
+  });
+});
+
+describe('approvals of an agent that runs its own loop (#261)', () => {
+  function agentChat(run: (hooks: ChatAgentHooks, signal: AbortSignal) => Promise<boolean>) {
+    const events: ChatEvent[] = [];
+    const chat = new ChatSession({
+      projectPath: null,
+      conversation: new IdleConversation(),
+      system: 'system',
+      agentFile: null,
+      tools: () => [],
+      approvalMode: () => 'ask',
+      toolContext: (base) => ({
+        ...base,
+        workspace: null as never,
+        shell: null as never,
+        browser: null,
+        codeSearch: null,
+        webSearch: null,
+      }),
+      smallModel: () => null,
+      onEvent: (event) => events.push(event),
+      onChange: () => {},
+      createAgent: (agentHooks) => ({
+        totals: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        send: (_input, signal) => run(agentHooks, signal),
+        resume: (signal) => run(agentHooks, signal),
+        forgetContextSize() {},
+      }),
+    });
+    return { chat, events };
+  }
+
+  it('resolves a pending approval as declined when the run is stopped, and ignores a late decision', async () => {
+    const decisions: ApprovalDecision[] = [];
+    const { chat, events } = agentChat(async (agent, signal) => {
+      decisions.push(await agent.requestApproval('a1', signal));
+      return false;
+    });
+
+    const pending = chat.send({ text: 'go' });
+    chat.stop();
+    await pending;
+    const before = events.length;
+    chat.decide('a1', { approved: true });
+
+    expect(decisions).toEqual([{ approved: false }]);
+    expect(events.length).toBe(before);
+  });
+
+  it('resolves a pending approval as declined when its own signal aborts, without a stop', async () => {
+    const decisions: ApprovalDecision[] = [];
+    const approval = new AbortController();
+    const { chat } = agentChat(async (agent) => {
+      decisions.push(await agent.requestApproval('a2', approval.signal));
+      return false;
+    });
+
+    const pending = chat.send({ text: 'go' });
+    approval.abort();
+    await pending;
+
+    expect(decisions).toEqual([{ approved: false }]);
+  });
+
+  it('answers at once when the approval signal was already aborted', async () => {
+    const decisions: ApprovalDecision[] = [];
+    const { chat } = agentChat(async (agent) => {
+      decisions.push(await agent.requestApproval('a3', AbortSignal.abort()));
+      return false;
+    });
+
+    await chat.send({ text: 'go' });
+
+    expect(decisions).toEqual([{ approved: false }]);
   });
 });

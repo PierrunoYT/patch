@@ -1,11 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import type { Options, PermissionResult, Query, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  HookCallback,
+  Options,
+  PermissionResult,
+  PreToolUseHookInput,
+  Query,
+  SDKMessage,
+  SDKUserMessage,
+} from '@anthropic-ai/claude-agent-sdk/core';
+import { appLog } from '../app_log';
 import type { ApprovalDecision, ChatEvent, UsageTotals } from '@shared/chat';
 import { claudeCapabilities, claudeCodeModelId, type Effort } from '@shared/models';
 import type { ApprovalMode } from '@shared/settings';
 import type { CompactionPlan, Conversation, SerializedConversation, TurnResult, UserInput } from '../llm/types';
 import { failureSummary, RESUME_INSTRUCTION } from './agent';
-import { describeClaudeCodeTool, toolResultText } from './claude_code_tools';
+import { alwaysAsks, describeClaudeCodeTool, toolResultText } from './claude_code_tools';
 import type { ChatAgent, ChatAgentHooks } from './session';
 
 // Chats on a "claude-code/…" model run in Claude Code, through the Claude Agent SDK, instead of Patch's own agent
@@ -92,11 +101,26 @@ export interface ClaudeCodeAgentOptions extends ChatAgentHooks {
 
 // Loaded on first use: the SDK is only needed once a Claude Code chat runs.
 async function sdkQuery(): Promise<QueryFunction> {
-  return (await import('@anthropic-ai/claude-agent-sdk')).query as QueryFunction;
+  return (await import('@anthropic-ai/claude-agent-sdk/core')).query as QueryFunction;
 }
+
+const askFirst: HookCallback = async (input) => {
+  const call = input as PreToolUseHookInput;
+  return alwaysAsks(call.tool_name, call.tool_input as Record<string, unknown>)
+    ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask' } }
+    : {};
+};
 
 // Claude Code's session file is gone (deleted, or the chat was copied from another computer).
 const MISSING_SESSION = /No conversation found with session ID/i;
+
+function closeQuery(query: Query): void {
+  try {
+    query.close();
+  } catch {
+    appLog.warn('chat', 'Closing a Claude Code run failed.');
+  }
+}
 
 export class ClaudeCodeAgent implements ChatAgent {
   readonly handlesPlanMode = true;
@@ -152,55 +176,76 @@ export class ClaudeCodeAgent implements ChatAgent {
     const query = this.options.query ?? (await sdkQuery());
     if (signal.aborted) throw new DOMException('aborted', 'AbortError');
     const abort = new AbortController();
-    const onAbort = () => abort.abort();
+    let q: Query | undefined;
+    const onAbort = () => {
+      if (q) q.interrupt().catch(() => undefined);
+      abort.abort();
+      if (q) closeQuery(q);
+    };
     signal.addEventListener('abort', onAbort, { once: true });
 
     const turn = new TurnView(this.options, signal);
-    const model = claudeCodeModelId(conversation.model);
-    // Thinking is shown as it streams; models without adaptive thinking get Claude Code's default.
-    const adaptive = model === undefined || claudeCapabilities(model).adaptiveThinking;
-    const message: SDKUserMessage = {
-      type: 'user',
-      message: { role: 'user', content },
-      parent_tool_use_id: null,
-      origin: { kind: 'human' },
-    };
-    const q = query({
-      prompt: (async function* () {
-        yield message;
-      })(),
-      options: {
-        abortController: abort,
-        cwd: this.options.cwd,
-        ...(model ? { model } : {}),
-        ...(adaptive ? { thinking: { type: 'adaptive', display: 'summarized' }, effort: this.options.effort() } : {}),
-        ...(conversation.sessionId ? { resume: conversation.sessionId } : {}),
-        // Plan mode is Claude Code's own: it only reads until it leaves plan mode with ExitPlanMode, which asks.
-        permissionMode: this.options.planMode() ? 'plan' : 'default',
-        canUseTool: (name, input, details) => turn.canUseTool(name, input, details),
-        // Patch has no UI for Claude Code's multiple-choice questions; Claude Code asks in its answer instead.
-        disallowedTools: ['AskUserQuestion'],
-        systemPrompt: {
-          type: 'preset',
-          preset: 'claude_code',
-          ...(this.options.appendSystemPrompt ? { append: this.options.appendSystemPrompt } : {}),
-        },
-        // The user's and the project's Claude Code settings, CLAUDE.md files and MCP servers, as in a terminal.
-        settingSources: ['user', 'project', 'local'],
-        includePartialMessages: true,
-        pathToClaudeCodeExecutable: launch.executable,
-        env: launch.env,
-      },
-    });
-
     let failure: string | null = null;
+    let thrown: { error: unknown } | null = null;
+    let sawResult = false;
     try {
+      const model = claudeCodeModelId(conversation.model);
+      // Thinking is shown as it streams; models without adaptive thinking get Claude Code's default.
+      const adaptive = model === undefined || claudeCapabilities(model).adaptiveThinking;
+      const message: SDKUserMessage = {
+        type: 'user',
+        message: { role: 'user', content },
+        parent_tool_use_id: null,
+        origin: { kind: 'human' },
+      };
+      q = query({
+        prompt: (async function* () {
+          yield message;
+        })(),
+        options: {
+          abortController: abort,
+          cwd: this.options.cwd,
+          ...(model ? { model } : {}),
+          ...(adaptive ? { thinking: { type: 'adaptive', display: 'summarized' }, effort: this.options.effort() } : {}),
+          ...(conversation.sessionId ? { resume: conversation.sessionId } : {}),
+          // Plan mode is Claude Code's own: it only reads until it leaves plan mode with ExitPlanMode, which asks.
+          permissionMode: this.options.planMode() ? 'plan' : 'default',
+          canUseTool: (name, input, details) => turn.canUseTool(name, input, details),
+          hooks: { PreToolUse: [{ matcher: '^(mcp__.*|ExitPlanMode|Bash)$', hooks: [askFirst] }] },
+          // Patch has no UI for Claude Code's multiple-choice questions; Claude Code asks in its answer instead.
+          disallowedTools: ['AskUserQuestion'],
+          systemPrompt: {
+            type: 'preset',
+            preset: 'claude_code',
+            ...(this.options.appendSystemPrompt ? { append: this.options.appendSystemPrompt } : {}),
+          },
+          // The user's and the project's Claude Code settings, CLAUDE.md files and MCP servers, as in a terminal.
+          settingSources: ['user', 'project', 'local'],
+          includePartialMessages: true,
+          pathToClaudeCodeExecutable: launch.executable,
+          env: launch.env,
+        },
+      });
       for await (const event of q) {
         if (event.type === 'system' && event.subtype === 'init' && event.session_id !== conversation.sessionId) {
           conversation.sessionId = event.session_id;
+          conversation.sessionUsage = null;
           this.options.onCheckpoint();
         }
+        if (event.type === 'conversation_reset') {
+          conversation.sessionId = event.new_conversation_id;
+          conversation.sessionUsage = null;
+          turn.contextTokens = null;
+          this.forgetContextSize();
+          this.options.onCheckpoint();
+          this.options.emit({
+            type: 'notice',
+            id: randomUUID(),
+            text: 'Claude Code started a new conversation; earlier history is not sent.',
+          });
+        }
         if (event.type === 'result') {
+          sawResult = true;
           this.addUsage(event, turn.contextTokens, turn.takeRequests());
           if (event.subtype !== 'success') failure = event.errors.join('\n') || 'Claude Code stopped with an error.';
           else if (event.is_error) failure = event.result || 'Claude Code stopped with an error.';
@@ -209,20 +254,25 @@ export class ClaudeCodeAgent implements ChatAgent {
       }
     } catch (error) {
       if (signal.aborted) throw new DOMException('aborted', 'AbortError');
-      throw error;
+      thrown = { error };
     } finally {
       signal.removeEventListener('abort', onAbort);
       turn.close();
+      if (q) closeQuery(q);
     }
     if (signal.aborted) throw new DOMException('aborted', 'AbortError');
-    if (failure && MISSING_SESSION.test(failure) && conversation.sessionId) {
+    const problem = thrown ? (thrown.error instanceof Error ? thrown.error.message : String(thrown.error)) : failure;
+    if (problem && MISSING_SESSION.test(problem) && conversation.sessionId) {
       conversation.sessionId = null;
+      conversation.sessionUsage = null;
       this.options.onCheckpoint();
       throw new Error(
         'Claude Code no longer has this chat’s session (it may have been deleted). Your next message starts a new Claude Code session without the earlier history.',
       );
     }
+    if (thrown) throw thrown.error;
     if (failure) throw new Error(failure);
+    if (!sawResult) throw new Error('Claude Code ended before it finished this message.');
     return false;
   }
 
@@ -240,12 +290,16 @@ export class ClaudeCodeAgent implements ChatAgent {
     }
     const before = conversation.sessionUsage;
     const grew = (key: keyof SessionUsage) => (before && now[key] >= before[key] ? now[key] - before[key] : now[key]);
-    conversation.sessionUsage = now;
+    const emptyError = result.subtype !== 'success' && Object.values(now).every((value) => value === 0);
+    if (!emptyError) {
+      conversation.sessionUsage = now;
+      const usage = this.usage;
+      usage.inputTokens += grew('inputTokens');
+      usage.outputTokens += grew('outputTokens');
+      usage.cacheReadTokens += grew('cacheReadTokens');
+      usage.cacheWriteTokens = (usage.cacheWriteTokens ?? 0) + grew('cacheWriteTokens');
+    }
     const usage = this.usage;
-    usage.inputTokens += grew('inputTokens');
-    usage.outputTokens += grew('outputTokens');
-    usage.cacheReadTokens += grew('cacheReadTokens');
-    usage.cacheWriteTokens = (usage.cacheWriteTokens ?? 0) + grew('cacheWriteTokens');
     usage.requests = (usage.requests ?? 0) + requests;
     if (contextTokens !== null) usage.contextTokens = contextTokens;
     this.options.emit({ type: 'usage', totals: this.totals });
@@ -270,11 +324,15 @@ class TurnView {
   // (a background subagent keeps working after its call returned).
   private readonly agentCards = new Set<string>();
   contextTokens: number | null = null;
+  private planning: boolean;
+  private thinkingStreamed = false;
 
   constructor(
     private readonly options: ClaudeCodeAgentOptions,
     private readonly signal: AbortSignal,
-  ) {}
+  ) {
+    this.planning = options.planMode();
+  }
 
   // Model requests seen since the last call (one per assistant message id, subagents' too).
   takeRequests(): number {
@@ -333,8 +391,12 @@ class TurnView {
     } else if (event.type === 'content_block_delta') {
       if (event.delta.type === 'text_delta')
         this.emit({ type: 'assistant-delta', id: this.openBubble(), text: event.delta.text });
-      else if (event.delta.type === 'thinking_delta')
+      else if (event.delta.type === 'thinking_delta') {
+        this.thinkingStreamed = true;
         this.emit({ type: 'thinking-delta', id: this.openBubble(), text: event.delta.thinking });
+      }
+    } else if (event.type === 'message_stop') {
+      this.closeBubble();
     }
   }
 
@@ -350,6 +412,7 @@ class TurnView {
     if (!this.bubble) return;
     this.emit({ type: 'assistant-end', id: this.bubble, ...(text !== undefined ? { text } : {}) });
     this.bubble = null;
+    this.thinkingStreamed = false;
   }
 
   // A complete assistant message. Claude Code sends one per content block; text and thinking have already streamed.
@@ -366,7 +429,10 @@ class TurnView {
         (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
     }
     for (const block of message.content) {
-      if (block.type === 'text') {
+      if (block.type === 'thinking') {
+        if (!this.thinkingStreamed && block.thinking)
+          this.emit({ type: 'thinking-delta', id: this.openBubble(), text: block.thinking });
+      } else if (block.type === 'text') {
         // Text that did not stream (no partial messages, e.g. an error Claude Code reports as its answer).
         if (!this.bubble) this.openBubble();
         this.closeBubble(block.text);
@@ -436,18 +502,29 @@ class TurnView {
     details: CanUseToolDetails,
   ): Promise<PermissionResult> {
     const id = details.toolUseID;
-    const alwaysAsks = name.startsWith('mcp__') || name === 'ExitPlanMode';
-    if (this.options.approvalMode() === 'auto' && !alwaysAsks) {
+    const signal = details.signal ? AbortSignal.any([details.signal, this.signal]) : this.signal;
+    const cancelled: PermissionResult = {
+      behavior: 'deny',
+      message: 'The action was cancelled before it ran.',
+      interrupt: true,
+    };
+    if (signal.aborted) return cancelled;
+    if (this.options.approvalMode() === 'auto' && !alwaysAsks(name, input) && !this.planning) {
       this.showTool(id, name, input, false);
       return { behavior: 'allow', updatedInput: input };
     }
     this.showTool(id, name, input, true);
-    const decision: ApprovalDecision = await this.options.requestApproval(id, details.signal ?? this.signal);
+    const decision: ApprovalDecision = await this.options.requestApproval(id, signal);
+    if (signal.aborted) return cancelled;
     if (decision.approved) {
       this.emit({ type: 'tool-running', id });
       // Approving the plan takes Claude Code out of plan mode, as Claude Code suggests; other suggestions ("always
       // allow" rules written to the project's settings) are not applied.
-      const leavePlan = name === 'ExitPlanMode' ? (details.suggestions ?? []).filter((s) => s.type === 'setMode') : [];
+      const leavePlan =
+        name === 'ExitPlanMode'
+          ? (details.suggestions ?? []).filter((s) => s.type === 'setMode' && s.destination === 'session')
+          : [];
+      if (leavePlan.length) this.planning = false;
       return { behavior: 'allow', updatedInput: input, ...(leavePlan.length ? { updatedPermissions: leavePlan } : {}) };
     }
     this.declined.add(id);

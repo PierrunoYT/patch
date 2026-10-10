@@ -11,6 +11,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 ### Documentation
 
 - `docs/WINDOWS_SANDBOX_RESEARCH.md`: what changed outside Patch for Windows sandboxing (Microsoft Execution Containers GA, the OS process security environment, libuv 1.53 for `node --test`, how Codex sandboxes), with follow-up issues #226 and #227. It also records a test of the MXC SDK on Windows 11 25H2: isolation held without ACL changes and with no first-command cost, but git, npm and PowerShell fail in projects under the user profile until Windows ships PSEC 1.1 enumeration, so the helper stays.
+- README, `docs/ARCHITECTURE.md` and `docs/DEVELOPMENT.md` describe Claude Code chats: the installed-CLI prerequisite and Windows Git Bash, the API-key opt-in (off by default), what Patch's permissions, shared settings, file backups, Undo and redaction do not cover in these chats, the native Windows boundary, the agent seam, usage accounting and the opt-in end-to-end test (follow-up to #261).
 
 ### Performance
 
@@ -178,6 +179,14 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 - Correct documentation for persisted Undo notifications, the welcome-screen location of Remove from recent, and measured long-chat performance.
 - The app reported version 0.3.0 (in the executable and the side panel's footer) although Patch has no release yet. The package version is now `0.1.0`, the version of the first release.
 
+- Stopping a Claude Code chat interrupts Claude Code's turn and closes its process, instead of letting it keep answering after the stop (follow-up to #261).
+- A permission prompt whose signal aborts (the run was stopped, or Claude Code cancelled the call) resolves as declined and leaves no approval waiting.
+- A Claude Code run that ends without any result is an error instead of a silent success; a missing Claude Code session clears its saved usage along with the session id.
+- Claude Code usage: a new session or `/clear` counts its totals in full on top of the old ones, a session total that goes down counts as new usage, and an error result with no usage keeps the baseline, so nothing is counted twice.
+- The saved Anthropic key goes to Claude Code only at the Claude base URL Patch is set to (or api.anthropic.com), never at one inherited from the environment; a configured Claude Code path must be absolute.
+- Plan mode in Auto: writes wait for an approved plan, and only the session-scoped mode change of an approved plan is applied.
+- Claude Code Bash cards say which sandbox applies (Claude Code's own on macOS, Linux and WSL2; unsandboxed on native Windows), and a command that asks to run outside the sandbox always asks.
+
 ### Security
 
 - On Linux without a keyring, where Electron's `basic_text` storage scrambles keys with a fixed password, Settings no longer says keys are encrypted, and new keys are stored as plain text after the usual confirmation (fixes #258).
@@ -247,6 +256,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 ### Added
 
 - Claude Code chats (first version): picking a "Claude Code · …" model runs the chat in the user's installed Claude Code through the Claude Agent SDK (`src/main/agent/claude_code.ts`), with its own tools, CLAUDE.md, settings and compaction. Patch streams its answers, thinking and tool calls as the usual cards, answers its permission prompts with approval cards (Ask, Auto and Plan modes map to Claude Code's), resumes its session for each message, and counts its token usage. Settings → Claude Code sets the program's path and whether Patch's Anthropic API key is given to it (both ask for confirmation). Patch does not ship Claude Code, and turns off its non-essential traffic. Claude Code's commands do not run in Patch's command sandbox.
+
+- Claude Code chats: a `PreToolUse` hook makes MCP tools, leaving plan mode and sandbox-disabled commands always ask; `/clear` starts a new session shown as a notice; and an opt-in end-to-end test runs the installed CLI (`PATCH_E2E_CLAUDE_CODE_PATH`, #261).
 
 - MCP stdio servers can run in the command sandbox on Linux and Windows with `"sandbox": true`: home folder hidden, writes only to the server's own folder and, when it names `${project}`, the open project (Git metadata read-only), no network unless `"sandboxNetwork": true`, and the command limits. The Windows helper keeps stdin/stdout as a raw JSON-RPC stream (`sandbox-helper --stdio`). Elsewhere such a server refuses to start instead of running unsandboxed. Turning the sandbox off or the network on asks for confirmation. Real-backend tests cover its file and network boundary and that nothing outlives a stop (#87; macOS still open).
 - The sandbox network allow-list is enforced on Linux and Windows: a bubblewrap command keeps its own network namespace, with no route or name server, and an AppContainer command gets no network capability. Both reach only exactly listed hosts on ports 80 and 443 through a filtering proxy in Patch (`net-bridge` forwards to it; on Windows, through a named pipe only that AppContainer may open). The proxy resolves names itself and refuses local, private and link-local results, so DNS rebinding and IP literals of local services fail, and a redirect to another host is checked again. These commands no longer ask for approval. Real-backend tests cover allowed and refused hosts, subdomains, redirects, CONNECT, programs that ignore the proxy, DNS lookups, other ports and a stopped proxy (#97; on Windows local services on the loopback address stay reachable, see USAGE; macOS and containers keep the approval-based heuristic).
