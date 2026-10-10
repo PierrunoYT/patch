@@ -3,6 +3,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppLog, logNativeCrashDumps, redact } from './app_log';
+import { setKnownSecrets } from './tools/redact';
+
+describe('stored keys in the log (#263)', () => {
+  it('redacts a saved key in an unknown format', () => {
+    setKnownSecrets(['zq9-Xw3.vB7~mK2_pL5hT8nR4']);
+    try {
+      expect(redact('request failed for zq9-Xw3.vB7~mK2_pL5hT8nR4 today')).toBe('request failed for [redacted] today');
+      expect(redact('ordinary text')).toBe('ordinary text');
+    } finally {
+      setKnownSecrets([]);
+    }
+  });
+});
 
 let dir: string;
 let file: string;

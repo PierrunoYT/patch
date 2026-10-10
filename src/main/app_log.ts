@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { JsonlLog } from './storage/jsonl_log';
-import { REDACTION_MARK, redactSecrets } from './tools/redact';
+import { REDACTION_MARK, redactKnownSecrets, redactSecrets } from './tools/redact';
 
 const MAX_MESSAGE = 2000;
 const MAX_STACK = 4000;
@@ -21,7 +21,10 @@ export type LogLevel = 'error' | 'warn' | 'info';
 // The header and key forms above, then the token formats, private keys and .env lines tool results are redacted for
 // (#153), so the two lists cannot drift apart.
 export function redact(text: string): string {
-  const own = SECRET_PATTERNS.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+  const own = SECRET_PATTERNS.reduce(
+    (result, [pattern, replacement]) => result.replace(pattern, replacement),
+    redactKnownSecrets(text),
+  );
   return redactSecrets(own).replaceAll(REDACTION_MARK, '[redacted]');
 }
 

@@ -177,7 +177,7 @@ const D = {
         'skills.ts',
         'remember.ts (project memory: the remember tool, always asks, saves only approved notes, #84)',
         'guard.ts (protected paths include AGENTS.md, .patch, .agents, .envrc and .husky, #236, #127; isSecretPath for indexing, #234)',
-        'redact.ts (keys cut by truncation or split between reads, and streamed progress, #253, redacted a line at a time, #269)',
+        'redact.ts (keys cut by truncation or split between reads, and streamed progress, #253, redacted a line at a time, #269; keys saved in Settings replaced by exact match, #263)',
         'workspace.ts (native path canonicalization, including Windows case and short-name aliases, #143; .patchignore with .ccignore fallback, #38)',
         'workspace.test.ts (Windows case and 8.3 regression fixtures; explicit skips on other platforms)',
         'edit_backups.ts',
@@ -570,7 +570,6 @@ const D = {
     ['20e224d', 'fix(plan): ask before changes in plan mode until a plan is approved'],
   ],
   issues: [
-    [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       271,
       'Sandbox: protect a symlinked top-level configuration name and nested editor configuration',
@@ -651,7 +650,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 203,
+  closedCount: 204,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

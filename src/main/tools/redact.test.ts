@@ -1,5 +1,36 @@
-import { describe, expect, it } from 'vitest';
-import { containsRedaction, redactSecrets, REDACTION_MARK, streamRedactor } from './redact';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  containsRedaction,
+  redactKnownSecrets,
+  redactSecrets,
+  REDACTION_MARK,
+  setKnownSecrets,
+  streamRedactor,
+} from './redact';
+
+describe('keys saved in Settings (#263)', () => {
+  const key = 'zq9-Xw3.vB7~mK2_pL5hT8nR4';
+
+  afterEach(() => setKnownSecrets([]));
+
+  it('replaces a stored key in an unknown format in a tool result', () => {
+    setKnownSecrets([key]);
+    expect(redactSecrets(`curl failed with ${key}!`)).toBe(`curl failed with ${REDACTION_MARK}!`);
+    expect(redactKnownSecrets(`a ${key} b ${key}`)).toBe(`a ${REDACTION_MARK} b ${REDACTION_MARK}`);
+  });
+
+  it('redacts a key split across two streamed chunks', () => {
+    setKnownSecrets([key]);
+    const redact = streamRedactor();
+    const out = redact(`token ${key.slice(0, 10)}`) + redact(`${key.slice(10)} done\n`);
+    expect(out).toBe(`token ${REDACTION_MARK} done\n`);
+  });
+
+  it('leaves ordinary text and short values alone', () => {
+    setKnownSecrets([key, 'short', '   ']);
+    expect(redactSecrets('short and ordinary text')).toBe('short and ordinary text');
+  });
+});
 
 describe('a private key cut into pieces (#253)', () => {
   const begin = '-----BEGIN OPENSSH PRIVATE KEY-----';

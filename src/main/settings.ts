@@ -15,6 +15,7 @@ import {
   type SettingsView,
 } from '@shared/settings';
 import { readJson, writeJson } from './storage/json_file';
+import { setKnownSecrets } from './tools/redact';
 
 // A ChatGPT Codex login. Access and refresh tokens are sealed like other secrets before they are written.
 export interface ChatGptSession {
@@ -75,6 +76,16 @@ export class SettingsStore extends EventEmitter {
       : {};
     this.chatgpt = sanitizeStoredChatGpt(stored.chatgpt);
     this.migratePlainSecrets();
+    this.registerKnownSecrets();
+  }
+
+  // Hands the decrypted API keys and ChatGPT tokens to the redactor (#263), which replaces them by exact match in tool
+  // results, live command output and the app log. They stay in the main process.
+  private registerKnownSecrets(): void {
+    const values = SECRET_NAMES.map((name) => this.openSealed(this.secrets[name] ?? ''));
+    if (this.chatgpt)
+      values.push(this.openSealed(this.chatgpt.accessToken), this.openSealed(this.chatgpt.refreshToken));
+    setKnownSecrets(values);
   }
 
   get(): Settings {
@@ -265,6 +276,7 @@ export class SettingsStore extends EventEmitter {
     this.secrets = secrets;
     this.chatgpt = chatgpt;
     this.mcpSecrets = mcpSecrets;
+    this.registerKnownSecrets();
     this.emit('change', this.view());
   }
 

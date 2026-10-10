@@ -2,7 +2,7 @@
 // replaced before the text reaches the model, the transcript or the saved chat. The patterns are well-known token
 // formats, passwords in URLs, plus quoted or .env-style values of credential-named variables; ordinary code such as
 // `token = getToken()` is left alone. This is best effort, not a security boundary: a secret in a format none of
-// these recognize reaches the model and the saved chat.
+// these recognize reaches the model and the saved chat, unless it is one of the keys saved in Settings (exact match).
 
 export const REDACTION_MARK = '[REDACTED:_____]';
 
@@ -40,8 +40,30 @@ const KEY_END = /-----END [A-Z ]*PRIVATE KEY-----/;
 const KEY_TAIL = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*$/;
 const KEY_HEAD = /^[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/;
 
-export function redactSecrets(text: string): string {
+// The secrets the user saved in Settings (API keys, search keys), replaced by exact match whatever their format (#263).
+// The settings store sets them in the main process when they change; they never go to the renderer. Values shorter
+// than MIN_KNOWN_SECRET are skipped so ordinary text is not redacted. Longest first, so a key containing another
+// is replaced whole.
+const MIN_KNOWN_SECRET = 16;
+let knownSecrets: string[] = [];
+
+export function setKnownSecrets(values: Iterable<string>): void {
+  const unique = new Set<string>();
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (trimmed.length >= MIN_KNOWN_SECRET) unique.add(trimmed);
+  }
+  knownSecrets = [...unique].sort((a, b) => b.length - a.length);
+}
+
+export function redactKnownSecrets(text: string): string {
   let out = text;
+  for (const secret of knownSecrets) if (out.includes(secret)) out = out.replaceAll(secret, REDACTION_MARK);
+  return out;
+}
+
+export function redactSecrets(text: string): string {
+  let out = redactKnownSecrets(text);
   for (const pattern of SECRET_PATTERNS) out = out.replace(pattern, REDACTION_MARK);
   out = out.replace(KEY_HEAD, REDACTION_MARK).replace(KEY_TAIL, REDACTION_MARK);
   return out.replace(URL_PASSWORD, `$1${REDACTION_MARK}$3`);
