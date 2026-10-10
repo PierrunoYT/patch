@@ -66,6 +66,7 @@ const TOOL_ICONS: Record<string, string> = {
   task: 'smart_toy',
   finder: 'person_search',
   oracle: 'psychology',
+  review: 'rate_review',
   load_skill: 'school',
   remember: 'bookmark_add',
   glob: 'find_in_page',

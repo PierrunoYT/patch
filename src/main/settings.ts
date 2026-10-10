@@ -466,6 +466,7 @@ function sanitize(settings: Settings): Settings {
   if (!['dark', 'light'].includes(result.theme)) result.theme = DEFAULT_SETTINGS.theme;
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(result.effort)) result.effort = DEFAULT_SETTINGS.effort;
   if (!['same', 'mid', 'small'].includes(result.subagentModel)) result.subagentModel = DEFAULT_SETTINGS.subagentModel;
+  if (!['off', 'multi-file', 'always'].includes(result.selfReview)) result.selfReview = DEFAULT_SETTINGS.selfReview;
   if (!['match', 'scaled'].includes(result.subagentEffort)) result.subagentEffort = DEFAULT_SETTINGS.subagentEffort;
   // An empty field arrives as 0 and a hand-edited file can hold NaN; neither means "index one file" (#184).
   const maxFiles = Math.floor(result.maxIndexedFiles);

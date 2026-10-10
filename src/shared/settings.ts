@@ -79,6 +79,9 @@ export interface PermissionRule {
   context?: 'thread' | 'subagent';
 }
 
+// Whether a read-only reviewer checks the turn's file changes against the request before the agent says it is done.
+export type SelfReviewMode = 'off' | 'multi-file' | 'always';
+
 export interface Settings {
   model: string;
   // How much the model thinks before acting (current Claude models and OpenAI via the Responses API).
@@ -87,6 +90,9 @@ export interface Settings {
   subagentModel: SubagentModelChoice;
   // match keeps the chat effort. scaled uses low for finder and medium for task; oracle keeps the chat effort.
   subagentEffort: SubagentEffortChoice;
+  // Self-review (#83): off, only for turns that changed two or more files, or for every turn that changed a file. The
+  // reviewer runs once per message; the agent then fixes what it found in the same turn.
+  selfReview: SelfReviewMode;
   approvalMode: ApprovalMode;
   // Plan mode: the agent proposes a plan as an approval card before working through multi-step changes. The card is
   // shown even in Auto mode, so a plan is never treated as approved without the user seeing it.
@@ -135,6 +141,7 @@ export const DEFAULT_SETTINGS: Settings = {
   effort: 'high',
   subagentModel: DEFAULT_SUBAGENT_MODEL,
   subagentEffort: DEFAULT_SUBAGENT_EFFORT,
+  selfReview: 'off',
   approvalMode: 'ask',
   planMode: false,
   keepCacheWarm: false,

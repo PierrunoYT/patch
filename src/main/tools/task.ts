@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import type { ChatEvent, UsageTotals } from '@shared/chat';
 import { MODEL_OPTIONS } from '@shared/models';
 import type { Conversation, SerializedConversation, UserInput } from '../llm/types';
 import { Agent, SUBAGENT_MAX_TURNS, type AgentOptions } from '../agent/agent';
+import { buildReviewPrompt, describeChanges, REVIEWER_PREAMBLE, type TurnChange } from '../agent/self_review';
 import { defineTool, ToolError, truncateOutput, type AgentTool, type ToolContext } from './types';
 
 export interface TaskToolOptions {
@@ -134,6 +136,27 @@ export function createOracleTool(options: TaskToolOptions): AgentTool {
         label: 'Oracle',
       }),
   });
+}
+
+// The self-review of a turn's changes (#83), run by the agent loop and not offered to the model as a tool. A read-only
+// reviewer on the task model gets the request and the diffs; it answers with problems or the clean marker.
+export function createReviewRunner(options: TaskToolOptions): NonNullable<AgentOptions['selfReview']>['run'] {
+  return async (request: string, changes: TurnChange[], context: ToolContext) => {
+    const diffs = describeChanges(changes, (path) => {
+      try {
+        return readFileSync(context.workspace.resolve(path));
+      } catch {
+        return null;
+      }
+    });
+    const result = await runSubagent(options, buildReviewPrompt(request, diffs), context, {
+      preamble: REVIEWER_PREAMBLE,
+      conversation: options.createConversation,
+      label: 'Review',
+    });
+    // The token line is for the transcript; the main agent gets only the reviewer's findings.
+    return { ...result, content: result.content.replace(/\n\n\(Subagent token usage:[^)]*\)\s*$/, '') };
+  };
 }
 
 interface SubagentRole {

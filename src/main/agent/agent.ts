@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { ApprovalDecision, ChatEvent, ModelUsage, UsageTotals } from '@shared/chat';
-import type { ApprovalMode } from '@shared/settings';
+import type { ApprovalMode, SelfReviewMode } from '@shared/settings';
 import type { Conversation, ToolCall, ToolResult, UserInput } from '../llm/types';
 import { acceptsImages } from '@shared/models';
 import { withoutImages } from '../llm/images';
@@ -10,6 +10,7 @@ import { toToolSpecs } from '../tools/registry';
 import { ToolError, type AgentTool, type EditUndo, type ToolContext, type ToolPreview } from '../tools/types';
 import type { PermissionDecision } from './permissions';
 import { abortableSleep, MAX_RETRIES, retryDecision } from './retry';
+import { reviewFollowUp, reviewFoundProblems, shouldSelfReview, type TurnChange } from './self_review';
 
 // Tools whose result is shown on their card in the transcript (the rest show only a one-line summary).
 const SHOWS_OUTPUT = new Set(['run_command', 'command_output', 'todo_list']);
@@ -79,6 +80,17 @@ export interface AgentOptions {
   onDroppedFields?: (error: DroppedFieldError) => void;
   // Called with what is needed to undo an edit that was just made. Throwing means no backup was kept.
   onEditApplied?: (toolId: string, edit: EditUndo) => void;
+  // Self-review (#83). When the model answers without tool calls after changing files, run is asked for a read-only
+  // review of those changes against the user's request. Problems it reports go back to the model as a message, once
+  // per user message. A review that fails is skipped and never blocks the answer.
+  selfReview?: {
+    mode: () => SelfReviewMode;
+    run: (
+      request: string,
+      changes: TurnChange[],
+      context: ToolContext,
+    ) => Promise<{ content: string; summary?: string; isError?: boolean }>;
+  };
   // Test hooks for the retry backoff: how to wait, and the jitter (0 to 1).
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   random?: () => number;
@@ -104,6 +116,10 @@ export class Agent {
   private planApproved = false;
   // Whether a model turn of the current send has succeeded, i.e. the API accepted the history up to here.
   private reachedModel = false;
+  // The user's message and the files changed since it, for the self-review (#83). The first "before" of a file wins.
+  private turnRequest = '';
+  private turnChanges = new Map<string, Buffer | null>();
+  private reviewed = false;
   private lastOutcome: 'answer' | 'turn-cap' | 'context' | 'max-tokens' | 'paused' | 'refusal' | 'stopped' | 'other' =
     'other';
 
@@ -132,6 +148,9 @@ export class Agent {
   async send(input: UserInput, signal: AbortSignal): Promise<boolean> {
     this.planApproved = false;
     this.reachedModel = false;
+    this.turnRequest = input.text;
+    this.turnChanges = new Map();
+    this.reviewed = false;
     this.options.conversation.addUserMessage(input);
     try {
       return await this.run(signal);
@@ -243,6 +262,7 @@ export class Agent {
           this.lastOutcome = 'paused';
         } else {
           this.lastOutcome = 'answer';
+          if (await this.selfReview(signal)) continue;
         }
         return false;
       }
@@ -265,6 +285,55 @@ export class Agent {
     this.lastOutcome = 'turn-cap';
     emit({ type: 'notice', id: randomUUID(), text: `Stopped after ${maxTurns} steps.` });
     return false;
+  }
+
+  // Runs the self-review once after the model's final answer. True when it found problems and the model was sent them,
+  // so the loop goes on for another turn.
+  private async selfReview(signal: AbortSignal): Promise<boolean> {
+    const review = this.options.selfReview;
+    if (!review || this.reviewed || signal.aborted) return false;
+    if (!shouldSelfReview(review.mode(), this.turnChanges.size)) return false;
+    this.reviewed = true;
+    const { emit } = this.options;
+    const eventId = randomUUID();
+    emit({ type: 'tool-start', id: eventId, name: 'review', awaitingApproval: false });
+    const started = performance.now();
+    const durationMs = () => Math.round(performance.now() - started);
+    try {
+      const changes = [...this.turnChanges].map(([path, before]) => ({ path, before }));
+      const context = this.options.toolContext(signal, (text) => emit({ type: 'tool-progress', id: eventId, text }));
+      const outcome = await review.run(this.turnRequest, changes, context);
+      const found = !outcome.isError && reviewFoundProblems(outcome.content);
+      emit({
+        type: 'tool-end',
+        id: eventId,
+        status: outcome.isError ? 'error' : 'done',
+        durationMs: durationMs(),
+        summary: outcome.isError ? 'Review failed' : found ? 'Review found problems' : 'Review found no problems',
+        output: found ? redactSecrets(outcome.content) : undefined,
+      });
+      if (!found || signal.aborted) return false;
+      this.options.conversation.addUserMessage({ text: reviewFollowUp(redactSecrets(outcome.content)) });
+      this.options.onCheckpoint?.();
+      return true;
+    } catch (error) {
+      const message = redactSecrets(error instanceof Error ? error.message : String(error));
+      emit({
+        type: 'tool-end',
+        id: eventId,
+        status: 'error',
+        durationMs: durationMs(),
+        summary: signal.aborted ? 'Review stopped' : failureSummary('review', message),
+        output: message,
+      });
+      return false;
+    }
+  }
+
+  private recordChange(edit: EditUndo): void {
+    for (const file of [edit, ...(edit.more ?? [])]) {
+      if (!this.turnChanges.has(file.path)) this.turnChanges.set(file.path, file.before);
+    }
   }
 
   // Repeats a model request that failed for a reason that usually passes (rate limit, server error, dropped
@@ -571,6 +640,7 @@ export class Agent {
       const output = await tool.run(input, context);
       // Secrets in a result (an .env file, a printed token) go neither to the model nor to the transcript.
       const content = redactSecrets(output.content);
+      if (output.undo && !output.isError) this.recordChange(output.undo);
       emit({
         type: 'tool-end',
         id: eventId,

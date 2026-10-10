@@ -1410,3 +1410,89 @@ describe('Agent: parallel read-only tools', () => {
     if (conversation.results[0]) expect(conversation.results[0].every((result) => result.isError)).toBe(true);
   });
 });
+
+describe('Agent: self-review (#83)', () => {
+  const editing = (path: string) =>
+    tool(
+      `edit_${path}`,
+      () => ({
+        content: `Edited ${path}.`,
+        summary: `Edited ${path}`,
+        undo: { path, before: Buffer.from('old'), afterHash: 'h' },
+      }),
+      { requiresApproval: true },
+    );
+  const run = async (
+    mode: 'off' | 'multi-file' | 'always',
+    answer: string,
+    tools: AgentTool[],
+    steps: Step[],
+    options: { reviewFails?: boolean } = {},
+  ) => {
+    const reviewer = vi.fn(async (_request: string, _changes: unknown[], _context: ToolContext) => {
+      if (options.reviewFails) throw new Error('no model');
+      return { content: answer };
+    });
+    const setUp = setup(steps, { tools, agentOptions: { selfReview: { mode: () => mode, run: reviewer } } });
+    await setUp.agent.send({ text: 'change things' }, new AbortController().signal);
+    return { ...setUp, reviewer };
+  };
+
+  it('sends the problems back once, lets the model fix them and finishes without a second review', async () => {
+    const { conversation, reviewer, events } = await run(
+      'always',
+      'src/a.ts:3 leftover console.log',
+      [editing('a.ts')],
+      [{ toolCalls: [call('t1', 'edit_a.ts')] }, { text: 'done' }, { text: 'fixed' }],
+    );
+    expect(reviewer).toHaveBeenCalledTimes(1);
+    expect(reviewer.mock.calls[0]![0]).toBe('change things');
+    expect(reviewer.mock.calls[0]![1]).toEqual([{ path: 'a.ts', before: Buffer.from('old') }]);
+    expect(conversation.turns).toBe(3);
+    expect(conversation.users[1]!.text).toContain('leftover console.log');
+    expect(eventsOf(events, 'tool-end').at(-1)).toMatchObject({ summary: 'Review found problems' });
+    expect(eventsOf(events, 'tool-start').some((event) => event.name === 'review')).toBe(true);
+  });
+
+  it('finishes when the reviewer finds nothing', async () => {
+    const { conversation, events } = await run(
+      'always',
+      'NO_PROBLEMS',
+      [editing('a.ts')],
+      [{ toolCalls: [call('t1', 'edit_a.ts')] }, { text: 'done' }],
+    );
+    expect(conversation.turns).toBe(2);
+    expect(conversation.users).toHaveLength(1);
+    expect(eventsOf(events, 'tool-end').at(-1)).toMatchObject({ summary: 'Review found no problems' });
+  });
+
+  it('skips the review when off, when nothing changed, and for one file in multi-file mode', async () => {
+    const edits = (): Step[] => [{ toolCalls: [call('t1', 'edit_a.ts')] }, { text: 'done' }];
+    expect((await run('off', 'x', [editing('a.ts')], edits())).reviewer).not.toHaveBeenCalled();
+    expect((await run('always', 'x', [], [{ text: 'hi' }])).reviewer).not.toHaveBeenCalled();
+    expect((await run('multi-file', 'x', [editing('a.ts')], edits())).reviewer).not.toHaveBeenCalled();
+  });
+
+  it('reviews two files in multi-file mode, once per file even when one is edited twice', async () => {
+    const { reviewer } = await run(
+      'multi-file',
+      'NO_PROBLEMS',
+      [editing('a.ts'), editing('b.ts')],
+      [{ toolCalls: [call('t1', 'edit_a.ts'), call('t2', 'edit_b.ts'), call('t3', 'edit_a.ts')] }, { text: 'done' }],
+    );
+    const changes = reviewer.mock.calls[0]![1] as Array<{ path: string }>;
+    expect(changes.map((change) => change.path)).toEqual(['a.ts', 'b.ts']);
+  });
+
+  it('finishes normally when the review itself fails', async () => {
+    const { conversation, events } = await run(
+      'always',
+      '',
+      [editing('a.ts')],
+      [{ toolCalls: [call('t1', 'edit_a.ts')] }, { text: 'done' }],
+      { reviewFails: true },
+    );
+    expect(conversation.turns).toBe(2);
+    expect(eventsOf(events, 'tool-end').at(-1)).toMatchObject({ status: 'error' });
+  });
+});

@@ -9,7 +9,7 @@ import {
 import { describeIndexStatus } from '@shared/index_status';
 import type { IndexStatus, McpStatus } from '@shared/ipc';
 import type { ProjectInfo, ProjectSettings } from '@shared/project';
-import type { ChatGptAccountView, SecretName, Settings, SettingsView } from '@shared/settings';
+import type { ChatGptAccountView, SecretName, SelfReviewMode, Settings, SettingsView } from '@shared/settings';
 import { parseMcpServers, parsePermissionRules, type McpServerView } from '@shared/settings';
 import { h, icon } from '../dom';
 
@@ -146,6 +146,13 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     { class: 'form-select' },
     h('option', { value: 'match', selected: settings.subagentEffort === 'match' }, 'Match chat'),
     h('option', { value: 'scaled', selected: settings.subagentEffort === 'scaled' }, 'Lower for lookups'),
+  );
+  const selfReview = h(
+    'select',
+    { class: 'form-select' },
+    h('option', { value: 'off', selected: settings.selfReview === 'off' }, 'Off'),
+    h('option', { value: 'multi-file', selected: settings.selfReview === 'multi-file' }, 'When several files changed'),
+    h('option', { value: 'always', selected: settings.selfReview === 'always' }, 'Whenever a file changed'),
   );
   const approval = h(
     'select',
@@ -400,6 +407,11 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
       subagentEffort,
       'Lower for lookups uses low for finder and medium for task. oracle keeps the chat effort.',
     ),
+    field(
+      'Self-review',
+      selfReview,
+      "Before the assistant says it is done, a read-only reviewer compares the turn's changes with your request. If it finds problems, the assistant fixes them in the same turn. Runs once per message and costs an extra model call.",
+    ),
     field('Approvals', approval),
     field(
       'Plan mode',
@@ -522,6 +534,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
         effort: effort.value as Effort,
         subagentModel: subagentModel.value as SubagentModelChoice,
         subagentEffort: subagentEffort.value as SubagentEffortChoice,
+        selfReview: selfReview.value as SelfReviewMode,
         approvalMode: approval.value as Settings['approvalMode'],
         planMode: planMode.checked,
         keepCacheWarm: keepCacheWarm.checked,

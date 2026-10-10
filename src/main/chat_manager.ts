@@ -29,7 +29,13 @@ import type { EditBackups } from './tools/edit_backups';
 import { availableTools } from './tools/registry';
 import { ShellRunner, shellName } from './tools/shell';
 import { listSkills } from './tools/skills';
-import { createFinderTool, createOracleTool, createTaskTool, subagentConversation } from './tools/task';
+import {
+  createFinderTool,
+  createOracleTool,
+  createReviewRunner,
+  createTaskTool,
+  subagentConversation,
+} from './tools/task';
 import { createTodoTool } from './tools/todo';
 import { confineFileUrl, type BrowserController } from './tools/browser';
 import type { AgentTool, CodeSearch, ToolContext } from './tools/types';
@@ -493,6 +499,7 @@ export class ChatManager {
       smallModel: (conversation) => this.deps.llm.smallModel(conversation),
       keepCacheWarm: () => this.deps.settings.get().keepCacheWarm,
       onDroppedFields: this.deps.onDroppedFields,
+      selfReview: { mode: () => this.deps.settings.get().selfReview, run: createReviewRunner(subagents) },
       onEditApplied: this.deps.edits ? (toolId, edit) => this.deps.edits!.record(session.id, toolId, edit) : undefined,
       onEvent: (event) => this.deps.emit(event, session.id),
       onChange: (immediate, checkpoint) => (immediate ? this.save(session, checkpoint) : this.scheduleSave(session)),
