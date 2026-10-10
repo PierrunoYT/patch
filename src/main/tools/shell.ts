@@ -37,6 +37,7 @@ import {
   type PathGrants,
 } from './sandbox_grants';
 import { AddedEntries } from './added_entries';
+import { createdProtectedEntries, protectedConfigSnapshot, removeCreatedProtectedEntries } from './sandbox_config';
 import { buildHelperRequest, exceedsEntryLimit, GRANT_ENTRY_LIMIT, HelperProcess } from './sandbox_windows';
 import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
@@ -137,6 +138,8 @@ export class ShellRunner {
   // Windows: entries added to the project since the last sandboxed command (#140).
   private readonly added = new AddedEntries();
   private readonly nextIds = new Map<string, number>();
+  // Sandboxed commands that have started and not yet ended (#262).
+  private sandboxedRunning = 0;
 
   constructor(
     private readonly cwd: () => string,
@@ -237,8 +240,9 @@ export class ShellRunner {
     if (signal?.aborted) return stopped;
     let child: CommandProcess;
     let sandbox: SandboxKind;
+    let guard: () => string;
     try {
-      ({ child, sandbox } = await this.spawn(command, access, signal));
+      ({ child, sandbox, guard } = await this.spawn(command, access, signal));
     } catch (error) {
       if (signal?.aborted) return stopped;
       return { exitCode: null, output: (error as Error).message, timedOut: false, aborted: false };
@@ -281,6 +285,7 @@ export class ShellRunner {
         killLeftovers(child);
         child.stdout?.destroy();
         child.stderr?.destroy();
+        output += guard();
         resolve({ exitCode, output, timedOut, aborted, sandbox });
       };
       child.on('error', (error) => {
@@ -301,7 +306,7 @@ export class ShellRunner {
     owner: string = SHARED_OWNER,
   ): Promise<BackgroundCommand> {
     signal?.throwIfAborted();
-    const { child } = await this.spawn(command, access, signal);
+    const { child, guard } = await this.spawn(command, access, signal);
     const onAbort = () => this.stopBackground(entry.id, owner);
     const id = this.nextIds.get(owner) ?? 1;
     this.nextIds.set(owner, id + 1);
@@ -323,12 +328,14 @@ export class ShellRunner {
     child.stdout?.setEncoding('utf8').on('data', append);
     child.stderr?.setEncoding('utf8').on('data', append);
     child.on('close', (code) => {
+      append(guard());
       entry.exitCode = code;
       entry.detachAbort();
       this.pruneFinished(owner);
     });
     child.on('error', (error) => {
       append(`\n${error.message}`);
+      append(guard());
       entry.exitCode = null;
       entry.detachAbort();
       this.pruneFinished(owner);
@@ -372,9 +379,53 @@ export class ShellRunner {
     for (const entry of [...this.background.values()]) this.stopBackground(entry.id, entry.owner);
   }
 
+  // Starts a command and, when it is sandboxed, notes which protected entries the project lacks. A sandbox cannot
+  // guard a path that does not exist yet, so `guard` (called once the command ended) finds what the command created
+  // there and removes it, or only reports it while another sandboxed command is still running (#262).
+  private async spawn(
+    command: string,
+    access: CommandAccess,
+    signal?: AbortSignal,
+  ): Promise<{ child: CommandProcess; sandbox: SandboxKind; guard: () => string }> {
+    const root = this.cwd();
+    const before = protectedConfigSnapshot(root);
+    this.sandboxedRunning++;
+    let done = false;
+    const guard = () => {
+      if (done) return '';
+      done = true;
+      this.sandboxedRunning--;
+      const created = createdProtectedEntries(root, before);
+      if (created.length === 0) return '';
+      const removable = this.sandboxedRunning === 0;
+      const removed = removable ? removeCreatedProtectedEntries(root, created) : [];
+      appLog.warn('sandbox', 'A sandboxed command created protected project configuration.', {
+        count: created.length,
+        removed: removed.length,
+      });
+      const names = created.join(', ');
+      return removed.length === created.length
+        ? `\n[Patch removed ${names}: sandboxed commands may not create editor, agent or CI configuration. Use the edit tools for it.]`
+        : `\n[The command created ${names}, which sandboxed commands may not create. Patch left it in place because another command is still running: check it before using it.]`;
+    };
+    try {
+      const started = await this.spawnProcess(command, access, signal);
+      if (started.sandbox === 'none') {
+        this.sandboxedRunning--;
+        done = true;
+        return { ...started, guard: () => '' };
+      }
+      return { ...started, guard };
+    } catch (error) {
+      if (!done) this.sandboxedRunning--;
+      done = true;
+      throw error;
+    }
+  }
+
   // Throws when the sandbox the user chose is not available: the command must not run unsandboxed then. The Git
   // metadata check is awaited before anything starts; a stop that arrives during it throws instead of starting.
-  private async spawn(
+  private async spawnProcess(
     command: string,
     access: CommandAccess,
     signal?: AbortSignal,

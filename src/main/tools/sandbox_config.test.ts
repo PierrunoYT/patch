@@ -1,9 +1,15 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { isGuardedPath } from './guard';
-import { isProtectedConfigName, protectedConfigPaths } from './sandbox_config';
+import {
+  createdProtectedEntries,
+  isProtectedConfigName,
+  protectedConfigPaths,
+  protectedConfigSnapshot,
+  removeCreatedProtectedEntries,
+} from './sandbox_config';
 
 describe('protectedConfigPaths', () => {
   let root: string;
@@ -73,5 +79,36 @@ describe('isProtectedConfigName', () => {
   ])('is asked about by the edit tools: %s', (path) => {
     expect(isProtectedConfigName(path.split('/')[0]!)).toBe(true);
     expect(isGuardedPath(path)).toBe(true);
+  });
+});
+
+describe('entries a command creates (#262)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'patch-sandbox-created-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('finds protected names that were absent, including case variants', () => {
+    mkdirSync(join(root, '.github'));
+    const before = protectedConfigSnapshot(root);
+    mkdirSync(join(root, '.VSCode'));
+    writeFileSync(join(root, '.mcp.json'), '{}');
+    mkdirSync(join(root, 'src'));
+    expect(createdProtectedEntries(root, before).sort()).toEqual(['.VSCode', '.mcp.json']);
+  });
+
+  it('does not report entries that were already there, whatever their case', () => {
+    mkdirSync(join(root, '.vscode'));
+    const before = protectedConfigSnapshot(root);
+    expect(createdProtectedEntries(root, before)).toEqual([]);
+  });
+
+  it('removes what was created and leaves nothing behind', () => {
+    const before = protectedConfigSnapshot(root);
+    mkdirSync(join(root, '.vscode'));
+    writeFileSync(join(root, '.vscode', 'tasks.json'), '{}');
+    expect(removeCreatedProtectedEntries(root, createdProtectedEntries(root, before))).toEqual(['.vscode']);
+    expect(readdirSync(root)).toEqual([]);
   });
 });

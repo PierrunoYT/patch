@@ -161,7 +161,7 @@ const D = {
         'pe_digest.ts (33; SHA-256 of an executable that code signing does not change)',
         'sandbox_grants.ts (per-command read_paths and write_paths: canonical, exact, approved with the command and re-resolved at start, never network, #126)',
         'sandbox_grants.test.ts (resolution, overlaps, links, refusals and the mount arguments of each backend)',
-        'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; absent entries are #262)',
+        'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; entries a command created while absent are removed afterwards, #262; links and nested copies are #271)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
         'apply_patch.ts (405; refuses files changed after the preview, #267; native batched mutations with original paths and byte snapshots, #144; same-path moves and UTF-8 checks; context lines keep the file text, #246; Windows names and case-only duplicates refused up front, #242)',
@@ -569,8 +569,8 @@ const D = {
   issues: [
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
-      262,
-      'Sandbox: protect agent and IDE configuration that does not exist yet, and links',
+      271,
+      'Sandbox: protect a symlinked top-level configuration name and nested editor configuration',
       'sandbox',
       'low',
       0,
