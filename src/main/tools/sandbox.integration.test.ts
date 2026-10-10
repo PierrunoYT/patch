@@ -73,7 +73,8 @@ if (action === 'connect' || action === 'connect-abstract') {
   try {
     if (action === 'read') report({ content: fs.readFileSync(target, 'utf8') });
     else if (action === 'rename') { fs.renameSync(target, value); report({ written: true }); }
-    else if (action === 'remove') { fs.rmSync(target, { recursive: true }); report({ written: true }); }
+    // unlinkSync, not rmSync: newer Node's native rmSync can throw without an error code.
+    else if (action === 'unlink') { fs.unlinkSync(target); report({ written: true }); }
     else { fs.writeFileSync(target, value); report({ written: true }); }
   } catch (error) { report({ error: error.code }); }
 }
@@ -267,7 +268,7 @@ for (const [kind, available] of [
         expect((await run('write', '.vscode/settings.json', 'CHANGED')).error).toMatch(denied);
         expect((await run('write', '.vscode/tasks.json', 'NEW')).error).toMatch(denied);
         expect((await run('write', 'AGENTS.md', 'CHANGED')).error).toMatch(denied);
-        expect((await run('remove', 'AGENTS.md')).error).toMatch(denied);
+        expect((await run('unlink', 'AGENTS.md')).error).toMatch(denied);
         expect((await run('rename', '.vscode', 'moved')).error).toMatch(denied);
         expect(readFileSync(join(project, '.vscode', 'settings.json'), 'utf8')).toBe('ORIGINAL-SETTINGS');
         expect(existsSync(join(project, '.vscode', 'tasks.json'))).toBe(false);
