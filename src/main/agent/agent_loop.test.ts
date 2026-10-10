@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import type { ApprovalDecision, ChatEvent } from '@shared/chat';
+import type { Effort } from '@shared/models';
 import type { ApprovalMode } from '@shared/settings';
 import { AnthropicConversation, createAnthropicClient } from '../llm/anthropic';
 import { anthropicStream, MockApiServer } from '../llm/test_server';
@@ -66,6 +67,8 @@ class ScriptedConversation implements Conversation {
   applyCompaction(): void {}
 
   discarded = 0;
+
+  setEffort?: (effort: Effort) => void;
 
   discardLastUserMessage(): void {
     this.discarded++;
@@ -153,6 +156,22 @@ function signalPair() {
   const running = new Promise<void>((resolve) => (started = resolve));
   return { started, running };
 }
+
+describe('Agent: effort setting', () => {
+  it('sets the conversation effort for each message: Auto per request, a fixed level as is', async () => {
+    let setting: 'auto' | 'low' = 'auto';
+    const efforts: string[] = [];
+    const { agent, conversation } = setup([{ text: 'a' }, { text: 'b' }, { text: 'c' }], {
+      agentOptions: { effort: () => setting },
+    });
+    conversation.setEffort = (effort) => efforts.push(effort);
+    await agent.send({ text: 'where is the retry logic?' }, new AbortController().signal);
+    await agent.send({ text: 'fix the retry logic' }, new AbortController().signal);
+    setting = 'low';
+    await agent.send({ text: 'fix the retry logic' }, new AbortController().signal);
+    expect(efforts).toEqual(['medium', 'high', 'low']);
+  });
+});
 
 describe('Agent: tool-result pairing', () => {
   it('answers every call, in order, whatever happened to it', async () => {

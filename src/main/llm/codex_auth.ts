@@ -475,6 +475,10 @@ export class CodexAuthedConversation implements Conversation {
     return this.inner.effort;
   }
 
+  setEffort(effort: Effort): void {
+    this.inner.effort = effort;
+  }
+
   addUserMessage(input: UserInput): void {
     this.inner.addUserMessage(input);
   }

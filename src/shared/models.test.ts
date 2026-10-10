@@ -8,7 +8,9 @@ import {
   contextWindow,
   DEFAULT_SUBAGENT_EFFORT,
   DEFAULT_SUBAGENT_MODEL,
+  autoEffort,
   effortForSubagent,
+  resolveEffort,
   estimateChatCost,
   estimateCost,
   formatCost,
@@ -251,5 +253,22 @@ describe('Claude Code models', () => {
     expect(acceptsImages('claude-code/claude-opus-5-5')).toBe(true);
     expect(acceptsImages('claude-code/default')).toBe(true);
     expect(acceptsImages('claude-code/claude-2.1')).toBe(false);
+  });
+});
+
+describe('Auto effort', () => {
+  it('uses medium for lookups and high for edits, plans, long or image requests', () => {
+    expect(autoEffort('check the latest open issue')).toBe('medium');
+    expect(autoEffort('where is the retry logic?')).toBe('medium');
+    expect(autoEffort('Fix the failing test in agent.ts')).toBe('high');
+    expect(autoEffort('plan the migration')).toBe('high');
+    expect(autoEffort('what is this?', true)).toBe('high');
+    expect(autoEffort('x'.repeat(601))).toBe('high');
+  });
+
+  it('resolves a fixed level to itself and Auto without a request to high', () => {
+    expect(resolveEffort('low', 'fix it')).toBe('low');
+    expect(resolveEffort('auto')).toBe('high');
+    expect(resolveEffort('auto', 'what does this do?')).toBe('medium');
   });
 });

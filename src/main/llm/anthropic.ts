@@ -102,7 +102,7 @@ const compactionAdapter: CompactionAdapter<MessageParam> = {
 export class AnthropicConversation implements Conversation {
   readonly provider = 'anthropic' as const;
   readonly model: string;
-  private readonly requestEffort: Effort;
+  private requestEffort: Effort;
   private readonly messages: MessageParam[];
   private compaction: CompactionState | null;
   private toolNamesHash: number | null = null;
@@ -123,6 +123,10 @@ export class AnthropicConversation implements Conversation {
   // Sent only to models with adaptive thinking.
   get effort(): Effort | undefined {
     return claudeCapabilities(this.model).adaptiveThinking ? this.requestEffort : undefined;
+  }
+
+  setEffort(effort: Effort): void {
+    this.requestEffort = effort;
   }
 
   planCompaction(): CompactionPlan | null {

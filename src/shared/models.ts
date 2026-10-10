@@ -4,6 +4,24 @@ export type Provider = 'anthropic' | 'openai';
 
 export type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+// The Settings choice: a fixed level, or Auto, which picks medium or high for each request (#79).
+export type EffortSetting = Effort | 'auto';
+
+const EDIT_REQUEST =
+  /\b(implement|fix|refactor|add|write|create|build|change|update|edit|rename|remove|delete|migrate|rewrite|replace|debug|design|plan|optimi[sz]e|install|set ?up|make|commit|push|deploy|port|extract|move|split|merge|revert)\b/i;
+
+// What Auto sends for a request: high for edits, plans and long or attached requests, medium for questions and lookups.
+export function autoEffort(text: string, hasImages = false): Effort {
+  if (hasImages || text.length > 600 || EDIT_REQUEST.test(text)) return 'high';
+  return 'medium';
+}
+
+// The level a request is sent with. Auto before any request is known (a new chat, a subagent) counts as high.
+export function resolveEffort(setting: EffortSetting, text?: string, hasImages = false): Effort {
+  if (setting !== 'auto') return setting;
+  return text === undefined ? 'high' : autoEffort(text, hasImages);
+}
+
 export interface ModelOption {
   id: string;
   label: string;

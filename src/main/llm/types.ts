@@ -107,6 +107,8 @@ export interface Conversation {
   readonly model: string;
   // The reasoning effort its requests are sent with, shown on the turn (#79). Unset when the model is sent none.
   readonly effort?: Effort;
+  // Changes the effort the next requests are sent with (Auto picks one per request). Providers that send none omit it.
+  setEffort?(effort: Effort): void;
   addUserMessage(input: UserInput): void;
   addToolResults(results: ToolResult[]): void;
   // Takes back the user message just added by addUserMessage, when the API rejected the request that carried it

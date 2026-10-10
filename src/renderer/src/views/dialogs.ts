@@ -2,7 +2,7 @@ import { filterChats, type ChatSummary } from '@shared/chat';
 import {
   formatCost,
   MODEL_OPTIONS,
-  type Effort,
+  type EffortSetting,
   type SubagentEffortChoice,
   type SubagentModelChoice,
 } from '@shared/models';
@@ -130,7 +130,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
   const effort = h(
     'select',
     { class: 'form-select' },
-    ...(['low', 'medium', 'high', 'xhigh', 'max'] as Effort[]).map((level) =>
+    ...(['auto', 'low', 'medium', 'high', 'xhigh', 'max'] as EffortSetting[]).map((level) =>
       h('option', { value: level, selected: level === settings.effort }, level),
     ),
   );
@@ -395,7 +395,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field(
       'Effort',
       effort,
-      'How much the model thinks before acting (current Claude and OpenAI models). Higher is slower and costs more.',
+      'How much the model thinks before acting (current Claude and OpenAI models). Higher is slower and costs more. Auto uses medium for questions and lookups and high for edits and plans.',
     ),
     field(
       'Subagent model',
@@ -531,7 +531,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
       const model = modelSelect.value === '__custom' ? customModel.value.trim() : modelSelect.value;
       await actions.update({
         model,
-        effort: effort.value as Effort,
+        effort: effort.value as EffortSetting,
         subagentModel: subagentModel.value as SubagentModelChoice,
         subagentEffort: subagentEffort.value as SubagentEffortChoice,
         selfReview: selfReview.value as SelfReviewMode,

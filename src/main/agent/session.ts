@@ -1,3 +1,4 @@
+import type { EffortSetting } from '@shared/models';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
@@ -111,6 +112,8 @@ export interface ChatSessionOptions {
   onChange: (immediate: boolean, checkpoint?: boolean) => void;
   // Settings → Prompt cache: keep the provider's prompt cache alive while the chat is idle.
   keepCacheWarm?: () => boolean;
+  // The Effort setting, passed to the agent so Auto can pick a level per request.
+  effort?: () => EffortSetting;
   // An agent that runs its own loop instead of Patch's (Claude Code chats). The tool and permission options above
   // are then unused.
   createAgent?: (hooks: ChatAgentHooks) => ChatAgent;
@@ -193,6 +196,7 @@ export class ChatSession {
         tools: options.tools,
         approvalMode: options.approvalMode,
         planMode: () => options.planMode?.() ?? false,
+        effort: options.effort,
         toolBatchNote: () => this.planChangeNote(),
         isPreApproved: options.isPreApproved,
         decidePermission: options.decidePermission,

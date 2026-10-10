@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ApprovalDecision, ChatEvent, ModelUsage, UsageTotals } from '@shared/chat';
 import type { ApprovalMode, SelfReviewMode } from '@shared/settings';
 import type { Conversation, ToolCall, ToolResult, UserInput } from '../llm/types';
-import { acceptsImages } from '@shared/models';
+import { acceptsImages, resolveEffort, type EffortSetting } from '@shared/models';
 import { withoutImages } from '../llm/images';
 import { PLAN_MODE_OFF_RESULT } from '../tools/plan';
 import { redactSecrets, streamRedactor } from '../tools/redact';
@@ -60,6 +60,9 @@ export interface AgentOptions {
   // Whether plan mode is on. propose_plan is always in the tool list; while this is false a call to it is answered
   // without an approval card and holds nothing back. Without it, a propose_plan call always shows its card.
   planMode?: () => boolean;
+  // The Effort setting, read on each user message: the conversation is sent that level, or for Auto the level the
+  // request calls for (#79). Without it the conversation keeps the effort it was created with.
+  effort?: () => EffortSetting;
   // Asked after each tool batch: text the model must be told now (plan mode was toggled during the run), added to the
   // batch's last result as a note from the app. Empty when there is nothing to tell.
   toolBatchNote?: () => string;
@@ -151,6 +154,10 @@ export class Agent {
     this.turnRequest = input.text;
     this.turnChanges = new Map();
     this.reviewed = false;
+    const setting = this.options.effort?.();
+    if (setting) {
+      this.options.conversation.setEffort?.(resolveEffort(setting, input.text, Boolean(input.images?.length)));
+    }
     this.options.conversation.addUserMessage(input);
     try {
       return await this.run(signal);

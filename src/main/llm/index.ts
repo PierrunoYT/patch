@@ -1,4 +1,11 @@
-import { isClaudeCodeModel, providerForModel, SMALL_MODELS, type Effort, type Provider } from '@shared/models';
+import {
+  isClaudeCodeModel,
+  providerForModel,
+  SMALL_MODELS,
+  resolveEffort,
+  type Effort,
+  type Provider,
+} from '@shared/models';
 import { ClaudeCodeConversation } from '../agent/claude_code';
 import type { SettingsStore } from '../settings';
 import { AnthropicCompletionClient, AnthropicConversation, createAnthropicClient } from './anthropic';
@@ -33,12 +40,15 @@ export class LlmService {
 
   // A "claude-code/…" model gives a Claude Code chat, which Claude Code runs (agent/claude_code.ts); no API key is
   // needed up front, as Claude Code may have its own sign-in.
-  createConversation(model = this.settings.get().model, effort = this.settings.get().effort): Conversation {
+  createConversation(
+    model = this.settings.get().model,
+    effort = resolveEffort(this.settings.get().effort),
+  ): Conversation {
     if (isClaudeCodeModel(model)) return new ClaudeCodeConversation(model);
     return this.build(model, [], this.defaultOpenAIApi(), null, effort);
   }
 
-  restoreConversation(saved: SerializedConversation, effort = this.settings.get().effort): Conversation {
+  restoreConversation(saved: SerializedConversation, effort = resolveEffort(this.settings.get().effort)): Conversation {
     if (isClaudeCodeModel(saved.model)) {
       return new ClaudeCodeConversation(saved.model, saved.sessionId ?? null, saved.sessionUsage ?? null);
     }
@@ -100,7 +110,7 @@ export class LlmService {
     messages: unknown[],
     openaiApi: 'chat' | 'responses',
     compaction: CompactionState | null = null,
-    effort: Effort = this.settings.get().effort,
+    effort: Effort = resolveEffort(this.settings.get().effort),
   ): Conversation {
     const settings = this.settings.get();
     if (providerForModel(model) === 'anthropic') {

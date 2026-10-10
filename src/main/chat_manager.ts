@@ -6,6 +6,7 @@ import {
   acceptsImages,
   effortForSubagent,
   imagesNotSupportedMessage,
+  resolveEffort,
   SMALL_MODELS,
   subagentModelId,
 } from '@shared/models';
@@ -384,7 +385,7 @@ export class ChatManager {
     const subagents = {
       createConversation: () => {
         const settings = this.deps.settings.get();
-        const effort = effortForSubagent('task', settings.effort, settings.subagentEffort);
+        const effort = effortForSubagent('task', resolveEffort(settings.effort), settings.subagentEffort);
         const model = customOpenAIChat()
           ? conversation.model
           : subagentModelId(conversation.provider, conversation.model, settings.subagentModel);
@@ -395,7 +396,7 @@ export class ChatManager {
       // The finder runs on the provider's small model, except on a custom endpoint, which may not serve it.
       createFinderConversation: () => {
         const settings = this.deps.settings.get();
-        const effort = effortForSubagent('finder', settings.effort, settings.subagentEffort);
+        const effort = effortForSubagent('finder', resolveEffort(settings.effort), settings.subagentEffort);
         const customEndpoint =
           customOpenAIChat() || (conversation.provider === 'anthropic' && Boolean(settings.anthropicBaseUrl.trim()));
         return customEndpoint
@@ -405,7 +406,7 @@ export class ChatManager {
       // Oracle stays on the chat model and the chat effort, not the scaled task effort.
       createOracleConversation: () =>
         subagentConversation(conversation, (saved) =>
-          this.deps.llm.restoreConversation(saved, this.deps.settings.get().effort),
+          this.deps.llm.restoreConversation(saved, resolveEffort(this.deps.settings.get().effort)),
         ),
       system,
       tools: sessionTools,
@@ -498,6 +499,7 @@ export class ChatManager {
       },
       smallModel: (conversation) => this.deps.llm.smallModel(conversation),
       keepCacheWarm: () => this.deps.settings.get().keepCacheWarm,
+      effort: () => this.deps.settings.get().effort,
       onDroppedFields: this.deps.onDroppedFields,
       selfReview: { mode: () => this.deps.settings.get().selfReview, run: createReviewRunner(subagents) },
       onEditApplied: this.deps.edits ? (toolId, edit) => this.deps.edits!.record(session.id, toolId, edit) : undefined,
@@ -512,7 +514,7 @@ export class ChatManager {
               appendSystemPrompt: claudeCode.append,
               approvalMode: () => this.deps.settings.get().approvalMode,
               planMode: () => this.deps.settings.get().planMode,
-              effort: () => this.deps.settings.get().effort,
+              effort: () => resolveEffort(this.deps.settings.get().effort, 'medium'),
               launch: () => this.claudeCodeLaunch(),
             })
         : undefined,

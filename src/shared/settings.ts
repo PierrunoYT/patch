@@ -2,7 +2,7 @@ import {
   DEFAULT_MODEL,
   DEFAULT_SUBAGENT_EFFORT,
   DEFAULT_SUBAGENT_MODEL,
-  type Effort,
+  type EffortSetting,
   type SubagentEffortChoice,
   type SubagentModelChoice,
 } from './models';
@@ -85,7 +85,8 @@ export type SelfReviewMode = 'off' | 'multi-file' | 'always';
 export interface Settings {
   model: string;
   // How much the model thinks before acting (current Claude models and OpenAI via the Responses API).
-  effort: Effort;
+  // Auto picks medium for questions and lookups, high for edits and plans, per request.
+  effort: EffortSetting;
   // task only. oracle stays on the chat model; finder stays on the small model.
   subagentModel: SubagentModelChoice;
   // match keeps the chat effort. scaled uses low for finder and medium for task; oracle keeps the chat effort.
