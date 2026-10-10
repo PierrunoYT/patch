@@ -27,3 +27,4 @@ native/**/target/
 
 # Playwright run state
 test-results/
+coverage/

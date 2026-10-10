@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
+import security from 'eslint-plugin-security';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -7,6 +8,14 @@ export default tseslint.config(
   { ignores: ['out/', 'dist/', 'coverage/', '**/*.tsbuildinfo'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  security.configs.recommended,
+  {
+    // Two rules of the security plugin are switched off because they only produce noise here: every file access
+    // goes through `Workspace.resolve` (checked by tests, not by a lint rule), and bracket access on records with
+    // typed keys is everywhere. The rest stay on as warnings: eval, child_process, unsafe regexes, timing-unsafe
+    // comparisons, non-literal RegExp, pseudo-random bytes and so on.
+    rules: { 'security/detect-non-literal-fs-filename': 'off', 'security/detect-object-injection': 'off' },
+  },
   prettier,
   {
     languageOptions: {

@@ -4,6 +4,14 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: { alias: { '@shared': resolve(__dirname, 'src/shared') } },
   test: {
+    // `npm run test:coverage`: line/branch coverage of the unit suite for main, preload, renderer and shared code.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['**/*.test.ts', '**/*.d.ts', 'src/main/llm/test_server.ts'],
+      reporter: ['text-summary', 'json-summary', 'lcov'],
+      reportsDirectory: 'coverage',
+    },
     projects: [
       {
         extends: true,
