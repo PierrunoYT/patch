@@ -61,6 +61,23 @@ describe('background command cancellation', () => {
     expect(chunks.every((text) => !text.includes('�'))).toBe(true);
   });
 
+  it('stops a foreground command that outlives its timeout and reports it', async () => {
+    const started = Date.now();
+    const result = await shell.run('node -e "setTimeout(() => {}, 60000)"', { timeoutSeconds: 0.5 });
+    expect(result.timedOut).toBe(true);
+    expect(result.aborted).toBe(false);
+    expect(Date.now() - started).toBeLessThan(30_000);
+  }, 40_000);
+
+  it('keeps only the end of a foreground command that prints more than the buffer holds', async () => {
+    const result = await shell.run(
+      `node -e "process.stdout.write('a'.repeat(1500000)); process.stdout.write('THE-END')"`,
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.output.length).toBeLessThanOrEqual(1_000_000);
+    expect(result.output.endsWith('THE-END')).toBe(true);
+  }, 30_000);
+
   it.each(['stdout', 'stderr'] as const)('decodes split UTF-8 on background %s', async (stream) => {
     const script = `process.${stream}.write(Buffer.from([226])); setTimeout(() => process.${stream}.write(Buffer.from([156,147,240,159])), 30); setTimeout(() => process.${stream}.write(Buffer.from([152,128,195])), 60); setTimeout(() => process.${stream}.write(Buffer.from([169])), 90);`;
     const entry = await shell.startBackground(`node -e "${script}"`);

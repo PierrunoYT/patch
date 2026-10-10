@@ -276,6 +276,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Test maintenance
 
+- `shell.test.ts` covers a foreground command that outlives its timeout (stopped and reported as timed out) and one that prints more than the output buffer holds (only the end is kept) (refs #196).
 - End-to-end tests wait for conditions instead of fixed times where something is awaited: the terminal test waits for the shell's prompt (about 1 s instead of a fixed 1.5 s), and the documentation-visuals test waits for the agent browser's next frames and for CSS transitions to end. Sleeps that give something the chance to go wrong before a "nothing happened" check stay (refs #196).
 - `session.test.ts` covers stopping and resuming a run: Resume is offered after a stop and after a provider error that outlasted the retries but not after a finished run or an error that cannot pass, a second send during a run is refused, and an undone edit is told to the model once with the next message. A 400/413 refusal is covered in `agent_loop.test.ts` and `anthropic.test.ts` (refs #196).
 - The transcript view end-to-end tests wait for the previous turn to finish before sending, the Undo test makes and approves its own edit instead of relying on the test before it, and a wait that times out reports the chat state and the number of requests the mock API got (fixes #125).
