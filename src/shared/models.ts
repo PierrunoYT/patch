@@ -22,7 +22,47 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', provider: 'openai', contextWindow: 1_050_000 },
   { id: 'gpt-6-sol', label: 'GPT-6 Sol', provider: 'openai', contextWindow: 1_050_000 },
   { id: 'gpt-6-luna', label: 'GPT-6 Luna', provider: 'openai', contextWindow: 1_050_000 },
+  // Chats on these run in Claude Code (the user's installed `claude`) through the Claude Agent SDK; see
+  // src/main/agent/claude_code.ts. The part after the prefix is the model Claude Code is asked to use.
+  {
+    id: 'claude-code/claude-opus-5-5',
+    label: 'Claude Code · Opus 5.5',
+    provider: 'anthropic',
+    contextWindow: 1_000_000,
+  },
+  {
+    id: 'claude-code/claude-sonnet-5-5',
+    label: 'Claude Code · Sonnet 5.5',
+    provider: 'anthropic',
+    contextWindow: 1_000_000,
+  },
+  {
+    id: 'claude-code/claude-haiku-5-5',
+    label: 'Claude Code · Haiku 5.5',
+    provider: 'anthropic',
+    contextWindow: 1_000_000,
+  },
+  {
+    id: 'claude-code/claude-fable-5-1',
+    label: 'Claude Code · Fable 5.1',
+    provider: 'anthropic',
+    contextWindow: 1_000_000,
+  },
 ];
+
+// Model ids with this prefix run the chat in Claude Code instead of Patch's own agent loop. "claude-code/default"
+// leaves the choice of model to Claude Code (its /model setting).
+export const CLAUDE_CODE_PREFIX = 'claude-code/';
+
+export function isClaudeCodeModel(model: string): boolean {
+  return model.toLowerCase().startsWith(CLAUDE_CODE_PREFIX);
+}
+
+// The model Claude Code is asked to use for a "claude-code/…" id, or undefined for its own default.
+export function claudeCodeModelId(model: string): string | undefined {
+  const id = model.slice(CLAUDE_CODE_PREFIX.length).trim();
+  return id && id !== 'default' ? id : undefined;
+}
 
 // The context window of a built-in model; null for a model id entered by hand, whose window is unknown.
 export function contextWindow(model: string): number | null {
@@ -198,7 +238,7 @@ export const RERANK_MODEL = 'voyageai/rerank-3';
 export const COMPACT_SUGGESTED_TOKENS = 150_000;
 
 // Any model id can be entered in settings; ids starting with "claude" go to Anthropic, the rest to the
-// OpenAI-compatible endpoint.
+// OpenAI-compatible endpoint. "claude-code/…" ids are Anthropic too: Claude Code runs on Claude.
 export function providerForModel(model: string): Provider {
   return model.toLowerCase().startsWith('claude') ? 'anthropic' : 'openai';
 }
@@ -238,6 +278,11 @@ export function claudeCapabilities(model: string): ClaudeCapabilities {
 // OpenAI-compatible endpoints are allowed as before: the app cannot tell what a custom endpoint's model accepts, and
 // it reports the endpoint's own error if it refuses.
 export function acceptsImages(model: string): boolean {
+  if (isClaudeCodeModel(model)) {
+    // Claude Code's default model is a current Claude model; a named one goes by its capabilities.
+    const id = claudeCodeModelId(model);
+    return id === undefined || claudeCapabilities(id).images;
+  }
   return providerForModel(model) === 'anthropic' ? claudeCapabilities(model).images : true;
 }
 

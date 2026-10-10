@@ -12,7 +12,7 @@ import {
 } from '@shared/chat';
 import type { UndoResult } from '@shared/ipc';
 import type { ApprovalMode } from '@shared/settings';
-import type { CompletionClient, Conversation, SerializedConversation } from '../llm/types';
+import type { CompletionClient, Conversation, SerializedConversation, UserInput } from '../llm/types';
 import { PLAN_MODE_OFF_NOTE, PLAN_MODE_ON_NOTE } from '../tools/plan';
 import type { AgentTool, EditUndo, ToolContext } from '../tools/types';
 import { appLog } from '../app_log';
@@ -86,6 +86,30 @@ export interface ChatSessionOptions {
   onChange: (immediate: boolean, checkpoint?: boolean) => void;
   // Settings → Prompt cache: keep the provider's prompt cache alive while the chat is idle.
   keepCacheWarm?: () => boolean;
+  // An agent that runs its own loop instead of Patch's (Claude Code chats). The tool and permission options above
+  // are then unused.
+  createAgent?: (hooks: ChatAgentHooks) => ChatAgent;
+}
+
+// What answers a chat's messages: Patch's own Agent, or an agent that runs its own loop (Claude Code, see
+// claude_code.ts). send and resume resolve to true when the run was cut short by a stop.
+export interface ChatAgent {
+  totals: UsageTotals;
+  send(input: UserInput, signal: AbortSignal): Promise<boolean>;
+  resume(signal: AbortSignal, note?: string): Promise<boolean>;
+  forgetContextSize(): void;
+  // Compacts the chat the agent's own way (Claude Code's /compact) instead of with the app's summary.
+  compact?(signal: AbortSignal): Promise<void>;
+  // The agent applies plan mode itself, so the chat does not tell the model about it in message text.
+  readonly handlesPlanMode?: boolean;
+}
+
+// What the chat gives an agent made by ChatSessionOptions.createAgent.
+export interface ChatAgentHooks {
+  requestApproval: (id: string, signal: AbortSignal) => Promise<ApprovalDecision>;
+  emit: (event: ChatEvent) => void;
+  // Save the chat now (e.g. once the agent has an id to resume it with).
+  onCheckpoint: () => void;
 }
 
 // One chat: its model conversation, transcript, pending approvals and the files read in it.
@@ -95,7 +119,7 @@ export class ChatSession {
   title: string;
   private transcript: TranscriptItem[];
   private readonly readFiles: Map<string, string | null>;
-  private readonly agent: Agent;
+  private readonly agent: ChatAgent;
   private readonly approvals = new Map<string, (decision: ApprovalDecision) => void>();
   private controller: AbortController | null = null;
   private titleController: AbortController | null = null;
@@ -126,22 +150,29 @@ export class ChatSession {
     // A chat saved mid-run (see `running`), or whose saved history ends in unanswered tool calls, was interrupted by a
     // crash; it resumes like a user-stopped run.
     this.resumable = (options.resumable ?? false) || options.conversation.hasPendingToolCalls();
-    this.agent = new Agent({
-      conversation: options.conversation,
-      system: options.system,
-      tools: options.tools,
-      approvalMode: options.approvalMode,
-      planMode: () => options.planMode?.() ?? false,
-      toolBatchNote: () => this.planChangeNote(),
-      isPreApproved: options.isPreApproved,
-      decidePermission: options.decidePermission,
+    const hooks: ChatAgentHooks = {
       requestApproval: (id, signal) => this.waitForApproval(id, signal),
-      toolContext: (signal, onProgress) => options.toolContext({ signal, onProgress, readFiles: this.readFiles }),
-      onCheckpoint: () => this.options.onChange(true, true),
       emit: (event) => this.emit(event),
-      onDroppedFields: options.onDroppedFields,
-      onEditApplied: options.onEditApplied,
-    });
+      onCheckpoint: () => this.options.onChange(true, true),
+    };
+    this.agent =
+      options.createAgent?.(hooks) ??
+      new Agent({
+        conversation: options.conversation,
+        system: options.system,
+        tools: options.tools,
+        approvalMode: options.approvalMode,
+        planMode: () => options.planMode?.() ?? false,
+        toolBatchNote: () => this.planChangeNote(),
+        isPreApproved: options.isPreApproved,
+        decidePermission: options.decidePermission,
+        requestApproval: hooks.requestApproval,
+        toolContext: (signal, onProgress) => options.toolContext({ signal, onProgress, readFiles: this.readFiles }),
+        onCheckpoint: hooks.onCheckpoint,
+        emit: hooks.emit,
+        onDroppedFields: options.onDroppedFields,
+        onEditApplied: options.onEditApplied,
+      });
     if (options.usage) {
       const usage = { ...options.usage };
       // Older OpenAI totals included cache reads in input. Normalize once when loading the old shape.
@@ -245,6 +276,7 @@ export class ChatSession {
   // cache. The note is repeated on every message while plan mode is on (a compacted history may no longer hold an
   // earlier one); turning it off is said once.
   private planNote(): string[] {
+    if (this.agent.handlesPlanMode) return [];
     const on = this.options.planMode?.() ?? false;
     const wasOn = this.planModeTold;
     this.planModeTold = on;
@@ -255,6 +287,7 @@ export class ChatSession {
   // During a run, plan mode is told only when it was toggled since the model last heard about it: the note goes with
   // the next tool results, so the model does not have to wait for the user's next message to learn the change.
   private planChangeNote(): string {
+    if (this.agent.handlesPlanMode) return '';
     const on = this.options.planMode?.() ?? false;
     if (on === this.planModeTold) return '';
     this.planModeTold = on;
@@ -349,6 +382,13 @@ export class ChatSession {
     if (this.busy) throw new Error('The assistant is still working. Stop it or wait for it to finish.');
     // What is sent changes, so the entry being kept warm is no longer the one the next request needs.
     this.stopKeepAlive();
+    if (this.agent.compact) {
+      const agent = this.agent;
+      return this.run(async (signal) => {
+        await agent.compact!(signal);
+        return false;
+      });
+    }
     const { conversation } = this.options;
     const plan = conversation.planCompaction();
     if (!plan) {

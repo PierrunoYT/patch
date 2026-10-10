@@ -70,6 +70,16 @@ export function changesToConfirm(
     changes.push(`Open files with the editor command "${editor(patch.editorCommand)}".`);
   }
 
+  // Claude Code chats start this program with the user's rights, outside the command sandbox.
+  if (typeof patch.claudeCodePath === 'string') {
+    const next = patch.claudeCodePath.trim();
+    if (next && next !== current.claudeCodePath.trim())
+      changes.push(`Run Claude Code chats with the program "${next}".`);
+  }
+  if (patch.claudeCodeUsesApiKey === true && !current.claudeCodeUsesApiKey) {
+    changes.push('Give your Anthropic API key to Claude Code, which then bills Claude Code chats to it.');
+  }
+
   if (Array.isArray(patch.mcpServers)) {
     for (const server of patch.mcpServers) {
       const before = current.mcpServers.find((candidate) => candidate.name === server.name);

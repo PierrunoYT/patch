@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  claudeCodeModelId,
+  isClaudeCodeModel,
+  providerForModel,
   acceptsImages,
   claudeCapabilities,
   contextWindow,
@@ -35,7 +38,10 @@ describe('current model catalog', () => {
 
 describe('strict tool inputs', () => {
   it('is enabled for built-in Claude models and disabled for unknown ids', () => {
-    for (const option of MODEL_OPTIONS.filter((option) => option.provider === 'anthropic')) {
+    // Claude Code chats are sent by Claude Code, not by Patch's own requests.
+    for (const option of MODEL_OPTIONS.filter(
+      (option) => option.provider === 'anthropic' && !isClaudeCodeModel(option.id),
+    )) {
       expect(claudeCapabilities(option.id).strictTools).toBe(true);
     }
     for (const model of ['claude-custom', 'claude-2.1', 'claude-opus-5-5-preview']) {
@@ -229,5 +235,21 @@ describe('estimateChatCost', () => {
     const usage = { inputTokens: 2, outputTokens: 0, cacheReadTokens: 0, byModel: { 'claude-custom': part } };
     expect(estimateChatCost('claude-opus-5-5', usage)).toBeNull();
     expect(estimateChatCost('claude-opus-5-5', { ...usage, byModel: { 'claude-haiku-5-5': part } }, false)).toBeNull();
+  });
+});
+
+describe('Claude Code models', () => {
+  it('are recognized by prefix and name the model Claude Code uses', () => {
+    expect(isClaudeCodeModel('claude-code/claude-opus-5-5')).toBe(true);
+    expect(isClaudeCodeModel('claude-opus-5-5')).toBe(false);
+    expect(claudeCodeModelId('claude-code/claude-sonnet-5-5')).toBe('claude-sonnet-5-5');
+    expect(claudeCodeModelId('claude-code/default')).toBeUndefined();
+    expect(providerForModel('claude-code/claude-opus-5-5')).toBe('anthropic');
+  });
+
+  it('accept images when the model Claude Code uses does', () => {
+    expect(acceptsImages('claude-code/claude-opus-5-5')).toBe(true);
+    expect(acceptsImages('claude-code/default')).toBe(true);
+    expect(acceptsImages('claude-code/claude-2.1')).toBe(false);
   });
 });

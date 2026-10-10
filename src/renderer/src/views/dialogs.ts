@@ -228,6 +228,17 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     value: settings.anthropicBaseUrl,
     placeholder: 'https://api.anthropic.com',
   });
+  const claudeCodePath = h('input', {
+    class: 'form-control',
+    value: settings.claudeCodePath,
+    placeholder: 'Found on PATH',
+  });
+  const claudeCodeUsesApiKey = h('input', {
+    type: 'checkbox',
+    class: 'form-check-input',
+    checked: settings.claudeCodeUsesApiKey,
+    'aria-label': 'Give Claude Code the Anthropic API key saved in Patch',
+  });
   const searchEngine = h('input', { class: 'form-control', value: settings.googleSearchEngineId });
   const editor = h('input', { class: 'form-control', value: settings.editorCommand });
   const maxFiles = h('input', {
@@ -451,6 +462,22 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
       sandboxPath,
       'Native sandboxes only. Overrides the PATH inherited from the app; leave empty to keep it. This does not load shell login or startup files.',
     ),
+    h('h3', { class: 'h6 text-body-secondary mt-4' }, 'Claude Code'),
+    field(
+      'Claude Code program',
+      claudeCodePath,
+      'Chats on a "Claude Code" model run in Claude Code, with its own tools, settings and CLAUDE.md; Patch shows its work and asks you to approve its actions. Install Claude Code first (https://code.claude.com). Leave empty to find claude on PATH, or enter its full path. Its commands do not run in Patch\'s command sandbox.',
+    ),
+    field(
+      'Claude Code sign-in',
+      h(
+        'div',
+        { class: 'form-check' },
+        claudeCodeUsesApiKey,
+        h('label', { class: 'form-check-label' }, 'Give Claude Code the Anthropic API key saved in Patch'),
+      ),
+      'Off: Claude Code signs in the way it is set up on this computer (run claude and /login once). On: Claude Code chats are billed to your API key.',
+    ),
     h('h3', { class: 'h6 text-body-secondary mt-4' }, 'Other'),
     field('Theme', theme),
     field('Editor command', editor, 'Opens files from the chat, e.g. code, cursor, subl.'),
@@ -510,6 +537,8 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
         anthropicBaseUrl: anthropicBaseUrl.value.trim(),
         googleSearchEngineId: searchEngine.value.trim(),
         editorCommand: editor.value.trim(),
+        claudeCodePath: claudeCodePath.value.trim(),
+        claudeCodeUsesApiKey: claudeCodeUsesApiKey.checked,
         maxIndexedFiles: Number(maxFiles.value),
         mcpServers: parseMcpServers(mcpServers.value),
         permissionRules: parsePermissionRules(permissionRules.value),

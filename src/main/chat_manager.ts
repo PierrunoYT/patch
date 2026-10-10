@@ -17,8 +17,10 @@ import { decideCallPermission, type PathView } from './agent/permissions';
 import type { DroppedFieldError } from './agent/agent';
 import { buildSystemPrompt, promptListsSkills } from './agent/system_prompt';
 import { ChatSession, type SavedChat } from './agent/session';
+import { ClaudeCodeAgent, ClaudeCodeConversation } from './agent/claude_code';
+import { CLAUDE_CODE_NOT_FOUND, claudeCodeEnv, findClaudeCode } from './agent/claude_code_launch';
 import type { ChatStore } from './chat_store';
-import type { LlmService } from './llm';
+import { MissingApiKeyError, type LlmService } from './llm';
 import { checkUserImages } from './llm/images';
 import type { ProjectStore } from './projects';
 import type { SettingsStore } from './settings';
@@ -376,6 +378,22 @@ export class ChatManager {
       const own = this.deps.projects.get(workspace.root);
       return isNetworkUrlAllowed(url, mergeAllowLists(settings.allowedNetworkHosts, own?.allowedNetworkHosts));
     };
+    // Claude Code chats run in Claude Code (agent/claude_code.ts). It reads CLAUDE.md itself; the project's
+    // instructions in Patch and an AGENTS.md are added to its system prompt.
+    const claudeCode =
+      conversation instanceof ClaudeCodeConversation
+        ? (() => {
+            const instructions = this.deps.projects.get(workspace.root)?.instructions?.trim() ?? '';
+            const agentsMd = loadAgentFile(workspace);
+            const append = [
+              instructions ? `Instructions for this project from the user:\n${instructions}` : '',
+              agentsMd && agentsMd.name !== 'CLAUDE.md' ? `Contents of ${agentsMd.name}:\n${agentsMd.content}` : '',
+            ]
+              .filter(Boolean)
+              .join('\n\n');
+            return { conversation, append };
+          })()
+        : null;
     const session: ChatSession = new ChatSession({
       id: saved?.id,
       title: saved?.title,
@@ -446,8 +464,41 @@ export class ChatManager {
       onEditApplied: this.deps.edits ? (toolId, edit) => this.deps.edits!.record(session.id, toolId, edit) : undefined,
       onEvent: (event) => this.deps.emit(event, session.id),
       onChange: (immediate, checkpoint) => (immediate ? this.save(session, checkpoint) : this.scheduleSave(session)),
+      createAgent: claudeCode
+        ? (hooks) =>
+            new ClaudeCodeAgent({
+              ...hooks,
+              conversation: claudeCode.conversation,
+              cwd: workspace.root,
+              appendSystemPrompt: claudeCode.append,
+              approvalMode: () => this.deps.settings.get().approvalMode,
+              planMode: () => this.deps.settings.get().planMode,
+              effort: () => this.deps.settings.get().effort,
+              launch: () => this.claudeCodeLaunch(),
+            })
+        : undefined,
     });
     return session;
+  }
+
+  // Where Claude Code is and what it starts with, read from the settings on every message.
+  private claudeCodeLaunch() {
+    const settings = this.deps.settings.get();
+    const executable = findClaudeCode(settings.claudeCodePath);
+    if (!executable) {
+      throw new Error(
+        settings.claudeCodePath
+          ? `Claude Code was not found at ${settings.claudeCodePath}. Check its path in Settings → Claude Code.`
+          : CLAUDE_CODE_NOT_FOUND,
+      );
+    }
+    let apiKey: { key: string; baseUrl: string } | null = null;
+    if (settings.claudeCodeUsesApiKey) {
+      const key = this.deps.settings.getSecret('anthropicApiKey');
+      if (!key) throw new MissingApiKeyError('anthropic');
+      apiKey = { key, baseUrl: settings.anthropicBaseUrl.trim() };
+    }
+    return { executable, env: claudeCodeEnv(process.env, apiKey) };
   }
 
   // The agent file a new chat in the current project would start with, shown before the first message.

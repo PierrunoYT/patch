@@ -70,6 +70,19 @@ const TOOL_ICONS: Record<string, string> = {
   glob: 'find_in_page',
   apply_patch: 'edit_document',
   todo_list: 'checklist',
+  // Claude Code's tools (Claude Code chats).
+  Bash: 'terminal',
+  Read: 'description',
+  Edit: 'edit_document',
+  Write: 'note_add',
+  Glob: 'find_in_page',
+  Grep: 'search',
+  WebFetch: 'public',
+  WebSearch: 'travel_explore',
+  Agent: 'smart_toy',
+  Task: 'smart_toy',
+  TodoWrite: 'checklist',
+  ExitPlanMode: 'checklist',
 };
 
 // What a tool row shows after the tool's name: the file, command or other target, and the result in parentheses at

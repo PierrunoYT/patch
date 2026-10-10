@@ -116,6 +116,12 @@ export interface Settings {
   anthropicBaseUrl: string;
   // Command used to open files from chat links, e.g. "code" or "cursor". The file path is appended.
   editorCommand: string;
+  // The Claude Code program that "Claude Code" chats run (an absolute path). Empty looks for `claude` on PATH and in
+  // the usual install folders.
+  claudeCodePath: string;
+  // Give Claude Code the Anthropic API key saved in Patch. Off: Claude Code signs in the way it is set up on this
+  // computer (claude /login, its own ANTHROPIC_API_KEY or apiKeyHelper).
+  claudeCodeUsesApiKey: boolean;
   maxIndexedFiles: number;
   googleSearchEngineId: string;
   // Model Context Protocol servers. Their tools are offered to the agent with approval required, like file edits.
@@ -143,6 +149,8 @@ export const DEFAULT_SETTINGS: Settings = {
   openaiBaseUrl: '',
   anthropicBaseUrl: '',
   editorCommand: 'code',
+  claudeCodePath: '',
+  claudeCodeUsesApiKey: false,
   maxIndexedFiles: 2000,
   googleSearchEngineId: '',
   mcpServers: [],

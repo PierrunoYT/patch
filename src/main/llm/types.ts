@@ -93,6 +93,11 @@ export interface SerializedConversation {
   // Always the complete history. A compaction only changes what is sent, never what is stored.
   messages: unknown[];
   compaction?: CompactionState;
+  // Claude Code chats only: the Claude Code session that holds the history (messages stays empty), and the session's
+  // token totals as Claude Code last reported them. Claude Code reports totals for the whole session, so only what
+  // they grew by is added to the chat's usage.
+  sessionId?: string;
+  sessionUsage?: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number };
 }
 
 // One chat's model-facing history, in the provider's native message format. Each provider keeps its own format

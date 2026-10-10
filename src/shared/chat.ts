@@ -334,6 +334,19 @@ export function applyChatEvent(items: TranscriptItem[], event: ChatEvent): Trans
       );
     }
     case 'tool-start':
+      // Claude Code shows a call before it asks whether it may run it: a second tool-start for a card already in the
+      // transcript updates that card instead of adding another.
+      if (items.some((item) => item.kind === 'tool' && item.id === event.id)) {
+        return update(event.id, (item) =>
+          item.kind === 'tool'
+            ? {
+                ...item,
+                preview: limitPreview(event.preview) ?? item.preview,
+                status: event.awaitingApproval ? 'awaiting-approval' : 'running',
+              }
+            : item,
+        );
+      }
       return [
         ...items,
         {

@@ -18,7 +18,7 @@ const SHOWS_OUTPUT = new Set(['run_command', 'command_output', 'todo_list']);
 const MAX_TURNS = 200;
 // Subagents get a tighter cap: they answer one delegated question, not open-ended tasks.
 export const SUBAGENT_MAX_TURNS = 25;
-const RESUME_INSTRUCTION =
+export const RESUME_INSTRUCTION =
   'Continue the task that I stopped. Use the completed conversation and tool results above; do not repeat the original request. Some interrupted tool actions may have completed even when their result says they were stopped, so inspect the current state before repeating any action with side effects.';
 
 // A tool call whose input left out required fields. Field names only, never their values (they can hold file contents).

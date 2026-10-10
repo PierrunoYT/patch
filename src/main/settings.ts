@@ -464,6 +464,7 @@ function sanitize(settings: Settings): Settings {
   result.anthropicBaseUrl = baseUrlError('', result.anthropicBaseUrl) ? '' : result.anthropicBaseUrl.trim();
   result.openaiBaseUrl = baseUrlError('', result.openaiBaseUrl) ? '' : result.openaiBaseUrl.trim();
   result.permissionRules = sanitizePermissionRules(result.permissionRules);
+  result.claudeCodePath = result.claudeCodePath.trim();
   return result;
 }
 

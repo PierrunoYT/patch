@@ -1,4 +1,5 @@
-import { providerForModel, SMALL_MODELS, type Effort, type Provider } from '@shared/models';
+import { isClaudeCodeModel, providerForModel, SMALL_MODELS, type Effort, type Provider } from '@shared/models';
+import { ClaudeCodeConversation } from '../agent/claude_code';
 import type { SettingsStore } from '../settings';
 import { AnthropicCompletionClient, AnthropicConversation, createAnthropicClient } from './anthropic';
 import { CodexAuthedConversation, createCodexOpenAIClient, ensureFreshCodexSession } from './codex_auth';
@@ -30,11 +31,17 @@ const BACKGROUND_RETRIES = 3;
 export class LlmService {
   constructor(private readonly settings: SettingsStore) {}
 
+  // A "claude-code/…" model gives a Claude Code chat, which Claude Code runs (agent/claude_code.ts); no API key is
+  // needed up front, as Claude Code may have its own sign-in.
   createConversation(model = this.settings.get().model, effort = this.settings.get().effort): Conversation {
+    if (isClaudeCodeModel(model)) return new ClaudeCodeConversation(model);
     return this.build(model, [], this.defaultOpenAIApi(), null, effort);
   }
 
   restoreConversation(saved: SerializedConversation, effort = this.settings.get().effort): Conversation {
+    if (isClaudeCodeModel(saved.model)) {
+      return new ClaudeCodeConversation(saved.model, saved.sessionId ?? null, saved.sessionUsage ?? null);
+    }
     return this.build(saved.model, saved.messages, saved.api ?? 'chat', saved.compaction ?? null, effort);
   }
 
