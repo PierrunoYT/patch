@@ -57,6 +57,41 @@ export interface ChatManagerDeps {
 
 const SAVE_DELAY_MS = 500;
 
+// Whether a call skips the approval card in Ask mode: an allowed command, a fetch or page on an allowed host, or a
+// project file opened in the browser. A screenshot of a project file is not: images are not redacted, so it would
+// show the model a secret that read_file hides (#268).
+export function isPreApprovedCall(
+  toolName: string,
+  input: unknown,
+  {
+    allowedCommands,
+    allowsNetworkUrl,
+    workspace,
+  }: {
+    allowedCommands: string;
+    allowsNetworkUrl: (url: string) => boolean;
+    workspace: Workspace;
+  },
+): boolean {
+  const call = (input ?? {}) as { command?: unknown; url?: unknown; screenshot?: unknown };
+  if (toolName === 'run_command' && typeof call.command === 'string') {
+    return isCommandAllowed(call.command, allowedCommands);
+  }
+  if ((toolName === 'fetch_url' || toolName === 'browser') && typeof call.url === 'string') {
+    if (toolName === 'browser' && /^file:/i.test(call.url)) {
+      if (call.screenshot === true) return false;
+      try {
+        confineFileUrl(call.url, workspace);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return allowsNetworkUrl(call.url);
+  }
+  return false;
+}
+
 interface ProjectChat {
   session: ChatSession | null;
   workspace: Workspace | null;
@@ -427,28 +462,11 @@ export class ChatManager {
         // The global lists plus this project's own, read on every call so a change applies at once.
         const settings = this.deps.settings.get();
         const own = this.deps.projects.get(workspace.root);
-        if (toolName === 'run_command' && typeof (input as { command?: unknown })?.command === 'string') {
-          return isCommandAllowed(
-            (input as { command: string }).command,
-            mergeAllowLists(settings.allowedCommands, own?.allowedCommands),
-          );
-        }
-        if (
-          (toolName === 'fetch_url' || toolName === 'browser') &&
-          typeof (input as { url?: unknown })?.url === 'string'
-        ) {
-          const url = (input as { url: string }).url;
-          if (toolName === 'browser' && /^file:/i.test(url)) {
-            try {
-              confineFileUrl(url, workspace);
-              return true;
-            } catch {
-              return false;
-            }
-          }
-          return allowsNetworkUrl(url);
-        }
-        return false;
+        return isPreApprovedCall(toolName, input, {
+          allowedCommands: mergeAllowLists(settings.allowedCommands, own?.allowedCommands),
+          allowsNetworkUrl,
+          workspace,
+        });
       },
       toolContext: (base): ToolContext => {
         const { codeSearch, browser, webSearch } = capabilities();

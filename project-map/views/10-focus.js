@@ -12,10 +12,11 @@ builders.focus = () => {
         '#265 is fixed: allowed commands are checked as the shell passes their arguments on (typographic quotes, backslashes, long dashes), and -o/-O in a group of short flags asks',
         '#266 is fixed: reject and ask rules also see commands inside $(…), backticks, (…) and {…}',
         '#267 is fixed: apply_patch refuses to run when a file changed after its diff was shown, like edit_file (#255)',
-        '#268, #269: browser screenshots of project files and secrets split across output chunks get past redaction',
+        '#268 is fixed: a browser screenshot of a project file asks, since images are not redacted',
+        '#269: a secret split across two chunks of live command output gets past redaction',
         '#270 (to verify): whether Claude Code chats run a cloned repository’s .claude/settings.json hooks without trust',
       ],
-      'Next: the redaction gaps, #268 and #269.',
+      'Next: #269, redaction of streamed output.',
     ],
     [
       'Finish the Oct 9 audit: the macOS items',

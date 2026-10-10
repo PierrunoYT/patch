@@ -3,10 +3,11 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:
 import { createServer, type AddressInfo, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatEvent } from '@shared/chat';
 import { SMALL_MODELS } from '@shared/models';
-import { ChatManager } from './chat_manager';
+import { ChatManager, isPreApprovedCall } from './chat_manager';
 import { ChatStore } from './chat_store';
 import { LlmService, type Conversation } from './llm';
 import type { CompletionClient } from './llm/types';
@@ -14,9 +15,43 @@ import { ProjectStore } from './projects';
 import { SettingsStore } from './settings';
 import { flushJsonWrites } from './storage/json_file';
 import { backgroundStartup, commandStopsSettled } from './tools/shell';
+import { Workspace } from './tools/workspace';
 
 // These tests wait for their background commands themselves, so the three-second first look is not needed.
 backgroundStartup.waitMs = 50;
+
+describe('isPreApprovedCall', () => {
+  let root: string;
+  let workspace: Workspace;
+  const options = () => ({
+    allowedCommands: 'npm test',
+    allowsNetworkUrl: (url: string) => new URL(url).hostname === 'localhost',
+    workspace,
+  });
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'cc-preapproved-'));
+    workspace = new Workspace(root);
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('approves allowed commands, allowed hosts and project files in the browser', () => {
+    const file = pathToFileURL(join(workspace.root, 'index.html')).href;
+    expect(isPreApprovedCall('run_command', { command: 'npm test -- --watch=false' }, options())).toBe(true);
+    expect(isPreApprovedCall('run_command', { command: 'npm install' }, options())).toBe(false);
+    expect(isPreApprovedCall('fetch_url', { url: 'http://localhost:3000/' }, options())).toBe(true);
+    expect(isPreApprovedCall('browser', { url: 'https://example.com/' }, options())).toBe(false);
+    expect(isPreApprovedCall('browser', { url: file }, options())).toBe(true);
+    expect(isPreApprovedCall('browser', { url: pathToFileURL(tmpdir()).href }, options())).toBe(false);
+  });
+
+  it('asks before a screenshot of a project file, which redaction cannot cover (#268)', () => {
+    const file = pathToFileURL(join(workspace.root, 'credentials.json')).href;
+    expect(isPreApprovedCall('browser', { url: file, screenshot: true }, options())).toBe(false);
+    expect(isPreApprovedCall('browser', { url: file, screenshot: false }, options())).toBe(true);
+    expect(isPreApprovedCall('browser', { url: 'http://localhost:3000/', screenshot: true }, options())).toBe(true);
+  });
+});
 
 describe('project chat retention', () => {
   let root: string;

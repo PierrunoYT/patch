@@ -198,6 +198,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- The browser tool asks before a screenshot of a project file. A project `file://` page opened without a card even in Ask mode, and screenshots are not redacted, so `browser file:///…/credentials.json` with `screenshot` showed the model a secret that `read_file` would have hidden. Opening a project file without a screenshot still needs no card (fixes #268).
 - `apply_patch` refuses to run when a file it updates, moves or deletes changed after its diff was shown for approval, as `edit_file` already did. It re-planned the patch from the files as they were when it ran, so an approved Delete could remove what the user wrote while the card was open, and an Update was merged into changed content (fixes #267).
 - Reject and ask permission rules also see commands inside substitutions and blocks. A rule for `git push*` stopped `cd . && git push` but not `echo $(git push)`, ``echo `git push` ``, `(git push)` or `& {git push}`, which in Auto mode ran without asking (fixes #266).
 - Commands allowed without asking no longer get past the check for arguments that write a file or run a program. PowerShell takes typographic quotes as quotes, so `git log “--output=C:/x”` wrote any file without asking when `git log` was allowed; bash drops backslashes (`--output\=x`); and `-o` hid in groups of short flags (`curl -so x`, `sort -uo x`, `git grep -iO…`). Arguments are now checked as the shell passes them on, and `-o`/`-O` anywhere in a short-flag group asks (fixes #265).

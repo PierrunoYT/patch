@@ -125,6 +125,10 @@ describe('side panels', () => {
     );
     await running.page.getByLabel('Message', { exact: true }).fill('Check the page');
     await running.page.getByLabel('Message', { exact: true }).press('Enter');
+    // A project file opens without asking, but a screenshot of one asks: images are not redacted (#268).
+    const card = running.page.locator('.tool-card.awaiting');
+    await card.waitFor({ timeout: 30_000 });
+    await card.getByRole('button', { name: 'Approve' }).click();
     await running.page.getByText('The page logs an error.', { exact: true }).waitFor({ timeout: 30_000 });
 
     // The browser panel was brought to the front.

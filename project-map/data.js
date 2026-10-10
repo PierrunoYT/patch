@@ -60,7 +60,7 @@ const D = {
       testLines: 2868,
       desc: 'App wiring: IPC handlers, program lookup that never searches the project folder (#141), ChatManager, chat storage, settings with native confirmation for changes to protective permission rules or their prefixes, projects, window, menu, local error and native-crash logging.',
       list: [
-        'chat_manager.ts (600; passes sensitive app paths to ShellRunner, #145; safe restored-session preparation, #161; same-project state, #160)',
+        'chat_manager.ts (623; isPreApprovedCall, no card-free screenshots of project files, #268; passes sensitive app paths to ShellRunner, #145; safe restored-session preparation, #161; same-project state, #160)',
         'index.ts (629; one projectSwitched helper for every project switch, History included, #241; Initialize stops sandboxed processes first, #231; native confirmation for the first terminal of each project, #157; sandbox app-data/user-data/install boundaries, #145; history error resync and same-project terminal preservation)',
         'exec_search.ts (37, bare program names never resolve in the project, #141)',
         'settings.ts (485; a fixed-key cipher such as Linux basic_text never counts as encrypted, #258)',
@@ -574,7 +574,6 @@ const D = {
       '10-10',
     ],
     [269, 'Live command output shows a secret split across two output chunks', 'security', 'low', 0, '10-10'],
-    [268, 'Pre-approved browser screenshots of project files bypass redaction', 'security', 'low', 0, '10-10'],
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
@@ -659,7 +658,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 197,
+  closedCount: 198,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
