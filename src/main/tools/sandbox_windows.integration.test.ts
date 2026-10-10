@@ -70,6 +70,9 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
     copyFileSync(process.execPath, sandboxNode);
     writeFileSync(join(outside, 'secret.txt'), 'TOP-SECRET-VALUE');
     mkdirSync(join(root, '.git', 'hooks'), { recursive: true });
+    mkdirSync(join(root, '.vscode'));
+    writeFileSync(join(root, '.vscode', 'settings.json'), 'ORIGINAL-SETTINGS');
+    writeFileSync(join(root, 'AGENTS.md'), 'ORIGINAL-RULES');
     sandboxEnv = Object.fromEntries(
       Object.entries(scrubEnv(process.env)).filter(([name]) => name.toLowerCase() !== 'path'),
     );
@@ -343,6 +346,25 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
     expect(other.exitCode).not.toBe(0);
     expect(existsSync(join(root, '.git', 'config-test'))).toBe(false);
   }, 60_000);
+
+  it('cannot change, add, delete or rename editor and agent configuration (#127)', async () => {
+    const settings = join(root, '.vscode', 'settings.json');
+    const tasks = join(root, '.vscode', 'tasks.json');
+    const rules = join(root, 'AGENTS.md');
+    await shell.run(`Set-Content -Path '${settings}' -Value CHANGED`);
+    await shell.run(`Set-Content -Path '${tasks}' -Value NEW`);
+    await shell.run(`Set-Content -Path '${rules}' -Value CHANGED`);
+    await shell.run(`Remove-Item -Force '${rules}'`);
+    await shell.run(`Rename-Item -Path '${join(root, '.vscode')}' -NewName moved`);
+    expect(readFileSync(settings, 'utf8')).toBe('ORIGINAL-SETTINGS');
+    expect(existsSync(tasks)).toBe(false);
+    expect(readFileSync(rules, 'utf8')).toBe('ORIGINAL-RULES');
+    expect(existsSync(join(root, 'moved'))).toBe(false);
+    // The protection is the sandbox's: an ordinary project file next to them is still writable.
+    const ordinary = await shell.run(`Set-Content -Path '${join(root, 'notes.txt')}' -Value ok`);
+    expect(ordinary.exitCode, ordinary.output).toBe(0);
+    expect(readFileSync(join(root, 'notes.txt'), 'utf8').trim()).toBe('ok');
+  }, 120_000);
 
   it('blocks the network by default', async ({ skip }) => {
     if (!hostCanConnect) skip('The host cannot reach the control endpoint; network isolation is unverified.');

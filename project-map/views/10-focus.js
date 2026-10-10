@@ -16,15 +16,16 @@ builders.focus = () => {
       'The macOS items need a Mac to verify; the helper items are Rust changes in native/sandbox-helper.',
     ],
     [
-      'Continue with medium sandbox hardening: #127 and #96',
+      'Continue with medium sandbox hardening: #96 and #262',
       'The Oct 7 audit found that the sandbox itself holds, but trusted main-process code acts on paths and programs inside the writable workspace. The critical one, #141 (a git.exe planted in the project ran when the project opened), is fixed: bare program names no longer resolve in the project folder, covered by an end-to-end test. #142 is fixed too: MCP stdio servers start in a private folder with their command resolved to an absolute path, and see the project only through ${project}.',
       [
         '#143 is fixed: protected paths match case-insensitively, Windows short names expand before checks, and failed safety checks ask',
         '#144 is fixed: file reads, edits, patch writes/deletes and Undo use a native no-follow helper with expected bytes and retained handles; deterministic link-replacement tests protect outside and guarded in-project files',
         '#145 is fixed: native and container commands reject sensitive project roots before Git reservation or Windows grants; macOS command temp stays inside the project',
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
+        '#127 is fixed: the project’s existing top-level editor, agent and CI configuration (.vscode, .claude, .agents, .patch, .github, .mcp.json, AGENTS.md and others) is read-only in every sandbox backend, like .git',
       ],
-      'Next: protect agent/IDE/startup config from shell writes (#127), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux and Windows, #97) to macOS and containers (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
+      'Next: protect configuration that does not exist yet, and links (#262), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux and Windows, #97) to macOS and containers (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',
@@ -62,7 +63,7 @@ builders.focus = () => {
       'The Oct 6 comparison of Codex, Gemini CLI, Anthropic Sandbox Runtime and OpenHands found useful patterns without a reason to replace AppContainer. These are proposed enhancements, not claims of reproduced sandbox escapes.',
       [
         '#126: approve exact extra read/write paths for one command instead of dropping the sandbox',
-        '#127: protect project-local agent, IDE and startup configuration from shell writes, including absent paths',
+        '#262: protect agent and IDE configuration that does not exist yet from shell writes (existing entries are protected since #127)',
         '#128: add an OS-restricted file executor; #144 now provides native no-follow handles, but the helper still runs with the user’s permissions',
         '#97 and #87 are done on Linux and Windows: allow-list commands go through a filtering proxy (own network namespace on Linux, no network capability plus a named-pipe relay on Windows), and MCP stdio servers can opt in; macOS remains',
       ],

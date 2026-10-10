@@ -451,7 +451,7 @@ export class ShellRunner {
       image: '',
       sensitivePaths: this.sensitivePaths(),
     });
-    const gitPaths = launchEnv.gitPaths;
+    const protectedPaths = launchEnv.protectedPaths;
     signal?.throwIfAborted();
     const real = (path: string) => {
       try {
@@ -473,7 +473,7 @@ export class ShellRunner {
       network,
       home: real(homedir()),
       exists: (path) => existsSync(path),
-      gitPaths,
+      protectedPaths,
       tooLarge: (path) => exceedsEntryLimit(path),
     });
     let proxy: FilteringProxy | undefined;

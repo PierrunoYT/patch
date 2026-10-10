@@ -190,7 +190,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
   let probe: string;
   let app: string;
   let fetcher: string;
-  let gitPaths: string[];
+  let protectedPaths: string[];
 
   const diagnostic = (result: ReturnType<typeof spawnSync>) =>
     `status=${String(result.status)} error=${String(result.error)} stdout=${String(result.stdout)} stderr=${String(result.stderr)}`;
@@ -214,7 +214,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
         containerName: 'unused-seatbelt-test',
         image: '',
       },
-      gitPaths,
+      protectedPaths,
     );
     const launch = buildLaunch({ kind: 'seatbelt', network }, env, null);
     return spawnSync(launch.file, launch.args, {
@@ -281,7 +281,7 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
       timeout: 60_000,
     });
     expect(compiledFetch.status, diagnostic(compiledFetch)).toBe(0);
-    gitPaths = await validateSandboxGit(project);
+    protectedPaths = await validateSandboxGit(project);
   });
 
   afterAll(() => {

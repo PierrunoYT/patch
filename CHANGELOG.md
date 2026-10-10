@@ -189,6 +189,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- Sandboxed commands can no longer change the project's editor, agent and CI configuration. The top-level `.vscode`, `.idea`, `.claude`, `.cursor`, `.agents`, `.patch`, `.husky`, `.github` and similar folders, and `.mcp.json`, `AGENTS.md`, `CLAUDE.md` and `.envrc`, are read-only in every sandbox backend, like `.git`, so a command cannot plant a VS Code task, MCP server, hook or workflow that later runs outside the sandbox. Change them with the edit tools, which ask first. Entries that do not exist yet are not protected (#262). The edit tools now also ask before changing `.agents` (fixes #127).
+
 - On Linux without a keyring, where Electron's `basic_text` storage scrambles keys with a fixed password, Settings no longer says keys are encrypted, and new keys are stored as plain text after the usual confirmation (fixes #258).
 - Command output is redacted before a long result is shortened, a private key with only its BEGIN or END line left (cut by the shortening, or split between reads of a background command) is masked, and live command output in the chat is redacted as it arrives. Before, key lines could reach the model and the chat in all three cases (fixes #253).
 - Model-written Markdown can no longer use the app's own classes and ids, or hide text: `class` (except code highlighting), `id` and `hidden` are removed, so a reply cannot draw a fake Approve button or overlay (fixes #254).

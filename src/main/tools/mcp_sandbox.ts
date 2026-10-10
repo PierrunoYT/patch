@@ -87,7 +87,7 @@ export async function mcpSandboxLaunch(
       network: config.sandboxNetwork === true,
       home,
       exists: (path) => existsSync(path),
-      gitPaths: project?.gitPaths ?? [],
+      protectedPaths: project?.protectedPaths ?? [],
       writable: project ? [state] : [],
       workspace: true,
       tooLarge: (path) => exceedsEntryLimit(path),
@@ -112,7 +112,7 @@ export async function mcpSandboxLaunch(
       writable: project ? [project.cwd] : [],
       homeEnv: state,
     },
-    project?.gitPaths ?? [],
+    project?.protectedPaths ?? [],
   );
   const launch = buildLaunch({ kind: 'bwrap', network: config.sandboxNetwork === true }, env, null, {
     scope: support.scope,

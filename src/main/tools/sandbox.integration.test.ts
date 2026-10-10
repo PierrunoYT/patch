@@ -72,6 +72,8 @@ if (action === 'connect' || action === 'connect-abstract') {
 } else {
   try {
     if (action === 'read') report({ content: fs.readFileSync(target, 'utf8') });
+    else if (action === 'rename') { fs.renameSync(target, value); report({ written: true }); }
+    else if (action === 'remove') { fs.rmSync(target, { recursive: true }); report({ written: true }); }
     else { fs.writeFileSync(target, value); report({ written: true }); }
   } catch (error) { report({ error: error.code }); }
 }
@@ -152,6 +154,9 @@ for (const [kind, available] of [
         writeFileSync(join(project, 'inside.txt'), 'PROJECT-READABLE');
         writeFileSync(join(home, 'outside.txt'), 'OUTSIDE-PRIVATE');
         writeFileSync(join(project, '.git', 'hooks', 'pre-commit.sample'), 'ORIGINAL-HOOK');
+        mkdirSync(join(project, '.vscode'));
+        writeFileSync(join(project, '.vscode', 'settings.json'), 'ORIGINAL-SETTINGS');
+        writeFileSync(join(project, 'AGENTS.md'), 'ORIGINAL-RULES');
         for (const rel of credentials) {
           const path = join(home, rel);
           mkdirSync(dirname(path), { recursive: true });
@@ -255,6 +260,20 @@ for (const [kind, available] of [
         expect(readFileSync(join(project, '.git', 'hooks', 'pre-commit.sample'), 'utf8')).toBe('ORIGINAL-HOOK');
         expect(existsSync(join(project, '.git', 'hooks', 'pre-push'))).toBe(false);
         expect((await run('write', '.git/config-test', 'DENIED')).error).toMatch(/^(EACCES|EPERM|EROFS)$/);
+      });
+
+      it('cannot change, add, delete or rename editor and agent configuration (#127)', async () => {
+        const denied = /^(EACCES|EPERM|EROFS|EBUSY|EXDEV)$/;
+        expect((await run('write', '.vscode/settings.json', 'CHANGED')).error).toMatch(denied);
+        expect((await run('write', '.vscode/tasks.json', 'NEW')).error).toMatch(denied);
+        expect((await run('write', 'AGENTS.md', 'CHANGED')).error).toMatch(denied);
+        expect((await run('remove', 'AGENTS.md')).error).toMatch(denied);
+        expect((await run('rename', '.vscode', 'moved')).error).toMatch(denied);
+        expect(readFileSync(join(project, '.vscode', 'settings.json'), 'utf8')).toBe('ORIGINAL-SETTINGS');
+        expect(existsSync(join(project, '.vscode', 'tasks.json'))).toBe(false);
+        expect(readFileSync(join(project, 'AGENTS.md'), 'utf8')).toBe('ORIGINAL-RULES');
+        // The denial comes from the sandbox: an ordinary project file is still writable.
+        expect((await run('write', 'notes.txt', 'ok')).written).toBe(true);
       });
 
       it.skipIf(process.platform === 'win32')('cannot follow a project symlink into the private home', async () => {

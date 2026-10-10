@@ -33,6 +33,7 @@ describe('isGuardedPath', () => {
     '.envrc',
     'services/api/.envrc',
     '.husky/pre-commit',
+    '.agents/skills/release.md',
   ])('guards %s', (path) => {
     expect(isGuardedPath(path)).toBe(true);
   });

@@ -20,7 +20,7 @@ const GUARDED: RegExp[] = [
   // Version-control internals.
   /(^|\/)\.git(\/|$)/i,
   // Editor and agent configuration.
-  /(^|\/)\.(cursor|windsurf|claude|codex|vscode|idea|amp|gemini|zed|continue|kilo|kilocode)(\/|$)/i,
+  /(^|\/)\.(cursor|windsurf|claude|codex|vscode|idea|amp|gemini|zed|continue|kilo|kilocode|agents)(\/|$)/i,
   /(^|\/)\.mcp\.json$/i,
   // Patch's own instructions: the project's AGENTS.md or CLAUDE.md and its skills go into every new chat's system
   // prompt, so an unreviewed edit would carry over into later chats (#236).

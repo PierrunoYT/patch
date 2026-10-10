@@ -85,7 +85,7 @@ const env = (existing: string[] = []): LaunchEnv => ({
   inner: { file: '/bin/bash', args: ['-lc', 'npm test'] },
   command: 'npm test',
   exists: (path) => path === '/home/u/proj/.git' || existing.includes(path),
-  gitPaths: ['/home/u/proj/.git'],
+  protectedPaths: ['/home/u/proj/.git'],
   uid: 1000,
   gid: 1000,
   containerName: 'patch-abc',
@@ -439,7 +439,7 @@ describe('buildLaunch', () => {
   });
 
   it('protects both a gitfile and the top-level ancestor of its metadata on every backend', () => {
-    const input = { ...env(), gitPaths: ['/home/u/proj/.git', '/home/u/proj/metadata'] };
+    const input = { ...env(), protectedPaths: ['/home/u/proj/.git', '/home/u/proj/metadata'] };
     expect(bwrapArgs(input, false).join(' ')).toContain('--ro-bind /home/u/proj/metadata /home/u/proj/metadata');
     expect(seatbeltProfile(input, false)).toContain(
       '(deny file-write* (subpath "/home/u/proj/.git") (subpath "/home/u/proj/metadata"))',

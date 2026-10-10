@@ -4,6 +4,7 @@ import { dirname, join, parse, posix, relative, resolve, sep } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
 import { DEFAULT_LIMITS, findHelper, isPackagedElectron } from './sandbox_windows';
+import { protectedConfigPaths } from './sandbox_config';
 import { validateSandboxGit } from './sandbox_git';
 import { PROXY_PORT } from './net_proxy';
 
@@ -163,8 +164,9 @@ export interface LaunchEnv {
   inner: { file: string; args: string[] };
   command: string;
   exists: (path: string) => boolean;
-  // Validated top-level Git pointers and metadata directories, or an empty reservation for non-Git projects.
-  gitPaths: string[];
+  // Read-only inside the sandbox: validated top-level Git pointers and metadata directories (or an empty reservation
+  // for non-Git projects), and the project's top-level editor, agent and CI configuration (sandbox_config.ts).
+  protectedPaths: string[];
   uid?: number;
   gid?: number;
   // Unique container name, so it can be removed when the command is stopped.
@@ -239,7 +241,7 @@ export function bwrapArgs(env: LaunchEnv, network: boolean): string[] {
   args.push('--bind', cwd, cwd);
   for (const path of env.writable ?? []) args.push('--bind', path, path);
   // Mount the directory itself: protecting leaves would allow absent control files and directory replacement.
-  for (const path of env.gitPaths) args.push('--ro-bind', path, path);
+  for (const path of env.protectedPaths) args.push('--ro-bind', path, path);
   if (env.proxy && !network) {
     args.push('--bind', env.proxy.socket, PROXY_SOCKET, '--ro-bind', env.proxy.bridge, PROXY_BRIDGE);
     // Programs that honor proxy variables (curl, git, npm, pip, Node with NODE_USE_ENV_PROXY) use the bridge;
@@ -260,7 +262,7 @@ function sbplString(value: string): string {
 }
 
 export function seatbeltProfile(
-  env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'exists' | 'gitPaths'>,
+  env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'exists' | 'protectedPaths'>,
   network: boolean,
 ): string {
   const subpath = (path: string) => `(subpath ${sbplString(path)})`;
@@ -358,7 +360,7 @@ export function seatbeltProfile(
   lines.push(
     `(allow file-write* ${subpath(env.cwd)} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
   );
-  lines.push(`(deny file-write* ${env.gitPaths.map(subpath).join(' ')})`);
+  lines.push(`(deny file-write* ${env.protectedPaths.map(subpath).join(' ')})`);
   // A project in a writable temp tree must not move out from under the pathname-based deny rule.
   for (let path = env.cwd; path !== '/'; path = posix.dirname(path)) {
     lines.push(`(deny file-write-unlink (literal ${sbplString(path)}))`);
@@ -387,9 +389,9 @@ export function containerArgs(
   network: boolean,
   limits: CommandLimits = DEFAULT_LIMITS,
 ): { args: string[]; stop: Launch['stop'] } {
-  if ([env.cwd, ...env.gitPaths].some((path) => path.includes(',')))
+  if ([env.cwd, ...env.protectedPaths].some((path) => path.includes(',')))
     throw new Error(
-      'Container sandbox cannot protect Git metadata in a path containing commas. Request unsandboxed access.',
+      'Container sandbox cannot protect Git metadata or project configuration in a path containing commas. Request unsandboxed access.',
     );
   const args = [
     'run',
@@ -411,7 +413,7 @@ export function containerArgs(
   }
   args.push('-v', `${env.cwd}:/workspace`);
   // --mount fails if the source disappears, instead of creating a host directory as -v would.
-  for (const path of env.gitPaths)
+  for (const path of env.protectedPaths)
     args.push(
       '--mount',
       `type=bind,src=${path},dst=/workspace/${relative(env.cwd, path).replaceAll('\\', '/')},readonly`,
@@ -580,7 +582,7 @@ export function resetSandboxSupportCache(): void {
   probes.clear();
 }
 
-type LaunchBase = Omit<LaunchEnv, 'exists' | 'gitPaths' | 'uid' | 'gid' | 'home' | 'tmp'> & {
+type LaunchBase = Omit<LaunchEnv, 'exists' | 'protectedPaths' | 'uid' | 'gid' | 'home' | 'tmp'> & {
   home: string;
   tmp: string;
   sensitivePaths?: string[];
@@ -626,14 +628,16 @@ export function validateSandboxRoot(cwd: string, home: string, sensitivePaths: s
   return project;
 }
 
-// Validates the root before Git reservation, then validates metadata (which can create the reservation).
+// Validates the root before Git reservation, then validates metadata (which can create the reservation). The project's
+// editor, agent and CI configuration is protected alongside Git metadata (#127).
 export async function systemLaunchEnv(base: LaunchBase): Promise<LaunchEnv> {
   const cwd = validateSandboxRoot(base.cwd, base.home, base.sensitivePaths);
-  return launchEnvWith({ ...base, cwd }, await validateSandboxGit(cwd));
+  const git = await validateSandboxGit(cwd);
+  return launchEnvWith({ ...base, cwd }, [...new Set([...git, ...protectedConfigPaths(cwd)])]);
 }
 
-// The launch environment for Git paths that validateSandboxGit returned.
-export function launchEnvWith(base: LaunchBase, gitPaths: string[]): LaunchEnv {
+// The launch environment for the paths that systemLaunchEnv protects.
+export function launchEnvWith(base: LaunchBase, protectedPaths: string[]): LaunchEnv {
   const real = (path: string) => {
     try {
       return realpathSync(path);
@@ -647,7 +651,7 @@ export function launchEnvWith(base: LaunchBase, gitPaths: string[]): LaunchEnv {
     home: real(base.home),
     tmp: real(base.tmp),
     exists: (path) => existsSync(path),
-    gitPaths,
+    protectedPaths,
     uid: process.getuid?.(),
     gid: process.getgid?.(),
   };

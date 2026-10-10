@@ -109,7 +109,7 @@ export interface WindowsPolicyInput {
   programDirs: string[];
   pathEntries: string[];
   exists: (path: string) => boolean;
-  gitPaths?: string[];
+  protectedPaths?: string[];
   // Extra writable folders besides cwd (a sandboxed MCP server's project, #87).
   writable?: string[];
   // Whether a folder is too big to grant whole; such a folder is replaced by its `bin` subfolder, or left closed.
@@ -173,9 +173,14 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   };
   for (const rel of HOME_READ_ONLY_WINDOWS) add(win32.join(home, rel));
   for (const entry of input.pathEntries) if (entry && win32.isAbsolute(entry)) add(entry);
-  const gitPaths = input.gitPaths ?? [win32.join(cwd, '.git')];
+  const protectedPaths = input.protectedPaths ?? [win32.join(cwd, '.git')];
   const extra = (input.writable ?? []).filter((path) => !same(path, cwd));
-  return { readWrite: [cwd, ...extra], readOnly: [...readOnly, ...gitPaths], toolchains, denyWrite: gitPaths };
+  return {
+    readWrite: [cwd, ...extra],
+    readOnly: [...readOnly, ...protectedPaths],
+    toolchains,
+    denyWrite: protectedPaths,
+  };
 }
 
 export interface BuildRequestInput {
@@ -186,7 +191,7 @@ export interface BuildRequestInput {
   network: boolean;
   home: string;
   exists: (path: string) => boolean;
-  gitPaths?: string[];
+  protectedPaths?: string[];
   writable?: string[];
   workspace?: boolean;
   tooLarge?: (path: string) => boolean;
@@ -205,7 +210,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     programDirs: [lookup('programfiles'), lookup('programfiles(x86)'), lookup('programw6432')].filter(Boolean),
     pathEntries: lookup('path').split(';'),
     exists: input.exists,
-    gitPaths: input.gitPaths,
+    protectedPaths: input.protectedPaths,
     writable: input.writable,
     tooLarge: input.tooLarge,
   });
