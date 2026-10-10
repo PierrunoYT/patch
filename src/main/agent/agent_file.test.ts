@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Workspace } from '../tools/workspace';
-import { loadAgentFile } from './agent_file';
+import { loadAgentFile, readAgentFile } from './agent_file';
 
 let root: string;
 
@@ -35,5 +35,17 @@ describe('loadAgentFile', () => {
     const file = loadAgentFile(new Workspace(root));
     expect(file?.content).toHaveLength(20_000);
     expect(file?.truncated).toBe(true);
+  });
+});
+
+describe('readAgentFile', () => {
+  it('reads one named file, so Claude Code chats can get both AGENTS.md and CLAUDE.md (#270)', () => {
+    writeFileSync(join(root, 'AGENTS.md'), 'agents\n');
+    writeFileSync(join(root, 'CLAUDE.md'), 'claude');
+    const workspace = new Workspace(root);
+    expect(readAgentFile(workspace, 'CLAUDE.md')).toEqual({ name: 'CLAUDE.md', content: 'claude', truncated: false });
+    expect(readAgentFile(workspace, 'AGENTS.md')?.content).toBe('agents');
+    expect(readAgentFile(workspace, 'missing.md')).toBeNull();
+    expect(readAgentFile(workspace, '../outside.md')).toBeNull();
   });
 });

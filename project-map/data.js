@@ -92,7 +92,7 @@ const D = {
         'agent.ts (617; failed mustAsk checks require approval, #143; malformed JSON rejected before schema checks, #179)',
         'session.ts (658; Git block on the first message, notes for outside file changes and branch/HEAD moves, #85)',
         'project_context.ts (97; Git block, branch/HEAD moves and file stamps for session notes, #85)',
-        'claude_code.ts (551; SDK /core bridge, hooks, session resets and cleanup)',
+        'claude_code.ts (554; SDK /core bridge, hooks, session resets and cleanup; user settings only, never the project’s, #270)',
         'claude_code_launch.ts (73; fixed executable lookup and API-key endpoint)',
         'claude_code_tools.ts (129; external tool previews and sandbox notes)',
         'claude_code.test.ts (973)',
@@ -374,12 +374,12 @@ const D = {
     openai: ['gpt-6-astra', 'gpt-6.1-sol (mid)', 'gpt-6-sol (legacy)', 'gpt-6-luna (small)'],
   },
   testsByArea: [
-    { a: 'main/agent', f: 15, c: 368, src: 2890, tl: 5521 },
-    { a: 'main/llm', f: 9, c: 119, src: 2302, tl: 3223 },
-    { a: 'main/tools', f: 34, c: 773, src: 6312, tl: 9511 },
-    { a: 'main/panels', f: 4, c: 83, src: 829, tl: 1314 },
-    { a: 'main/other', f: 16, c: 241, src: 3911, tl: 3706 },
-    { a: 'shared', f: 8, c: 99, src: 1445, tl: 1149 },
+    { a: 'main/agent', f: 15, c: 402, src: 2890, tl: 5521 },
+    { a: 'main/llm', f: 9, c: 120, src: 2302, tl: 3223 },
+    { a: 'main/tools', f: 34, c: 784, src: 6312, tl: 9511 },
+    { a: 'main/panels', f: 4, c: 87, src: 829, tl: 1314 },
+    { a: 'main/other', f: 16, c: 244, src: 3911, tl: 3706 },
+    { a: 'shared', f: 8, c: 100, src: 1445, tl: 1149 },
     { a: 'renderer', f: 7, c: 23, src: 6695, tl: 242 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
   ],
@@ -417,7 +417,7 @@ const D = {
     ['task', 1],
     ['terminal_no_project', 1],
     ['planted_binaries', 1],
-    ['claude_code', 2],
+    ['claude_code', 3],
   ],
   untested: [
     [865, 'renderer/src/app.ts'],
@@ -565,14 +565,6 @@ const D = {
     ['20e224d', 'fix(plan): ask before changes in plan mode until a plan is approved'],
   ],
   issues: [
-    [
-      270,
-      'Check whether Claude Code chats run a repo’s .claude/settings.json hooks untrusted',
-      'security',
-      'medium',
-      0,
-      '10-10',
-    ],
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
@@ -657,7 +649,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 199,
+  closedCount: 200,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

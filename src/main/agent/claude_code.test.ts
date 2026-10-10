@@ -127,7 +127,8 @@ describe('ClaudeCodeAgent: the query it starts', () => {
       thinking: { type: 'adaptive', display: 'summarized' },
       permissionMode: 'default',
       systemPrompt: { type: 'preset', preset: 'claude_code', append: 'Project rules' },
-      settingSources: ['user', 'project', 'local'],
+      // Never the project's own settings: a cloned repository's hooks and allow rules would apply untrusted (#270).
+      settingSources: ['user'],
       includePartialMessages: true,
       pathToClaudeCodeExecutable: '/opt/claude',
       env: { PATH: '/bin' },

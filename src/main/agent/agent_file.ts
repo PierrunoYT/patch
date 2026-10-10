@@ -14,15 +14,21 @@ export interface AgentFile {
 
 export function loadAgentFile(workspace: Workspace): AgentFile | null {
   for (const name of AGENT_FILE_NAMES) {
-    try {
-      const path = workspace.resolve(name);
-      if (!statSync(path).isFile()) continue;
-      const text = readFileSync(path, 'utf8').trim();
-      if (!text) continue;
-      return { name, content: text.slice(0, MAX_CHARS), truncated: text.length > MAX_CHARS };
-    } catch {
-      // Missing, unreadable or outside the project: try the next name.
-    }
+    const file = readAgentFile(workspace, name);
+    if (file) return file;
   }
   return null;
+}
+
+// One instruction file from the project root, or null when it is missing, empty, unreadable or outside the project.
+export function readAgentFile(workspace: Workspace, name: string): AgentFile | null {
+  try {
+    const path = workspace.resolve(name);
+    if (!statSync(path).isFile()) return null;
+    const text = readFileSync(path, 'utf8').trim();
+    if (!text) return null;
+    return { name, content: text.slice(0, MAX_CHARS), truncated: text.length > MAX_CHARS };
+  } catch {
+    return null;
+  }
 }

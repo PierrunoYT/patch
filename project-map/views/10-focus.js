@@ -5,8 +5,8 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix the Oct 10 audit: approval bypasses through command text',
-      'The audit confirmed that the text checks deciding which commands skip the approval card can be bypassed, because bash and PowerShell read the command differently from the checks. Each one was reproduced with a unit test; the git log case also through PowerShell.',
+      'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',
+      'The audit found that the text checks deciding which commands skip the approval card could be bypassed, because bash and PowerShell read a command differently from the checks, and that Claude Code chats applied a cloned repository’s own Claude Code settings. Each finding was reproduced first (unit tests, PowerShell, and for #270 an end-to-end test with the installed Claude Code) and is fixed with a regression test.',
       [
         '#264 is fixed: an allow rule such as "npm test*" no longer covers what is chained after the command; a chained command needs every part allowed, and substitutions or redirections are never allowed by a rule',
         '#265 is fixed: allowed commands are checked as the shell passes their arguments on (typographic quotes, backslashes, long dashes), and -o/-O in a group of short flags asks',
@@ -14,9 +14,9 @@ builders.focus = () => {
         '#267 is fixed: apply_patch refuses to run when a file changed after its diff was shown, like edit_file (#255)',
         '#268 is fixed: a browser screenshot of a project file asks, since images are not redacted',
         '#269 is fixed: live command output is redacted a line at a time, so a secret split between chunks is hidden',
-        '#270 (to verify): whether Claude Code chats run a cloned repository’s .claude/settings.json hooks without trust',
+        '#270 is fixed: a repository’s .claude/settings.json hooks ran commands on the first Claude Code message and its allow rules skipped the approval card; Claude Code chats now load only the user’s settings and get the project’s AGENTS.md and CLAUDE.md as instructions',
       ],
-      'Next: verify #270 with an installed Claude Code.',
+      'Command-text checks remain best effort: a delegate permission program or the sandbox is the boundary for commands that must be understood.',
     ],
     [
       'Finish the Oct 9 audit: the macOS items',

@@ -10,7 +10,7 @@ import {
   subagentModelId,
 } from '@shared/models';
 import { mergeAllowLists } from '@shared/project';
-import { loadAgentFile } from './agent/agent_file';
+import { AGENT_FILE_NAMES, loadAgentFile, readAgentFile } from './agent/agent_file';
 import { isCommandAllowed } from './agent/allowed_commands';
 import { isNetworkUrlAllowed } from './agent/allowed_network_hosts';
 import { decideCallPermission, type PathView } from './agent/permissions';
@@ -416,16 +416,18 @@ export class ChatManager {
       const own = this.deps.projects.get(workspace.root);
       return isNetworkUrlAllowed(url, mergeAllowLists(settings.allowedNetworkHosts, own?.allowedNetworkHosts));
     };
-    // Claude Code chats run in Claude Code (agent/claude_code.ts). It reads CLAUDE.md itself; the project's
-    // instructions in Patch and an AGENTS.md are added to its system prompt.
+    // Claude Code chats run in Claude Code (agent/claude_code.ts). It does not read the project's own Claude Code files
+    // (#270), so the project's instructions in Patch and its AGENTS.md and CLAUDE.md are added to its system prompt.
     const claudeCode =
       conversation instanceof ClaudeCodeConversation
         ? (() => {
             const instructions = this.deps.projects.get(workspace.root)?.instructions?.trim() ?? '';
-            const agentsMd = loadAgentFile(workspace);
+            const files = AGENT_FILE_NAMES.map((name) => readAgentFile(workspace, name)).filter(
+              (file) => file !== null,
+            );
             const append = [
               instructions ? `Instructions for this project from the user:\n${instructions}` : '',
-              agentsMd && agentsMd.name !== 'CLAUDE.md' ? `Contents of ${agentsMd.name}:\n${agentsMd.content}` : '',
+              ...files.map((file) => `Contents of ${file.name}:\n${file.content}`),
             ]
               .filter(Boolean)
               .join('\n\n');

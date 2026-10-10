@@ -87,8 +87,8 @@ export interface ClaudeCodeAgentOptions extends ChatAgentHooks {
   conversation: ClaudeCodeConversation;
   // The project folder Claude Code works in.
   cwd: string;
-  // Added to Claude Code's own system prompt: the project's instructions in Patch and an AGENTS.md (Claude Code reads
-  // CLAUDE.md itself).
+  // Added to Claude Code's own system prompt: the project's instructions in Patch and its AGENTS.md and CLAUDE.md
+  // (Claude Code does not read the project's own files, see settingSources).
   appendSystemPrompt: string;
   approvalMode: () => ApprovalMode;
   planMode: () => boolean;
@@ -219,8 +219,11 @@ export class ClaudeCodeAgent implements ChatAgent {
             preset: 'claude_code',
             ...(this.options.appendSystemPrompt ? { append: this.options.appendSystemPrompt } : {}),
           },
-          // The user's and the project's Claude Code settings, CLAUDE.md files and MCP servers, as in a terminal.
-          settingSources: ['user', 'project', 'local'],
+          // Only the user's own Claude Code settings, CLAUDE.md and MCP servers. A project's .claude/settings.json,
+          // settings.local.json and .mcp.json come with the repository, and an SDK session never shows Claude Code's
+          // workspace-trust dialog: their hooks ran commands before any approval and their allow rules skipped the
+          // approval card (#270). The project's CLAUDE.md reaches the model through appendSystemPrompt instead.
+          settingSources: ['user'],
           includePartialMessages: true,
           pathToClaudeCodeExecutable: launch.executable,
           env: launch.env,

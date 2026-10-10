@@ -466,7 +466,7 @@ export function openSettingsDialog(settings: SettingsView, actions: SettingsDial
     field(
       'Claude Code program',
       claudeCodePath,
-      'Chats on a "Claude Code" model run in Claude Code, with its own tools, settings and CLAUDE.md; Patch shows its work and asks you to approve its actions. Install Claude Code first (https://code.claude.com). Leave empty to find claude on PATH, or enter its full path. Its commands do not run in Patch\'s command sandbox.',
+      'Chats on a "Claude Code" model run in Claude Code, with its own tools and your Claude Code settings (not the project\'s own .claude settings; its CLAUDE.md is passed on); Patch shows its work and asks you to approve its actions. Install Claude Code first (https://code.claude.com). Leave empty to find claude on PATH, or enter its full path. Its commands do not run in Patch\'s command sandbox.',
     ),
     field(
       'Claude Code sign-in',
