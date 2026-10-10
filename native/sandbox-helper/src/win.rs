@@ -89,12 +89,46 @@ struct DriveMapping {
     target: String,
 }
 
-// Letters a sandbox drive may use, picked from Z down so the usual removable-drive letters come last. Each run holds
-// a project and a temporary drive, plus one for toolchains when they are staged; P to Z alone ran out at about four
-// concurrent commands (#177). A, B (floppy) and C (system) are never used.
+// Letters a sandbox drive may use, picked from Z down so the usual removable-drive letters come last. Runs share
+// drives: one per project, one for every run's private temporary folder and one for the toolchain cache (#228), each
+// kept while any recovery record names it. P to Z alone ran out at about four concurrent commands (#177). A, B (floppy)
+// and C (system) are never used.
 const DRIVE_LETTERS: std::ops::RangeInclusive<u8> = b'D'..=b'Z';
 
 impl DriveMapping {
+    // Whether the drive letter is mapped to exactly this target right now.
+    fn is_live(&self) -> bool {
+        let name = wide(&self.name);
+        let mut buffer = vec![0u16; 4096];
+        let length = unsafe { QueryDosDeviceW(PCWSTR(name.as_ptr()), Some(&mut buffer)) } as usize;
+        let wanted = format!(r"\??\{}", self.target);
+        buffer[..length.min(buffer.len())]
+            .split(|unit| *unit == 0)
+            .any(|entry| String::from_utf16_lossy(entry).eq_ignore_ascii_case(&wanted))
+    }
+
+    // The mapping of another run's record that already points at `path` and is still defined, so runs in one project
+    // share a single letter (#228). The caller holds PermissionLock, which orders this against a run's cleanup.
+    fn shared(path: &str, owners: &[RecoveryRecord]) -> Option<Self> {
+        owners
+            .iter()
+            .flat_map(|record| record.drives())
+            .find(|mapping| mapping.target.eq_ignore_ascii_case(path) && mapping.is_live())
+            .cloned()
+    }
+
+    // Reuses a live mapping of `path` when one exists, otherwise reserves a free letter.
+    fn reserve_shared(
+        path: &str,
+        taken: &[&DriveMapping],
+        owners: &[RecoveryRecord],
+    ) -> Result<Self> {
+        match Self::shared(path, owners) {
+            Some(mapping) => Ok(mapping),
+            None => Self::reserve(path, taken),
+        }
+    }
+
     // The caller holds PermissionLock through journaling and creation, so helpers cannot pick the same letter.
     // `taken` lists letters this run reserved but has not defined yet.
     fn reserve(path: &str, taken: &[&DriveMapping]) -> Result<Self> {
@@ -114,8 +148,8 @@ impl DriveMapping {
         let running = recovery_records().map(|records| records.len()).unwrap_or(0);
         Err(format!(
             "no drive letter is available for the sandbox working directory: D: to Z: are all in use, and {running} \
-             sandboxed command(s) of Patch hold two or three of them each. Wait for a background command to end, or \
-             stop one, and try again"
+             sandboxed command(s) of Patch share up to three of them per project. Wait for a background command to \
+             end, or stop one, and try again"
         ))
     }
 
@@ -152,6 +186,7 @@ impl DriveMapping {
 }
 
 impl ProjectDrive {
+    #[cfg(test)]
     fn create(path: &str) -> Result<Self> {
         let _lock = PermissionLock::acquire()?;
         Self::define(&DriveMapping::reserve(path, &[])?, false)
@@ -160,14 +195,17 @@ impl ProjectDrive {
     fn define(mapping: &DriveMapping, journaled: bool) -> Result<Self> {
         let name = wide(&mapping.name);
         let target = wide(&format!(r"\??\{}", mapping.target));
-        unsafe {
-            DefineDosDeviceW(
-                DDD_RAW_TARGET_PATH | DDD_NO_BROADCAST_SYSTEM,
-                PCWSTR(name.as_ptr()),
-                PCWSTR(target.as_ptr()),
-            )
+        // A mapping another live run already defined is shared, not defined twice (#228).
+        if !(journaled && mapping.is_live()) {
+            unsafe {
+                DefineDosDeviceW(
+                    DDD_RAW_TARGET_PATH | DDD_NO_BROADCAST_SYSTEM,
+                    PCWSTR(name.as_ptr()),
+                    PCWSTR(target.as_ptr()),
+                )
+            }
+            .map_err(|e| describe("create sandbox drive mapping", e))?;
         }
-        .map_err(|e| describe("create sandbox drive mapping", e))?;
         Ok(Self {
             name,
             target,
@@ -794,9 +832,13 @@ struct RecoveryRecord {
     // Exact letter and target, flushed before creation. Projects may be shared by multiple live runs.
     #[serde(default)]
     project_drive: Option<DriveMapping>,
-    // The shared toolchain cache, mapped for this run alone; removed by exact letter like the project drive.
+    // The shared toolchain cache; removed by exact letter like the project drive, once no other record names it.
     #[serde(default)]
     toolchain_drive: Option<DriveMapping>,
+    // The folder holding every run's private temporary folder (#228); this run's is `<letter>:\<record name>`. Shared
+    // like the project drive. Records written before this field have a drive of their own in `temporary`.
+    #[serde(default)]
+    temporary_drive: Option<DriveMapping>,
     // Cache entries this run may use. Stale-entry removal skips any entry a live or abandoned record names.
     #[serde(default)]
     cached: Vec<String>,
@@ -1277,12 +1319,15 @@ fn revoke_project(cwd: &str) -> Result<()> {
     }
 }
 
-fn temporary_path(name: &str) -> Result<PathBuf> {
+fn temporary_root() -> Result<PathBuf> {
     Ok(recovery_dir()?
         .parent()
         .ok_or("missing recovery parent")?
-        .join("sandbox-temp")
-        .join(name))
+        .join("sandbox-temp"))
+}
+
+fn temporary_path(name: &str) -> Result<PathBuf> {
+    Ok(temporary_root()?.join(name))
 }
 
 // Compute effective package rights, not just the presence of a package ACE. Generic and inherit-only ACEs matter.
@@ -1601,6 +1646,16 @@ fn record_sid(name: &str) -> Result<Sid> {
 }
 
 impl RecoveryRecord {
+    fn drives(&self) -> impl Iterator<Item = &DriveMapping> {
+        [
+            &self.project_drive,
+            &self.toolchain_drive,
+            &self.temporary_drive,
+        ]
+        .into_iter()
+        .flatten()
+    }
+
     fn undo(&self, sid: PSID) -> Result<()> {
         let others = recovery_records()?;
         // Try every path even if one is unavailable. Keep the record for a later retry on any error.
@@ -1626,12 +1681,20 @@ impl RecoveryRecord {
                 }
             }
         }
-        for mapping in [&self.project_drive, &self.toolchain_drive]
-            .into_iter()
-            .flatten()
-        {
-            if let Err(error) = mapping.remove() {
-                result = Err(error);
+        for mapping in self.drives() {
+            // Another record (a live run, or an abandoned one not recovered yet) may still use this mapping; the last
+            // one to be undone removes it (#228).
+            let shared = others.iter().any(|record| {
+                record.name != self.name
+                    && record.drives().any(|other| {
+                        other.name == mapping.name
+                            && other.target.eq_ignore_ascii_case(&mapping.target)
+                    })
+            });
+            if !shared {
+                if let Err(error) = mapping.remove() {
+                    result = Err(error);
+                }
             }
         }
         for (directory, expected, kind) in [
@@ -2198,15 +2261,27 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
                 .ok_or("non-Unicode temporary path")?
                 .to_string(),
         ),
-        project_drive: Some(DriveMapping::reserve(&request.cwd, &[])?),
+        project_drive: Some(DriveMapping::reserve_shared(&request.cwd, &[], &owners)?),
         toolchain_drive: None,
+        temporary_drive: None,
         cached: toolchains.iter().map(|plan| plan.key.clone()).collect(),
     };
     if !toolchains.is_empty() {
         let cache = cache_root()?;
         let cache = cache.to_str().ok_or("non-Unicode toolchain cache path")?;
         let taken: Vec<&DriveMapping> = record.project_drive.iter().collect();
-        record.toolchain_drive = Some(DriveMapping::reserve(cache, &taken)?);
+        record.toolchain_drive = Some(DriveMapping::reserve_shared(cache, &taken, &owners)?);
+    }
+    {
+        let root = temporary_root()?;
+        fs::create_dir_all(&root).map_err(|e| format!("cannot create temporary parent: {e}"))?;
+        let root = root.to_str().ok_or("non-Unicode temporary path")?;
+        let taken: Vec<&DriveMapping> = record
+            .project_drive
+            .iter()
+            .chain(&record.toolchain_drive)
+            .collect();
+        record.temporary_drive = Some(DriveMapping::reserve_shared(root, &taken, &owners)?);
     }
     let name = wide(&record.name);
     let sid = record_sid(&record.name)?;
@@ -2247,6 +2322,14 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
         }
         None => None,
     };
+    let temporary_drive = ProjectDrive::define(
+        cleanup
+            .record
+            .temporary_drive
+            .as_ref()
+            .ok_or("missing temporary drive")?,
+        true,
+    )?;
     let sid = unsafe {
         CreateAppContainerProfile(
             PCWSTR(name.as_ptr()),
@@ -2468,9 +2551,11 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     fs::write(temporary_root.join("npmrc"), "")
         .map_err(|e| format!("cannot create empty npm user config: {e}"))?;
     edit_acl(temporary, sid, FILE_MODIFY, Change::Grant)?;
-    let temporary_drive = ProjectDrive::create(temporary)?;
-    let temporary_prefix =
-        String::from_utf16_lossy(&temporary_drive.cwd[..temporary_drive.cwd.len() - 1]);
+    let temporary_prefix = format!(
+        "{}{}\\",
+        String::from_utf16_lossy(&temporary_drive.cwd[..temporary_drive.cwd.len() - 1]),
+        profile
+    );
     // Filtered network (#97): the command starts under net-bridge, copied into its private temporary folder (an
     // AppContainer cannot run it from the install folder), and has no network capability of its own.
     let relay = match (&request.proxy, &bridge) {
@@ -3130,6 +3215,7 @@ mod tests {
             temporary: None,
             project_drive: None,
             toolchain_drive: None,
+            temporary_drive: None,
             cached: vec![],
         };
         let sid = record_sid(&record.name).unwrap();
@@ -3163,6 +3249,7 @@ mod tests {
             temporary: Some(temporary.to_str().unwrap().to_string()),
             project_drive: None,
             toolchain_drive: None,
+            temporary_drive: None,
             cached: vec![],
         };
         let sid = record_sid(&record.name).unwrap();
@@ -3211,6 +3298,7 @@ mod tests {
             temporary: None,
             project_drive: Some(mapping.clone()),
             toolchain_drive: None,
+            temporary_drive: None,
             cached: vec![],
         };
         let sid = record_sid(&record.name).unwrap();
@@ -3257,6 +3345,39 @@ mod tests {
         drop(replacement);
         drop(live);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_live_mapping_of_the_same_folder_is_shared_and_a_dead_one_is_not() {
+        let _lock = PermissionLock::acquire().unwrap();
+        let root = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        let path = root.to_str().unwrap();
+        let mapping = DriveMapping::reserve(path, &[]).unwrap();
+        let record = RecoveryRecord {
+            name: profile_name(),
+            granted: vec![],
+            protected: vec![],
+            staged: None,
+            temporary: None,
+            project_drive: Some(mapping.clone()),
+            toolchain_drive: None,
+            temporary_drive: None,
+            cached: vec![],
+        };
+        // Reserved but not defined yet: nothing to share, so a new letter is chosen.
+        assert!(DriveMapping::shared(path, std::slice::from_ref(&record)).is_none());
+        let drive = ProjectDrive::define(&mapping, true).unwrap();
+        let again =
+            DriveMapping::reserve_shared(&path.to_uppercase(), &[], std::slice::from_ref(&record))
+                .unwrap();
+        assert_eq!(again.name, mapping.name);
+        // Defining it for the second run neither fails nor adds a second definition.
+        let second = ProjectDrive::define(&again, true).unwrap();
+        mapping.remove().unwrap();
+        assert!(!mapping.is_live());
+        drop((drive, second));
+        fs::remove_dir(root).unwrap();
     }
 
     #[test]
@@ -3507,6 +3628,7 @@ mod tests {
             temporary: None,
             project_drive: None,
             toolchain_drive: None,
+            temporary_drive: None,
             cached: vec![],
         };
         let other_name = wide(&profile_name());

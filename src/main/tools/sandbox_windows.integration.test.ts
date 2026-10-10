@@ -279,11 +279,14 @@ console.log(JSON.stringify({ ...Object.fromEntries(names.map((name) => [name, pr
       });
       // The launcher expands 8.3 aliases (RUNNER~1 on CI); compare filesystem identity, not spelling.
       expect(realpathSync.native(environment.HOME!)).toBe(realpathSync.native(homedir()));
-      expect(environment.TMPDIR).toMatch(/^[D-Z]:\\tmp$/i);
+      expect(environment.TMPDIR).toMatch(/^[D-Z]:\\patch\.sbx\.[^\\]+\\tmp$/i);
       expect(environment.NPM_CONFIG_CACHE).toBe(environment.TMPDIR!.replace(/tmp$/, 'npm-cache'));
       expect(environment.NPM_CONFIG_USERCONFIG).toBe(environment.TMPDIR!.replace(/tmp$/, 'npmrc'));
       expect(environment.TMPDIR!.slice(0, 2)).not.toBe(environment.cwd!.slice(0, 2));
-      expect(readdirSync(join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-temp'))).toEqual([]);
+      // Other commands on this machine may be running; only this run's own folder must be gone.
+      expect(readdirSync(join(process.env.LOCALAPPDATA!, 'Patch', 'sandbox-temp'))).not.toContain(
+        environment.TMPDIR!.split('\\')[1],
+      );
       expect(environment.TEMP).toBe(environment.TMP);
       expect(environment.tmpdir).toBe(environment.TEMP);
       expect(isAbsolute(environment.tmpdir!)).toBe(true);
@@ -636,6 +639,35 @@ setInterval(() => {}, 1000);`,
     shell.stopBackground(entry.id);
     await closed;
   }, 60_000);
+
+  it('runs more concurrent commands in one project than there are free drive letters (#228)', async () => {
+    const free = [...'DEFGHIJKLMNOPQRSTUVWXYZ'].filter((letter) => !existsSync(`${letter}:\\`));
+    // Leave room for the one project drive and the one temporary drive, and nothing else.
+    const filled = free.slice(0, Math.max(0, free.length - 2)).map((letter) => `${letter}:`);
+    for (const drive of filled) execFileSync('subst', [drive, outside]);
+    const entries: Awaited<ReturnType<typeof shell.startBackground>>[] = [];
+    try {
+      for (let i = 0; i < 5; i++) {
+        entries.push(await shell.startBackground(`Set-Content ran-${i}.txt x; Start-Sleep -Seconds 120`));
+      }
+      const deadline = Date.now() + 40_000;
+      const ran = (i: number) => existsSync(join(root, `ran-${i}.txt`));
+      while (Date.now() < deadline && ![0, 1, 2, 3, 4].every(ran)) await delay(500);
+      expect([0, 1, 2, 3, 4].filter((i) => !ran(i))).toEqual([]);
+      // The five commands of this project share one project drive and one temporary drive.
+      const targets = execFileSync('subst', { encoding: 'utf8' })
+        .split(/\r?\n/)
+        .map((line) => /^[D-Z]:\\: => (.+)$/.exec(line)?.[1]?.toLowerCase());
+      expect(targets.filter((target) => target === root.toLowerCase())).toHaveLength(1);
+      expect(targets.filter((target) => target?.endsWith('\\patch\\sandbox-temp')).length).toBeLessThanOrEqual(1);
+    } finally {
+      const closed = entries.map((entry) => (entry.exitCode === undefined ? once(entry.process, 'close') : undefined));
+      for (const entry of entries) shell.stopBackground(entry.id);
+      await Promise.all(closed);
+      for (const drive of filled) execFileSync('subst', [drive, '/D']);
+      for (let i = 0; i < 5; i++) rmSync(join(root, `ran-${i}.txt`), { force: true });
+    }
+  }, 120_000);
 
   it('does not run the command at all when the helper cannot start it', async () => {
     const broken = new ShellRunner(
@@ -1347,8 +1379,8 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         // The first attempt includes process/runtime startup, not just the loop's 100 ms interval.
         await expect.poll(() => writerOutput, { timeout: 10_000 }).toContain('BLOCKED');
         expect(readdirSync(journal)).toHaveLength(2);
-        const writerMapping = projectMappings().filter((line) => !firstMapping.includes(line));
-        expect(writerMapping).toHaveLength(1);
+        // Both runs are in one project, so they share its single drive (#228).
+        expect(projectMappings()).toEqual(firstMapping);
 
         // ChildProcess.kill is TerminateProcess on Windows: no Rust destructors can run.
         if (exit === 'forced termination') child.kill();
@@ -1356,10 +1388,11 @@ describe.skipIf(!helper)('Windows sandbox recovery (real helper)', () => {
         await closed;
         if (exit === 'forced termination') expect(acl(tools)).toBe(liveAcl);
         else expect(acl(tools)).not.toMatch(/patch\.sbx\.|S-1-15-2-/);
+        // The ended run's recovery leaves the drive the live writer still uses.
         await recover();
-        expect(projectMappings()).toEqual(writerMapping);
+        expect(projectMappings()).toEqual(firstMapping);
         await recover();
-        expect(projectMappings()).toEqual(writerMapping);
+        expect(projectMappings()).toEqual(firstMapping);
         const attempts = (writerOutput.match(/BLOCKED/g) ?? []).length;
         await expect.poll(() => (writerOutput.match(/BLOCKED/g) ?? []).length).toBeGreaterThan(attempts + 2);
         expect(writerOutput).not.toContain('WRITABLE');

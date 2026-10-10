@@ -581,7 +581,6 @@ const D = {
     ],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
-    [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
     [
       227,
       'Windows sandbox: use the OS process security environment (PSEC) where available',
@@ -650,7 +649,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 205,
+  closedCount: 206,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
