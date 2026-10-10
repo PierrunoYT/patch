@@ -5,6 +5,7 @@ import { PassThrough } from 'node:stream';
 import { basename, join, win32 } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { appLog } from '../app_log';
+import { trustedHelper } from './native_integrity';
 
 // The Windows sandbox: sandbox-helper.exe (native/sandbox-helper) starts the command in an AppContainer. The planning
 // code here is pure so it can be tested on any platform; the protocol client can be pointed at any script that speaks
@@ -279,8 +280,9 @@ export function findHelper(): string | null {
   const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
   const packaged = isPackagedElectron(process.versions.electron, process.execPath, process.platform);
   return (
-    helperCandidates(resources, __dirname, process.cwd(), process.env.PATCH_SANDBOX_HELPER, packaged).find((path) =>
-      existsSync(path),
+    helperCandidates(resources, __dirname, process.cwd(), process.env.PATCH_SANDBOX_HELPER, packaged).find(
+      // A packaged build runs only the helper it was built with (#149); a replaced one means no sandbox.
+      (path) => existsSync(path) && (!packaged || trustedHelper(path)),
     ) ?? null
   );
 }

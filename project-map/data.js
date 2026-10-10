@@ -135,10 +135,10 @@ const D = {
       id: 'tools',
       label: 'main/tools',
       proc: 'main',
-      files: 29,
-      tests: 31,
-      lines: 6163,
-      testLines: 9263,
+      files: 31,
+      tests: 33,
+      lines: 6247,
+      testLines: 9399,
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata and editor/agent configuration (#127), Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Allow-list network is enforced by a filtering proxy on Linux and Windows; macOS and containers still request unrestricted network from matching URLs. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
       list: [
         'registry.ts',
@@ -155,6 +155,8 @@ const D = {
         'sandbox.integration.test.ts (native/container environment isolation and production ShellRunner grants)',
         'sandbox_git.ts (313; asynchronous check with a per-project fingerprint cache, #112; a .git reservation file Git refuses (an empty folder plus a protected HEAD folder inside another repository), confined metadata pointers, trusted system links above the project and protected includes)',
         'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees, metadata write and hard-link denial)',
+        'native_integrity.ts (42; a packaged Windows build runs sandbox-helper.exe and file-helper.exe only when they match the digests taken at build time, #149)',
+        'pe_digest.ts (33; SHA-256 of an executable that code signing does not change)',
         'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; absent entries are #262)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
@@ -372,7 +374,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 14, c: 351, src: 2705, tl: 5275 },
     { a: 'main/llm', f: 9, c: 119, src: 2302, tl: 3223 },
-    { a: 'main/tools', f: 31, c: 759, src: 6170, tl: 9273 },
+    { a: 'main/tools', f: 33, c: 766, src: 6254, tl: 9409 },
     { a: 'main/panels', f: 4, c: 83, src: 829, tl: 1314 },
     { a: 'main/other', f: 16, c: 241, src: 3911, tl: 3706 },
     { a: 'shared', f: 8, c: 99, src: 1445, tl: 1149 },
@@ -587,7 +589,6 @@ const D = {
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
     [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
-    [149, 'Packaged builds run sandbox-helper.exe without checking its signature', 'sandbox', 'low', 0, '10-07'],
     [
       140,
       'Windows sandbox: files moved into a project lack its write grant until reopened',
@@ -658,7 +659,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 186,
+  closedCount: 187,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

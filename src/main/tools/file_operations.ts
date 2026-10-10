@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { ToolError } from './types';
+import { trustedHelper } from './native_integrity';
 import { isPackagedElectron } from './sandbox_windows';
 import type { Workspace } from './workspace';
 
@@ -32,6 +33,9 @@ function helperPath(): string {
     throw new ToolError(
       'The native file helper was not found. Build it with npm run build:sandbox. No file was changed.',
     );
+  // A packaged Windows build runs only the helper it was built with (#149).
+  if (packaged && process.platform === 'win32' && !trustedHelper(helper))
+    throw new ToolError('The native file helper failed its integrity check, so no file was changed. Reinstall Patch.');
   return helper;
 }
 
