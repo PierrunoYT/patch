@@ -102,6 +102,8 @@ const D = {
         'permissions.ts (247; rules see project-relative paths, every patched file and each command part, #237, also inside substitutions, #266; an allow rule never covers chained commands, #264)',
         'allowed_commands.ts (57; --output, -o, find -exec and similar arguments always ask, #233, also through typographic quotes, backslashes and short-flag groups, #265)',
         'allowed_network_hosts.ts',
+        'edit_check.ts (check command after edits: errors in the edited files or new since the last check, #81)',
+        'edit_check.test.ts',
         'retry.ts (Retry-After waits at least a second; long waits leave the chat resumable, #247)',
         'system_prompt.ts',
         'project_map.ts',
@@ -583,6 +585,7 @@ const D = {
     ['20e224d', 'fix(plan): ask before changes in plan mode until a plan is approved'],
   ],
   issues: [
+    [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
       'Sandbox: protect a symlinked top-level configuration name and nested editor configuration',
@@ -637,7 +640,6 @@ const D = {
     ],
     [96, 'Narrow macOS sandbox file access, isolate command temp directories', 'sandbox', 'medium', 0, '10-04'],
     [87, 'Sandbox MCP stdio servers on macOS (Linux and Windows opt-in done)', 'mcp', 'low', 0, '10-04'],
-    [81, 'Smarter edits: show new compiler and linter errors after each edit', 'tools', 'low', 0, '10-03'],
     [78, 'Cheaper subagents: run task and oracle on a mid-size model', 'perf', 'low', 0, '10-03'],
     [74, 'Decide whether the release dry run should run on every push to main', 'release', 'low', 0, '10-03'],
     [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
@@ -659,7 +661,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 207,
+  closedCount: 208,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

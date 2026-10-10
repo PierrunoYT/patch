@@ -23,7 +23,7 @@ describe('IPC argument schemas (#32)', () => {
     expect(
       parseIpcArgs('project:update-settings', [
         '/p',
-        { instructions: '', allowedCommands: '', allowedNetworkHosts: '' },
+        { instructions: '', allowedCommands: '', allowedNetworkHosts: '', checkCommand: '' },
       ]),
     ).toHaveLength(2);
   });

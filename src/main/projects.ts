@@ -32,6 +32,7 @@ function withRealCasing(projects: ProjectInfo[]): ProjectInfo[] {
     kept.allowedCommands ||= project.allowedCommands;
     kept.allowedNetworkHosts ||= project.allowedNetworkHosts;
     kept.memory ||= project.memory;
+    kept.checkCommand ||= project.checkCommand;
   }
   return [...byPath.values()];
 }
@@ -95,7 +96,7 @@ export class ProjectStore {
   }
 
   // The instructions and the project's own allow-lists, from the Project settings dialog. The values come from the
-  // renderer, so only these three fields are taken, each must be text, and each is capped in size.
+  // renderer, so only these four fields are taken, each must be text, and each is capped in size.
   updateSettings(path: string, settings: ProjectSettings): ProjectInfo {
     const text = (value: unknown, name: string) => {
       if (typeof value !== 'string') throw new Error(`Invalid project setting: ${name}`);
@@ -112,6 +113,7 @@ export class ProjectStore {
       if (typeof settings.memoryEnabled !== 'boolean') throw new Error('Invalid project setting: memoryEnabled');
       patch.memoryEnabled = settings.memoryEnabled;
     }
+    if (settings.checkCommand !== undefined) patch.checkCommand = text(settings.checkCommand, 'checkCommand').trim();
     return this.update(path, patch);
   }
 

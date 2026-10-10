@@ -94,6 +94,9 @@ export interface AgentOptions {
       context: ToolContext,
     ) => Promise<{ content: string; summary?: string; isError?: boolean }>;
   };
+  // Called after a tool batch that changed files, with their project-relative paths: returns a note for the model (the
+  // errors the edits introduced, #81), or null. It must not throw and must not block the edit, which is already done.
+  afterEdits?: (paths: string[], signal: AbortSignal) => Promise<string | null>;
   // Test hooks for the retry backoff: how to wait, and the jitter (0 to 1).
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
   random?: () => number;
@@ -276,11 +279,22 @@ export class Agent {
 
       // A response cut off by the output limit or by a full context window may have cut off a tool input too.
       const truncated = result.stopReason === 'max_tokens' || result.stopReason === 'context_exceeded';
-      const { results, stop } = await this.runTools(tools, result.toolCalls, truncated, signal);
+      const { results, stop, edited } = await this.runTools(tools, result.toolCalls, truncated, signal);
       const note = this.options.toolBatchNote?.() ?? '';
+      const check = edited.length > 0 && !signal.aborted ? await this.checkEdits(edited, signal) : null;
       const last = results.at(-1);
+      if (check && last)
+        results[results.length - 1] = {
+          ...last,
+          content: `${last.content}
+
+[${check}]`,
+        };
       if (note && last)
-        results[results.length - 1] = { ...last, content: `${last.content}\n\n[Note from the app: ${note}]` };
+        results[results.length - 1] = {
+          ...results.at(-1)!,
+          content: `${results.at(-1)!.content}\n\n[Note from the app: ${note}]`,
+        };
       conversation.addToolResults(acceptsImages(conversation.model) ? results : withoutImages(results));
       this.options.onCheckpoint?.();
       if (stop || signal.aborted) {
@@ -399,6 +413,16 @@ export class Agent {
     }
   }
 
+  private async checkEdits(paths: string[], signal: AbortSignal): Promise<string | null> {
+    if (!this.options.afterEdits) return null;
+    try {
+      const note = await this.options.afterEdits(paths, signal);
+      return note ? redactSecrets(note) : null;
+    } catch {
+      return null;
+    }
+  }
+
   private planModeOn(): boolean {
     return this.options.planMode?.() ?? true;
   }
@@ -409,8 +433,9 @@ export class Agent {
     calls: ToolCall[],
     truncated: boolean,
     signal: AbortSignal,
-  ): Promise<{ results: ToolResult[]; stop: boolean }> {
+  ): Promise<{ results: ToolResult[]; stop: boolean; edited: string[] }> {
     const results: ToolResult[] = [];
+    const edited = new Set<string>();
     let stop = false;
 
     // A plan has to be decided before anything else in the batch runs. Calls the model sent alongside it (before or
@@ -429,6 +454,7 @@ export class Agent {
       const outcomes = await Promise.all(group.map((call) => this.runTool(tools, call, signal)));
       for (const outcome of outcomes) {
         results.push(outcome.result);
+        for (const path of outcome.edited ?? []) edited.add(path);
         if (outcome.declinedWithoutFeedback) stop = true;
       }
     };
@@ -468,17 +494,18 @@ export class Agent {
 
       const outcome = await this.runTool(tools, call, signal);
       results.push(outcome.result);
+      for (const path of outcome.edited ?? []) edited.add(path);
       if (outcome.declinedWithoutFeedback) stop = true;
     }
     await flush();
-    return { results, stop };
+    return { results, stop, edited: [...edited] };
   }
 
   private async runTool(
     tools: AgentTool[],
     call: ToolCall,
     signal: AbortSignal,
-  ): Promise<{ result: ToolResult; declinedWithoutFeedback?: boolean }> {
+  ): Promise<{ result: ToolResult; declinedWithoutFeedback?: boolean; edited?: string[] }> {
     const { emit } = this.options;
     const tool = tools.find((candidate) => candidate.name === call.name);
     // Provider IDs pair API results only; compatible servers can reuse them across turns.
@@ -658,7 +685,9 @@ export class Agent {
         output: SHOWS_OUTPUT.has(tool.name) ? content : undefined,
         undoable: output.undo && !output.isError ? this.keepUndo(eventId, output.undo) : undefined,
       });
-      return { result: { id: call.id, content, isError: output.isError, images: output.images } };
+      const edited =
+        output.undo && !output.isError ? [output.undo.path, ...(output.undo.more ?? []).map((f) => f.path)] : [];
+      return { result: { id: call.id, content, isError: output.isError, images: output.images }, edited };
     } catch (error) {
       const message = redactSecrets(error instanceof Error ? error.message : String(error));
       const expected = error instanceof ToolError;

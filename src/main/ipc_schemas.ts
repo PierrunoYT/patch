@@ -80,6 +80,7 @@ export const IPC_ARGS: Record<InvokeChannel, z.ZodTypeAny> = {
       allowedNetworkHosts: z.string().max(MAX_SETTING),
       memory: z.string().max(MAX_SETTING).optional(),
       memoryEnabled: z.boolean().optional(),
+      checkCommand: z.string().max(MAX_SETTING).optional(),
     }),
   ]),
   'project:remove': z.tuple([path]),

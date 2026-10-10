@@ -592,6 +592,11 @@ export function openProjectSettingsDialog(
     value: project.memory ?? '',
     placeholder: 'Use pnpm, not npm\nsrc/generated is generated; do not edit it',
   });
+  const checkCommand = h('input', {
+    class: 'form-control font-monospace',
+    value: project.checkCommand ?? '',
+    placeholder: 'npx tsc --noEmit -p .',
+  });
   const error = h('div', { class: 'text-danger me-auto small' });
   const button = h('button', { type: 'button', class: 'btn btn-primary' }, 'Save');
   const element = dialog(
@@ -634,6 +639,11 @@ export function openProjectSettingsDialog(
         ),
         'One note per line, added to the start of every new chat in this project. The agent can propose a note; it is saved only after you approve the exact text. Edit or delete lines here. Kept with your app data, not in the project. Turning memory off removes the notes from new chats and stops the agent from proposing any.',
       ),
+      field(
+        'Check after edits',
+        checkCommand,
+        'Run after each batch of file edits (in the sandbox, no approval card); the errors it reports in the edited files, or new since the last check, are added to the tool result. For example npx tsc --noEmit -p ., ruff check or cargo check. Leave empty to turn off.',
+      ),
     ),
     h('div', { class: 'd-flex w-100 align-items-center gap-2' }, error, button),
   );
@@ -645,6 +655,7 @@ export function openProjectSettingsDialog(
         allowedNetworkHosts: allowedNetworkHosts.value.trim(),
         memory: memory.value,
         memoryEnabled: memoryEnabled.checked,
+        checkCommand: checkCommand.value.trim(),
       });
       element.close();
     } catch (err) {

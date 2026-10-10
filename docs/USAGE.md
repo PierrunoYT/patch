@@ -122,6 +122,7 @@ Two lists let specific things skip the approval card while **Ask** mode stays on
 
 - **Settings**: for every project.
 - **Project settings…** in the project menu (the folder button at the top): for the open project only, in addition to the lists in Settings. A command or host is allowed when either list has it. Use this for what only makes sense in one project, such as `cargo check` or that project's dev server host. These lists are kept with the app's data, not in the project folder, so a repository you clone cannot allow its own commands. They apply at once, also to a chat that is already open.
+- **Check after edits** (also in **Project settings…**): a command such as `npx tsc --noEmit -p .`, `ruff check` or `cargo check`. After each batch of file edits Patch runs it (in the sandbox, 120 seconds at most, no approval card) and adds to the tool result the errors in the files the assistant edited, or new since the last check, up to 30 lines, so it sees a type error or broken import at once. It never blocks the edit. Saving a new or changed command asks for confirmation, because it runs on its own; leave it empty to turn the check off. It applies to Patch's own agent, not to Claude Code chats.
 
 The rules below are the same for both.
 

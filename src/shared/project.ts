@@ -13,13 +13,17 @@ export interface ProjectInfo {
   memory?: string;
   // Missing means on. Off: no notes in the prompt and no `remember` tool in new chats.
   memoryEnabled?: boolean;
+  // A command that checks the project (`npx tsc --noEmit -p .`, `ruff check`, `cargo check`). After a turn's edits the
+  // agent runs it and tells the model the errors in the edited files (#81). Empty: no check. Also kept in the app's data.
+  checkCommand?: string;
   lastOpened: string;
 }
 
 // What the Project settings dialog changes.
+// A missing memory, memoryEnabled or checkCommand leaves the stored one alone.
 export type ProjectSettings = Pick<ProjectInfo, 'instructions'> &
   Required<Pick<ProjectInfo, 'allowedCommands' | 'allowedNetworkHosts'>> &
-  Pick<ProjectInfo, 'memory' | 'memoryEnabled'>;
+  Pick<ProjectInfo, 'memory' | 'memoryEnabled' | 'checkCommand'>;
 
 export const MAX_MEMORY_NOTES = 50;
 export const MAX_MEMORY_NOTE_CHARS = 300;

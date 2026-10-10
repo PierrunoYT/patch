@@ -106,6 +106,8 @@ export interface ChatSessionOptions {
   onEditApplied?: (toolId: string, edit: EditUndo) => void;
   // Self-review of a turn's file changes before the final answer (#83), see AgentOptions.selfReview.
   selfReview?: AgentOptions['selfReview'];
+  // The note about errors the edits of a tool batch introduced (#81), or null. See AgentOptions.afterEdits.
+  afterEdits?: AgentOptions['afterEdits'];
   onEvent: (event: ChatEvent) => void;
   // immediate is true when a task just finished, so the chat can be saved right away.
   // checkpoint is true for a crash-resume checkpoint after a tool batch: only the chat file needs writing.
@@ -207,6 +209,7 @@ export class ChatSession {
         onDroppedFields: options.onDroppedFields,
         onEditApplied: options.onEditApplied,
         selfReview: options.selfReview,
+        afterEdits: options.afterEdits,
       });
     if (options.usage) {
       const usage = { ...options.usage };

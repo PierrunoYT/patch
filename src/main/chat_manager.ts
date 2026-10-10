@@ -13,6 +13,7 @@ import {
 import { mergeAllowLists, projectMemory } from '@shared/project';
 import { AGENT_FILE_NAMES, loadAgentFile, readAgentFile } from './agent/agent_file';
 import { isCommandAllowed } from './agent/allowed_commands';
+import { EditChecker } from './agent/edit_check';
 import { isNetworkUrlAllowed } from './agent/allowed_network_hosts';
 import { decideCallPermission, type PathView } from './agent/permissions';
 import type { DroppedFieldError } from './agent/agent';
@@ -447,6 +448,9 @@ export class ChatManager {
             return { conversation, append };
           })()
         : null;
+    const checker = new EditChecker((command, timeoutSeconds, signal) =>
+      shell.run(command, { timeoutSeconds, signal }),
+    );
     const session: ChatSession = new ChatSession({
       id: saved?.id,
       title: saved?.title,
@@ -502,6 +506,12 @@ export class ChatManager {
       effort: () => this.deps.settings.get().effort,
       onDroppedFields: this.deps.onDroppedFields,
       selfReview: { mode: () => this.deps.settings.get().selfReview, run: createReviewRunner(subagents) },
+      afterEdits: (paths, signal) => {
+        // The project's check command, read on every batch so a change applies at once. The user set it in Project
+        // settings and confirmed it there, so it runs without a card, in the sandbox like any command.
+        const command = this.deps.projects.get(workspace.root)?.checkCommand ?? '';
+        return checker.check(command, paths, signal);
+      },
       onEditApplied: this.deps.edits ? (toolId, edit) => this.deps.edits!.record(session.id, toolId, edit) : undefined,
       onEvent: (event) => this.deps.emit(event, session.id),
       onChange: (immediate, checkpoint) => (immediate ? this.save(session, checkpoint) : this.scheduleSave(session)),

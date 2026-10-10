@@ -1515,3 +1515,52 @@ describe('Agent: self-review (#83)', () => {
     expect(eventsOf(events, 'tool-end').at(-1)).toMatchObject({ status: 'error' });
   });
 });
+
+describe('Agent: check after edits (#81)', () => {
+  const undo: EditUndo = {
+    path: 'src/a.ts',
+    before: null,
+    afterHash: 'abc',
+    more: [{ path: 'src/b.ts', before: null, afterHash: 'def' }],
+  };
+  const editing = tool('edit_file', () => ({ content: 'Edited.', undo }), { requiresApproval: true });
+  const reading = tool('read_file', () => ({ content: 'text' }));
+
+  it('adds the check note to the last result of a batch that changed files, naming every changed file', async () => {
+    const afterEdits = vi.fn(async () => 'Check: 1 error');
+    const { agent, conversation } = setup(
+      [{ toolCalls: [call('t1', 'edit_file'), call('t2', 'read_file')] }, { text: 'done' }],
+      { tools: [editing, reading], agentOptions: { afterEdits } },
+    );
+    await agent.send({ text: 'go' }, new AbortController().signal);
+
+    expect(afterEdits).toHaveBeenCalledWith(['src/a.ts', 'src/b.ts'], expect.any(AbortSignal));
+    expect(conversation.results[0]!.map((result) => result.content)).toEqual(['Edited.', 'text\n\n[Check: 1 error]']);
+  });
+
+  it('does not check after a batch that changed nothing or a failed edit, and survives a check that throws', async () => {
+    const afterEdits = vi.fn(async () => 'note');
+    const readOnly = setup([{ toolCalls: [call('t1', 'read_file')] }, { text: 'done' }], {
+      tools: [reading],
+      agentOptions: { afterEdits },
+    });
+    await readOnly.agent.send({ text: 'go' }, new AbortController().signal);
+    const failed = setup([{ toolCalls: [call('t1', 'edit_file')] }, { text: 'done' }], {
+      tools: [tool('edit_file', () => ({ content: 'No.', isError: true, undo }))],
+      agentOptions: { afterEdits },
+    });
+    await failed.agent.send({ text: 'go' }, new AbortController().signal);
+    expect(afterEdits).not.toHaveBeenCalled();
+
+    const throwing = setup([{ toolCalls: [call('t1', 'edit_file')] }, { text: 'done' }], {
+      tools: [editing],
+      agentOptions: {
+        afterEdits: async () => {
+          throw new Error('boom');
+        },
+      },
+    });
+    await throwing.agent.send({ text: 'go' }, new AbortController().signal);
+    expect(throwing.conversation.results[0]![0]!.content).toBe('Edited.');
+  });
+});

@@ -106,6 +106,17 @@ describe('changesToConfirm', () => {
     expect(projectChangesToConfirm(project, base)).toEqual([]);
   });
 
+  it("asks about a project's new or changed check command, not an unchanged, removed or missing one (#81)", () => {
+    const project: ProjectInfo = { path: '/p', name: 'demo', instructions: '', checkCommand: 'tsc', lastOpened: '' };
+    const patch = { instructions: '', allowedCommands: '', allowedNetworkHosts: '' };
+    expect(projectChangesToConfirm(project, { ...patch, checkCommand: 'tsc && curl evil' })).toEqual([
+      'In demo, run "tsc && curl evil" after the agent edits files, without asking.',
+    ]);
+    expect(projectChangesToConfirm(project, { ...patch, checkCommand: ' tsc ' })).toEqual([]);
+    expect(projectChangesToConfirm(project, { ...patch, checkCommand: '' })).toEqual([]);
+    expect(projectChangesToConfirm(project, patch)).toEqual([]);
+  });
+
   it('asks about new project instructions, showing them, but not about unchanged or removed ones (#157)', () => {
     const project: ProjectInfo = {
       path: '/p',

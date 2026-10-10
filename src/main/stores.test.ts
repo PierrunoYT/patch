@@ -657,6 +657,22 @@ describe('ProjectStore', () => {
     expect(store.get(opened.path)).toMatchObject({ instructions: 'Use bun.', allowedCommands: 'pnpm test\npnpm lint' });
   });
 
+  it("stores a project's check command, and leaves it alone when the settings do not mention it (#81)", () => {
+    const one = join(dir, 'one');
+    mkdirSync(one);
+    const store = new ProjectStore(join(dir, 'projects.json'));
+    const opened = store.open(one);
+    const base = { instructions: '', allowedCommands: '', allowedNetworkHosts: '' };
+    expect(store.updateSettings(opened.path, { ...base, checkCommand: '  cargo check ' }).checkCommand).toBe(
+      'cargo check',
+    );
+    expect(store.updateSettings(opened.path, base).checkCommand).toBe('cargo check');
+    expect(store.updateSettings(opened.path, { ...base, checkCommand: '' }).checkCommand).toBe('');
+    expect(() => store.updateSettings(opened.path, { ...base, checkCommand: 5 } as never)).toThrow(
+      /Invalid project setting/,
+    );
+  });
+
   it('accepts only text for project settings, capped in size, and nothing else from the caller', () => {
     const one = join(dir, 'one');
     mkdirSync(one);

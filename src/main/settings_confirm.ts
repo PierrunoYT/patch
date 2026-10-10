@@ -185,6 +185,10 @@ export function projectChangesToConfirm(current: ProjectInfo | null, patch: Proj
     const notes = addedEntries(current?.memory ?? '', patch.memory);
     if (notes.length > 0) changes.push(`In ${name}, tell the agent in every new chat: ${list(notes)}`);
   }
+  const check = (patch.checkCommand ?? '').trim();
+  if (check && check !== (current?.checkCommand ?? '').trim()) {
+    changes.push(`In ${name}, run "${check}" after the agent edits files, without asking.`);
+  }
   return changes;
 }
 
