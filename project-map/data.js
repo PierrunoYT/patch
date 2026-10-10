@@ -584,7 +584,6 @@ const D = {
     ],
     [226, 'Evaluate Microsoft Execution Containers (MXC) as the command sandbox backend', 'sandbox', 'low', 0, '10-09'],
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
-    [207, 'Windows sandbox: toolchain access granted on the shared Program Files folder', 'sandbox', 'low', 0, '10-07'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
@@ -658,7 +657,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 188,
+  closedCount: 189,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

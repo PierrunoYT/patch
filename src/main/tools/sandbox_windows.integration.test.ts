@@ -850,28 +850,23 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     }
   }, 60_000);
 
-  it('uses only a temporary read-execute grant when an unprotected install can inherit it', async () => {
+  it('copies an install whose permissions could take a grant, and never grants the shared folder (#207)', async () => {
     const grantTools = join(programs, 'grant-node');
     mkdirSync(grantTools);
     copyFileSync(process.execPath, join(grantTools, 'node.exe'));
     // Normalize this disposable fixture to Windows' automatic inheritance model before taking the baseline: CI's
-    // temp tree can have legacy explicit ACEs that the first edit legitimately reclassifies as inherited. Include a
-    // distinct explicit grant so the revoke must preserve more than recomputed parent permissions.
+    // temp tree can have legacy explicit ACEs that an edit would reclassify as inherited. Include a distinct explicit
+    // grant, so any change to the folder's permissions shows.
     execFileSync('icacls', [grantTools, '/inheritance:e', '/grant', '*S-1-1-0:(R)']);
     expect(allPackages(grantTools)).toBe(false);
     const original = acl(grantTools);
-    const drive = ['T:', 'U:', 'V:', 'W:'].find(
-      (value) => !execFileSync('subst', { encoding: 'utf8' }).includes(`${value}\\`),
-    );
-    expect(drive).toBeDefined();
-    execFileSync('subst', [drive!, grantTools]);
     const request = buildHelperRequest({
       id: 1,
       shell: {
-        file: `${drive}\\node.exe`,
+        file: join(grantTools, 'node.exe'),
         args: [
           '-e',
-          `const fs=require('fs'); console.log(process.execPath); try { fs.writeFileSync(${JSON.stringify(`${drive}\\denied.txt`)},'x'); process.exit(2) } catch { console.log('WRITE-DENIED') }`,
+          `const fs=require('fs'); console.log(process.execPath); try { fs.writeFileSync(${JSON.stringify(join(grantTools, 'denied.txt'))},'x'); process.exit(2) } catch { console.log('WRITE-DENIED') }`,
         ],
       },
       cwd: project,
@@ -885,16 +880,20 @@ home:attempt(()=>fs.readdirSync(${JSON.stringify(homedir())}))}));`,
     let output = '';
     child.stdout.on('data', (chunk: Buffer) => (output += chunk));
     child.stderr.on('data', (chunk: Buffer) => (output += chunk));
+    // While the command runs, the install folder's permissions stay as they were: no grant to the run's SID.
+    let duringAcl = '';
+    child.stdout.once('data', () => (duringAcl = acl(grantTools)));
     try {
       const [code] = await once(child, 'close');
       expect(code, output).toBe(0);
-      expect(output).toContain(`${drive}\\node.exe`);
+      // It ran from the cached read-only copy, not from the shared install.
+      expect(output.trim().split(/\r?\n/)[0]).toMatch(cachedNode);
       expect(output).toContain('WRITE-DENIED');
+      expect(duringAcl).toBe(original);
       expect(acl(grantTools)).toBe(original);
       expect(existsSync(join(grantTools, 'denied.txt'))).toBe(false);
     } finally {
       child.stopTree();
-      execFileSync('subst', [drive!, '/D']);
     }
   }, 60_000);
 

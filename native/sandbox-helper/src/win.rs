@@ -1281,10 +1281,11 @@ fn directly_readable(root: &Path, package: PSID, check: &impl Fn() -> Result<()>
     Ok(true)
 }
 
+// An install the container cannot read, which it gets as a read-only copy (#106, #108). The shared install folder
+// itself is never granted to the container (#207).
 struct ToolchainPlan {
     source: String,
     files: Vec<PathBuf>,
-    stage: bool,
     // Name of this exact install's cached copy under cache_root.
     key: String,
 }
@@ -1367,12 +1368,10 @@ fn inspect_toolchain(
             key,
             source: source.to_string(),
             files,
-            stage: true,
         }));
     }
     // Second pass, only without a cached copy: links and effective package rights on every entry.
     let mut readable = true;
-    let mut protected = false;
     for path in &files {
         check()?;
         if started.elapsed() > Duration::from_secs(15) {
@@ -1387,10 +1386,8 @@ fn inspect_toolchain(
         {
             return Err("toolchain contains a reparse point or escaping path".to_string());
         }
-        let (package_readable, acl_protected) = package_access(path, package)?;
+        let (package_readable, _) = package_access(path, package)?;
         readable &= package_readable;
-        // Protected descendants do not inherit a grant placed on their install directory.
-        protected |= acl_protected;
     }
     if readable {
         return Ok(None);
@@ -1398,25 +1395,12 @@ fn inspect_toolchain(
     if files.len().saturating_sub(1) > TOOLCHAIN_ENTRIES || bytes > TOOLCHAIN_BYTES {
         return Err("inaccessible toolchain exceeds the 5000-entry/256 MiB limit".to_string());
     }
-    let text = wide(source);
-    let writable = unsafe {
-        CreateFileW(
-            PCWSTR(text.as_ptr()),
-            WRITE_DAC.0,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            None,
-            OPEN_EXISTING,
-            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-            None,
-        )
-    }
-    .map(Handle)
-    .is_ok();
+    // Copied even when the install's permissions could take a grant: a grant on the shared folder would let the
+    // command read everything in the install, and could outlive a forced kill until the next helper start (#207).
     Ok(Some(ToolchainPlan {
         key,
         source: source.to_string(),
         files,
-        stage: !writable || protected,
     }))
 }
 
@@ -2136,12 +2120,6 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
         let taken: Vec<&DriveMapping> = record.project_drive.iter().collect();
         record.toolchain_drive = Some(DriveMapping::reserve(cache, &taken)?);
     }
-    // Journal candidate grants before attempting them. A failed grant is safe to revoke idempotently.
-    for plan in &toolchains {
-        if !plan.stage {
-            record.granted.push(plan.source.clone());
-        }
-    }
     let name = wide(&record.name);
     let sid = record_sid(&record.name)?;
     let pending = recovery_dir()?.join(format!("{}.pending", record.name));
@@ -2223,13 +2201,6 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
             }
         }
     }
-    // Program Files folders are shared with other runs, so they are granted under the permission lock.
-    for plan in toolchains.iter_mut() {
-        if !plan.stage {
-            // WRITE_DAC was checked before journaling. A concurrent permissions change can still deny the grant.
-            plan.stage = edit_acl(&plan.source, sid, FILE_READ_EXECUTE, Change::Grant).is_err();
-        }
-    }
     drop(permission_lock);
 
     // Toolchains are copied once and then reused from the shared cache (#108). A copy is made in this run's private
@@ -2241,9 +2212,6 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     let mut copied = 0u64;
     let mut staging_created = false;
     for (index, plan) in toolchains.iter().enumerate() {
-        if !plan.stage {
-            continue;
-        }
         let entry = cache.join(&plan.key);
         if !cache_entry_ready(&entry) {
             let staged = cleanup
@@ -3236,7 +3204,6 @@ mod tests {
         let plan = ToolchainPlan {
             source: source.to_str().unwrap().to_string(),
             files: vec![source.clone(), source.join("file")],
-            stage: true,
             key: String::new(),
         };
         let mut copied = 0;

@@ -192,6 +192,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- A Program Files toolchain the Windows sandbox cannot read is always given to a command as a read-only copy (made once per install version and reused). Before, when the install's permissions allowed it, the helper granted the command's container read access to the whole shared install folder while it ran, and a forced kill left that entry until the next helper start (fixes #207).
 - Sandboxed commands can no longer change the project's editor, agent and CI configuration. The top-level `.vscode`, `.idea`, `.claude`, `.cursor`, `.agents`, `.patch`, `.husky`, `.github` and similar folders, and `.mcp.json`, `AGENTS.md`, `CLAUDE.md` and `.envrc`, are read-only in every sandbox backend, like `.git`, so a command cannot plant a VS Code task, MCP server, hook or workflow that later runs outside the sandbox. Change them with the edit tools, which ask first. Entries that do not exist yet are not protected (#262). The edit tools now also ask before changing `.agents` (fixes #127).
 
 - On Linux without a keyring, where Electron's `basic_text` storage scrambles keys with a fixed password, Settings no longer says keys are encrypted, and new keys are stored as plain text after the usual confirmation (fixes #258).
