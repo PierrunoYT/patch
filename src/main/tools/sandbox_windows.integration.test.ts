@@ -106,6 +106,41 @@ describe.skipIf(!helper)('Windows AppContainer sandbox (real helper)', () => {
     expect(text).toMatch(/AppContainer/);
   });
 
+  it('grants exact per-command read and write paths and nothing else (#126)', async () => {
+    const readDir = mkdtempSync(join(tmpdir(), 'patch-sbx-read-'));
+    const writeDir = mkdtempSync(join(tmpdir(), 'patch-sbx-write-'));
+    const sibling = mkdtempSync(join(tmpdir(), 'patch-sbx-sibling-'));
+    try {
+      writeFileSync(join(readDir, 'data.txt'), 'GRANTED-DATA');
+      writeFileSync(join(sibling, 'data.txt'), 'SIBLING-DATA');
+      // Control: without a grant the files are out of reach, so a later success is the grant's doing.
+      const before = await shell.run(`Get-Content '${join(readDir, 'data.txt')}'`);
+      expect(before.output).not.toContain('GRANTED-DATA');
+
+      const read = await shell.run(
+        `Get-Content '${join(readDir, 'data.txt')}'; Set-Content -Path '${join(readDir, 'new.txt')}' -Value x; Get-Content '${join(sibling, 'data.txt')}'`,
+        { access: { readPaths: [readDir] } },
+      );
+      expect(read.output).toContain('GRANTED-DATA');
+      expect(read.output).not.toContain('SIBLING-DATA');
+      expect(existsSync(join(readDir, 'new.txt'))).toBe(false);
+
+      const write = await shell.run(
+        `Set-Content -Path '${join(writeDir, 'out.txt')}' -Value granted; Set-Content -Path '${join(sibling, 'out.txt')}' -Value nope`,
+        { access: { writePaths: [writeDir] } },
+      );
+      expect(readFileSync(join(writeDir, 'out.txt'), 'utf8')).toContain('granted');
+      expect(existsSync(join(sibling, 'out.txt'))).toBe(false);
+      expect(write.sandbox).toBe('appcontainer');
+
+      // A later command without the grant has lost the access.
+      const after = await shell.run(`Get-Content '${join(readDir, 'data.txt')}'`);
+      expect(after.output).not.toContain('GRANTED-DATA');
+    } finally {
+      for (const dir of [readDir, writeDir, sibling]) rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
+
   it('gives a native process cwd access without exposing its siblings or home', async () => {
     const script = join(root, 'native-probe.js');
     writeFileSync(

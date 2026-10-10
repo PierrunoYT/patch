@@ -120,6 +120,9 @@ export interface WindowsPolicyInput {
   protectedPaths?: string[];
   // Extra writable folders besides cwd (a sandboxed MCP server's project, #87).
   writable?: string[];
+  // Approved per-command grants (#126), canonical and existing. They are granted to this run's own AppContainer
+  // profile only and removed when the run ends, or by startup recovery after a crash.
+  grants?: { read: string[]; write: string[] };
   // Whether a folder is too big to grant whole; such a folder is replaced by its `bin` subfolder, or left closed.
   tooLarge?: (path: string) => boolean;
 }
@@ -184,8 +187,8 @@ export function windowsPolicy(input: WindowsPolicyInput): WindowsPolicy {
   const protectedPaths = input.protectedPaths ?? [win32.join(cwd, '.git')];
   const extra = (input.writable ?? []).filter((path) => !same(path, cwd));
   return {
-    readWrite: [cwd, ...extra],
-    readOnly: [...readOnly, ...protectedPaths],
+    readWrite: [cwd, ...extra, ...(input.grants?.write ?? [])],
+    readOnly: [...readOnly, ...(input.grants?.read ?? []), ...protectedPaths],
     toolchains,
     denyWrite: protectedPaths,
   };
@@ -201,6 +204,7 @@ export interface BuildRequestInput {
   exists: (path: string) => boolean;
   protectedPaths?: string[];
   writable?: string[];
+  grants?: { read: string[]; write: string[] };
   workspace?: boolean;
   refresh?: string[];
   tooLarge?: (path: string) => boolean;
@@ -221,6 +225,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     exists: input.exists,
     protectedPaths: input.protectedPaths,
     writable: input.writable,
+    grants: input.grants,
     tooLarge: input.tooLarge,
   });
   const shell = win32.isAbsolute(input.shell.file)

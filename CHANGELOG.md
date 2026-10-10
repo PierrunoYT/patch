@@ -10,6 +10,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Added
 
+- A sandboxed command can ask for a few exact paths instead of unsandboxed access: `run_command` takes `read_paths` and `write_paths`. The approval card shows the resolved paths, the request always asks (Auto mode and `allow` rules included), covers only that command and what it starts, never enables the network, and is refused when the paths resolve differently at start, name a root, your home folder, the project or protected Git/config paths, or the backend cannot enforce it (fixes #126).
 - The effort a turn was sent with shows on its Thinking line ("Thinking · medium effort"), and a subagent's card names the model it ran on when that is not the chat's, and its effort ("Finder (Claude Haiku 5.5, low effort): …"), so a fast or slow turn can be explained at a glance (refs #79).
 - The agent hears what changed in the project. A chat's first message carries a short Git summary (branch, upstream with ahead/behind counts, up to 20 changed files, the last 5 commits), placed in the message so the cached system prompt stays the same. Before each later message or Resume, the model is told when files it read were changed or deleted outside the chat, and when the branch or HEAD moved (a commit, pull, reset or switch). Git gets 3 seconds and is skipped for folders that are not repositories; the last head is saved with the chat (fixes #85).
 

@@ -7,6 +7,7 @@ import { DEFAULT_LIMITS, findHelper, isPackagedElectron } from './sandbox_window
 import { protectedConfigPaths } from './sandbox_config';
 import { validateSandboxGit } from './sandbox_git';
 import { PROXY_PORT } from './net_proxy';
+import { hasPathGrants, type PathGrants } from './sandbox_grants';
 
 // Runs agent commands (run_command, background ones included) with limited rights. The planning code below is pure
 // so it can be tested on any platform; only refreshSandboxSupport() and detectSandboxSupport() look at the machine.
@@ -39,6 +40,13 @@ export interface SandboxSupport {
 export interface CommandAccess {
   network?: boolean;
   unsandboxed?: boolean;
+  // Extra paths outside the project this one command may read, or read and write (#126). Canonicalised and checked
+  // when the command starts; they never enable the network.
+  readPaths?: string[];
+  writePaths?: string[];
+  // Set by the tool after the user approved a card: the grants (see grantsKey) that card showed. A command whose
+  // paths now resolve differently does not start.
+  approvedGrants?: string;
 }
 
 export type SandboxKind = 'bwrap' | 'seatbelt' | 'appcontainer' | 'container' | 'none';
@@ -122,6 +130,13 @@ export function decideSandbox(
   platform: NodeJS.Platform,
 ): SandboxDecision {
   const network = wantsNetwork(command, config, access);
+  if (hasPathGrants(access) && (access.unsandboxed || config.mode === 'off'))
+    return {
+      kind: 'unavailable',
+      reason: access.unsandboxed
+        ? 'read_paths and write_paths grant extra access to a sandboxed command; they cannot be combined with unsandboxed. The command was not run.'
+        : 'read_paths and write_paths need a sandbox, and the sandbox is turned off in the settings, so the command already has your rights. Run it without them. The command was not run.',
+    };
   if (access.unsandboxed)
     return {
       kind: 'none',
@@ -179,6 +194,9 @@ export interface LaunchEnv {
   // bubblewrap only: filtered network (#97). The proxy's Unix socket and the net-bridge binary are mounted into the
   // sandbox, and the bridge starts the command.
   proxy?: { socket: string; bridge: string };
+  // Approved extra paths for this command (#126): canonical, existing, outside the project, never overlapping the
+  // protected paths when writable.
+  grants?: PathGrants;
 }
 
 // Where the proxy socket and the bridge appear inside the sandbox, on its private /tmp.
@@ -240,6 +258,9 @@ export function bwrapArgs(env: LaunchEnv, network: boolean): string[] {
   }
   args.push('--bind', cwd, cwd);
   for (const path of env.writable ?? []) args.push('--bind', path, path);
+  // Read-only grants first, so a write grant inside one stays writable; protected paths are mounted after both.
+  for (const path of env.grants?.read ?? []) args.push('--ro-bind', path, path);
+  for (const path of env.grants?.write ?? []) args.push('--bind', path, path);
   // Mount the directory itself: protecting leaves would allow absent control files and directory replacement.
   for (const path of env.protectedPaths) args.push('--ro-bind', path, path);
   if (env.proxy && !network) {
@@ -262,7 +283,7 @@ function sbplString(value: string): string {
 }
 
 export function seatbeltProfile(
-  env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'exists' | 'protectedPaths'>,
+  env: Pick<LaunchEnv, 'cwd' | 'home' | 'tmp' | 'exists' | 'protectedPaths' | 'grants'>,
   network: boolean,
 ): string {
   const subpath = (path: string) => `(subpath ${sbplString(path)})`;
@@ -353,12 +374,18 @@ export function seatbeltProfile(
     `(deny file-read* ${subpath(env.home)})`,
     '(allow file-read-metadata)',
   ];
-  const open = [env.cwd, ...HOME_READ_ONLY.map((rel) => `${env.home}/${rel}`).filter((path) => env.exists(path))];
+  const open = [
+    env.cwd,
+    ...HOME_READ_ONLY.map((rel) => `${env.home}/${rel}`).filter((path) => env.exists(path)),
+    ...(env.grants?.read ?? []),
+    ...(env.grants?.write ?? []),
+  ];
   lines.push(`(allow file-read* ${open.map(subpath).join(' ')})`);
   // A second writable host tree would let a command move an opened file outside the project while a direct-edit
   // helper still holds its descriptor (#144). Command temp must therefore remain inside the project on macOS.
+  const writable = [env.cwd, ...(env.grants?.write ?? [])];
   lines.push(
-    `(allow file-write* ${subpath(env.cwd)} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
+    `(allow file-write* ${writable.map(subpath).join(' ')} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
   );
   lines.push(`(deny file-write* ${env.protectedPaths.map(subpath).join(' ')})`);
   // A project in a writable temp tree must not move out from under the pathname-based deny rule.
@@ -412,6 +439,20 @@ export function containerArgs(
     args.push(engine === 'podman' ? '--userns=keep-id' : `--user=${env.uid}:${env.gid}`);
   }
   args.push('-v', `${env.cwd}:/workspace`);
+  // Granted paths appear at their host path (a POSIX one), read-only unless write was granted.
+  const grants = [
+    ...(env.grants?.read ?? []).map((path) => ({ path, writable: false })),
+    ...(env.grants?.write ?? []).map((path) => ({ path, writable: true })),
+  ];
+  for (const { path, writable } of grants) {
+    if (!path.startsWith('/') || path.includes(','))
+      throw new Error(
+        `Container sandbox cannot mount the granted path "${path}": it needs a POSIX path without commas. Grant another path, or choose a different sandbox mode. The command was not run.`,
+      );
+    if (path === '/workspace' || path.startsWith('/workspace/'))
+      throw new Error(`Container sandbox cannot mount "${path}" over the project. The command was not run.`);
+    args.push('--mount', `type=bind,src=${path},dst=${path}${writable ? '' : ',readonly'}`);
+  }
   // --mount fails if the source disappears, instead of creating a host directory as -v would.
   for (const path of env.protectedPaths)
     args.push(
@@ -593,7 +634,7 @@ function containsPath(parent: string, child: string): boolean {
   return child === parent || child.startsWith(prefix);
 }
 
-function canonical(path: string): string {
+export function canonical(path: string): string {
   const tail: string[] = [];
   let cursor = resolve(path);
   while (!existsSync(cursor)) {

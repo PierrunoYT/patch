@@ -517,3 +517,47 @@ for (const [kind, available] of [
     },
   );
 }
+
+// Per-command path grants (#126), through the production ShellRunner on the machine's native sandbox. A missing
+// backend skips explicitly; it never counts as isolation.
+describe.skipIf(!nativeAvailable)(`per-command path grants (${native ?? 'no native sandbox'})`, () => {
+  it('reads a granted fixture without writing it, writes only the write grant, and forgets both afterwards', async () => {
+    const base = mkdtempSync(join(homedir(), 'patch-grants-int-'));
+    const project = join(base, 'project');
+    const readDir = join(base, 'read');
+    const writeDir = join(base, 'write');
+    const sibling = join(base, 'sibling');
+    for (const dir of [project, readDir, writeDir, sibling]) mkdirSync(dir);
+    writeFileSync(join(readDir, 'data.txt'), 'GRANTED');
+    writeFileSync(join(sibling, 'data.txt'), 'SIBLING');
+    const runner = new ShellRunner(
+      () => project,
+      () => ({ mode: 'auto', network: 'off', image: '', allowedHosts: '' }),
+    );
+    try {
+      // Control: the host user could read all of it; only the sandbox withholds it.
+      expect(readFileSync(join(sibling, 'data.txt'), 'utf8')).toBe('SIBLING');
+      const none = await runner.run(`cat ${quote(join(readDir, 'data.txt'))}`);
+      expect(none.output).not.toContain('GRANTED');
+
+      const read = await runner.run(
+        `cat ${quote(join(readDir, 'data.txt'))}; echo x > ${quote(join(readDir, 'new.txt'))}; cat ${quote(join(sibling, 'data.txt'))}`,
+        { access: { readPaths: [readDir] } },
+      );
+      expect(read.output).toContain('GRANTED');
+      expect(read.output).not.toContain('SIBLING');
+      expect(existsSync(join(readDir, 'new.txt'))).toBe(false);
+
+      await runner.run(`echo ok > ${quote(join(writeDir, 'out.txt'))}; echo no > ${quote(join(sibling, 'out.txt'))}`, {
+        access: { writePaths: [writeDir] },
+      });
+      expect(readFileSync(join(writeDir, 'out.txt'), 'utf8').trim()).toBe('ok');
+      expect(existsSync(join(sibling, 'out.txt'))).toBe(false);
+
+      const later = await runner.run(`cat ${quote(join(readDir, 'data.txt'))}`);
+      expect(later.output).not.toContain('GRANTED');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  }, 60_000);
+});

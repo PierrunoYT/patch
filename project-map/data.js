@@ -159,6 +159,8 @@ const D = {
         'added_entries.ts (60; Windows: entries added to the project since the last sandboxed command, which the helper makes inherit the project grant again, #140)',
         'native_integrity.ts (42; a packaged Windows build runs sandbox-helper.exe and file-helper.exe only when they match the digests taken at build time, #149)',
         'pe_digest.ts (33; SHA-256 of an executable that code signing does not change)',
+        'sandbox_grants.ts (per-command read_paths and write_paths: canonical, exact, approved with the command and re-resolved at start, never network, #126)',
+        'sandbox_grants.test.ts (resolution, overlaps, links, refusals and the mount arguments of each backend)',
         'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; absent entries are #262)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
@@ -600,7 +602,6 @@ const D = {
     ],
     [135, 'Agent benchmark: a current baseline, more runs per task and regression checks', 'tests', 'low', 0, '10-06'],
     [128, 'Isolate built-in file tools behind an OS-restricted executor', 'sandbox', 'medium', 0, '10-06'],
-    [126, 'Approve per-command read-only and read/write path grants', 'sandbox', 'low', 0, '10-06'],
     [121, 'Perplexity Decider V1 27B (OpenRouter) as a safety check on tool calls', 'tools', 'low', 0, '10-05'],
     [105, 'Plan-mode benchmark: multi-step tasks, a mid-run toggle, more models', 'tests', 'low', 0, '10-05'],
     [
@@ -649,7 +650,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 200,
+  closedCount: 201,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

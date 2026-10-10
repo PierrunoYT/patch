@@ -26,8 +26,18 @@ import {
   type SandboxKind,
   type SandboxSupport,
 } from './sandbox';
+import {
+  MAX_GRANT_PATHS,
+  describeGrants,
+  emptyGrants,
+  grantsKey,
+  hasPathGrants,
+  hasResolvedGrants,
+  resolvePathGrants,
+  type PathGrants,
+} from './sandbox_grants';
 import { AddedEntries } from './added_entries';
-import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
+import { buildHelperRequest, exceedsEntryLimit, GRANT_ENTRY_LIMIT, HelperProcess } from './sandbox_windows';
 import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
 
@@ -139,7 +149,8 @@ export class ShellRunner {
   // URL matching cannot constrain the connections a program makes. Treat it as a request for full network access,
   // except where the network is filtered by host (#97): then the boundary holds without asking.
   mustAsk(command: string, access: CommandAccess): boolean {
-    if (access.network || access.unsandboxed) return true;
+    // New path grants always ask, in Auto mode and under allow rules too (#126).
+    if (access.network || access.unsandboxed || hasPathGrants(access)) return true;
     const config = this.sandbox();
     if (config.mode === 'off' || config.network !== 'allow-list') return false;
     const decision = this.decide(command, access);
@@ -162,6 +173,39 @@ export class ShellRunner {
       sandboxed: decision.kind !== 'none' && decision.kind !== 'unavailable',
       text: describeSandbox(decision, access),
     };
+  }
+
+  // The canonical grants a command's read_paths and write_paths name right now. Throws, naming the entry, when one
+  // cannot be granted. The approval card and the command's start both use this function.
+  async resolveGrants(access: CommandAccess): Promise<PathGrants> {
+    if (!hasPathGrants(access)) return emptyGrants();
+    const env = await systemLaunchEnv({
+      cwd: this.cwd(),
+      home: homedir(),
+      tmp: tmpdir(),
+      inner: { file: '', args: [] },
+      command: '',
+      containerName: '',
+      image: '',
+      sensitivePaths: this.sensitivePaths(),
+    });
+    return resolvePathGrants(access, {
+      cwd: env.cwd,
+      home: homedir(),
+      protectedPaths: env.protectedPaths,
+      sensitivePaths: this.sensitivePaths(),
+    });
+  }
+
+  // Resolves the grants again at start and refuses when they are not what the user approved (a link or junction that
+  // was replaced, a path that disappeared).
+  private async approvedGrants(access: CommandAccess): Promise<PathGrants> {
+    const grants = await this.resolveGrants(access);
+    if (access.approvedGrants !== undefined && access.approvedGrants !== grantsKey(grants))
+      throw new Error(
+        'The paths granted to this command resolve differently than when you approved them, so it was not run. Ask again.',
+      );
+    return grants;
   }
 
   private decide(command: string, access: CommandAccess): SandboxDecision {
@@ -342,9 +386,11 @@ export class ShellRunner {
     }
     const config = this.sandbox();
     const inner = shellCommand(command, decision.kind !== 'none');
+    const grants = await this.approvedGrants(access);
+    signal?.throwIfAborted();
     if (decision.kind === 'appcontainer')
       return {
-        child: await this.spawnInAppContainer(inner, decision.network, decision.filtered === true, signal),
+        child: await this.spawnInAppContainer(inner, decision.network, decision.filtered === true, grants, signal),
         sandbox: decision.kind,
       };
     let launch: Launch;
@@ -363,6 +409,7 @@ export class ShellRunner {
         sensitivePaths: this.sensitivePaths(),
       });
       signal?.throwIfAborted();
+      env.grants = grants;
       if (decision.kind === 'seatbelt') {
         commandTemp = mkdtempSync(join(env.cwd, '.patch-command-tmp-'));
         env.tmp = commandTemp;
@@ -385,6 +432,8 @@ export class ShellRunner {
     appLog.info('sandbox', 'Command started.', {
       kind: decision.kind,
       network: decision.kind === 'none' ? true : decision.network,
+      readGrants: grants.read.length,
+      writeGrants: grants.write.length,
     });
     const launcherEnv = Object.fromEntries(
       (launch.launcherEnv ?? []).flatMap((name) => {
@@ -439,6 +488,7 @@ export class ShellRunner {
     inner: { file: string; args: string[] },
     network: boolean,
     filtered: boolean,
+    grants: PathGrants,
     signal?: AbortSignal,
   ): Promise<CommandProcess> {
     const helper = this.detect().appcontainer;
@@ -455,6 +505,12 @@ export class ShellRunner {
       sensitivePaths: this.sensitivePaths(),
     });
     const protectedPaths = launchEnv.protectedPaths;
+    // Granting a folder rewrites the permissions of every file in it before the command runs, so a huge one is refused.
+    for (const path of [...grants.read, ...grants.write])
+      if (exceedsEntryLimit(path))
+        throw new Error(
+          `The Windows sandbox cannot grant "${path}": it holds more than ${GRANT_ENTRY_LIMIT} entries. Grant a narrower path. The command was not run.`,
+        );
     signal?.throwIfAborted();
     const real = (path: string) => {
       try {
@@ -477,6 +533,7 @@ export class ShellRunner {
       home: real(homedir()),
       exists: (path) => existsSync(path),
       protectedPaths,
+      grants: hasResolvedGrants(grants) ? grants : undefined,
       refresh: this.added.take(launchEnv.cwd),
       tooLarge: (path) => exceedsEntryLimit(path),
     });
@@ -659,9 +716,26 @@ async function waitForStartup(entry: BackgroundCommand, signal: AbortSignal): Pr
   }
 }
 
+// The grants each previewed call showed on its card (the agent passes one input object to mustAsk, preview and run).
+const approved = new WeakMap<object, string>();
+
+function accessOf(input: {
+  network?: boolean;
+  unsandboxed?: boolean;
+  read_paths?: string[];
+  write_paths?: string[];
+}): CommandAccess {
+  return {
+    network: input.network,
+    unsandboxed: input.unsandboxed,
+    readPaths: input.read_paths,
+    writePaths: input.write_paths,
+  };
+}
+
 export const runCommandTool = defineTool({
   name: 'run_command',
-  description: `Run a shell command (${shellName()}) in the project root and return its output and exit code. Each call starts a fresh shell: use paths instead of cd. Set background to true for servers and watchers that do not exit, then read their output with command_output. Do not use it to change files (no sed, perl, PowerShell replace scripts or redirects into project files): use edit_file, write_file and apply_patch, which show a diff and can be undone. Commands may run in a sandbox: only the project folder is writable, the rest of the home folder is hidden and the network is usually off. If a command fails because of that, set network (needs the internet) or unsandboxed (needs files outside the project) so the user is asked to allow it once; do not set them otherwise.`,
+  description: `Run a shell command (${shellName()}) in the project root and return its output and exit code. Each call starts a fresh shell: use paths instead of cd. Set background to true for servers and watchers that do not exit, then read their output with command_output. Do not use it to change files (no sed, perl, PowerShell replace scripts or redirects into project files): use edit_file, write_file and apply_patch, which show a diff and can be undone. Commands may run in a sandbox: only the project folder is writable, the rest of the home folder is hidden and the network is usually off. If a command fails because of that, set network (needs the internet), read_paths or write_paths (needs a few specific files or folders outside the project) or unsandboxed (needs more than that) so the user is asked to allow it once; do not set them otherwise. Prefer read_paths, then write_paths, to unsandboxed.`,
   schema: z.object({
     command: z.string().min(1),
     background: z.boolean().optional().describe('Start without waiting for it to finish (servers, watchers).'),
@@ -676,17 +750,42 @@ export const runCommandTool = defineTool({
     unsandboxed: z
       .boolean()
       .optional()
-      .describe('The command needs rights the sandbox withholds. The user is asked to allow this one run.'),
+      .describe(
+        'The command needs rights the sandbox withholds, such as unrestricted access to the whole machine. The user is asked to allow this one run.',
+      ),
+    read_paths: z
+      .array(z.string().min(1))
+      .max(MAX_GRANT_PATHS)
+      .optional()
+      .describe(
+        'Absolute paths of existing files or folders outside the project the command may read but not change. The command stays sandboxed. The user is asked to allow exactly these paths for this one run.',
+      ),
+    write_paths: z
+      .array(z.string().min(1))
+      .max(MAX_GRANT_PATHS)
+      .optional()
+      .describe(
+        'Absolute paths of existing files or folders outside the project the command may read and change. Name the narrowest path; a parent folder opens everything in it. The user is asked to allow exactly these paths for this one run.',
+      ),
   }),
   requiresApproval: true,
-  mustAsk: ({ command, network, unsandboxed }, context) => context.shell.mustAsk(command, { network, unsandboxed }),
-  async preview({ command, background, network, unsandboxed }, context) {
-    await context.shell.prepare({ network, unsandboxed });
-    const { text } = context.shell.describe(command, { network, unsandboxed });
-    return { title: background ? 'Start background command' : 'Run command', command, note: text };
+  mustAsk: (input, context) => context.shell.mustAsk(input.command, accessOf(input)),
+  async preview(input, context) {
+    const access = accessOf(input);
+    await context.shell.prepare(access);
+    const { text } = context.shell.describe(input.command, access);
+    let note = text;
+    if (hasPathGrants(access)) {
+      // Resolved now so the card shows the real paths; the command must still resolve to the same set when it starts.
+      const grants = await context.shell.resolveGrants(access);
+      approved.set(input, grantsKey(grants));
+      note = `${text}\n${describeGrants(grants)}`;
+    }
+    return { title: input.background ? 'Start background command' : 'Run command', command: input.command, note };
   },
-  async run({ command, background, timeout_seconds, network, unsandboxed }, context) {
-    const access = { network, unsandboxed };
+  async run(input, context) {
+    const { command, background, timeout_seconds } = input;
+    const access = { ...accessOf(input), approvedGrants: approved.get(input) };
     if (background) {
       let entry: BackgroundCommand;
       try {
