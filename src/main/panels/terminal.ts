@@ -1,4 +1,5 @@
 import { spawn, type IPty } from 'node-pty';
+import { scrubEnv } from '../tools/env';
 
 function userShell(): { file: string; args: string[] } {
   if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] };
@@ -30,7 +31,8 @@ export class TerminalService {
       cols: Math.max(cols, 2),
       rows: Math.max(rows, 2),
       cwd,
-      env: process.env as Record<string, string>,
+      // Without credential-like variables (#153): text the window types into the shell cannot read them back out.
+      env: scrubEnv(process.env) as Record<string, string>,
       // node-pty's default Windows ConPTY kill path forks a console-list helper which can race a quick close.
       // The bundled ConPTY implementation tears down synchronously without spawning that helper.
       ...(process.platform === 'win32' ? { useConptyDll: true } : {}),

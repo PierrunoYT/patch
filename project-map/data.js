@@ -65,7 +65,7 @@ const D = {
         'exec_search.ts (37, bare program names never resolve in the project, #141)',
         'settings.ts (485; a fixed-key cipher such as Linux basic_text never counts as encrypted, #258)',
         'chat_store.ts (201; a damaged chat file is skipped when the index is rebuilt, #249)',
-        'app_log.ts (error + crash logging)',
+        'app_log.ts (error + crash logging; shares tool-result redaction, #153)',
         'stall_monitor.ts (48; logs a blocked event loop and stalled file system calls, slow background saves too, #138)',
         'settings_confirm.ts (236, ordered protective-rule confirmation; every switch to Auto and new project instructions, #157; names the program an MCP server resolves to, #142; unencrypted key save, #35)',
         'projects.ts',
@@ -197,7 +197,7 @@ const D = {
       testLines: 1314,
       desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
       list: [
-        'terminal.ts',
+        'terminal.ts (scrubbed environment, #153)',
         'browser.ts (220; agent session offline for project files, #229; public pages kept off local addresses and names resolving to them, #235, #260)',
         'git.ts (532; Git context for chats, #85; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
         'commit_message.ts',
@@ -565,6 +565,7 @@ const D = {
     ['0d362f3', "fix(apply_patch): keep the file's own context lines when a hunk matches loosely"],
   ],
   issues: [
+    [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
       'Sandbox: protect agent and IDE configuration that does not exist yet, and links',
@@ -588,7 +589,6 @@ const D = {
     [218, 'e2e: macOS UI and project-tab tests time out intermittently on CI', 'tests', 'low', 0, '10-08'],
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
-    [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
     [
       140,
       'Windows sandbox: files moved into a project lack its write grant until reopened',
@@ -657,7 +657,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 192,
+  closedCount: 193,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -58,6 +58,21 @@ describe('TerminalService', () => {
     expect(created[0]!.options).toMatchObject({ cwd: '/project', cols: 2, rows: 2 });
   });
 
+  it('starts the shell without credential-like environment variables (#153)', () => {
+    vi.stubEnv('PATCH_TEST_API_KEY', 'sk-test');
+    vi.stubEnv('PATCH_TEST_DATABASE_URL', 'postgres://user:pass@db/prod');
+    vi.stubEnv('PATCH_TEST_PLAIN', 'kept');
+    try {
+      service.start('/project', 80, 24);
+      const env = created[0]!.options.env as Record<string, string>;
+      expect(env.PATCH_TEST_PLAIN).toBe('kept');
+      expect(env).not.toHaveProperty('PATCH_TEST_API_KEY');
+      expect(env).not.toHaveProperty('PATCH_TEST_DATABASE_URL');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('uses the bundled ConPTY implementation on Windows only', () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
     service.start('C:\\project', 80, 24);

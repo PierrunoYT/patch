@@ -162,6 +162,21 @@ describe('redact', () => {
   it('redacts JSON-style key fields', () => {
     expect(redact('{"apiKey":"supersecretvalue","model":"m"}')).toBe('{"apiKey":"[redacted]","model":"m"}');
   });
+
+  it('also redacts what tool results are redacted for: JWTs, private keys, URL passwords, .env lines (#153)', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+    const text = [
+      `token ${jwt}`,
+      '-----BEGIN PRIVATE KEY-----\nMIIEvQ\n-----END PRIVATE KEY-----',
+      'connect postgres://admin:hunter2pass@db/prod failed',
+      'DB_PASS=correcthorsebattery',
+      'glpat-abcdefghijklmnopqrstu',
+    ].join('\n');
+    const out = redact(text);
+    for (const secret of [jwt, 'MIIEvQ', 'hunter2pass', 'correcthorsebattery', 'glpat-abcdefghijklmnopqrstu'])
+      expect(out).not.toContain(secret);
+    expect(out).toContain('postgres://admin:');
+  });
 });
 
 describe('logNativeCrashDumps', () => {
