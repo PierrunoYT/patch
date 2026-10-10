@@ -24,3 +24,6 @@ ampx/
 
 # Rust build output of the Windows sandbox helper
 native/**/target/
+
+# Playwright run state
+test-results/
