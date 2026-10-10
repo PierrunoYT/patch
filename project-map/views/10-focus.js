@@ -5,6 +5,19 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
+      'Fix the Oct 10 audit: approval bypasses through command text',
+      'The audit confirmed that the text checks deciding which commands skip the approval card can be bypassed, because bash and PowerShell read the command differently from the checks. Each one was reproduced with a unit test; the git log case also through PowerShell.',
+      [
+        '#264 (high): a permission allow rule such as the documented "npm test*" also allows anything chained after it (npm test && …)',
+        '#265: allowed commands get past the risky-argument check with smart quotes (PowerShell), backslashes (bash) and bundled flags (curl -so), so git log can write any file',
+        '#266: reject and ask rules miss commands inside $(…), backticks, (…) and {…}',
+        '#267: apply_patch applies a different change than approved when the file changes meanwhile (edit_file was fixed in #255)',
+        '#268, #269: browser screenshots of project files and secrets split across output chunks get past redaction',
+        '#270 (to verify): whether Claude Code chats run a cloned repository’s .claude/settings.json hooks without trust',
+      ],
+      'Start with #264 and #265: small, contained changes to permissions.ts and allowed_commands.ts.',
+    ],
+    [
       'Finish the Oct 9 audit: the macOS items',
       'A full audit with a second pass found no Windows sandbox escape on its own; the worst issues were chains past the approval card. Most of its findings are fixed: the agent browser goes offline for project files and keeps public pages off local addresses (#229, #235), MCP cards show arguments (#230), Initialize stops sandboxed processes first (#231), the proxy checks TLS server names (#239), plan mode and permission rules are enforced as documented (#237, #238), and secrets stay out of embeddings and truncated output (#234, #253). A public page cannot reach local services by a name that resolves to one (#260), a failed patch is undone in the native helper (#242), and only the Patch sandbox can read the Windows toolchain cache (#151).',
       [
