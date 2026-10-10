@@ -4,6 +4,7 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct Root(File);
 
@@ -43,6 +44,62 @@ fn open_at(parent: &File, leaf: &str, flags: i32) -> io::Result<File> {
     } else {
         Ok(unsafe { File::from_raw_fd(fd) })
     }
+}
+
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn write_in_place(file: &mut File, bytes: &[u8]) -> io::Result<()> {
+    file.set_len(0)?;
+    file.seek(SeekFrom::Start(0))?;
+    file.write_all(bytes)
+}
+
+// Replaces the content of the existing file in `change` with `bytes`: written to a new file in the same (held) folder,
+// flushed and renamed over it, so a crash or power loss leaves the old file or the new one, never a short one (#259).
+// The new file gets the old one's mode, and its owner where that is allowed. When no file can be created in the folder
+// (it is not writable), it is written in place as before.
+fn replace(change: &mut Pending, bytes: &[u8]) -> io::Result<()> {
+    let leaf = change.parts.last().unwrap().clone();
+    let (Some(parent), Some(old)) = (change.parent.as_ref(), change.file.as_mut()) else {
+        return Err(invalid("Missing the file to replace."));
+    };
+    let temp_name = format!(
+        ".patch-tmp-{}-{}",
+        std::process::id(),
+        TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    let mut temp = match open_at(
+        parent,
+        &temp_name,
+        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
+    ) {
+        Ok(temp) => temp,
+        Err(e)
+            if matches!(
+                e.raw_os_error(),
+                Some(libc::EACCES | libc::EPERM | libc::EROFS)
+            ) =>
+        {
+            return write_in_place(old, bytes)
+        }
+        Err(e) => return Err(e),
+    };
+    let result = (|| {
+        temp.write_all(bytes)?;
+        let stat = old.metadata()?;
+        // Only root may give a file to another owner, so this succeeds for the user's own files and is skipped
+        // otherwise. It comes before the mode, because changing the owner clears set-user-ID bits.
+        let _ = unsafe { libc::fchown(temp.as_raw_fd(), stat.uid(), stat.gid()) };
+        temp.set_permissions(std::fs::Permissions::from_mode(stat.mode() & 0o7777))?;
+        temp.sync_all()?;
+        rename_at(parent, &temp_name, &leaf)
+    })();
+    if let Err(e) = result {
+        let _ = unlink_at(parent, &temp_name, 0);
+        return Err(e);
+    }
+    change.file = Some(temp);
+    Ok(())
 }
 
 fn regular(file: &File, writable: bool) -> io::Result<()> {
@@ -181,9 +238,13 @@ impl Root {
             let file = change.file.as_mut().unwrap();
             regular(file, true)?;
             change.written = true;
-            file.set_len(0)?;
-            file.seek(SeekFrom::Start(0))?;
-            file.write_all(bytes)?;
+            if change.created_file {
+                // A new file holds nothing yet, so there is nothing a crash could cut short.
+                file.write_all(bytes)?;
+            } else {
+                let bytes = bytes.clone();
+                replace(change, &bytes)?;
+            }
         } else if change.file.is_some() {
             unlink_at(change.parent.as_ref().unwrap(), leaf, 0)?;
             change.deleted = true;
@@ -219,16 +280,23 @@ impl Root {
                 let _ = unlink_at(&parent, &dir, libc::AT_REMOVEDIR);
             }
         } else if change.written {
-            let (Some(file), Some(before)) = (change.file.as_mut(), &change.before) else {
+            let Some(before) = change.before.clone() else {
                 return Err(invalid("Missing the original content to restore."));
             };
-            file.set_len(0)?;
-            file.seek(SeekFrom::Start(0))?;
-            file.write_all(before)?;
+            replace(change, &before)?;
             change.written = false;
         }
         Ok(())
     }
+}
+
+fn rename_at(parent: &File, from: &str, to: &str) -> io::Result<()> {
+    let (from, to) = (name(from)?, name(to)?);
+    let fd = parent.as_raw_fd();
+    if unsafe { libc::renameat(fd, from.as_ptr(), fd, to.as_ptr()) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
 }
 
 fn unlink_at(parent: &File, leaf: &str, flags: i32) -> io::Result<()> {
@@ -279,6 +347,36 @@ mod tests {
         executor.apply(&mut deletion).unwrap();
         assert_eq!(std::fs::read(outside.join("x")).unwrap(), b"outside");
         assert!(!root.join("gone/x").exists());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn a_replacement_is_a_new_file_with_the_old_mode_and_undo_restores_the_bytes() {
+        let base = std::env::temp_dir().join(format!("patch-file-replace-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        let file = base.join("run.sh");
+        std::fs::write(&file, b"old").unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o750)).unwrap();
+        let inode = std::fs::metadata(&file).unwrap().ino();
+        let executor = Root::open(&base).unwrap();
+        let mut change = executor
+            .prepare(
+                vec!["run.sh".into()],
+                Some(b"old".to_vec()),
+                Some(b"new".to_vec()),
+            )
+            .unwrap();
+        executor.apply(&mut change).unwrap();
+        let after = std::fs::metadata(&file).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"new");
+        // A new file took its place (#259), with the same mode, and no temporary file is left.
+        assert_ne!(after.ino(), inode);
+        assert_eq!(after.mode() & 0o7777, 0o750);
+        assert_eq!(std::fs::read_dir(&base).unwrap().count(), 1);
+        executor.undo(&mut change).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"old");
+        assert_eq!(std::fs::metadata(&file).unwrap().mode() & 0o7777, 0o750);
+        assert_eq!(std::fs::read_dir(&base).unwrap().count(), 1);
         std::fs::remove_dir_all(base).unwrap();
     }
 }

@@ -177,7 +177,7 @@ const D = {
         'text_files.ts',
         'types.ts',
         'native/sandbox-helper/src/win.rs (independently refuses sensitive roots before ACL changes, #145; project-drive ownership, toolchain cache (granted to a patch.toolchains capability, not ALL APPLICATION PACKAGES, #151) and per-project grants; the permission lock waits while its holder lives, #176; named-pipe proxy relay, #97; --stdio JSON-RPC passthrough, #87)',
-        'native/sandbox-helper/src/file_helper.rs + file_ops/unix.rs + file_ops/windows.rs (no-follow handle-based operations; Unix descriptor and Windows sharing-lock regressions, #144; a batch that fails is undone in reverse, #242)',
+        'native/sandbox-helper/src/file_helper.rs + file_ops/unix.rs + file_ops/windows.rs (no-follow handle-based operations; Unix descriptor and Windows sharing-lock regressions, #144; a batch that fails is undone in reverse, #242; an existing file is replaced through a flushed temporary file and a rename, keeping its permissions, #259)',
         'native/sandbox-helper/src/net_bridge.rs (forwards 127.0.0.1:3128 in a sandboxed command to the filtering proxy, Unix socket on Linux and named pipe on Windows, #97)',
         'native/sandbox-helper/src/pipe_io.rs (overlapped named-pipe I/O for the Windows network relay, #97)',
         'scripts/build-native.mjs (locked native builds; universal macOS file helper)',
@@ -569,7 +569,6 @@ const D = {
       0,
       '10-10',
     ],
-    [259, 'Windows file helper truncates before writing; a crash can leave a short file', 'sandbox', 'low', 0, '10-09'],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
     [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
     [228, 'Windows sandbox: share one drive letter per project, drop the temp drive', 'sandbox', 'low', 0, '10-09'],
@@ -659,7 +658,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 185,
+  closedCount: 186,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
