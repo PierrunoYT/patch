@@ -70,6 +70,8 @@ const TOOL_ICONS: Record<string, string> = {
   load_skill: 'school',
   remember: 'bookmark_add',
   glob: 'find_in_page',
+  find_definition: 'code',
+  find_references: 'account_tree',
   apply_patch: 'edit_document',
   todo_list: 'checklist',
   // Claude Code's tools (Claude Code chats).

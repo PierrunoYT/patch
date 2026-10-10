@@ -40,7 +40,16 @@ export function subagentConversation(
 }
 
 // load_skill only reads project skill files, and the subagent gets the parent's prompt, which lists the skills.
-const READ_ONLY_TOOLS = new Set(['read_file', 'list_directory', 'grep', 'glob', 'search_code', 'load_skill']);
+const READ_ONLY_TOOLS = new Set([
+  'read_file',
+  'list_directory',
+  'grep',
+  'glob',
+  'find_definition',
+  'find_references',
+  'search_code',
+  'load_skill',
+]);
 
 // Shown to a subagent that sees the chat's full tool list (same model, shared prompt cache).
 const SHARED_TOOLS_NOTE = `- Your tool list is the main agent's. Only ${[...READ_ONLY_TOOLS].join(', ')} work for you; every other tool returns an error without doing anything.`;

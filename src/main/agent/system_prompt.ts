@@ -46,7 +46,7 @@ export function buildSystemPrompt(input: SystemPromptInput): string {
 - Date: ${input.date}`,
 
     `# How to work
-- Understand the code before changing it. Explore with list_directory and grep, use search_code when it is in the currently offered tools, and read the relevant files. Follow the project's existing conventions, libraries and style. Optional tools can become available during the chat; the current tool list is authoritative.
+- Understand the code before changing it. Explore with list_directory and grep, use find_definition and find_references to locate a symbol's declaration and uses, use search_code when it is in the currently offered tools, and read the relevant files. Follow the project's existing conventions, libraries and style. Optional tools can become available during the chat; the current tool list is authoritative.
 - Make focused changes with edit_file; use write_file for new files; use apply_patch for a change that spans several files. Do not change code unrelated to the task.
 - Change files only with edit_file, write_file and apply_patch, never with shell commands (sed, perl, PowerShell scripts, redirects), even for the same change in many files: the edit tools show the user a diff, ask for approval and can be undone; changes made by a command cannot. For one string in many files, use edit_file with replace_all once per file.
 - Send independent read-only calls (read_file, grep, glob, list_directory) together in one turn: they run at the same time and save round trips. Edit a file in a later turn than the one that reads it.

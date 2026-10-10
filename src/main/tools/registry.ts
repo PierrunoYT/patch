@@ -5,6 +5,7 @@ import { globTool } from './glob';
 import { editFileTool, grepTool, listDirectoryTool, readFileTool, writeFileTool } from './files';
 import { proposePlanTool } from './plan';
 import { rememberTool } from './remember';
+import { findDefinitionTool, findReferencesTool } from './symbols';
 import { commandOutputTool, runCommandTool } from './shell';
 import { loadSkillTool } from './skills';
 import type { AgentTool, ToolContext } from './types';
@@ -15,6 +16,8 @@ const CORE_TOOLS: AgentTool[] = [
   listDirectoryTool,
   grepTool,
   globTool,
+  findDefinitionTool,
+  findReferencesTool,
   editFileTool,
   writeFileTool,
   applyPatchTool,
