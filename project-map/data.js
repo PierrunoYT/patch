@@ -99,7 +99,7 @@ const D = {
         'claude_code_launch.test.ts (133)',
         'claude_code_tools.test.ts (124)',
         'permissions.ts (243; rules see project-relative paths, every patched file and each command part, #237; an allow rule never covers chained commands, #264)',
-        'allowed_commands.ts (43; --output, -o, find -exec and similar arguments always ask, #233)',
+        'allowed_commands.ts (57; --output, -o, find -exec and similar arguments always ask, #233, also through typographic quotes, backslashes and short-flag groups, #265)',
         'allowed_network_hosts.ts',
         'retry.ts (Retry-After waits at least a second; long waits leave the chat resumable, #247)',
         'system_prompt.ts',
@@ -577,14 +577,6 @@ const D = {
     [268, 'Pre-approved browser screenshots of project files bypass redaction', 'security', 'low', 0, '10-10'],
     [267, 'apply_patch applies a different change than approved if the file changes', 'security', 'medium', 0, '10-10'],
     [266, 'Reject and ask permission rules miss commands inside subshells', 'security', 'medium', 0, '10-10'],
-    [
-      265,
-      'Allowed commands: risky-argument check bypassed by smart quotes and flags',
-      'security',
-      'medium',
-      0,
-      '10-10',
-    ],
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
@@ -669,7 +661,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 194,
+  closedCount: 195,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

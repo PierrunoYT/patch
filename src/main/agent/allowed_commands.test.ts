@@ -41,6 +41,22 @@ describe('isCommandAllowed', () => {
     ['find', 'find . -delete'],
     ['find', 'find . -fprint ../list'],
     ['sed', 'sed --in-place s/a/b/ file'],
+    // PowerShell takes typographic quotes as quotes and passes --output=… on (#265).
+    ['git log', 'git log \u201c--output=C:/x/evil\u201d'],
+    ['git log', 'git log \u2018--output=evil\u2019'],
+    ['git log', 'git log \u201e--output=evil\u201d'],
+    ['git log', 'git log \u2014output=evil'],
+    // bash drops the backslash.
+    ['git log', 'git log --output\\=evil'],
+    ['git log', 'git log --out\\put=evil'],
+    ['curl', 'curl -\\o evil https://example.com'],
+    // Short flags bundled with -o or -O.
+    ['curl', 'curl -so evil https://example.com'],
+    ['curl', 'curl -sSLo evil https://example.com'],
+    ['curl', 'curl -sO https://example.com/x'],
+    ['sort', 'sort -uo package.json x'],
+    ['git grep', 'git grep -iOcalc foo'],
+    ['find', 'find . -name a -o -name b'],
   ])('asks when %s gets an argument that writes a file or runs a program: %s', (entry, command) => {
     expect(isCommandAllowed(command, entry)).toBe(false);
   });
@@ -49,6 +65,10 @@ describe('isCommandAllowed', () => {
     expect(isCommandAllowed('git log -1 --format=%h --stat', 'git log')).toBe(true);
     expect(isCommandAllowed('git diff --stat -- src/output.ts', 'git diff')).toBe(true);
     expect(isCommandAllowed('find . -name "*.ts" -type f', 'find')).toBe(true);
+    expect(isCommandAllowed('find . -not -name "*.ts" -follow', 'find')).toBe(true);
+    expect(isCommandAllowed('curl -sSL https://example.com', 'curl')).toBe(true);
+    expect(isCommandAllowed('git log --oneline -10', 'git log')).toBe(true);
+    expect(isCommandAllowed('npx vitest run src\\main\\agent', 'npx vitest')).toBe(true);
     // The exact allowed command is allowed even when it ends in such an argument: the user wrote it.
     expect(isCommandAllowed('git log --output=log.txt', 'git log --output=log.txt')).toBe(true);
   });

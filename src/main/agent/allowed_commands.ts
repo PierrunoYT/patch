@@ -12,16 +12,30 @@ const SHELL_OPERATORS = /[;&|`<>\r\n$(){}]/;
 const RISKY_ARGUMENTS = [
   /^--(output|output-directory|exec|upload-pack|receive-pack|open-files-in-pager|in-place)(=|$)/i,
   /^-(exec|execdir|ok|okdir|delete|fprint|fprint0|fprintf|fls)$/i,
-  // -o and -O with or without an attached value: git format-patch -o, git grep -O, curl -o/-O, sort -o.
-  /^-[oO]/,
+  // -o and -O, alone, with an attached value or inside a cluster of short flags: git format-patch -o, git grep -O
+  // (also -iO), curl -o/-O (also -so, -sSLo), sort -o (also -uo).
+  /^-(?!-)[A-Za-z0-9]*[oO]/,
 ];
 
+// find's single-dash words that contain an o but neither write nor run anything. (find -o, "or", still asks.)
+const HARMLESS_FIND_WORDS = new Set(['-not', '-follow', '-mount', '-noleaf', '-group', '-nogroup', '-nouser']);
+
+// What a shell hands the program for an argument, as far as the checks need it (#265): quotes are dropped, including
+// the typographic ones PowerShell also takes as quotes (‘ ’ ‚ ‛ “ ” „), backslashes are dropped as bash does when it
+// unescapes (`--output\=x`), and PowerShell's alternative dashes (– — ―) count as `-`. Dropping more than a shell
+// would only makes the check ask more often.
+function shellArgument(arg: string): string {
+  return arg
+    .replace(/["'\u2018-\u201e]/g, '')
+    .replace(/\\/g, '')
+    .replace(/[\u2013-\u2015]/g, '-');
+}
+
 function hasRiskyArgument(args: string): boolean {
-  // Quotes don't stop a shell from passing `--output=x` through, so they are ignored here.
   return args
     .split(' ')
-    .map((arg) => arg.replace(/["']/g, ''))
-    .some((arg) => RISKY_ARGUMENTS.some((pattern) => pattern.test(arg)));
+    .map(shellArgument)
+    .some((arg) => !HARMLESS_FIND_WORDS.has(arg) && RISKY_ARGUMENTS.some((pattern) => pattern.test(arg)));
 }
 
 export function parseAllowedCommands(setting: string): string[] {
