@@ -639,7 +639,6 @@ const D = {
     [74, 'Decide whether the release dry run should run on every push to main', 'release', 'low', 0, '10-03'],
     [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],
     [49, 'Agent benchmark: per-tool breakdown, other models, harder tasks', 'tests', 'low', 0, '10-01'],
-    [46, 'Encourage batching independent tool calls (partly addressed in dfd1f07)', 'perf', 'low', 0, '10-01'],
     [37, 'Security lint rules, coverage, hostile-repo test', 'tests', 'low', 0, '09-30'],
     [28, 'macOS entitlements allow DYLD injection/unsigned exec memory', 'security', 'medium', 0, '09-30'],
     [26, 'Windows builds unsigned (workflow ready, waiting on certificate)', 'release', 'medium', 0, '09-30'],
@@ -658,7 +657,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 191,
+  closedCount: 192,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
