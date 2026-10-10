@@ -632,6 +632,37 @@ setTimeout(() => { console.log('RESULT ok=' + ok + ' failed=' + failed); process
       );
       expect(output + String(exitCode)).not.toContain('ALLOCATED');
     }, 60_000);
+
+    it('limits the memory of all processes together (#150)', async () => {
+      // Each child fits under the limit alone; three together do not.
+      const { output } = await run(
+        `const { spawn } = require('child_process'); let ok = 0, done = 0;
+const child = 'const b = Buffer.alloc(100 * 1024 * 1024, 1); setTimeout(() => process.exit(b[0] === 1 ? 0 : 1), 2000)';
+const finish = () => { if (++done === 3) console.log('RESULT ok=' + ok); };
+for (let i = 0; i < 3; i++) { const c = spawn(process.execPath, ['-e', child], { stdio: 'ignore' }); c.on('exit', (code) => { if (code === 0) ok++; finish(); }); c.on('error', finish); }`,
+        { memoryMb: 200, processes: 0 },
+      );
+      const match = /ok=(\d+)/.exec(output);
+      expect(match, output).not.toBeNull();
+      expect(Number(match![1])).toBeLessThan(3);
+    }, 60_000);
+
+    it('caps the CPU the command can use (#150)', async () => {
+      // One busy child per processor for 1.5 s; each exits with the CPU time it got, in units of 10 ms. Children use
+      // no stdio pipes, as in the process limit test above.
+      const busy = `const { spawn } = require('child_process'); const n = require('os').cpus().length; let total = 0, done = 0;
+const child = 'const end = Date.now() + 1500; while (Date.now() < end); const u = process.cpuUsage(); process.exit(Math.min(250, Math.round((u.user + u.system) / 10000)))';
+for (let i = 0; i < n; i++) { const c = spawn(process.execPath, ['-e', child], { stdio: 'ignore' }); c.on('exit', (code) => { total += (code ?? 0) * 10; if (++done === n) console.log('CPU ' + total); }); }`;
+      const cpu = async (cpuPercent: number) => {
+        const { output } = await run(busy, { cpuPercent, memoryMb: 0, processes: 0 });
+        const match = /CPU (\d+)/.exec(output);
+        expect(match, output).not.toBeNull();
+        return Number(match![1]);
+      };
+      const free = await cpu(0);
+      const capped = await cpu(20);
+      expect(capped, `capped ${capped} ms, uncapped ${free} ms`).toBeLessThan(free * 0.5);
+    }, 90_000);
   });
 });
 

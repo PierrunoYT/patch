@@ -374,7 +374,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 14, c: 351, src: 2705, tl: 5275 },
     { a: 'main/llm', f: 9, c: 119, src: 2302, tl: 3223 },
-    { a: 'main/tools', f: 33, c: 766, src: 6254, tl: 9409 },
+    { a: 'main/tools', f: 33, c: 768, src: 6254, tl: 9409 },
     { a: 'main/panels', f: 4, c: 83, src: 829, tl: 1314 },
     { a: 'main/other', f: 16, c: 241, src: 3911, tl: 3706 },
     { a: 'shared', f: 8, c: 99, src: 1445, tl: 1149 },
@@ -588,7 +588,6 @@ const D = {
     [196, 'Test gaps from the code review: fakes, snapshot-only e2e checks, sleeps', 'tests', 'low', 0, '10-07'],
     [158, 'Windows sandbox hardening: LPAC, separate desktop, safe DLL search', 'sandbox', 'low', 0, '10-07'],
     [153, 'Environment scrubbing and secret redaction are deny-lists', 'security', 'low', 0, '10-07'],
-    [150, 'Windows sandbox: memory and CPU limits apply per process, not per job', 'sandbox', 'low', 0, '10-07'],
     [
       140,
       'Windows sandbox: files moved into a project lack its write grant until reopened',
@@ -659,7 +658,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 187,
+  closedCount: 188,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

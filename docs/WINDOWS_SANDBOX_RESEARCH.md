@@ -57,7 +57,7 @@ Other BaseContainer notes from the schema docs:
 | Issue                                                    | How MXC or PSEC relates                                                      |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | #97 hostname restrictions for sandbox networking         | Per-container WFP egress rules and a loopback proxy model with peer identity |
-| #150 limits per process, not per job                     | MXC runs workloads in a job; check whether its limits are job-wide           |
+| #150 limits per process, not per job (fixed)             | MXC runs workloads in a job; check whether its limits are job-wide           |
 | #207 grant on the shared Program Files folder            | Same: OS-enforced `readonlyPaths` instead of ACEs on shared folders          |
 | #158 LPAC, separate desktop, narrower grants             | `ui` policy (Win32k lockdown, desktop isolation) and the session container   |
 | #140 moved-in files lack the project grant               | BaseContainer path grants are not inherited ACEs, so a moved file is covered |

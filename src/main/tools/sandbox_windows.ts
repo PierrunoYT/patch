@@ -14,9 +14,12 @@ import { trustedHelper } from './native_integrity';
 export const HELPER_NAME = 'sandbox-helper.exe';
 
 export interface HelperLimits {
+  // For the whole command, all its processes together (#150).
   memoryMb: number;
   processes: number;
   timeoutMs: number;
+  // A hard cap on the command's share of all processors, in percent; 0 for none (#150).
+  cpuPercent: number;
 }
 
 export interface HelperRequest {
@@ -47,6 +50,8 @@ export type HelperEvent =
   | { type: 'log'; code: string; record: string; failures: number };
 
 export const DEFAULT_LIMITS = { memoryMb: 8192, processes: 512 };
+// Windows also caps a command's CPU, so a busy build or a runaway loop leaves the machine room to respond (#150).
+export const WINDOWS_CPU_PERCENT = 90;
 
 // Looked at from the home folder: what builds need (the same list as on the other platforms, plus the npm and pnpm
 // folders Windows installs put under AppData). Credentials are deliberately not listed.
@@ -227,7 +232,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     network: input.network,
     ...(input.workspace ? { workspace: true } : {}),
     ...policy,
-    limits: { ...DEFAULT_LIMITS, timeoutMs: 0, ...input.limits },
+    limits: { ...DEFAULT_LIMITS, timeoutMs: 0, cpuPercent: WINDOWS_CPU_PERCENT, ...input.limits },
   };
 }
 

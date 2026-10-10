@@ -273,6 +273,8 @@ describe('buildHelperRequest', () => {
     expect(request.env.CI).toBe('1');
     expect(request.limits.memoryMb).toBeGreaterThan(0);
     expect(request.limits.processes).toBeGreaterThan(0);
+    // A busy command leaves the machine some CPU (#150).
+    expect(request.limits.cpuPercent).toBe(90);
   });
 
   it('selects toolchains from case-insensitive Windows environment keys without changing PATH order', () => {

@@ -4,9 +4,12 @@ use std::collections::HashMap;
 #[derive(Debug, Deserialize, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Limits {
+    // Memory of the whole command, all its processes together (#150). 0: none.
     pub memory_mb: u64,
     pub processes: u32,
     pub timeout_ms: u64,
+    // A hard cap on the command's share of all the machine's processors, in percent (#150). 0: none.
+    pub cpu_percent: u32,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -112,7 +115,7 @@ mod tests {
 
     #[test]
     fn parses_a_full_request() {
-        let line = r#"{"id":3,"command":"C:\\a.exe","args":["x"],"cwd":"C:\\p","env":{"A":"1"},"network":true,"readWrite":["C:\\p"],"readOnly":["C:\\Windows"],"toolchains":["C:\\Program Files\\nodejs"],"limits":{"memoryMb":512,"processes":8,"timeoutMs":1000}}"#;
+        let line = r#"{"id":3,"command":"C:\\a.exe","args":["x"],"cwd":"C:\\p","env":{"A":"1"},"network":true,"readWrite":["C:\\p"],"readOnly":["C:\\Windows"],"toolchains":["C:\\Program Files\\nodejs"],"limits":{"memoryMb":512,"processes":8,"timeoutMs":1000,"cpuPercent":90}}"#;
         let Message::Run(req) = parse_message(line).unwrap() else {
             panic!("not a run")
         };
@@ -126,7 +129,8 @@ mod tests {
             Limits {
                 memory_mb: 512,
                 processes: 8,
-                timeout_ms: 1000
+                timeout_ms: 1000,
+                cpu_percent: 90
             }
         );
     }

@@ -21,6 +21,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- The Windows sandbox limits a command's memory for all its processes together, not only per process, so a command that starts many processes can no longer use the limit many times over, and caps its CPU at 90% of all processors together, so a busy build or a runaway loop leaves the machine room to respond (fixes #150).
 - File edits no longer truncate a file before writing it: the native file helper writes the new content to a temporary file next to it and renames it over the old one, keeping its mode (Unix) or permissions and attributes (Windows), so a crash or power loss leaves the old file or the new one instead of a short one. If no temporary file can be made, or another program has the file open, it is written in place as before (fixes #259).
 - A sandboxed stdio MCP server gets 2 minutes to start instead of 10 seconds. On Windows the helper grants the server's PATH folders before it starts (about 4 s with a long PATH, more during a project's first grant), so servers timed out on machines with many tool folders, including the hosted CI runner.
 - `scrubEnv` also drops variables whose value holds a URL password (`DATABASE_URL=postgres://user:pass@…`), `KUBECONFIG` and names ending in `_PASS` or `_PWD`; secret redaction recognizes GitLab, npm, PyPI, Stripe, Twilio and DigitalOcean tokens and `.env` lines such as `DB_PASS=` and `MYSQL_PWD=`. The terminal panel still passes the full environment, and `redactSecrets` is documented as best effort (refs #153).

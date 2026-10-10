@@ -594,9 +594,12 @@ fn make_job(request: &Request) -> Result<Handle> {
             info.BasicLimitInformation.ActiveProcessLimit = request.limits.processes;
         }
         if request.limits.memory_mb > 0 {
-            info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_MEMORY;
-            info.ProcessMemoryLimit =
-                (request.limits.memory_mb as usize).saturating_mul(1024 * 1024);
+            // For the job as a whole, like the cgroup on Linux, so many processes cannot each take the limit (#150).
+            let bytes = (request.limits.memory_mb as usize).saturating_mul(1024 * 1024);
+            info.BasicLimitInformation.LimitFlags |=
+                JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_JOB_MEMORY;
+            info.ProcessMemoryLimit = bytes;
+            info.JobMemoryLimit = bytes;
         }
         SetInformationJobObject(
             job.0,
@@ -605,6 +608,23 @@ fn make_job(request: &Request) -> Result<Handle> {
             std::mem::size_of_val(&info) as u32,
         )
         .map_err(|e| describe("SetInformationJobObject", e))?;
+        if (1..100).contains(&request.limits.cpu_percent) {
+            // A hard cap on all processors together, in hundredths of a percent, so a busy command leaves the machine
+            // room to respond (#150).
+            let mut cpu = JOBOBJECT_CPU_RATE_CONTROL_INFORMATION {
+                ControlFlags: JOB_OBJECT_CPU_RATE_CONTROL_ENABLE
+                    | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP,
+                ..Default::default()
+            };
+            cpu.Anonymous.CpuRate = request.limits.cpu_percent * 100;
+            SetInformationJobObject(
+                job.0,
+                JobObjectCpuRateControlInformation,
+                &cpu as *const _ as *const c_void,
+                std::mem::size_of_val(&cpu) as u32,
+            )
+            .map_err(|e| describe("SetInformationJobObject (CPU rate)", e))?;
+        }
         let ui = JOBOBJECT_BASIC_UI_RESTRICTIONS {
             UIRestrictionsClass: JOB_OBJECT_UILIMIT_HANDLES
                 | JOB_OBJECT_UILIMIT_READCLIPBOARD
