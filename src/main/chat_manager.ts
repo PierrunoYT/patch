@@ -9,13 +9,13 @@ import {
   SMALL_MODELS,
   subagentModelId,
 } from '@shared/models';
-import { mergeAllowLists } from '@shared/project';
+import { mergeAllowLists, projectMemory } from '@shared/project';
 import { AGENT_FILE_NAMES, loadAgentFile, readAgentFile } from './agent/agent_file';
 import { isCommandAllowed } from './agent/allowed_commands';
 import { isNetworkUrlAllowed } from './agent/allowed_network_hosts';
 import { decideCallPermission, type PathView } from './agent/permissions';
 import type { DroppedFieldError } from './agent/agent';
-import { buildSystemPrompt, promptListsSkills } from './agent/system_prompt';
+import { buildSystemPrompt, promptHasMemory, promptListsSkills } from './agent/system_prompt';
 import { ChatSession, type SavedChat } from './agent/session';
 import type { GitContext } from './agent/project_context';
 import { ClaudeCodeAgent, ClaudeCodeConversation } from './agent/claude_code';
@@ -340,9 +340,11 @@ export class ChatManager {
         customInstructions: this.deps.projects.get(workspace.root)?.instructions ?? '',
         agentFile,
         skills: listSkills(workspace),
+        memory: projectMemory(this.deps.projects.get(workspace.root)),
       });
     // Read from the prompt the chat actually has (a saved chat keeps its own), not from the folder on every turn.
     const offersSkills = promptListsSkills(system);
+    const offersMemory = promptHasMemory(system);
 
     // The subagent tool closes over the chat's conversation factory and system prompt; the nested agent shares
     // the tool list (minus itself, via the read-only filter).
@@ -351,7 +353,7 @@ export class ChatManager {
       return availableTools(
         { browser, codeSearch: codeSearch?.search ?? null, webSearch },
         [...(codeSearch?.tools ?? []), ...this.deps.mcp.tools(), taskTool, finderTool, oracleTool, todoTool],
-        { skills: offersSkills },
+        { skills: offersSkills, memory: offersMemory },
       );
     };
     // The checklist lives and dies with this chat; subagents do not get it (they only read).
@@ -422,11 +424,15 @@ export class ChatManager {
       conversation instanceof ClaudeCodeConversation
         ? (() => {
             const instructions = this.deps.projects.get(workspace.root)?.instructions?.trim() ?? '';
+            const memory = projectMemory(this.deps.projects.get(workspace.root));
             const files = AGENT_FILE_NAMES.map((name) => readAgentFile(workspace, name)).filter(
               (file) => file !== null,
             );
             const append = [
               instructions ? `Instructions for this project from the user:\n${instructions}` : '',
+              memory?.length
+                ? `Notes the user approved for this project:\n${memory.map((note) => `- ${note}`).join('\n')}`
+                : '',
               ...files.map((file) => `Contents of ${file.name}:\n${file.content}`),
             ]
               .filter(Boolean)
@@ -481,6 +487,7 @@ export class ChatManager {
           codeSearch: codeSearch?.search ?? null,
           webSearch,
           allowsNetworkUrl,
+          remember: (note) => this.deps.projects.addMemory(workspace.root, note),
         };
       },
       smallModel: (conversation) => this.deps.llm.smallModel(conversation),

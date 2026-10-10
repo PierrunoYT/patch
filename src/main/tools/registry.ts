@@ -4,6 +4,7 @@ import { browserTool } from './browser';
 import { globTool } from './glob';
 import { editFileTool, grepTool, listDirectoryTool, readFileTool, writeFileTool } from './files';
 import { proposePlanTool } from './plan';
+import { rememberTool } from './remember';
 import { commandOutputTool, runCommandTool } from './shell';
 import { loadSkillTool } from './skills';
 import type { AgentTool, ToolContext } from './types';
@@ -24,11 +25,12 @@ const CORE_TOOLS: AgentTool[] = [
 
 // Tools offered to the model depend on what is configured, so it never calls one that cannot work. propose_plan is
 // the exception: it is always offered, and the user message says whether plan mode is on, so turning plan mode on or
-// off never changes a chat's tool list (and with it the cached prompt prefix).
+// off never changes a chat's tool list (and with it the cached prompt prefix). remember is offered exactly when the
+// chat's prompt has a project memory section (promptHasMemory), so it never changes mid-chat either.
 export function availableTools(
   context: Pick<ToolContext, 'browser' | 'codeSearch' | 'webSearch'>,
   extra: AgentTool[] = [],
-  { skills = false }: { skills?: boolean } = {},
+  { skills = false, memory = false }: { skills?: boolean; memory?: boolean } = {},
 ): AgentTool[] {
   const extras = [...extra].sort((a, b) => a.name.localeCompare(b.name));
   return [
@@ -37,6 +39,7 @@ export function availableTools(
     ...(context.browser ? [browserTool] : []),
     proposePlanTool,
     ...(skills ? [loadSkillTool] : []),
+    ...(memory ? [rememberTool] : []),
     ...extras,
   ];
 }

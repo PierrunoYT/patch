@@ -1,6 +1,6 @@
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import type { ProjectInfo, ProjectSettings } from '@shared/project';
+import { MAX_MEMORY_NOTES, memoryNotes, type ProjectInfo, type ProjectSettings } from '@shared/project';
 import { readJson, writeJson } from './storage/json_file';
 
 const MAX_RECENT = 20;
@@ -31,6 +31,7 @@ function withRealCasing(projects: ProjectInfo[]): ProjectInfo[] {
     kept.instructions ||= project.instructions;
     kept.allowedCommands ||= project.allowedCommands;
     kept.allowedNetworkHosts ||= project.allowedNetworkHosts;
+    kept.memory ||= project.memory;
   }
   return [...byPath.values()];
 }
@@ -100,11 +101,34 @@ export class ProjectStore {
       if (typeof value !== 'string') throw new Error(`Invalid project setting: ${name}`);
       return value.slice(0, MAX_SETTING_CHARS);
     };
-    return this.update(path, {
+    const patch: Partial<ProjectSettings> = {
       instructions: text(settings?.instructions, 'instructions'),
       allowedCommands: text(settings?.allowedCommands, 'allowedCommands').trim(),
       allowedNetworkHosts: text(settings?.allowedNetworkHosts, 'allowedNetworkHosts').trim(),
-    });
+    };
+    // The memory fields are optional: a caller that leaves them out keeps the notes as they are.
+    if (settings.memory !== undefined) patch.memory = memoryNotes(text(settings.memory, 'memory')).join('\n');
+    if (settings.memoryEnabled !== undefined) {
+      if (typeof settings.memoryEnabled !== 'boolean') throw new Error('Invalid project setting: memoryEnabled');
+      patch.memoryEnabled = settings.memoryEnabled;
+    }
+    return this.update(path, patch);
+  }
+
+  // Saves a note the user approved. Refuses when memory is off, the note is already there, or the memory is full.
+  addMemory(path: string, note: string): 'saved' | 'duplicate' | 'full' | 'off' | 'empty' {
+    const real = this.storedPath(path);
+    const project = this.openProjects.get(real) ?? this.projects.find((candidate) => candidate.path === real);
+    if (!project) throw new Error(`Unknown project: ${path}`);
+    if (project.memoryEnabled === false) return 'off';
+    const [clean] = memoryNotes(note.replace(/\s+/g, ' '));
+    if (!clean) return 'empty';
+    const notes = memoryNotes(project.memory);
+    if (notes.includes(clean)) return 'duplicate';
+    if (notes.length >= MAX_MEMORY_NOTES) return 'full';
+    project.memory = [...notes, clean].join('\n');
+    this.persist();
+    return 'saved';
   }
 
   // The project as it is now, or null. Read on every tool call, so a change applies to open chats at once.

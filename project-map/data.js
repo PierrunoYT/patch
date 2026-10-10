@@ -175,6 +175,7 @@ const D = {
         'todo.ts',
         'plan.ts',
         'skills.ts',
+        'remember.ts (project memory: the remember tool, always asks, saves only approved notes, #84)',
         'guard.ts (protected paths include AGENTS.md, .patch, .agents, .envrc and .husky, #236, #127; isSecretPath for indexing, #234)',
         'redact.ts (keys cut by truncation or split between reads, and streamed progress, #253, redacted a line at a time, #269)',
         'workspace.ts (native path canonicalization, including Windows case and short-name aliases, #143; .patchignore with .ccignore fallback, #38)',
@@ -351,6 +352,7 @@ const D = {
     ['browser', 'browser.ts', 1, 0, 'browser panel available'],
     ['propose_plan', 'plan.ts', 1, 1, 'always (asks only while plan mode is on)'],
     ['load_skill', 'skills.ts', 0, 0, 'project has skills'],
+    ['remember', 'remember.ts', 1, 1, 'chat prompt has a project memory section (memory on)'],
     ['search_code', 'search/code_index.ts', 0, 0, 'code index available (per chat)'],
     ['task', 'task.ts', 0, 0, 'per chat (subagent)'],
     ['finder', 'task.ts', 0, 0, 'per chat (subagent)'],
@@ -413,6 +415,7 @@ const D = {
     ['mcp', 2],
     ['git_init', 1],
     ['plan_mode', 1],
+    ['project_memory', 2],
     ['resume', 1],
     ['single_instance', 1],
     ['skills', 1],
@@ -623,7 +626,6 @@ const D = {
     ],
     [96, 'Narrow macOS sandbox file access, isolate command temp directories', 'sandbox', 'medium', 0, '10-04'],
     [87, 'Sandbox MCP stdio servers on macOS (Linux and Windows opt-in done)', 'mcp', 'low', 0, '10-04'],
-    [84, 'Smarter over time: a project memory the agent can propose additions to', 'tools', 'low', 0, '10-03'],
     [83, 'Smarter finish: review the changes before saying the turn is done', 'tools', 'low', 0, '10-03'],
     [82, 'Smarter navigation: go-to-definition and find-references tools', 'tools', 'low', 0, '10-03'],
     [81, 'Smarter edits: show new compiler and linter errors after each edit', 'tools', 'low', 0, '10-03'],
@@ -649,7 +651,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 202,
+  closedCount: 203,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

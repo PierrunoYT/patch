@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Workspace } from '../tools/workspace';
-import { buildSystemPrompt, promptListsSkills, type SystemPromptInput } from './system_prompt';
+import { buildSystemPrompt, promptHasMemory, promptListsSkills, type SystemPromptInput } from './system_prompt';
 
 let root: string;
 
@@ -25,6 +25,7 @@ function input(overrides: Partial<SystemPromptInput> = {}): SystemPromptInput {
     customInstructions: '',
     agentFile: null,
     skills: { skills: [], omitted: 0 },
+    memory: null,
     ...overrides,
   };
 }
@@ -77,6 +78,32 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('- deploy: Release checklist.');
     expect(prompt).toContain('3 more skill files are not listed');
     expect(promptListsSkills(prompt)).toBe(true);
+  });
+
+  it('puts memory notes after the project instructions and is detected by promptHasMemory', () => {
+    const prompt = buildSystemPrompt(
+      input({ customInstructions: 'Be brief.', memory: ['Use pnpm', 'src/gen is generated'] }),
+    );
+    expect(prompt).toContain('# Project memory\n');
+    expect(prompt).toContain('- Use pnpm\n- src/gen is generated');
+    expect(prompt.indexOf('# Project instructions from the user')).toBeLessThan(prompt.indexOf('# Project memory'));
+    expect(promptHasMemory(prompt)).toBe(true);
+  });
+
+  it('has a memory section without notes when memory is on, and none when it is off', () => {
+    const on = buildSystemPrompt(input({ memory: [] }));
+    expect(on).toContain('(No notes yet.)');
+    expect(promptHasMemory(on)).toBe(true);
+    const off = buildSystemPrompt(input({ memory: null }));
+    expect(off).not.toContain('# Project memory');
+    expect(promptHasMemory(off)).toBe(false);
+  });
+
+  it('caps the memory notes in the prompt and says how many were left out', () => {
+    const notes = Array.from({ length: 40 }, (_, index) => `note ${index} ${'x'.repeat(290)}`);
+    const prompt = buildSystemPrompt(input({ memory: notes }));
+    expect(prompt).toMatch(/\(\d+ more notes are not shown\.\)/);
+    expect(prompt.length).toBeLessThan(10_000);
   });
 
   it('has no skills section, and offers no load_skill, when the project has no skills', () => {

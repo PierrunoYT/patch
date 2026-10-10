@@ -96,6 +96,16 @@ describe('changesToConfirm', () => {
     ).toEqual([]);
   });
 
+  it('asks about new project memory notes, but not about removed ones or when memory is left out', () => {
+    const project: ProjectInfo = { path: '/p', name: 'demo', instructions: '', memory: 'Use pnpm', lastOpened: '' };
+    const base = { instructions: '', allowedCommands: '', allowedNetworkHosts: '' };
+    expect(projectChangesToConfirm(project, { ...base, memory: 'Use pnpm\nNo changelog' })).toEqual([
+      'In demo, tell the agent in every new chat: "No changelog".',
+    ]);
+    expect(projectChangesToConfirm(project, { ...base, memory: '' })).toEqual([]);
+    expect(projectChangesToConfirm(project, base)).toEqual([]);
+  });
+
   it('asks about new project instructions, showing them, but not about unchanged or removed ones (#157)', () => {
     const project: ProjectInfo = {
       path: '/p',

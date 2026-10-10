@@ -599,6 +599,37 @@ describe('ProjectStore', () => {
     expect(() => store.setInstructions(first.path, 'gone')).toThrow(/Unknown project/);
   });
 
+  it("keeps a project's memory: approved notes are added, settings edit them, off refuses", () => {
+    const one = join(dir, 'one');
+    mkdirSync(one);
+    const file = join(dir, 'projects.json');
+    const store = new ProjectStore(file);
+    const opened = store.open(one);
+    const base = { instructions: '', allowedCommands: '', allowedNetworkHosts: '' };
+
+    expect(store.addMemory(opened.path, '  Use   pnpm ')).toBe('saved');
+    expect(store.addMemory(opened.path, 'Use pnpm')).toBe('duplicate');
+    expect(store.addMemory(opened.path, '   ')).toBe('empty');
+    expect(new ProjectStore(file).get(opened.path)?.memory).toBe('Use pnpm');
+
+    // Leaving the memory fields out keeps the notes; sending them replaces and cleans them.
+    store.updateSettings(opened.path, base);
+    expect(store.get(opened.path)?.memory).toBe('Use pnpm');
+    store.updateSettings(opened.path, { ...base, memory: 'a\n\n a \nb', memoryEnabled: false });
+    expect(store.get(opened.path)).toMatchObject({ memory: 'a\nb', memoryEnabled: false });
+    expect(store.addMemory(opened.path, 'c')).toBe('off');
+    expect(() => store.updateSettings(opened.path, { ...base, memoryEnabled: 'yes' as never })).toThrow(
+      /Invalid project setting/,
+    );
+
+    store.updateSettings(opened.path, {
+      ...base,
+      memory: Array.from({ length: 50 }, (_, i) => `n${i}`).join('\n'),
+      memoryEnabled: true,
+    });
+    expect(store.addMemory(opened.path, 'one more')).toBe('full');
+  });
+
   it("stores a project's own allow-lists with its instructions, and keeps them after a reload", () => {
     const one = join(dir, 'one');
     mkdirSync(one);

@@ -179,6 +179,12 @@ export function projectChangesToConfirm(current: ProjectInfo | null, patch: Proj
   const hosts = addedEntries(current?.allowedNetworkHosts ?? '', patch.allowedNetworkHosts);
   if (hosts.length > 0)
     changes.push(`In ${name}, let network tools contact these hosts without asking: ${list(hosts)}`);
+  // Notes in the project's memory go into the prompt of new chats, like instructions. Removing a note needs no
+  // confirmation; the agent's own additions are approved on a card and never come through here.
+  if (patch.memory !== undefined) {
+    const notes = addedEntries(current?.memory ?? '', patch.memory);
+    if (notes.length > 0) changes.push(`In ${name}, tell the agent in every new chat: ${list(notes)}`);
+  }
   return changes;
 }
 

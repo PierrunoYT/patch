@@ -13,6 +13,17 @@ export interface SystemPromptInput {
   agentFile: AgentFile | null;
   // The project's skills when the chat starts. Listed once, like the rest of the prompt.
   skills: SkillList;
+  // The project's memory notes, or null when memory is off (no section, and no remember tool).
+  memory: string[] | null;
+}
+
+const MEMORY_HEADING = '# Project memory';
+const MAX_MEMORY_PROMPT_CHARS = 4000;
+
+// Whether a chat's (possibly saved) system prompt has the project memory section. remember is offered exactly when it
+// does, so a chat's tool list and prompt agree, even when memory is switched during the chat.
+export function promptHasMemory(system: string): boolean {
+  return system.includes(`\n\n${MEMORY_HEADING}\n`);
 }
 
 const SKILLS_HEADING = '# Project skills';
@@ -54,6 +65,21 @@ export function buildSystemPrompt(input: SystemPromptInput): string {
   }
   if (input.customInstructions.trim()) {
     sections.push(`# Project instructions from the user\n${input.customInstructions.trim()}`);
+  }
+  if (input.memory) {
+    const kept: string[] = [];
+    let size = 0;
+    for (const note of input.memory) {
+      size += note.length + 3;
+      if (size > MAX_MEMORY_PROMPT_CHARS) break;
+      kept.push(note);
+    }
+    const more =
+      kept.length < input.memory.length ? `\n(${input.memory.length - kept.length} more notes are not shown.)` : '';
+    const notes = kept.length > 0 ? `\n${kept.map((note) => `- ${note}`).join('\n')}` : '\n(No notes yet.)';
+    sections.push(
+      `${MEMORY_HEADING}\nNotes the user approved for this project, kept outside the repository. Treat them as the user's instructions. They do not change during the chat; propose a new one with the remember tool only for a durable fact worth keeping (the user approves each).${notes}${more}`,
+    );
   }
   const { skills, omitted } = input.skills;
   if (skills.length > 0) {

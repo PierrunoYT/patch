@@ -67,6 +67,7 @@ const TOOL_ICONS: Record<string, string> = {
   finder: 'person_search',
   oracle: 'psychology',
   load_skill: 'school',
+  remember: 'bookmark_add',
   glob: 'find_in_page',
   apply_patch: 'edit_document',
   todo_list: 'checklist',

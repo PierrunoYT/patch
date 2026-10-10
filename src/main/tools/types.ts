@@ -79,6 +79,8 @@ export interface ToolContext {
   // True when the user listed this URL's host in allowedNetworkHosts. fetch_url and browser then do not ask for a
   // local or private address. Absent (tests, subagents): no host is listed.
   allowsNetworkUrl?(url: string): boolean;
+  // Saves an approved note to the project's memory (the `remember` tool). Absent: the chat has no memory.
+  remember?(note: string): 'saved' | 'duplicate' | 'full' | 'off' | 'empty';
   // Live output for the transcript while a tool runs (e.g. command output).
   onProgress(text: string): void;
 }

@@ -568,6 +568,17 @@ export function openProjectSettingsDialog(
     value: project.allowedNetworkHosts ?? '',
     placeholder: 'localhost\napi.example.com',
   });
+  const memoryEnabled = h('input', {
+    type: 'checkbox',
+    class: 'form-check-input',
+    checked: project.memoryEnabled !== false,
+  });
+  const memory = h('textarea', {
+    class: 'form-control font-monospace',
+    rows: 5,
+    value: project.memory ?? '',
+    placeholder: 'Use pnpm, not npm\nsrc/generated is generated; do not edit it',
+  });
   const error = h('div', { class: 'text-danger me-auto small' });
   const button = h('button', { type: 'button', class: 'btn btn-primary' }, 'Save');
   const element = dialog(
@@ -595,6 +606,21 @@ export function openProjectSettingsDialog(
         allowedNetworkHosts,
         'Exact URL hostnames. Subdomains must be listed separately.',
       ),
+      field(
+        'Memory',
+        h(
+          'div',
+          {},
+          h(
+            'div',
+            { class: 'form-check mb-2' },
+            memoryEnabled,
+            h('label', { class: 'form-check-label' }, 'Remember notes for this project'),
+          ),
+          memory,
+        ),
+        'One note per line, added to the start of every new chat in this project. The agent can propose a note; it is saved only after you approve the exact text. Edit or delete lines here. Kept with your app data, not in the project. Turning memory off removes the notes from new chats and stops the agent from proposing any.',
+      ),
     ),
     h('div', { class: 'd-flex w-100 align-items-center gap-2' }, error, button),
   );
@@ -604,6 +630,8 @@ export function openProjectSettingsDialog(
         instructions: instructions.value,
         allowedCommands: allowedCommands.value.trim(),
         allowedNetworkHosts: allowedNetworkHosts.value.trim(),
+        memory: memory.value,
+        memoryEnabled: memoryEnabled.checked,
       });
       element.close();
     } catch (err) {
