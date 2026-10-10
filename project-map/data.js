@@ -174,7 +174,7 @@ const D = {
         'plan.ts',
         'skills.ts',
         'guard.ts (protected paths include AGENTS.md, .patch, .agents, .envrc and .husky, #236, #127; isSecretPath for indexing, #234)',
-        'redact.ts (keys cut by truncation or split between reads, and streamed progress, #253)',
+        'redact.ts (keys cut by truncation or split between reads, and streamed progress, #253, redacted a line at a time, #269)',
         'workspace.ts (native path canonicalization, including Windows case and short-name aliases, #143; .patchignore with .ccignore fallback, #38)',
         'workspace.test.ts (Windows case and 8.3 regression fixtures; explicit skips on other platforms)',
         'edit_backups.ts',
@@ -573,7 +573,6 @@ const D = {
       0,
       '10-10',
     ],
-    [269, 'Live command output shows a secret split across two output chunks', 'security', 'low', 0, '10-10'],
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
@@ -658,7 +657,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 198,
+  closedCount: 199,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

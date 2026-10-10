@@ -24,6 +24,31 @@ describe('a private key cut into pieces (#253)', () => {
   });
 });
 
+describe('a secret split between pieces of streamed output (#269)', () => {
+  it.each([
+    ['an .env line', ['DB_PASSWORD=hunt', 'er2hunter2\nok\n'], 'hunter2'],
+    ['a token', [`token sk-ant-${'x1'.repeat(6)}`, `${'x1'.repeat(10)} done\n`], 'x1x1x1x1x1x1x1x1'],
+    ['a URL password', ['postgres://admin:hun', 'ter2secret@db/prod\n'], 'hunter2secret'],
+  ])('never shows %s whose halves arrive separately', (_kind, pieces, secret) => {
+    const redact = streamRedactor();
+    const shown = pieces.map(redact).join('');
+    expect(shown).not.toContain(secret);
+    expect(shown).toContain(REDACTION_MARK);
+  });
+
+  it('holds back only the line still arriving, and treats a carriage return as a line end', () => {
+    const redact = streamRedactor();
+    expect(redact('one\ntw')).toBe('one\n');
+    expect(redact('o\n')).toBe('two\n');
+    expect(redact('50%\r')).toBe('50%\r');
+  });
+
+  it('lets a very long line without breaks through, so live output keeps moving', () => {
+    const redact = streamRedactor();
+    expect(redact('x'.repeat(5000))).toBe('x'.repeat(5000));
+  });
+});
+
 describe('redactSecrets', () => {
   it.each([
     ['AWS key', 'id AKIAIOSFODNN7EXAMPLE end'],

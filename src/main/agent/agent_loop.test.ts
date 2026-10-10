@@ -231,7 +231,9 @@ describe('Agent: tool-result pairing', () => {
 
   it('streams tool progress and only shows the output of command tools', async () => {
     const runCommand = tool('run_command', (_input, context) => {
-      context.onProgress('line 1');
+      context.onProgress('line 1\nline');
+      // The rest of a line is held back until it is complete, so a secret split between pieces is redacted (#269).
+      context.onProgress(' 2\n');
       return { content: 'exit code 0' };
     });
     const look = tool('look', () => ({ content: 'plain result' }));
@@ -242,7 +244,10 @@ describe('Agent: tool-result pairing', () => {
     await agent.send({ text: 'go' }, new AbortController().signal);
 
     const starts = eventsOf(events, 'tool-start');
-    expect(eventsOf(events, 'tool-progress')).toEqual([{ type: 'tool-progress', id: starts[0]!.id, text: 'line 1' }]);
+    expect(eventsOf(events, 'tool-progress')).toEqual([
+      { type: 'tool-progress', id: starts[0]!.id, text: 'line 1\n' },
+      { type: 'tool-progress', id: starts[0]!.id, text: 'line 2\n' },
+    ]);
     expect(eventsOf(events, 'tool-end').map((event) => [event.id, event.output])).toEqual([
       [starts[0]!.id, 'exit code 0'],
       [starts[1]!.id, undefined],

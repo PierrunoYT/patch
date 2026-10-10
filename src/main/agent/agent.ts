@@ -484,7 +484,11 @@ export class Agent {
 
     // Live output is shown and may be saved before the tool ends, so it is redacted too, across its pieces (#253).
     const redactProgress = streamRedactor();
-    const onProgress = (text: string) => emit({ type: 'tool-progress', id: eventId, text: redactProgress(text) });
+    const onProgress = (text: string) => {
+      // Empty while the redactor holds back a line that is still arriving.
+      const shown = redactProgress(text);
+      if (shown) emit({ type: 'tool-progress', id: eventId, text: shown });
+    };
     const context = this.options.toolContext(signal, onProgress);
 
     const rule = await this.options.decidePermission?.(tool.name, input);

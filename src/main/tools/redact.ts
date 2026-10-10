@@ -47,12 +47,25 @@ export function redactSecrets(text: string): string {
   return out.replace(URL_PASSWORD, `$1${REDACTION_MARK}$3`);
 }
 
-// Redacts text that arrives in pieces (a command's live output). A private key whose BEGIN came in an earlier piece
-// is masked until its END arrives, so its middle lines are never shown either.
+// A line still arriving is held back at most this long, so output without line breaks still shows.
+const MAX_HELD_CHARS = 4096;
+
+// Redacts text that arrives in pieces (a command's live output). Pieces end anywhere, also inside a secret
+// (`DB_PASSWORD=hunt` then `er2hunter2`), where neither half matches a pattern. So the end of a piece after its last
+// line break (or carriage return, which progress bars use) is held back and redacted with the next piece, and only
+// whole lines are returned; a line longer than MAX_HELD_CHARS is let through (#269). A private key whose BEGIN came in
+// an earlier line is masked until its END arrives, so its middle lines are never shown either. What is held back when
+// the output ends is not lost: the tool's final result, redacted whole, replaces the streamed text.
 export function streamRedactor(): (chunk: string) => string {
   let insideKey = false;
+  let held = '';
   return (chunk) => {
-    let text = chunk;
+    const pending = held + chunk;
+    let cut = Math.max(pending.lastIndexOf('\n'), pending.lastIndexOf('\r')) + 1;
+    if (pending.length - cut > MAX_HELD_CHARS) cut = pending.length;
+    held = pending.slice(cut);
+    let text = pending.slice(0, cut);
+    if (!text) return '';
     let prefix = '';
     if (insideKey) {
       const end = KEY_END.exec(text);
