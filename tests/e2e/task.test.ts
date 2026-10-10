@@ -75,7 +75,8 @@ describe('subagent task tool end to end', () => {
       (item): item is Extract<TranscriptItem, { kind: 'tool' }> => item.kind === 'tool' && item.name === 'task',
     );
     expect(taskRow).toMatchObject({ status: 'done' });
-    expect(taskRow?.summary).toContain('Subagent:');
+    // On the chat's own model the card names only the effort (#79).
+    expect(taskRow?.summary).toBe('Subagent (high effort): What does file.txt say?');
 
     // The parent's final request contains the subagent's answer as the task result.
     expect(JSON.stringify(claude.agentRequests.at(-1))).toContain('The file says: hello from the project');
