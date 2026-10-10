@@ -387,14 +387,23 @@ export class ShellRunner {
     access: CommandAccess,
     signal?: AbortSignal,
   ): Promise<{ child: CommandProcess; sandbox: SandboxKind; guard: () => string }> {
-    const root = this.cwd();
-    const before = protectedConfigSnapshot(root);
-    this.sandboxedRunning++;
+    let root = '';
+    let before = new Set<string>();
+    let counted = false;
     let done = false;
+    const begin = () => {
+      root = this.cwd();
+      before = protectedConfigSnapshot(root);
+      this.sandboxedRunning++;
+      counted = true;
+    };
+    const release = () => {
+      if (counted && !done) this.sandboxedRunning--;
+      done = true;
+    };
     const guard = () => {
       if (done) return '';
-      done = true;
-      this.sandboxedRunning--;
+      release();
       const created = createdProtectedEntries(root, before);
       if (created.length === 0) return '';
       const removable = this.sandboxedRunning === 0;
@@ -409,16 +418,14 @@ export class ShellRunner {
         : `\n[The command created ${names}, which sandboxed commands may not create. Patch left it in place because another command is still running: check it before using it.]`;
     };
     try {
-      const started = await this.spawnProcess(command, access, signal);
+      const started = await this.spawnProcess(command, access, begin, signal);
       if (started.sandbox === 'none') {
-        this.sandboxedRunning--;
-        done = true;
+        release();
         return { ...started, guard: () => '' };
       }
       return { ...started, guard };
     } catch (error) {
-      if (!done) this.sandboxedRunning--;
-      done = true;
+      release();
       throw error;
     }
   }
@@ -428,6 +435,7 @@ export class ShellRunner {
   private async spawnProcess(
     command: string,
     access: CommandAccess,
+    begin: () => void,
     signal?: AbortSignal,
   ): Promise<{ child: CommandProcess; sandbox: SandboxKind }> {
     const decision = this.decide(command, access);
@@ -439,6 +447,7 @@ export class ShellRunner {
     const inner = shellCommand(command, decision.kind !== 'none');
     const grants = await this.approvedGrants(access);
     signal?.throwIfAborted();
+    if (decision.kind !== 'none') begin();
     if (decision.kind === 'appcontainer')
       return {
         child: await this.spawnInAppContainer(inner, decision.network, decision.filtered === true, grants, signal),
