@@ -6,6 +6,7 @@ import { SECRET_NAMES } from '@shared/settings';
 import { ToolErrorLog } from './agent/tool_error_log';
 import { EditBackups } from './tools/edit_backups';
 import { appLog, logNativeCrashDumps } from './app_log';
+import { startStallMonitor } from './stall_monitor';
 import { ChatManager } from './chat_manager';
 import { ChatStore } from './chat_store';
 import { chatToMarkdown, exportFileName } from '@shared/export';
@@ -62,6 +63,8 @@ appLog.setFile(join(logsPath, 'app.log.jsonl'));
 // minidump before the process exits; a later launch records it in the ordinary log. Reports never leave the machine.
 crashReporter.start({ productName: 'Patch', uploadToServer: false });
 logNativeCrashDumps(appLog, app.getPath('crashDumps'), join(logsPath, 'native-crashes.json'));
+// Stalls of the event loop or of file system calls go to the same log (#138).
+startStallMonitor({ probePath: userDataPath });
 if (droppedPathEntries > 0) {
   appLog.warn('exec', 'Ignored PATH entries that depend on the working directory.', { count: droppedPathEntries });
 }

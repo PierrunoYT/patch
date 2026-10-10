@@ -90,6 +90,8 @@ interface LaterWrite {
   done: Promise<void>;
 }
 
+const SLOW_WRITE_MS = 2_000;
+
 // Files with a write from writeJsonLater on its way. One write per file runs at a time.
 const laterWrites = new Map<string, LaterWrite>();
 
@@ -121,12 +123,30 @@ async function drain(path: string, write: LaterWrite): Promise<void> {
       const text = write.next;
       write.next = null;
       write.stale = false;
+      const started = Date.now();
       const handle = await open(temp, 'wx');
+      const opened = Date.now();
+      let written = opened;
+      let synced = opened;
       try {
         await handle.writeFile(text, 'utf8');
+        written = Date.now();
         await handle.sync();
+        synced = Date.now();
       } finally {
         await handle.close();
+      }
+      // Which step a slow background save spent its time in, for stalls seen on CI (#138). Numbers only.
+      const closed = Date.now();
+      if (closed - started > SLOW_WRITE_MS) {
+        appLog.warn('storage', 'A background save was slow.', {
+          ms: closed - started,
+          openMs: opened - started,
+          writeMs: written - opened,
+          syncMs: synced - written,
+          closeMs: closed - synced,
+          chars: text.length,
+        });
       }
       // Checked and renamed in one synchronous step, so nothing newer can land in between.
       if (!write.stale) renameSync(temp, path);

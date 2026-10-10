@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { ChatSnapshot } from '../../src/shared/chat';
-import { delay, launchApp, type RunningApp } from './app';
+import { appLogTail, delay, launchApp, type RunningApp } from './app';
 import { MockClaude } from './mock_claude';
 
 // The app is killed (SIGKILL) in the middle of a real run, and the profile is opened again. Nothing is seeded: the
@@ -73,7 +73,9 @@ describe('kill the app mid-run and resume end to end', () => {
       }
       await delay(100);
     }
-    throw new Error(`The chat file never reached the expected state on disk. Last seen: ${last.slice(0, 2000)}`);
+    throw new Error(
+      `The chat file never reached the expected state on disk. Last seen: ${last.slice(0, 2000)}. App log: ${appLogTail(userData)}`,
+    );
   }
 
   // Every tool call in the request has a result right after it, which the API requires.

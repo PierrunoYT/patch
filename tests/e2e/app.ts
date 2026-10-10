@@ -39,13 +39,26 @@ export async function waitForDurableSecrets(userData: string): Promise<void> {
   const deadline = Date.now() + SECRETS_TIMEOUT_MS;
   while (!read('Local State')?.os_crypt?.encrypted_key) {
     if (Date.now() > deadline) {
-      throw new Error(`The saved keys' encryption key never reached ${join(userData, 'Local State')}.`);
+      throw new Error(
+        `The saved keys' encryption key never reached ${join(userData, 'Local State')}. App log: ${appLogTail(userData)}`,
+      );
     }
     await delay(200);
   }
 }
 
 export const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+// The last entries of the profile's local app log, for failure messages: it records stalls of the main process's
+// event loop and file system calls (#138), and holds no chat text.
+export function appLogTail(userData: string, lines = 20): string {
+  try {
+    const text = readFileSync(join(userData, 'logs', 'app.log.jsonl'), 'utf8').trim();
+    return text.split('\n').slice(-lines).join('\n') || '(empty)';
+  } catch {
+    return '(no app log)';
+  }
+}
 
 // Ends a process and everything it started.
 export function killTree(pid: number | undefined): void {
@@ -144,7 +157,7 @@ export async function launchApp(
       if (!closed) {
         killTree(pid);
         throw new Error(
-          `The app did not quit within ${CLOSE_TIMEOUT_MS / 1000} s of being closed (pid ${pid}); it was killed. Main process output: ${mainErrors.join('').slice(-2000) || '(none)'}`,
+          `The app did not quit within ${CLOSE_TIMEOUT_MS / 1000} s of being closed (pid ${pid}); it was killed. Main process output: ${mainErrors.join('').slice(-2000) || '(none)'}. App log: ${appLogTail(userData)}`,
         );
       }
       if (!options.userData) rmSync(userData, { recursive: true, force: true });

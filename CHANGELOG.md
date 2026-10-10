@@ -258,6 +258,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Added
 
+- The local app log records when the main process's event loop was blocked or file system calls stalled, and how long each step of a slow background chat save took, to find the cause of the intermittent crash_kill end-to-end stall (#138). Timeout failures in the end-to-end tests include the tail of the log.
 - Claude Code chats (first version): picking a "Claude Code · …" model runs the chat in the user's installed Claude Code through the Claude Agent SDK (`src/main/agent/claude_code.ts`), with its own tools, CLAUDE.md, settings and compaction. Patch streams its answers, thinking and tool calls as the usual cards, answers its permission prompts with approval cards (Ask, Auto and Plan modes map to Claude Code's), resumes its session for each message, and counts its token usage. Settings → Claude Code sets the program's path and whether Patch's Anthropic API key is given to it (both ask for confirmation). Patch does not ship Claude Code, and turns off its non-essential traffic. Claude Code's commands do not run in Patch's command sandbox.
 
 - Claude Code chats: a `PreToolUse` hook makes MCP tools, leaving plan mode and sandbox-disabled commands always ask; `/clear` starts a new session shown as a notice; and an opt-in end-to-end test runs the installed CLI (`PATCH_E2E_CLAUDE_CODE_PATH`, #261).
