@@ -11,11 +11,11 @@ builders.focus = () => {
         '#264 is fixed: an allow rule such as "npm test*" no longer covers what is chained after the command; a chained command needs every part allowed, and substitutions or redirections are never allowed by a rule',
         '#265 is fixed: allowed commands are checked as the shell passes their arguments on (typographic quotes, backslashes, long dashes), and -o/-O in a group of short flags asks',
         '#266 is fixed: reject and ask rules also see commands inside $(…), backticks, (…) and {…}',
-        '#267: apply_patch applies a different change than approved when the file changes meanwhile (edit_file was fixed in #255)',
+        '#267 is fixed: apply_patch refuses to run when a file changed after its diff was shown, like edit_file (#255)',
         '#268, #269: browser screenshots of project files and secrets split across output chunks get past redaction',
         '#270 (to verify): whether Claude Code chats run a cloned repository’s .claude/settings.json hooks without trust',
       ],
-      'Next: #267, apply_patch approval integrity.',
+      'Next: the redaction gaps, #268 and #269.',
     ],
     [
       'Finish the Oct 9 audit: the macOS items',

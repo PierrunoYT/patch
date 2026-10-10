@@ -309,6 +309,32 @@ function redactedError(): ToolError {
   );
 }
 
+// The bytes of the existing files each apply_patch call's preview diffed, by call input: preview and run get the same
+// input object. The patch is refused when one changed in between, so what runs is what the approved diff showed, as for
+// edit_file (#255, #267).
+const previewedPatches = new WeakMap<object, Map<string, string>>();
+
+function existingHashes(changes: PlannedChange[]): Map<string, string> {
+  return new Map(
+    changes.flatMap((change) =>
+      change.beforeBytes ? [[change.fromAbsolute ?? change.absolute, sha256(change.beforeBytes)] as const] : [],
+    ),
+  );
+}
+
+function requireAsPreviewed(input: object, changes: PlannedChange[]): void {
+  const previewed = previewedPatches.get(input);
+  if (!previewed) return;
+  const now = existingHashes(changes);
+  const changed = [...previewed].find(([path, hash]) => now.get(path) !== hash);
+  if (changed || now.size !== previewed.size) {
+    const rel = changes.find((change) => (change.fromAbsolute ?? change.absolute) === changed?.[0]);
+    throw new ToolError(
+      `${rel?.fromRel ?? rel?.rel ?? 'A file'} changed after the patch was shown for approval. Read it again and redo the patch.`,
+    );
+  }
+}
+
 function describeChange(change: PlannedChange): string {
   if (change.fromRel) return `Moved ${change.fromRel} to ${change.rel}`;
   if (change.before === null) return `Added ${change.rel}`;
@@ -330,16 +356,18 @@ export const applyPatchTool = defineTool({
         (path) => path && isGuardedPath(context.workspace.relative(context.workspace.resolve(path))),
       ),
     ),
-  async preview({ patch }, context) {
-    const changes = await planPatch(parsePatch(patch), context);
+  async preview(input, context) {
+    const changes = await planPatch(parsePatch(input.patch), context);
+    previewedPatches.set(input, existingHashes(changes));
     const diff = changes.map((change) => unifiedDiff(change.rel, change.before ?? '', change.after ?? '')).join('\n');
     return {
       title: changes.length === 1 ? describeChange(changes[0]!) : `Apply a patch to ${changes.length} files`,
       diff,
     };
   },
-  async run({ patch }, context) {
-    const changes = await planPatch(parsePatch(patch), context);
+  async run(input, context) {
+    const changes = await planPatch(parsePatch(input.patch), context);
+    requireAsPreviewed(input, changes);
     await changeProjectFiles(
       context.workspace,
       changes.flatMap((change) => [

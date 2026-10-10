@@ -424,4 +424,29 @@ describe('apply_patch tool', () => {
     expect(preview.title).toBe('Updated src/a.ts');
     expect(preview.diff).toContain('+1');
   });
+
+  it.each([
+    ['a delete', patch('*** Delete File: src/a.ts')],
+    ['an update', patch('*** Update File: src/a.ts', '@@', ' two', '-three', '+THREE')],
+    ['a move', patch('*** Update File: src/a.ts', '*** Move to: src/c.ts', '@@', '-one', '+1')],
+  ])('refuses %s when the file changed after the preview (#267)', async (_kind, text) => {
+    const input = applyPatchTool.schema!.parse({ patch: text });
+    await applyPatchTool.preview!(input, context);
+    writeFileSync(join(root, 'src', 'a.ts'), 'one\ntwo\nthree\nfour\nthe user wrote this\n');
+    await expect(applyPatchTool.run(input, context)).rejects.toThrow(
+      'src/a.ts changed after the patch was shown for approval',
+    );
+    expect(read('src/a.ts')).toBe('one\ntwo\nthree\nfour\nthe user wrote this\n');
+    expect(existsSync(join(root, 'src', 'c.ts'))).toBe(false);
+  });
+
+  it('runs what the preview showed when nothing changed in between', async () => {
+    const input = applyPatchTool.schema!.parse({
+      patch: patch('*** Update File: src/a.ts', '@@', '-one', '+1', '*** Add File: src/new.ts', '+x'),
+    });
+    await applyPatchTool.preview!(input, context);
+    await applyPatchTool.run(input, context);
+    expect(read('src/a.ts')).toBe('1\ntwo\nthree\nfour\n');
+    expect(read('src/new.ts')).toBe('x\n');
+  });
 });

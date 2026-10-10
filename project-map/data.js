@@ -162,7 +162,7 @@ const D = {
         'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; absent entries are #262)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
-        'apply_patch.ts (377; native batched mutations with original paths and byte snapshots, #144; same-path moves and UTF-8 checks; context lines keep the file text, #246; Windows names and case-only duplicates refused up front, #242)',
+        'apply_patch.ts (405; refuses files changed after the preview, #267; native batched mutations with original paths and byte snapshots, #144; same-path moves and UTF-8 checks; context lines keep the file text, #246; Windows names and case-only duplicates refused up front, #242)',
         'glob.ts',
         'regex_worker.ts (grep/glob patterns off the main process, pooled workers)',
         'browser.ts',
@@ -575,7 +575,6 @@ const D = {
     ],
     [269, 'Live command output shows a secret split across two output chunks', 'security', 'low', 0, '10-10'],
     [268, 'Pre-approved browser screenshots of project files bypass redaction', 'security', 'low', 0, '10-10'],
-    [267, 'apply_patch applies a different change than approved if the file changes', 'security', 'medium', 0, '10-10'],
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
@@ -660,7 +659,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 196,
+  closedCount: 197,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
