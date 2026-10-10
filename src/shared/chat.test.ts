@@ -116,6 +116,11 @@ describe('applyChatEvent', () => {
     expect(items).toEqual([{ kind: 'assistant', id: 'a', text: 'Hello.', thinking: '', streaming: false }]);
   });
 
+  it("keeps the effort a turn's request was sent with on its message (#79)", () => {
+    const items = run([{ type: 'assistant-start', id: 'a', effort: 'medium' }]);
+    expect(items).toEqual([{ kind: 'assistant', id: 'a', text: '', thinking: '', streaming: true, effort: 'medium' }]);
+  });
+
   it('updates the newest item without touching the others, and an older item as well (#200)', () => {
     const before = run([
       { type: 'user', id: 'u', text: 'hi', imageCount: 0 },

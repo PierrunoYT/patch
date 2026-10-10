@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ChatEvent, UsageTotals } from '@shared/chat';
+import { MODEL_OPTIONS } from '@shared/models';
 import type { Conversation, SerializedConversation, UserInput } from '../llm/types';
 import { Agent, SUBAGENT_MAX_TURNS, type AgentOptions } from '../agent/agent';
 import { defineTool, ToolError, truncateOutput, type AgentTool, type ToolContext } from './types';
@@ -190,10 +191,11 @@ async function runSubagent(
   }
   const usage = agent.totals;
   const usageLine = `(Subagent token usage: ${usage.inputTokens} in / ${usage.outputTokens} out.)`;
+  const ranOn = runDetail(conversation, options.chatModel);
   if (outcome === 'answer' && partial.trim()) {
     return {
       content: `${truncateOutput(partial.trim())}\n\n${usageLine}`,
-      summary: `${role.label}: ${truncate(task, 60)}`,
+      summary: `${role.label}${ranOn}: ${truncate(task, 60)}`,
     };
   }
 
@@ -201,9 +203,20 @@ async function runSubagent(
   const excerpt = partial.trim() ? `\n\nLast text before it stopped:\n${truncateOutput(partial.trim())}` : '';
   return {
     content: `The subagent did not finish: ${why}.${excerpt}\n\n${usageLine}`,
-    summary: `${role.label} stopped: ${truncate(task, 60)}`,
+    summary: `${role.label}${ranOn} stopped: ${truncate(task, 60)}`,
     isError: true,
   };
+}
+
+// What a subagent ran on, for its card, so the user can tell why it was fast or slow (#79): the model when it is not
+// the chat's, and the reasoning effort when the model is sent one.
+function runDetail(conversation: Conversation, chatModel: string | undefined): string {
+  const parts: string[] = [];
+  if (chatModel !== undefined && conversation.model !== chatModel) {
+    parts.push(MODEL_OPTIONS.find((option) => option.id === conversation.model)?.label ?? conversation.model);
+  }
+  if (conversation.effort) parts.push(`${conversation.effort} effort`);
+  return parts.length > 0 ? ` (${parts.join(', ')})` : '';
 }
 
 function unfinishedReason(outcome: ReturnType<Agent['outcome']>): string {

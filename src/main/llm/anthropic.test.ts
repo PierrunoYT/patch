@@ -333,6 +333,16 @@ describe('AnthropicConversation', () => {
     expect(body.context_management).toBeUndefined();
     expect(body.fallbacks).toBeUndefined();
     expect(headers['anthropic-beta']).toBeUndefined();
+    // Nothing to show on the turn either (#79).
+    expect(conversation.effort).toBeUndefined();
+  });
+
+  it('reports the effort it sends for a model with adaptive thinking (#79)', () => {
+    const conversation = new AnthropicConversation(createAnthropicClient('sk-test', baseURL), {
+      model: 'claude-sonnet-5-5',
+      effort: 'medium',
+    });
+    expect(conversation.effort).toBe('medium');
   });
 
   it('keeps history append-only and sends all tool results in one user message', async () => {

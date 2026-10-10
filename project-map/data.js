@@ -634,7 +634,7 @@ const D = {
     [83, 'Smarter finish: review the changes before saying the turn is done', 'tools', 'low', 0, '10-03'],
     [82, 'Smarter navigation: go-to-definition and find-references tools', 'tools', 'low', 0, '10-03'],
     [81, 'Smarter edits: show new compiler and linter errors after each edit', 'tools', 'low', 0, '10-03'],
-    [79, 'Faster turns: lower reasoning effort for subagents and simple requests', 'perf', 'low', 0, '10-03'],
+    [79, 'Faster turns: an Auto effort for simple requests, measured subagent defaults', 'perf', 'low', 0, '10-03'],
     [78, 'Cheaper subagents: run task and oracle on a mid-size model', 'perf', 'low', 0, '10-03'],
     [74, 'Decide whether the release dry run should run on every push to main', 'release', 'low', 0, '10-03'],
     [71, 'Sign and notarize the macOS build', 'release', 'low', 0, '10-01'],

@@ -1,5 +1,6 @@
 // Chat transcript shown in the UI, and the events that build it. The main process applies every event to its own
 // copy (for saving) and forwards it to the renderer, which applies it with the same reducer.
+import type { Effort } from './models';
 
 export interface ToolPreviewView {
   title: string;
@@ -25,7 +26,8 @@ export type ToolStatus = 'awaiting-approval' | 'running' | 'done' | 'error' | 'd
 
 export type TranscriptItem =
   | { kind: 'user'; id: string; text: string; imageCount: number }
-  | { kind: 'assistant'; id: string; text: string; thinking: string; streaming: boolean }
+  // effort: the reasoning effort the turn's request was sent with (#79); missing for models sent none.
+  | { kind: 'assistant'; id: string; text: string; thinking: string; streaming: boolean; effort?: Effort }
   | {
       kind: 'tool';
       id: string;
@@ -77,7 +79,7 @@ export type ModelUsage = Omit<UsageTotals, 'contextTokens' | 'byModel'>;
 
 export type ChatEvent =
   | { type: 'user'; id: string; text: string; imageCount: number }
-  | { type: 'assistant-start'; id: string }
+  | { type: 'assistant-start'; id: string; effort?: Effort }
   | { type: 'assistant-delta'; id: string; text: string }
   | { type: 'thinking-delta'; id: string; text: string }
   | { type: 'assistant-restart'; id: string }
@@ -315,7 +317,17 @@ export function applyChatEvent(items: TranscriptItem[], event: ChatEvent): Trans
     case 'user':
       return [...items, { kind: 'user', id: event.id, text: event.text, imageCount: event.imageCount }];
     case 'assistant-start':
-      return [...items, { kind: 'assistant', id: event.id, text: '', thinking: '', streaming: true }];
+      return [
+        ...items,
+        {
+          kind: 'assistant',
+          id: event.id,
+          text: '',
+          thinking: '',
+          streaming: true,
+          ...(event.effort ? { effort: event.effort } : {}),
+        },
+      ];
     case 'assistant-delta':
       return update(event.id, (item) => (item.kind === 'assistant' ? { ...item, text: item.text + event.text } : item));
     case 'thinking-delta':

@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { Provider } from '@shared/models';
+import type { Effort, Provider } from '@shared/models';
 import type { CompactionPlan, CompactionState } from './compaction';
 
 export type { CompactionPlan, CompactionState } from './compaction';
@@ -105,6 +105,8 @@ export interface SerializedConversation {
 export interface Conversation {
   readonly provider: Provider;
   readonly model: string;
+  // The reasoning effort its requests are sent with, shown on the turn (#79). Unset when the model is sent none.
+  readonly effort?: Effort;
   addUserMessage(input: UserInput): void;
   addToolResults(results: ToolResult[]): void;
   // Takes back the user message just added by addUserMessage, when the API rejected the request that carried it

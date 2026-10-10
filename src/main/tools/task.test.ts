@@ -510,6 +510,28 @@ describe('finder and oracle', () => {
     expect(recorded).toEqual([{ inputTokens: 2, model: 'claude-haiku-5-5' }]);
   });
 
+  it("names the subagent's model when it is not the chat's, and its effort, on the card (#79)", async () => {
+    const chat = new ScriptedConversation([], 'claude-opus-5-5');
+    const finder = Object.assign(new ScriptedConversation([{ text: 'src/lexer.ts:10' }], 'claude-haiku-5-5'), {
+      effort: 'low' as const,
+    });
+    const tool = createFinderTool({ ...options({ chat, finder }), chatModel: chat.model });
+    const output = await tool.run(tool.schema!.parse({ query: 'where is the lexer' }), context());
+    expect(output.summary).toBe('Finder (Claude Haiku 5.5, low effort): where is the lexer');
+
+    const same = Object.assign(new ScriptedConversation([{ text: 'Do B.' }], 'claude-opus-5-5'), {
+      effort: 'high' as const,
+    });
+    const oracle = createOracleTool({
+      ...options({ chat }),
+      createOracleConversation: () => same,
+      chatModel: chat.model,
+    });
+    expect((await oracle.run(oracle.schema!.parse({ question: 'A or B?' }), context())).summary).toBe(
+      'Oracle (high effort): A or B?',
+    );
+  });
+
   it('oracle advises on the chat conversation and stays read-only', async () => {
     const chat = new ScriptedConversation([{ text: 'Do B, because of the cache.' }]);
     const tool = createOracleTool(options({ chat }));

@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import OpenAI from 'openai';
+import type { Effort } from '@shared/models';
 import type { SettingsStore, ChatGptSession } from '../settings';
 import { appLog } from '../app_log';
 import { testEndpoint } from './endpoints';
@@ -468,6 +469,10 @@ export class CodexAuthedConversation implements Conversation {
 
   get model(): string {
     return this.inner.model;
+  }
+
+  get effort(): Effort {
+    return this.inner.effort;
   }
 
   addUserMessage(input: UserInput): void {

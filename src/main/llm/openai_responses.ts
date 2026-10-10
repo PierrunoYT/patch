@@ -117,7 +117,7 @@ export class OpenAIResponsesConversation implements Conversation {
   constructor(
     private readonly client: OpenAI,
     readonly model: string,
-    private readonly effort: Effort,
+    readonly effort: Effort,
     private readonly items: InputItem[] = [],
     private compaction: CompactionState | null = null,
     private readonly backend: 'platform' | 'codex' = 'platform',

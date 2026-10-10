@@ -320,9 +320,11 @@ export class TranscriptView {
             // Rendered only when opened: while an answer streams, the thinking would otherwise be parsed and
             // highlighted again on every frame, although it is usually collapsed.
             item.thinking
-              ? this.details(`${item.id}:thinking`, h('span', {}, sym('psychology'), ' Thinking'), () => [
-                  trustedHtml('div', 'markdown thinking', renderMarkdown(item.thinking)),
-                ])
+              ? this.details(
+                  `${item.id}:thinking`,
+                  h('span', {}, sym('psychology'), ` Thinking${item.effort ? ` · ${item.effort} effort` : ''}`),
+                  () => [trustedHtml('div', 'markdown thinking', renderMarkdown(item.thinking))],
+                )
               : null,
             item.text ? trustedHtml('div', 'markdown', renderMarkdown(item.text, !item.streaming)) : null,
             item.streaming && !item.text ? h('div', { class: 'typing' }, h('span'), h('span'), h('span')) : null,

@@ -277,7 +277,7 @@ export class Agent {
     const { conversation, emit } = this.options;
     for (let retries = 0; ; retries++) {
       const messageId = randomUUID();
-      emit({ type: 'assistant-start', id: messageId });
+      emit({ type: 'assistant-start', id: messageId, ...(conversation.effort ? { effort: conversation.effort } : {}) });
       this.usage.requests = (this.usage.requests ?? 0) + 1;
       try {
         const result = await conversation.runTurn({

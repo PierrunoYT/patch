@@ -102,7 +102,7 @@ const compactionAdapter: CompactionAdapter<MessageParam> = {
 export class AnthropicConversation implements Conversation {
   readonly provider = 'anthropic' as const;
   readonly model: string;
-  private readonly effort: Effort;
+  private readonly requestEffort: Effort;
   private readonly messages: MessageParam[];
   private compaction: CompactionState | null;
   private toolNamesHash: number | null = null;
@@ -115,9 +115,14 @@ export class AnthropicConversation implements Conversation {
     options: AnthropicConversationOptions,
   ) {
     this.model = options.model;
-    this.effort = options.effort;
+    this.requestEffort = options.effort;
     this.messages = options.messages ?? [];
     this.compaction = options.compaction ?? null;
+  }
+
+  // Sent only to models with adaptive thinking.
+  get effort(): Effort | undefined {
+    return claudeCapabilities(this.model).adaptiveThinking ? this.requestEffort : undefined;
   }
 
   planCompaction(): CompactionPlan | null {
@@ -384,7 +389,7 @@ export class AnthropicConversation implements Conversation {
 
     if (capabilities.adaptiveThinking) {
       params.thinking = { type: 'adaptive', display: 'summarized' };
-      params.output_config = { effort: this.effort };
+      params.output_config = { effort: this.requestEffort };
     }
     if (capabilities.compaction) {
       betas.push('compact-2026-01-12');
