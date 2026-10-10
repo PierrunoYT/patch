@@ -466,7 +466,9 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
         await filtered(CURL, ['-s', '--noproxy', '*', '-m', '5', '-o', 'NUL', '-w', '%{http_code}', 'http://1.1.1.1/']),
       ).toBe('000');
       expect(
+        // Node 22 warns on stderr that NODE_USE_ENV_PROXY's agent is experimental; only the lookup result counts.
         await filtered(sandboxNode, [
+          '--no-warnings',
           '-e',
           "require('dns').lookup('example.com', (e) => console.log(e ? e.code : 'resolved'))",
         ]),

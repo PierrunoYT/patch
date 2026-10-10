@@ -371,7 +371,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 14, c: 351, src: 2705, tl: 5275 },
     { a: 'main/llm', f: 9, c: 119, src: 2302, tl: 3223 },
-    { a: 'main/tools', f: 31, c: 758, src: 6163, tl: 9263 },
+    { a: 'main/tools', f: 31, c: 759, src: 6170, tl: 9273 },
     { a: 'main/panels', f: 4, c: 83, src: 829, tl: 1314 },
     { a: 'main/other', f: 15, c: 238, src: 3840, tl: 3651 },
     { a: 'shared', f: 8, c: 99, src: 1445, tl: 1149 },

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from '@shared/settings';
-import { launchConfig, McpHub, resolveCommand } from './mcp';
+import { connectTimeoutMs, launchConfig, McpHub, resolveCommand } from './mcp';
 import { mcpSandboxUnavailable } from './mcp_sandbox';
 import { probeSandboxSupport } from './sandbox';
 import { findHelper } from './sandbox_windows';
@@ -366,6 +366,13 @@ describe('launchConfig', () => {
 const canSandbox = mcpSandboxUnavailable(process.platform, await probeSandboxSupport()) === null;
 
 describe('sandboxed stdio servers (#87)', () => {
+  it('waits longer for a sandboxed server to start than for others', () => {
+    const stdio = { name: 's', transport: 'stdio', command: 'node' } as const;
+    expect(connectTimeoutMs({ ...stdio, sandbox: true })).toBe(120_000);
+    expect(connectTimeoutMs(stdio)).toBe(10_000);
+    expect(connectTimeoutMs({ name: 'h', transport: 'http', url: 'https://example.test', sandbox: true })).toBe(10_000);
+  });
+
   it.skipIf(!canSandbox)("refuses a project inside the app's own folders, as for commands (#256)", async () => {
     const appData = mkdtempSync(join(tmpdir(), 'mcp-sensitive-'));
     const project = join(appData, 'project');

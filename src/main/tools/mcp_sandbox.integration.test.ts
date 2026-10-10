@@ -24,6 +24,7 @@ const support = await probeSandboxSupport();
 const available =
   (process.platform === 'linux' && support.bwrap) || (process.platform === 'win32' && Boolean(support.appcontainer));
 const mockServer = join(__dirname, '../../../tests/e2e/mock_mcp_server.mjs');
+const systemPath = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32');
 
 describe.skipIf(!available)('sandboxed stdio MCP server', () => {
   let home: string;
@@ -57,7 +58,9 @@ describe.skipIf(!available)('sandboxed stdio MCP server', () => {
       {
         transport: 'stdio',
         command: process.execPath,
-        env: { MOCK_MCP_PROBE: '1' },
+        // As in the Windows command suite: the host PATH would make the helper grant every runner tool folder to the
+        // AppContainer on each start, which took the hosted runner past the connect timeout. The server needs none.
+        env: process.platform === 'win32' ? { MOCK_MCP_PROBE: '1', PATH: systemPath } : { MOCK_MCP_PROBE: '1' },
         sandbox: true,
         ...server,
       },

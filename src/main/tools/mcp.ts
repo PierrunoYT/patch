@@ -12,7 +12,14 @@ import { killSurvivors, listProcesses, processTree } from './shell_leftovers';
 import { ToolError, truncateOutput, type AgentTool, type ToolOutput } from './types';
 
 const CONNECT_TIMEOUT_MS = 10_000;
+// A sandboxed server starts only after the sandbox is set up: on Windows the helper first grants the server's PATH
+// folders, and a project's first grant can take minutes in a large project (#176), so 10 s is not enough there.
+const SANDBOXED_CONNECT_TIMEOUT_MS = 120_000;
 const CALL_TIMEOUT_MS = 120_000;
+
+export function connectTimeoutMs(config: McpServerConfig): number {
+  return config.transport === 'stdio' && config.sandbox ? SANDBOXED_CONNECT_TIMEOUT_MS : CONNECT_TIMEOUT_MS;
+}
 
 export const PROJECT_PLACEHOLDER = '${project}';
 
@@ -217,7 +224,7 @@ export class McpHub {
         config.transport === 'stdio'
           ? await stdioTransport(config, this.sandboxSensitivePaths())
           : new StreamableHTTPClientTransport(new URL(config.url!), { requestInit: { headers: config.headers } });
-      await withTimeout(client.connect(transport), `connecting to ${config.name} timed out`);
+      await withTimeout(client.connect(transport), `connecting to ${config.name} timed out`, connectTimeoutMs(config));
       const listed = await withTimeout(client.listTools(), `listing tools of ${config.name} timed out`);
       if (this.stopped) {
         // stop() may already have cleared `connecting` before this server's process existed, so this attempt's own
@@ -411,13 +418,13 @@ function stdioPid(client: Client): number | undefined {
   return typeof transport?.pid === 'number' ? transport.pid : undefined;
 }
 
-async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, message: string, ms = CONNECT_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), CONNECT_TIMEOUT_MS);
+        timer = setTimeout(() => reject(new Error(message)), ms);
       }),
     ]);
   } finally {
