@@ -54,13 +54,16 @@ export function ruleMatches(
 }
 
 // What a call is checked as besides itself: every file an apply_patch touches, as an edit_file of it, and each part of
-// a command between shell operators, so an ask or reject rule for `git push*` also sees `cd . && git push`.
+// a command between shell operators, so an ask or reject rule for `git push*` also sees `cd . && git push`. What runs
+// inside `$(...)`, backticks, `(...)` and `{...}` is a part too, so `echo $(git push)` is seen as well (#266).
 interface Candidate {
   tool: string;
   input: Record<string, unknown>;
 }
 
-const SHELL_SEPARATOR = /\s*(?:&&|\|\||[;&|\r\n])\s*/;
+// Splitting also at quotes' and brackets' edges may cut a harmless argument into pieces; a piece can only add a
+// reject or ask, never an allow, because a command with any of these characters is never allowed part by part.
+const SHELL_SEPARATOR = /\s*(?:&&|\|\||\$\(|[;&|\r\n`(){}])\s*/;
 
 // Anything that can make a command run more than its text starts with: chaining, redirection, substitutions and
 // blocks. An allow rule matches text, and `*` matches any text, so `npm test*` would also match `npm test; rm -rf .`.
@@ -80,7 +83,8 @@ export function permissionCandidates(
   if (toolName === 'run_command' && typeof input.command === 'string') {
     normalized.command = input.command.trim().replace(/[ \t]+/g, ' ');
     const segments = (normalized.command as string).split(SHELL_SEPARATOR).filter(Boolean);
-    if (segments.length > 1)
+    // `(git push)` is one part, but not the command as written.
+    if (segments.length > 1 || (segments.length === 1 && segments[0] !== normalized.command))
       parts.push(...segments.map((command) => [{ tool: toolName, input: { ...input, command } }]));
   }
   if (toolName === 'apply_patch' && typeof input.patch === 'string') {

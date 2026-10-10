@@ -238,6 +238,14 @@ describe('decideCallPermission (#237)', () => {
     'cd . && git push',
     'npm test; git push',
     'echo hi | git push',
+    // What runs inside substitutions and blocks (#266).
+    'echo $(git push)',
+    'echo "$(git push --force)"',
+    'echo `git push`',
+    '(git push)',
+    '& {git push}',
+    'npm test @(git push)',
+    'Invoke-Command -ScriptBlock { git push }',
   ])('rejects %j with a rule for git push*', async (command) => {
     expect(await decide([noPush], 'run_command', { command })).toMatchObject({ action: 'reject' });
   });
@@ -267,6 +275,14 @@ describe('decideCallPermission (#237)', () => {
   ])('does not let an allow rule for npm test* cover %j (#264)', async (command) => {
     const allowTests: PermissionRule = { tool: 'run_command', matches: { command: 'npm test*' }, action: 'allow' };
     expect(await decide([allowTests], 'run_command', { command })).toBeNull();
+  });
+
+  it('asks for a command inside a substitution with an ask rule, and leaves unrelated commands alone', async () => {
+    const askInstall: PermissionRule = { tool: 'run_command', matches: { command: 'npm install*' }, action: 'ask' };
+    expect(await decide([askInstall], 'run_command', { command: 'echo $(npm install x)' })).toMatchObject({
+      action: 'ask',
+    });
+    expect(await decide([askInstall], 'run_command', { command: 'node -e "console.log(1)"' })).toBeNull();
   });
 
   it('allows a chained command when a rule allows every part', async () => {
