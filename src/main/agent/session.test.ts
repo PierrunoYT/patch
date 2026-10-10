@@ -1,7 +1,11 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApprovalDecision, ChatEvent } from '@shared/chat';
 import type { Conversation, TurnRequest, TurnResult } from '../llm/types';
-import { ChatSession, type ChatAgentHooks } from './session';
+import type { GitContext } from './project_context';
+import { ChatSession, type ChatAgentHooks, type ChatSessionOptions } from './session';
 
 // A conversation that answers every turn at once and counts keep-alives.
 class IdleConversation implements Conversation {
@@ -52,7 +56,7 @@ class IdleConversation implements Conversation {
 
 const MINUTE = 60_000;
 
-function session(conversation: Conversation, enabled: () => boolean) {
+function session(conversation: Conversation, enabled: () => boolean, extra: Partial<ChatSessionOptions> = {}) {
   const events: ChatEvent[] = [];
   const chat = new ChatSession({
     projectPath: null,
@@ -73,6 +77,7 @@ function session(conversation: Conversation, enabled: () => boolean) {
     onEvent: (event) => events.push(event),
     onChange: () => {},
     keepCacheWarm: enabled,
+    ...extra,
   });
   return { chat, events };
 }
@@ -168,12 +173,14 @@ describe('prompt cache keep-alive', () => {
 class ScriptedTurns extends IdleConversation {
   readonly sent: string[] = [];
   steps: Array<'ok' | 'hang' | Error> = [];
+  turns = 0;
 
   override addUserMessage(input?: { text: string }): void {
     this.sent.push(input?.text ?? '');
   }
 
   override async runTurn(request: TurnRequest): Promise<TurnResult> {
+    this.turns++;
     const step = this.steps.shift() ?? 'ok';
     if (step === 'hang') {
       await new Promise<void>((resolve) => request.signal.addEventListener('abort', () => resolve(), { once: true }));
@@ -192,7 +199,7 @@ describe('stopping and resuming a run', () => {
     conversation.steps = ['hang'];
     const { chat, events } = session(conversation, () => false);
     const run = chat.send({ text: 'go' });
-    await vi.waitFor(() => expect(chat.snapshot().busy).toBe(true));
+    await vi.waitFor(() => expect(conversation.turns).toBe(1));
     chat.stop();
     await run;
 
@@ -259,6 +266,110 @@ describe('stopping and resuming a run', () => {
     expect(conversation.sent[1]).toContain('second');
     expect(conversation.sent[2]).toBe('third');
     chat.dispose();
+  });
+});
+
+describe('telling the model about Git and outside changes (#85)', () => {
+  let root: string;
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  const repo = (overrides: Partial<GitContext> = {}): GitContext => ({
+    branch: 'main',
+    detached: false,
+    tracking: null,
+    ahead: 0,
+    behind: 0,
+    head: '1111111aaaa',
+    files: [],
+    recent: ['feat: first'],
+    ...overrides,
+  });
+
+  function gitChat(options: Partial<ChatSessionOptions> = {}) {
+    root = mkdtempSync(join(tmpdir(), 'cc-session-'));
+    const conversation = new ScriptedTurns();
+    const { chat } = session(conversation, () => false, { projectPath: root, ...options });
+    return { chat, conversation };
+  }
+
+  it('puts a Git block before the first message only', async () => {
+    const { chat, conversation } = gitChat({ git: async () => repo() });
+    await chat.send({ text: 'first' });
+    await chat.send({ text: 'second' });
+    expect(conversation.sent[0]).toMatch(/^\[Git, as the chat starts: on main\.[\s\S]*- feat: first\]\n\nfirst$/);
+    expect(conversation.sent[1]).toBe('second');
+    chat.dispose();
+  });
+
+  it('tells the next message that the branch or HEAD moved since the last run, and saves the head', async () => {
+    let state = repo();
+    const { chat, conversation } = gitChat({ git: async () => state });
+    await chat.send({ text: 'first' });
+    state = repo({ branch: 'feature/x' });
+    await chat.send({ text: 'second' });
+    state = repo({ branch: 'feature/x', head: '2222222bbbb' });
+    await chat.send({ text: 'third' });
+
+    expect(conversation.sent[1]).toContain('The branch changed from main to feature/x.');
+    expect(conversation.sent[2]).toContain('HEAD moved from 1111111 to 2222222');
+    expect(chat.serialize().gitHead).toEqual({ branch: 'feature/x', head: '2222222bbbb' });
+    chat.dispose();
+  });
+
+  it('compares a reopened chat with the saved head', async () => {
+    const { chat, conversation } = gitChat({
+      git: async () => repo({ head: '3333333cccc' }),
+      gitHead: { branch: 'main', head: '1111111aaaa' },
+    });
+    await chat.send({ text: 'continue' });
+    // A reopened chat already had its first message, but this session has not: the head comparison still applies.
+    expect(conversation.sent[0]).toContain('HEAD moved from 1111111 to 3333333');
+    chat.dispose();
+  });
+
+  it('tells the next message about read files changed outside the chat', async () => {
+    root = mkdtempSync(join(tmpdir(), 'cc-session-'));
+    const file = join(root, 'a.ts');
+    writeFileSync(file, 'one');
+    const conversation = new ScriptedTurns();
+    const { chat } = session(conversation, () => false, { projectPath: root, readFiles: [[file, 'hash']] });
+    await chat.send({ text: 'first' });
+    writeFileSync(file, 'changed by the user');
+    await chat.send({ text: 'second' });
+    await chat.send({ text: 'third' });
+
+    expect(conversation.sent[1]).toContain('Changed outside this chat since your last turn: a.ts (modified).');
+    expect(conversation.sent[2]).toBe('third');
+    chat.dispose();
+  });
+
+  it('ends as a stop when stopped while Git is read, keeping the message for Resume', async () => {
+    let answer: (git: GitContext) => void = () => {};
+    const { chat, conversation } = gitChat({ git: () => new Promise((resolve) => (answer = resolve)) });
+    const run = chat.send({ text: 'go' });
+    await vi.waitFor(() => expect(chat.snapshot().busy).toBe(true));
+    chat.stop();
+    answer(repo());
+    await run;
+
+    expect(conversation.turns).toBe(0);
+    expect(conversation.sent[0]).toMatch(/go$/);
+    expect(chat.snapshot().resumable).toBe(true);
+    expect(chat.snapshot().transcript.at(-1)).toMatchObject({ kind: 'notice', text: 'Stopped.' });
+    chat.dispose();
+  });
+
+  it('sends the message without Git when Git fails or the project is not a repository', async () => {
+    const failing = gitChat({ git: () => Promise.reject(new Error('git missing')) });
+    await failing.chat.send({ text: 'hi' });
+    expect(failing.conversation.sent[0]).toBe('hi');
+    failing.chat.dispose();
+    rmSync(root, { recursive: true, force: true });
+
+    const none = gitChat({ git: async () => null });
+    await none.chat.send({ text: 'hi' });
+    expect(none.conversation.sent[0]).toBe('hi');
+    none.chat.dispose();
   });
 });
 

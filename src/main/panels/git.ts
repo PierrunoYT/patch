@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { simpleGit, type SimpleGit, type StatusResult } from 'simple-git';
 import { parseNumstat, type GitFile, type GitStatus } from '@shared/panels';
+import type { GitContext } from '../agent/project_context';
 import { releaseGitReservation } from '../tools/sandbox_git';
 import { Workspace } from '../tools/workspace';
 
@@ -198,6 +199,30 @@ export class GitService {
       ahead: status.ahead,
       behind: status.behind,
       canPush: Boolean(status.current) && hasOrigin,
+    };
+  }
+
+  // What a chat is told about the repository (#85), with the same hardened Git as the panel. Null when the project is
+  // not a repository. Line counts are left out.
+  async context(): Promise<GitContext | null> {
+    if (!(await this.isRepo())) return null;
+    const repo = await this.repo();
+    const { status, files } = await this.projectStatus();
+    const head = await repo.revparse(['--verify', '--quiet', 'HEAD']).catch(() => '');
+    // --no-show-signature: log.showSignature in the repository's config would run its gpg program.
+    const log = head ? await repo.raw(['log', '-5', '--no-show-signature', '--format=%s']).catch(() => '') : '';
+    return {
+      branch: status.detached ? null : status.current,
+      detached: status.detached,
+      tracking: status.tracking,
+      ahead: status.ahead,
+      behind: status.behind,
+      head: head.trim() || null,
+      files,
+      recent: log
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean),
     };
   }
 

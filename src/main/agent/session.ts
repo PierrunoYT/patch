@@ -18,6 +18,14 @@ import type { AgentTool, EditUndo, ToolContext } from '../tools/types';
 import { appLog } from '../app_log';
 import { compactionPrompt } from '../llm/compaction';
 import { Agent, type AgentOptions, type DroppedFieldError } from './agent';
+import {
+  describeChangedFiles,
+  describeGit,
+  describeGitMove,
+  fileStamps,
+  type GitContext,
+  type GitHead,
+} from './project_context';
 import { isTransientError } from './retry';
 
 export interface SavedChat {
@@ -36,6 +44,8 @@ export interface SavedChat {
   pendingNotes?: string[];
   // The last message sent to the model said plan mode is on, so turning it off is told with the next one.
   planModeTold?: boolean;
+  // Branch and HEAD when the last run ended, to tell the model what moved before the next message (#85).
+  gitHead?: GitHead | null;
   agentFile?: string | null;
   resumable?: boolean;
   // False for custom OpenAI-compatible endpoints, whose prices are unknown. Missing in chats saved by older versions.
@@ -54,6 +64,15 @@ export function restoreReadFiles(saved: SavedReadFiles | undefined): Map<string,
 const KEEP_ALIVE_INTERVAL_MS = 4 * 60_000;
 const KEEP_ALIVE_MAX = 14;
 
+// A message waits at most this long for Git before it is sent without the Git block or note.
+const GIT_TIMEOUT_MS = 3000;
+
+// The project as the last run left it, compared before the next message (#85). `stamps` is null after a restart.
+interface ProjectBaseline {
+  git: GitHead | null;
+  stamps: Map<string, string> | null;
+}
+
 export interface ChatSessionOptions {
   id?: string;
   title?: string;
@@ -70,6 +89,10 @@ export interface ChatSessionOptions {
   pendingNotes?: string[];
   resumable?: boolean;
   planModeTold?: boolean;
+  // The project's Git state, or null when it is not a repository (#85). The first message carries a short summary,
+  // and later messages say when the branch or HEAD moved since the last run.
+  git?: () => Promise<GitContext | null>;
+  gitHead?: GitHead | null;
   approvalMode: () => ApprovalMode;
   // Settings → Plan mode. The model is told with each user message (see planNote); the tool list never changes.
   planMode?: () => boolean;
@@ -137,6 +160,9 @@ export class ChatSession {
   // Things that happened to the project outside the conversation, for the model's next message.
   private readonly notes: string[];
   private planModeTold: boolean;
+  // Taken in the background when a run ends; the next message compares the project with it.
+  private baseline: Promise<ProjectBaseline> | null;
+  private gitHead: GitHead | null;
 
   constructor(private readonly options: ChatSessionOptions) {
     this.id = options.id ?? randomUUID();
@@ -147,6 +173,8 @@ export class ChatSession {
     this.readFiles = restoreReadFiles(options.readFiles);
     this.notes = [...(options.pendingNotes ?? [])];
     this.planModeTold = options.planModeTold ?? false;
+    this.gitHead = options.gitHead ?? null;
+    this.baseline = this.gitHead ? Promise.resolve({ git: this.gitHead, stamps: null }) : null;
     // A chat saved mid-run (see `running`), or whose saved history ends in unanswered tool calls, was interrupted by a
     // crash; it resumes like a user-stopped run.
     this.resumable = (options.resumable ?? false) || options.conversation.hasPendingToolCalls();
@@ -234,19 +262,32 @@ export class ChatSession {
     this.emit({ type: 'user', id: randomUUID(), text, imageCount: message.images?.length ?? 0 });
     if (isFirst) void this.generateTitle(text);
 
-    // What the user did to the project since the last message (undone edits) and whether plan mode is on are told to
-    // the model with this one.
-    const note = this.takeNotes();
-    const modelText = `${note}${text || '(see attached images)'}`;
-    return this.run((signal) => this.agent.send({ text: modelText, images: message.images }, signal));
+    // What happened to the project since the last message (undone edits, outside changes, Git) and whether plan mode
+    // is on are told to the model with this one.
+    return this.run(async (signal) => {
+      const intro = await this.projectNotes(isFirst);
+      const modelText = `${intro}${this.takeNotes()}${text || '(see attached images)'}`;
+      return this.stopIfAborted(signal, () => this.agent.send({ text: modelText, images: message.images }, signal));
+    });
   }
 
   async resume(): Promise<void> {
     if (this.busy) throw new Error('The assistant is still working. Stop it or wait for it to finish.');
     if (!this.resumable) throw new Error('There is no stopped run to resume.');
     this.setResumable(false);
-    const note = this.takeNotes().trim();
-    return this.run((signal) => this.agent.resume(signal, note));
+    return this.run(async (signal) => {
+      await this.projectNotes(false);
+      return this.stopIfAborted(signal, () => this.agent.resume(signal, this.takeNotes().trim()));
+    });
+  }
+
+  // A stop that arrived while the project notes were gathered: the agent still records the message, so Resume can
+  // continue from it, but ends before any request; the run then ends as a stop during the first request would.
+  private async stopIfAborted(signal: AbortSignal, start: () => Promise<boolean>): Promise<boolean> {
+    const abortedBefore = signal.aborted;
+    const interrupted = await start();
+    if (abortedBefore) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
+    return interrupted;
   }
 
   // The edit of a tool card was undone by the user (the file has already been put back). The model is told with the
@@ -264,6 +305,51 @@ export class ChatSession {
           : `The user undid your edit to ${result.path}: the file is back to how it was before that edit. Read it again before editing it.`,
     );
     this.emit({ type: 'tool-undone', id: toolId });
+  }
+
+  // Compares the project with how the last run left it and queues a note for what changed outside the chat: files the
+  // chat read, the branch and HEAD. On the first message, returns the Git block that goes before it instead (Claude
+  // Code chats get Git status from Claude Code itself).
+  private async projectNotes(first: boolean): Promise<string> {
+    const baseline = this.baseline;
+    this.baseline = null;
+    const previous = await baseline?.catch(() => null);
+    const git = first || previous?.git ? await this.readGit() : null;
+    if (previous?.stamps) {
+      const current = new Set(this.readFiles.keys());
+      const now = await fileStamps([...previous.stamps.keys()].filter((path) => current.has(path)));
+      const note = describeChangedFiles(previous.stamps, now, current, this.options.projectPath);
+      if (note) this.notes.push(note);
+    }
+    if (previous?.git && git) {
+      const moved = describeGitMove(previous.git, git);
+      if (moved) this.notes.push(moved);
+    }
+    if (git) this.gitHead = { branch: git.branch, head: git.head };
+    return first && git && !this.options.createAgent ? describeGit(git) : '';
+  }
+
+  private async readGit(): Promise<GitContext | null> {
+    if (!this.options.git) return null;
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<null>((resolve) => (timer = setTimeout(() => resolve(null), GIT_TIMEOUT_MS)));
+    try {
+      return await Promise.race([this.options.git().catch(() => null), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Records the read files' sizes and times and the Git HEAD after a run, so the next message can tell what changed
+  // outside the chat. Runs in the background; the next message waits for it.
+  private takeBaseline(): void {
+    const paths = [...this.readFiles.keys()];
+    const baseline = Promise.all([this.readGit(), fileStamps(paths)]).then(([git, stamps]) => {
+      if (git) this.gitHead = { branch: git.branch, head: git.head };
+      return { git: git ? { branch: git.branch, head: git.head } : null, stamps };
+    });
+    baseline.catch(() => undefined);
+    this.baseline = baseline;
   }
 
   private takeNotes(): string {
@@ -323,6 +409,7 @@ export class ChatSession {
       this.rejectPendingApprovals();
       if (stopped || providerFailure) this.setResumable(true);
       this.emit({ type: 'busy', busy: false });
+      if (!this.disposed) this.takeBaseline();
       this.keepAlivesLeft = KEEP_ALIVE_MAX;
       this.scheduleKeepAlive();
     }
@@ -466,6 +553,7 @@ export class ChatSession {
       readFiles: [...this.readFiles.entries()],
       pendingNotes: [...this.notes],
       ...(this.planModeTold ? { planModeTold: true } : {}),
+      ...(this.gitHead ? { gitHead: this.gitHead } : {}),
       agentFile: this.options.agentFile,
       resumable: this.resumable || this.running,
       officialPricing: this.options.officialPricing ?? this.options.conversation.provider === 'anthropic',

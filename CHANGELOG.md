@@ -8,6 +8,10 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Added
+
+- The agent hears what changed in the project. A chat's first message carries a short Git summary (branch, upstream with ahead/behind counts, up to 20 changed files, the last 5 commits), placed in the message so the cached system prompt stays the same. Before each later message or Resume, the model is told when files it read were changed or deleted outside the chat, and when the branch or HEAD moved (a commit, pull, reset or switch). Git gets 3 seconds and is skipped for folders that are not repositories; the last head is saved with the chat (fixes #85).
+
 ### Documentation
 
 - `docs/WINDOWS_SANDBOX_RESEARCH.md`: what changed outside Patch for Windows sandboxing (Microsoft Execution Containers GA, the OS process security environment, libuv 1.53 for `node --test`, how Codex sandboxes), with follow-up issues #226 and #227. It also records a test of the MXC SDK on Windows 11 25H2: isolation held without ACL changes and with no first-command cost, but git, npm and PowerShell fail in projects under the user profile until Windows ships PSEC 1.1 enumeration, so the helper stays.

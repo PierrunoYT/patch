@@ -173,15 +173,18 @@ function start(): void {
   );
   // One service per project, so its filter-driver list is read once rather than on every panel call (#199).
   const gitServices = new Map<string, GitService>();
+  const gitFor = (path: string) => {
+    let service = gitServices.get(path);
+    if (!service) {
+      service = new GitService(path);
+      gitServices.set(path, service);
+    }
+    return service;
+  };
   const git = () => {
     const project = projects.current();
     if (!project) throw new Error('No project is open.');
-    let service = gitServices.get(project.path);
-    if (!service) {
-      service = new GitService(project.path);
-      gitServices.set(project.path, service);
-    }
-    return service;
+    return gitFor(project.path);
   };
   const forgetClosedGitServices = () => {
     const open = new Set(projects.opened().map((project) => project.path));
@@ -294,6 +297,7 @@ function start(): void {
     onDroppedFields: (error) => toolErrorLog.record(error),
     edits: editBackups,
     sandboxSensitivePaths,
+    gitContext: (root) => gitFor(root).context(),
   });
 
   // What every switch of the current project restarts: MCP servers that use ${project}, the terminal and the agent's

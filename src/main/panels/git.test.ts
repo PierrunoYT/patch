@@ -138,6 +138,25 @@ describe('GitService', () => {
     expect(status).toMatchObject({ tracking: null, ahead: 0, behind: 0, canPush: false });
   });
 
+  it('describes the repository for a chat: branch, HEAD, changed files and recent commits (#85)', async () => {
+    await initRepo();
+    writeFileSync(join(root, 'a.txt'), 'two\n');
+    const head = (await simpleGit({ baseDir: root }).revparse(['HEAD'])).trim();
+    const context = await service.context();
+    expect(context).toMatchObject({ detached: false, tracking: null, ahead: 0, behind: 0, head, recent: ['first'] });
+    expect(context?.branch).toBeTruthy();
+    expect(kinds(context!.files)).toEqual([{ path: 'a.txt', status: 'modified' }]);
+  });
+
+  it('describes a repository without commits with no HEAD and no recent commits (#85)', async () => {
+    await initRepo(false);
+    expect(await service.context()).toMatchObject({ head: null, recent: [], files: [] });
+  });
+
+  it.skipIf(tempFolderInsideRepo)('has no Git context for a folder that is not a repository (#85)', async () => {
+    expect(await service.context()).toBeNull();
+  });
+
   it('counts the lines of new files, but not of binary ones', async () => {
     await initRepo();
     writeFileSync(join(root, 'three.txt'), 'a\nb\nc');

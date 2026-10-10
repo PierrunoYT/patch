@@ -17,6 +17,7 @@ import { decideCallPermission, type PathView } from './agent/permissions';
 import type { DroppedFieldError } from './agent/agent';
 import { buildSystemPrompt, promptListsSkills } from './agent/system_prompt';
 import { ChatSession, type SavedChat } from './agent/session';
+import type { GitContext } from './agent/project_context';
 import { ClaudeCodeAgent, ClaudeCodeConversation } from './agent/claude_code';
 import { CLAUDE_CODE_NOT_FOUND, claudeCodeEnv, findClaudeCode } from './agent/claude_code_launch';
 import type { ChatStore } from './chat_store';
@@ -50,6 +51,8 @@ export interface ChatManagerDeps {
   // Where backups of approved edits are kept. Without it, edits cannot be undone.
   edits?: EditBackups;
   sandboxSensitivePaths?: () => string[];
+  // The project's Git state for the chat (#85), read with the Git panel's hardened Git.
+  gitContext?: (root: string) => Promise<GitContext | null>;
 }
 
 const SAVE_DELAY_MS = 500;
@@ -414,6 +417,8 @@ export class ChatManager {
       pendingNotes: saved?.pendingNotes,
       resumable: saved?.resumable,
       planModeTold: saved?.planModeTold,
+      git: this.deps.gitContext ? () => this.deps.gitContext!(workspace.root) : undefined,
+      gitHead: saved?.gitHead,
       approvalMode: () => this.deps.settings.get().approvalMode,
       planMode: () => this.deps.settings.get().planMode,
       decidePermission: (name, input) =>
