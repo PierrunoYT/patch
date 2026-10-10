@@ -16,6 +16,15 @@ describe('documentation visuals and text contrast', () => {
   let claude: MockClaude;
   let project: string;
 
+  // Waits for the window's CSS transitions (hover, focus) to finish instead of a fixed time (#196). Endless animations,
+  // such as a spinner, are not transitions and do not hold it up.
+  const transitionsDone = () =>
+    running.page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .every((animation) => !(animation instanceof CSSTransition) || animation.playState !== 'running'),
+    );
+
   beforeAll(async () => {
     project = mkdtempSync(join(tmpdir(), 'patch-visuals-project-'));
     const git = (...args: string[]) => execFileSync('git', args, { cwd: project });
@@ -96,7 +105,12 @@ describe('documentation visuals and text contrast', () => {
         ?.executeJavaScript('document.body.innerText')
         .then((text: string) => text.includes('Preview ready')),
     );
-    await running.page.waitForTimeout(300);
+    // Two frames after the text is there, the guest has painted it (#196).
+    await running.page.evaluate(() =>
+      (document.querySelector('webview[data-session="agent"]') as any).executeJavaScript(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))',
+      ),
+    );
     if (captureDir) {
       // Chromium does not composite a webview's GPU surface into element screenshots under Xvfb. Capture that real
       // guest surface through Electron, then place it over the webview only for the panel screenshot.
@@ -173,7 +187,7 @@ describe('documentation visuals and text contrast', () => {
       }
       const decline = running.page.locator('.tool-card.awaiting .btn-outline-secondary');
       await decline.hover();
-      await running.page.waitForTimeout(200);
+      await transitionsDone();
       for (const sample of await measureContrast(running, [
         ['decline hover', '.tool-card.awaiting .btn-outline-secondary'],
       ])) {
@@ -181,7 +195,7 @@ describe('documentation visuals and text contrast', () => {
       }
       await running.page.mouse.move(0, 0);
       await decline.focus();
-      await running.page.waitForTimeout(200);
+      await transitionsDone();
       for (const sample of await measureContrast(running, [
         ['decline focus', '.tool-card.awaiting .btn-outline-secondary'],
       ])) {
@@ -200,7 +214,7 @@ describe('documentation visuals and text contrast', () => {
       await running.page.mouse.move(0, 0);
       await running.page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
       // Let the buttons' hover and focus transitions finish.
-      await running.page.waitForTimeout(400);
+      await transitionsDone();
       await running.page.locator('.chat-pane').screenshot({ path: join(captureDir, 'approval.png') });
     }
   });

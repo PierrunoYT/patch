@@ -47,7 +47,17 @@ describe('side panels', () => {
     await running.page.locator('.terminal-panel .xterm-rows', { hasText: 'Press Enter to start a shell' }).waitFor();
     await running.page.locator('.terminal-panel .xterm').click();
     await running.page.keyboard.press('Enter');
-    await running.page.waitForTimeout(1500);
+    // The shell is ready once its prompt is printed below the hint (#196).
+    await expect
+      .poll(
+        () =>
+          running.page
+            .locator('.terminal-panel .xterm-rows')
+            .innerText()
+            .then((text) => text.replace('Press Enter to start a shell in this project.', '').trim()),
+        { timeout: 20_000 },
+      )
+      .toMatch(/\S/);
     await running.page.keyboard.type('echo terminal-works-$((20+22))');
     if (process.platform === 'win32') {
       await running.page.keyboard.press('Control+A');
