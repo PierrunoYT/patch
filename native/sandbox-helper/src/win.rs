@@ -1077,6 +1077,30 @@ fn path_allows(path: &str, sid: PSID) -> Result<bool> {
 
 // A copy of the DACL without allow or deny entries for this SID, inherited ones included.
 unsafe fn acl_without(dacl: *const ACL, sid: PSID) -> Result<Vec<u32>> {
+    acl_keeping(dacl, |ace| {
+        let header = ace as *const ACE_HEADER;
+        // Allow (0) and deny (1) entries share the layout with the SID at SidStart.
+        !(matches!((*header).AceType, 0 | 1)
+            && EqualSid(
+                PSID(
+                    std::ptr::addr_of!((*(ace as *const ACCESS_ALLOWED_ACE)).SidStart)
+                        as *mut c_void,
+                ),
+                sid,
+            )
+            .is_ok())
+    })
+}
+
+// A copy of the DACL with only its own entries, none inherited from a parent folder.
+unsafe fn acl_explicit(dacl: *const ACL) -> Result<Vec<u32>> {
+    acl_keeping(dacl, |ace| {
+        (*(ace as *const ACE_HEADER)).AceFlags as u32 & INHERITED_ACE.0 == 0
+    })
+}
+
+// A copy of the DACL with the entries `keep` accepts.
+unsafe fn acl_keeping(dacl: *const ACL, keep: impl Fn(*mut c_void) -> bool) -> Result<Vec<u32>> {
     let mut info = ACL_SIZE_INFORMATION::default();
     GetAclInformation(
         dacl,
@@ -1095,23 +1119,87 @@ unsafe fn acl_without(dacl: *const ACL, sid: PSID) -> Result<Vec<u32>> {
         let mut ace = std::ptr::null_mut();
         GetAce(dacl, index, &mut ace).map_err(|e| describe("GetAce", e))?;
         let header = ace as *const ACE_HEADER;
-        // Allow (0) and deny (1) entries share the layout with the SID at SidStart.
-        if matches!((*header).AceType, 0 | 1)
-            && EqualSid(
-                PSID(
-                    std::ptr::addr_of!((*(ace as *const ACCESS_ALLOWED_ACE)).SidStart)
-                        as *mut c_void,
-                ),
-                sid,
-            )
-            .is_ok()
-        {
+        if !keep(ace) {
             continue;
         }
         AddAce(acl, revision, u32::MAX, ace, (*header).AceSize as u32)
             .map_err(|e| describe("AddAce", e))?;
     }
     Ok(buffer)
+}
+
+// Makes an entry added to the project inherit from its new folder again, as entries created there do, when it lacks
+// the project grant (#140). Moving a file or folder within a volume keeps its security descriptor, and can leave the
+// entries it inherited where it came from as its own, protected from inheritance. Its own entries are kept (an explicit
+// deny still wins over the inherited grant) and inheritance is turned on, for it and what is inside it, never for the
+// rest of the project. Entries outside the project, under a link, or protected (`protected`: .git and configuration)
+// are left as they are.
+fn refresh_inheritance(
+    cwd: &str,
+    path: &str,
+    protected: &[String],
+    capability: PSID,
+) -> Result<()> {
+    let root = format!("{}\\", cwd.trim_end_matches('\\').to_lowercase());
+    let lower = path.to_lowercase();
+    if !lower.starts_with(&root) || lower.split('\\').any(|part| part == ".." || part == ".") {
+        return Ok(());
+    }
+    let covered = |other: &String| {
+        let other = other.to_lowercase();
+        lower == other || lower.starts_with(&format!("{other}\\"))
+    };
+    if protected.iter().any(covered) {
+        return Ok(());
+    }
+    for ancestor in Path::new(path).ancestors() {
+        if ancestor.as_os_str().len() < root.len() {
+            break;
+        }
+        match fs::symlink_metadata(ancestor) {
+            Ok(meta) if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 == 0 => {}
+            _ => return Ok(()),
+        }
+    }
+    if path_allows(path, capability)? {
+        return Ok(());
+    }
+    let wpath = wide(path);
+    unsafe {
+        let mut dacl: *mut ACL = std::ptr::null_mut();
+        let mut descriptor = PSECURITY_DESCRIPTOR::default();
+        let status = GetNamedSecurityInfoW(
+            PCWSTR(wpath.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(&mut dacl),
+            None,
+            &mut descriptor,
+        );
+        if status != ERROR_SUCCESS || dacl.is_null() {
+            return Ok(());
+        }
+        let _descriptor = LocalMem(descriptor.0);
+        let explicit = acl_explicit(dacl)?;
+        let status = SetNamedSecurityInfoW(
+            PCWSTR(wpath.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | UNPROTECTED_DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(explicit.as_ptr() as *const ACL),
+            None,
+        );
+        if status != ERROR_SUCCESS {
+            return Err(format!(
+                "cannot let a moved entry inherit the project's permissions (error {})",
+                status.0
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -2178,6 +2266,10 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     }
     // After protection, so the one-time propagation never enters protected metadata.
     ensure_project_grant(&request.cwd, capability.psid())?;
+    // Best effort: an entry that cannot be fixed stays as it was, as before #140.
+    for path in &request.refresh {
+        let _ = refresh_inheritance(&request.cwd, path, &request.deny_write, capability.psid());
+    }
 
     for (paths, access, required) in [
         (&request.read_only, FILE_READ_EXECUTE, false),

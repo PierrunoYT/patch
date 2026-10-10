@@ -42,6 +42,10 @@ pub struct Request {
     // Paths inside a writable folder where writing is refused again (git hooks).
     #[serde(default)]
     pub deny_write: Vec<String>,
+    // Entries added to the project since the last command. One moved in from elsewhere keeps the permissions it had,
+    // without the project grant, so it is made to inherit from its new folder again (#140).
+    #[serde(default)]
+    pub refresh: Vec<String>,
     #[serde(default)]
     pub limits: Limits,
 }

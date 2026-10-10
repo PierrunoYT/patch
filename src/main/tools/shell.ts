@@ -26,6 +26,7 @@ import {
   type SandboxKind,
   type SandboxSupport,
 } from './sandbox';
+import { AddedEntries } from './added_entries';
 import { buildHelperRequest, exceedsEntryLimit, HelperProcess } from './sandbox_windows';
 import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
@@ -123,6 +124,8 @@ function shellCommand(command: string, sandboxed = false): { file: string; args:
 export class ShellRunner {
   private readonly background = new Map<number, BackgroundCommand>();
   private nextKey = 1;
+  // Windows: entries added to the project since the last sandboxed command (#140).
+  private readonly added = new AddedEntries();
   private readonly nextIds = new Map<string, number>();
 
   constructor(
@@ -474,6 +477,7 @@ export class ShellRunner {
       home: real(homedir()),
       exists: (path) => existsSync(path),
       protectedPaths,
+      refresh: this.added.take(launchEnv.cwd),
       tooLarge: (path) => exceedsEntryLimit(path),
     });
     let proxy: FilteringProxy | undefined;

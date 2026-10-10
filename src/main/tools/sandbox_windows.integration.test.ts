@@ -9,6 +9,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -364,6 +365,29 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
     const ordinary = await shell.run(`Set-Content -Path '${join(root, 'notes.txt')}' -Value ok`);
     expect(ordinary.exitCode, ordinary.output).toBe(0);
     expect(readFileSync(join(root, 'notes.txt'), 'utf8').trim()).toBe('ok');
+  }, 120_000);
+
+  it('lets a command change a file moved into the project after its grant (#140)', async () => {
+    // The first command grants the project and starts watching it.
+    expect((await shell.run('Write-Output granted')).exitCode).toBe(0);
+    // A file from elsewhere on the same volume keeps its permissions when moved: no project grant.
+    const elsewhere = mkdtempSync(join(homedir(), 'patch-sbx-elsewhere-'));
+    try {
+      writeFileSync(join(elsewhere, 'moved.txt'), 'ORIGINAL');
+      mkdirSync(join(elsewhere, 'folder'));
+      writeFileSync(join(elsewhere, 'folder', 'inner.txt'), 'ORIGINAL');
+      renameSync(join(elsewhere, 'moved.txt'), join(root, 'moved.txt'));
+      renameSync(join(elsewhere, 'folder'), join(root, 'moved-folder'));
+      await delay(500);
+      const result = await shell.run(
+        `Set-Content -Path '${join(root, 'moved.txt')}' -Value CHANGED; Set-Content -Path '${join(root, 'moved-folder', 'inner.txt')}' -Value CHANGED`,
+      );
+      expect(result.exitCode, result.output).toBe(0);
+      expect(readFileSync(join(root, 'moved.txt'), 'utf8').trim()).toBe('CHANGED');
+      expect(readFileSync(join(root, 'moved-folder', 'inner.txt'), 'utf8').trim()).toBe('CHANGED');
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
   }, 120_000);
 
   it('blocks the network by default', async ({ skip }) => {

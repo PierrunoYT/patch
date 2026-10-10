@@ -60,7 +60,7 @@ Other BaseContainer notes from the schema docs:
 | #150 limits per process, not per job (fixed)             | MXC runs workloads in a job; check whether its limits are job-wide           |
 | #207 grant on the shared Program Files folder            | Same: OS-enforced `readonlyPaths` instead of ACEs on shared folders          |
 | #158 LPAC, separate desktop, narrower grants             | `ui` policy (Win32k lockdown, desktop isolation) and the session container   |
-| #140 moved-in files lack the project grant               | BaseContainer path grants are not inherited ACEs, so a moved file is covered |
+| #140 moved-in files lack the project grant (fixed)       | BaseContainer path grants are not inherited ACEs, so a moved file is covered |
 | #139 `.git` permissions walked several times per command | Denied paths without ACL walks on Tier 1                                     |
 
 ### Caveats

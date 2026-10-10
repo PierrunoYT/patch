@@ -515,7 +515,7 @@ Windows 11, the development machine used above, 100,000 files:
 ### What still scales with the project
 
 - **`.git`:** each command still stops `.git` inheriting the project grant, grants its own SID read access there and undoes both when it ends. That walks the `.git` tree a few times per command. In a packed repository that is a few hundred entries, but many loose objects make it slower. Not measured here: the fixture's `.git` is empty ([#139](https://github.com/PierrunoYT/patch/issues/139)).
-- **Files moved in from elsewhere:** a file moved into the project from another folder keeps its old permissions, so it lacks the inherited grant until the project is closed and opened again. Files created or copied in the project inherit it normally ([#140](https://github.com/PierrunoYT/patch/issues/140)).
+- **Files moved in from elsewhere:** a file moved into the project from another folder keeps its old permissions, without the inherited grant. Patch watches the project (one recursive watch, started with its first sandboxed command) for entries added since the last command, and the helper makes those that lack the grant inherit it again before the next command: one permission check per added entry, and a rewrite of only the moved entry and what is inside it, never a walk of the project ([#140](https://github.com/PierrunoYT/patch/issues/140)). Entries moved in before the first sandboxed command of a session are still only covered by closing and reopening the project.
 
 ## Sandbox Git metadata check before each command (#112, 2026-10-08)
 

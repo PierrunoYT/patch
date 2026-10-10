@@ -38,6 +38,8 @@ export interface HelperRequest {
   // Individual Program Files PATH directories; the helper checks package access before granting or staging.
   toolchains: string[];
   denyWrite: string[];
+  // Entries added to the project since the last command, to inherit its permissions again (#140).
+  refresh?: string[];
   limits: HelperLimits;
 }
 
@@ -200,6 +202,7 @@ export interface BuildRequestInput {
   protectedPaths?: string[];
   writable?: string[];
   workspace?: boolean;
+  refresh?: string[];
   tooLarge?: (path: string) => boolean;
   limits?: Partial<HelperLimits>;
 }
@@ -231,6 +234,7 @@ export function buildHelperRequest(input: BuildRequestInput): HelperRequest {
     env,
     network: input.network,
     ...(input.workspace ? { workspace: true } : {}),
+    ...(input.refresh?.length ? { refresh: input.refresh } : {}),
     ...policy,
     limits: { ...DEFAULT_LIMITS, timeoutMs: 0, cpuPercent: WINDOWS_CPU_PERCENT, ...input.limits },
   };
