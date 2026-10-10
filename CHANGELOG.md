@@ -198,6 +198,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
+- A permission `allow` rule for a command no longer covers what is chained after it. `*` matches any text, so the rule `npm test*` also allowed `npm test && Remove-Item -Recurse src` without asking. A command with shell operators is now allowed by rules only when every part is, and one with a substitution, block or redirection (`` ` ``, `$`, `(`, `)`, `{`, `}`, `<`, `>`) is never allowed by a rule (fixes #264).
 - A Program Files toolchain the Windows sandbox cannot read is always given to a command as a read-only copy (made once per install version and reused). Before, when the install's permissions allowed it, the helper granted the command's container read access to the whole shared install folder while it ran, and a forced kill left that entry until the next helper start (fixes #207).
 - Sandboxed commands can no longer change the project's editor, agent and CI configuration. The top-level `.vscode`, `.idea`, `.claude`, `.cursor`, `.agents`, `.patch`, `.husky`, `.github` and similar folders, and `.mcp.json`, `AGENTS.md`, `CLAUDE.md` and `.envrc`, are read-only in every sandbox backend, like `.git`, so a command cannot plant a VS Code task, MCP server, hook or workflow that later runs outside the sandbox. Change them with the edit tools, which ask first. Entries that do not exist yet are not protected (#262). The edit tools now also ask before changing `.agents` (fixes #127).
 

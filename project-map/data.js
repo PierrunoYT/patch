@@ -98,7 +98,7 @@ const D = {
         'claude_code.test.ts (973)',
         'claude_code_launch.test.ts (133)',
         'claude_code_tools.test.ts (124)',
-        'permissions.ts (234; rules see project-relative paths, every patched file and each command part, #237)',
+        'permissions.ts (243; rules see project-relative paths, every patched file and each command part, #237; an allow rule never covers chained commands, #264)',
         'allowed_commands.ts (43; --output, -o, find -exec and similar arguments always ask, #233)',
         'allowed_network_hosts.ts',
         'retry.ts (Retry-After waits at least a second; long waits leave the chat resumable, #247)',
@@ -585,14 +585,6 @@ const D = {
       0,
       '10-10',
     ],
-    [
-      264,
-      'A permission allow rule for a command also allows anything chained after it',
-      'security',
-      'high',
-      0,
-      '10-10',
-    ],
     [263, "Redact the user's own stored API keys by exact match", 'security', 'low', 0, '10-10'],
     [
       262,
@@ -677,7 +669,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 193,
+  closedCount: 194,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

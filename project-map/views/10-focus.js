@@ -8,14 +8,14 @@ builders.focus = () => {
       'Fix the Oct 10 audit: approval bypasses through command text',
       'The audit confirmed that the text checks deciding which commands skip the approval card can be bypassed, because bash and PowerShell read the command differently from the checks. Each one was reproduced with a unit test; the git log case also through PowerShell.',
       [
-        '#264 (high): a permission allow rule such as the documented "npm test*" also allows anything chained after it (npm test && …)',
+        '#264 is fixed: an allow rule such as "npm test*" no longer covers what is chained after the command; a chained command needs every part allowed, and substitutions or redirections are never allowed by a rule',
         '#265: allowed commands get past the risky-argument check with smart quotes (PowerShell), backslashes (bash) and bundled flags (curl -so), so git log can write any file',
         '#266: reject and ask rules miss commands inside $(…), backticks, (…) and {…}',
         '#267: apply_patch applies a different change than approved when the file changes meanwhile (edit_file was fixed in #255)',
         '#268, #269: browser screenshots of project files and secrets split across output chunks get past redaction',
         '#270 (to verify): whether Claude Code chats run a cloned repository’s .claude/settings.json hooks without trust',
       ],
-      'Start with #264 and #265: small, contained changes to permissions.ts and allowed_commands.ts.',
+      'Next: #265, a contained change to allowed_commands.ts.',
     ],
     [
       'Finish the Oct 9 audit: the macOS items',

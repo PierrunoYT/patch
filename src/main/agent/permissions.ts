@@ -62,6 +62,12 @@ interface Candidate {
 
 const SHELL_SEPARATOR = /\s*(?:&&|\|\||[;&|\r\n])\s*/;
 
+// Anything that can make a command run more than its text starts with: chaining, redirection, substitutions and
+// blocks. An allow rule matches text, and `*` matches any text, so `npm test*` would also match `npm test; rm -rf .`.
+// A command with one of these is allowed by a rule only part by part, and never when it evaluates or redirects (#264).
+const CHAINS = /[;&|\r\n`$(){}<>]/;
+const EVALUATES = /[`$(){}<>]/;
+
 export function permissionCandidates(
   toolName: string,
   input: Record<string, unknown>,
@@ -130,7 +136,8 @@ export async function decidePermission(
 
 // The decision for a whole call: the call with its paths normalized, and each of its parts (permissionCandidates).
 // The strictest wins: any reject, then any ask. A call is allowed when it is allowed itself, or when every one of its
-// parts is, so an allow rule for one file does not let a patch that also touches another run without asking.
+// parts is, so an allow rule for one file does not let a patch that also touches another run without asking. A
+// command with shell operators is allowed only when every part is, and one that substitutes or redirects never is.
 export async function decideCallPermission(
   rules: PermissionRule[],
   toolName: string,
@@ -149,7 +156,9 @@ export async function decideCallPermission(
   const all = [main, ...derived.flat()];
   const strictest = all.find((decision) => decision?.action === 'reject') ?? all.find((d) => d?.action === 'ask');
   if (strictest) return strictest;
-  if (main?.action === 'allow') return main;
+  const command = toolName === 'run_command' && typeof input.command === 'string' ? input.command : '';
+  if (main?.action === 'allow' && !CHAINS.test(command)) return main;
+  if (EVALUATES.test(command)) return null;
   const allowed = derived.map((views) => views.find((decision) => decision?.action === 'allow'));
   if (allowed.length > 0 && allowed.every(Boolean)) return allowed[0]!;
   return null;
