@@ -9,8 +9,34 @@ const SHELL_OPERATORS = /[;&|`<>\r\n$(){}]/;
 // writes any bytes to any path through `--format` escapes (#233), `git grep -O<program>` and `find -exec` run programs.
 // A command with one of these is asked about even when its prefix is allowed. Best-effort: the allow-list still trusts
 // the program with every other argument.
+//
+// Long options, by name. GNU getopt and most option parsers also take an unambiguous abbreviation (`sort --outp=x` is
+// `--output`), so any argument that is the start of one of these names counts too (#275).
+const RISKY_LONG_OPTIONS = [
+  'output', // git log/diff/show, sort, curl
+  'output-directory', // git format-patch
+  'exec', // fd, git (receive-pack and upload-pack programs)
+  'exec-batch', // fd -X
+  'upload-pack',
+  'receive-pack',
+  'open-files-in-pager', // git grep -O
+  'in-place', // sed -i
+  'pre', // rg runs it on every file
+  'to-command', // tar
+  'checkpoint-action', // tar --checkpoint-action=exec=…
+  'use-compress-program', // tar -I
+  'compress-program', // sort
+  'info-script', // tar -F
+  'new-volume-script',
+  'rsh-command', // tar
+];
+// Short flags that run a program for one program only, where the same letter is harmless elsewhere (grep -x).
+const RISKY_SHORT_FLAGS: Record<string, string> = { fd: 'xX', fdfind: 'xX', tar: 'IF' };
+// Programs whose arguments are a script: sed's `w` and `e` commands write files and run programs, as awk and perl do.
+// They are pre-approved only as the exact allowed command, never with other arguments.
+const SCRIPT_PROGRAMS = new Set(['sed', 'gsed', 'awk', 'gawk', 'mawk', 'nawk', 'perl']);
+
 const RISKY_ARGUMENTS = [
-  /^--(output|output-directory|exec|upload-pack|receive-pack|open-files-in-pager|in-place)(=|$)/i,
   /^-(exec|execdir|ok|okdir|delete|fprint|fprint0|fprintf|fls)$/i,
   // -o and -O, alone, with an attached value or inside a cluster of short flags: git format-patch -o, git grep -O
   // (also -iO), curl -o/-O (also -so, -sSLo), sort -o (also -uo).
@@ -31,11 +57,30 @@ function shellArgument(arg: string): string {
     .replace(/[\u2013-\u2015]/g, '-');
 }
 
-function hasRiskyArgument(args: string): boolean {
+function isRiskyLongOption(arg: string): boolean {
+  const name = /^--([^=]+)/.exec(arg)?.[1]?.toLowerCase();
+  return name !== undefined && RISKY_LONG_OPTIONS.some((option) => option.startsWith(name));
+}
+
+// The program a command runs, as a lowercase file name without a path or .exe: `C:\bin\fd.exe` is `fd`.
+function programName(command: string): string {
+  const first = shellArgument(command.split(' ')[0] ?? '');
+  return (first.split(/[\\/]/).pop() ?? '').toLowerCase().replace(/\.exe$/, '');
+}
+
+function hasRiskyArgument(program: string, args: string): boolean {
+  if (SCRIPT_PROGRAMS.has(program)) return true;
+  const shortFlags = RISKY_SHORT_FLAGS[program] ?? '';
   return args
     .split(' ')
     .map(shellArgument)
-    .some((arg) => !HARMLESS_FIND_WORDS.has(arg) && RISKY_ARGUMENTS.some((pattern) => pattern.test(arg)));
+    .some(
+      (arg) =>
+        !HARMLESS_FIND_WORDS.has(arg) &&
+        (isRiskyLongOption(arg) ||
+          RISKY_ARGUMENTS.some((pattern) => pattern.test(arg)) ||
+          (/^-(?!-)/.test(arg) && [...shortFlags].some((flag) => arg.includes(flag)))),
+    );
 }
 
 export function parseAllowedCommands(setting: string): string[] {
@@ -52,6 +97,7 @@ export function isCommandAllowed(command: string, setting: string): boolean {
   return parseAllowedCommands(setting).some(
     (entry) =>
       normalized === entry ||
-      (normalized.startsWith(`${entry} `) && !hasRiskyArgument(normalized.slice(entry.length + 1))),
+      (normalized.startsWith(`${entry} `) &&
+        !hasRiskyArgument(programName(normalized), normalized.slice(entry.length + 1))),
   );
 }

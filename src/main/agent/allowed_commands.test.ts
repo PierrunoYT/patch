@@ -57,6 +57,28 @@ describe('isCommandAllowed', () => {
     ['sort', 'sort -uo package.json x'],
     ['git grep', 'git grep -iOcalc foo'],
     ['find', 'find . -name a -o -name b'],
+    // Options that run a program or write a file (#275), also abbreviated as GNU getopt accepts them.
+    ['rg', 'rg --pre=calc x'],
+    ['rg', 'rg --pre calc x'],
+    ['sort', 'sort --outp=/home/u/.bashrc a.txt'],
+    ['sort', 'sort --o=x a.txt'],
+    ['sort', 'sort --compress-program=calc a.txt'],
+    ['sed', 'sed --in-pl s/a/b/ src/x.ts'],
+    ['tar', 'tar -cf x.tar --to-command=calc .'],
+    ['tar', 'tar --checkpoint=1 --checkpoint-action=exec=calc -cf x.tar .'],
+    ['tar', 'tar -I calc -cf x.tar .'],
+    ['tar', 'tar -xIcalc -f x.tar'],
+    ['tar', 'tar --use-compress=calc -cf x.tar .'],
+    ['fd', 'fd -x calc'],
+    ['fd', 'fd -X calc'],
+    ['fd', 'fd --exec-batch calc'],
+    ['fd', 'C:\\tools\\fd.exe -x calc'],
+    // Script programs take only their exact allowed command: sed's w and e commands write files and run programs.
+    ['sed', 'sed -i s/a/b/ src/x.ts'],
+    ['sed', 'sed -n w/tmp/x f'],
+    ['sed', 'sed -n 1p f'],
+    ['awk', 'awk {print} f'],
+    ['perl', 'perl -ne print f'],
   ])('asks when %s gets an argument that writes a file or runs a program: %s', (entry, command) => {
     expect(isCommandAllowed(command, entry)).toBe(false);
   });
@@ -69,8 +91,15 @@ describe('isCommandAllowed', () => {
     expect(isCommandAllowed('curl -sSL https://example.com', 'curl')).toBe(true);
     expect(isCommandAllowed('git log --oneline -10', 'git log')).toBe(true);
     expect(isCommandAllowed('npx vitest run src\\main\\agent', 'npx vitest')).toBe(true);
+    expect(isCommandAllowed('git log --pretty=oneline --topo-order --color', 'git log')).toBe(true);
+    expect(isCommandAllowed('rg -i --type ts --context 2 foo src', 'rg')).toBe(true);
+    expect(isCommandAllowed('grep -rx foo src', 'grep')).toBe(true);
+    expect(isCommandAllowed('fd -e ts -t f src', 'fd')).toBe(true);
+    expect(isCommandAllowed('tar -tzf x.tar.gz', 'tar')).toBe(true);
+    expect(isCommandAllowed('sort -u -k2 a.txt', 'sort')).toBe(true);
     // The exact allowed command is allowed even when it ends in such an argument: the user wrote it.
     expect(isCommandAllowed('git log --output=log.txt', 'git log --output=log.txt')).toBe(true);
+    expect(isCommandAllowed('sed -n 1p f', 'sed -n 1p f')).toBe(true);
   });
 
   it('rejects commands that are not on the list', () => {

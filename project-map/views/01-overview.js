@@ -135,7 +135,7 @@ builders.overview = () => {
         h(
           'div',
           { class: 'callout', style: 'margin-top:12px' },
-          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100), protected toolchains such as the official Node are copied once, not per command (#108), and a large project is granted once instead of on every command (#103). The .git check before each command no longer blocks the app (#112). Most Oct 9 audit findings are fixed; the macOS items remain. The Oct 11 audit found Git panel filters that ran outside the sandbox (#273, #274, fixed) and an allow-list gap (#275); see the Focus tab. See',
+          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100), protected toolchains such as the official Node are copied once, not per command (#108), and a large project is granted once instead of on every command (#103). The .git check before each command no longer blocks the app (#112). Most Oct 9 audit findings are fixed; the macOS items remain. The Oct 11 audit found Git panel filters that ran outside the sandbox (#273, #274, fixed) and an allow-list gap (#275, fixed); see the Focus tab. See',
           h(
             'a',
             {

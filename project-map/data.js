@@ -667,14 +667,6 @@ const D = {
       0,
       '10-11',
     ],
-    [
-      275,
-      'Allowed commands miss rg --pre, sed -i, sort --outp, tar --to-command, fd -x',
-      'security',
-      'medium',
-      0,
-      '10-11',
-    ],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
@@ -751,7 +743,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 210,
+  closedCount: 211,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -56,7 +56,7 @@ builders.safety = () => {
           layer(
             'Allow-lists',
             'var(--c-main)',
-            'Commands: whole-word prefix, refused if it contains ; & | < > ` $ ( ) { } or a newline, or an argument that writes a file or runs a program (--output, -o, find -exec …, #233). Network: exact hostname.',
+            'Commands: whole-word prefix, refused if it contains ; & | < > ` $ ( ) { } or a newline, or an argument that writes a file or runs a program (--output, -o, rg --pre, find -exec …, also abbreviated; sed, awk and perl only exactly, #233, #275). Network: exact hostname.',
             'allowed_commands.ts, allowed_network_hosts.ts',
           ),
           layer(
