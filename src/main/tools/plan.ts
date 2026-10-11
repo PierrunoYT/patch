@@ -26,6 +26,9 @@ export const proposePlanTool = defineTool({
   }),
   requiresApproval: true,
   alwaysAsk: true,
+  // run() tells the model the plan was approved, which is true only once the user saw it: a permission rule that
+  // allows the tool does not skip the card either; a reject rule still blocks it (#279).
+  mustAsk: () => true,
   preview: async ({ summary, plan }) => ({ title: summary || 'Plan', text: plan }),
   async run({ summary }) {
     return {

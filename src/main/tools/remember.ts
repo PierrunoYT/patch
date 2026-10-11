@@ -18,6 +18,9 @@ export const rememberTool = defineTool({
   }),
   requiresApproval: true,
   alwaysAsk: true,
+  // The card is the only thing between a note and every future chat's system prompt, so a permission rule that
+  // allows the tool does not skip it either; a reject rule still blocks it (#279).
+  mustAsk: () => true,
   preview: async ({ note, why }) => ({
     title: 'Remember for this project',
     text: `${note.trim()}\n\n_Why: ${why.trim() || 'not given'}_`,

@@ -44,7 +44,7 @@ builders.safety = () => {
           layer(
             'Permission rules',
             'var(--c-main)',
-            'User rules: allow / reject / ask / delegate (external program, 15 s timeout). First match wins; overrides alwaysAsk. Rules see project-relative paths, every file a patch touches and each part of a command; the strictest answer wins (#237).',
+            'User rules: allow / reject / ask / delegate (external program, 15 s timeout). First match wins; overrides alwaysAsk, except for propose_plan and remember, whose mustAsk always asks (#279). Rules see project-relative paths, every file a patch touches and each part of a command; the strictest answer wins (#237).',
             'agent/permissions.ts',
           ),
           layer(
