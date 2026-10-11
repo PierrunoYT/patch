@@ -5,17 +5,17 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix the Oct 11 audit findings: the provider bugs next',
+      'Fix the Oct 11 audit findings: approval and renderer hardening next',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed.',
       [
         '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
         '#275 is fixed: rg --pre, tar --to-command, fd -x, abbreviated options such as sort --outp, and sed, awk and perl with other arguments ask even when allowed',
         '#276 is fixed: the protected-config guard moves a new entry aside instead of deleting it, and leaves one the edit tools wrote to',
         '#277 is fixed: a failed or cut-off Responses stream fails the turn and is retried instead of becoming an empty answer',
-        '#278: compacting a Responses chat on a custom base URL goes to api.openai.com',
+        '#278 is fixed: compacting a Responses chat on a custom base URL goes to that URL, not to api.openai.com',
         '#279 to #282: an allow rule skips the plan and remember cards; the app window and the Browser panel can read local files over file://; project:open takes any folder',
       ],
-      'Order: the provider bugs, then the renderer defence-in-depth items.',
+      'Order: #279, then the renderer defence-in-depth items (#280 to #282), then the low findings.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',

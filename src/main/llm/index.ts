@@ -56,12 +56,11 @@ export class LlmService {
   }
 
   // Prefers the pinned conversation's provider; falls back to whichever provider has a key.
-  // Custom endpoints use the conversation model rather than assuming they serve OpenAI's small model.
+  // Custom endpoints use the conversation model rather than assuming they serve OpenAI's small model. An OpenAI chat
+  // goes to the custom base URL whenever one is set, whatever its API, as build() sends the chat itself (#278):
+  // titles and compaction summaries carry the conversation, so they must not go to OpenAI instead.
   smallModel(conversation: Conversation): CompletionClient | null {
-    const customEndpoint =
-      conversation.provider === 'openai' && conversation.serialize().api === 'chat'
-        ? this.settings.get().openaiBaseUrl.trim()
-        : '';
+    const customEndpoint = conversation.provider === 'openai' ? this.settings.get().openaiBaseUrl.trim() : '';
     return this.smallModelFor(conversation.provider, customEndpoint, conversation.model);
   }
 

@@ -67,6 +67,25 @@ describe('LlmService summarizer selection', () => {
     expect(llm.smallModel(conversation)).not.toBeNull();
   });
 
+  it('sends titles and compaction summaries of a Responses chat to the custom base URL it goes to (#278)', async () => {
+    const llm = new LlmService({
+      get: () => ({ model: 'gpt-6-sol', effort: 'high', openaiBaseUrl: customURL, anthropicBaseUrl: '' }),
+      getSecret: (key: string) => (key === 'openaiApiKey' ? 'third-party-key' : ''),
+      getChatGptSession: () => null,
+    } as unknown as SettingsStore);
+    // A chat started on OpenAI's own API keeps the Responses format after a custom base URL is set, and goes there.
+    const saved: SerializedConversation = { provider: 'openai', api: 'responses', model: 'gpt-6-sol', messages: [] };
+    const conversation = llm.restoreConversation(saved);
+    custom.queueJson(200, completion('Summary'));
+
+    const result = await llm.smallModel(conversation)!.complete('Summarize', z.object({ summary: z.string() }));
+
+    expect(result).toEqual({ summary: 'Summary' });
+    expect(custom.requests[0]!.body.model).toBe('gpt-6-sol');
+    expect(custom.requests[0]!.headers.authorization).toBe('Bearer third-party-key');
+    expect(standard.requests).toEqual([]);
+  });
+
   it('compacts a saved custom-only chat with its pinned model after the global selection changes', async () => {
     let model = 'local-model';
     const llm = new LlmService({
@@ -106,7 +125,7 @@ describe('LlmService summarizer selection', () => {
   });
 
   it.each([
-    { provider: 'openai', api: 'responses', model: 'gpt-6-sol', customURL: true, expected: 'gpt-6-luna' },
+    { provider: 'openai', api: 'responses', model: 'gpt-6-sol', customURL: false, expected: 'gpt-6-luna' },
     { provider: 'openai', api: 'chat', model: 'gpt-6-sol', customURL: false, expected: 'gpt-6-luna' },
     { provider: 'anthropic', model: 'claude-opus-5-5', customURL: true, expected: 'claude-haiku-5-5' },
   ] as const)('retains the standard small model for $provider/$api chats', async (testCase) => {

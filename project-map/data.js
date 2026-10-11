@@ -657,7 +657,6 @@ const D = {
       '10-11',
     ],
     [279, 'An allow rule skips the propose_plan and remember approval cards', 'security', 'medium', 0, '10-11'],
-    [278, 'Compacting a Responses chat on a custom base URL goes to api.openai.com', 'security', 'medium', 0, '10-11'],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
@@ -734,7 +733,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 213,
+  closedCount: 214,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
