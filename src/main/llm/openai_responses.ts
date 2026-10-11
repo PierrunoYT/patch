@@ -236,6 +236,10 @@ export class OpenAIResponsesConversation implements Conversation {
     stream.on('response.reasoning_summary_text.delta', (event) => request.callbacks.onThinking?.(event.delta));
 
     const response = await stream.finalResponse();
+    // finalResponse() also resolves when the stream ended early or with response.failed, so the response may be cut
+    // off or failed. Nothing of it is kept: the turn fails, and a transient failure is retried (#277). A server that
+    // sends no status is taken as completed.
+    refuseUnfinishedResponse(response);
     // Output items (reasoning, messages, function calls) are valid input for the next request once the SDK's own
     // fields are removed.
     this.items.push(...(response.output as unknown as InputItem[]).map(toInputItem));
@@ -279,6 +283,36 @@ export class OpenAIResponsesConversation implements Conversation {
       ...(this.compaction ? { compaction: this.compaction } : {}),
     };
   }
+}
+
+// The stream ended before the response completed: the connection dropped, or a proxy closed it. Named so that
+// retry.ts treats it as a connection problem.
+class StreamEndedError extends Error {
+  override name = 'StreamEndedError';
+}
+
+// A failure the API reported in the stream. `code` is the API's error code (server_error, rate_limit_exceeded …), which
+// retry.ts reads as a streamed error type.
+class ResponseFailedError extends Error {
+  constructor(
+    message: string,
+    readonly code: string | undefined,
+    readonly error: unknown,
+  ) {
+    super(message);
+  }
+}
+
+function refuseUnfinishedResponse(response: OpenAI.Responses.Response): void {
+  const status = response.status;
+  if (status === undefined || status === 'completed' || status === 'incomplete') return;
+  if (status === 'failed') {
+    const code = response.error?.code;
+    const detail = response.error?.message ? `: ${response.error.message}` : '.';
+    throw new ResponseFailedError(`The response failed${code ? ` (${code})` : ''}${detail}`, code, response.error);
+  }
+  if (status === 'cancelled') throw new Error('The response was cancelled by the server.');
+  throw new StreamEndedError(`The stream ended before the response was complete (status ${status}).`);
 }
 
 function parseArguments(raw: string): unknown {

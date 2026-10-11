@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { retryDecision } from '../agent/retry';
 import { SettingsStore } from '../settings';
 import { LlmService } from './index';
 import { createOpenAIClient } from './openai';
@@ -308,6 +309,44 @@ describe('OpenAIResponsesConversation', () => {
     conversation.addUserMessage({ text: 'long' });
     const result = await conversation.runTurn(request());
     expect(result.stopReason).toBe('max_tokens');
+  });
+
+  it('fails a stream that ends before the response completed, and keeps nothing from it (#277)', async () => {
+    // Cut off in the middle of the function call's arguments, without response.completed.
+    const events = responseEvents();
+    const cut = events.findIndex((event) => event.event === 'response.function_call_arguments.delta');
+    server.queueSse(events.slice(0, cut + 1));
+    const conversation = new OpenAIResponsesConversation(createOpenAIClient('sk-test', baseURL), model, 'low');
+    conversation.addUserMessage({ text: 'read a.ts' });
+    const before = conversation.serialize().messages;
+
+    const error = await conversation.runTurn(request()).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toMatch(/ended before the response was complete/);
+    expect(retryDecision(error, 0)).not.toBeNull();
+    expect(conversation.serialize().messages).toEqual(before);
+  });
+
+  it.each([
+    ['server_error', true],
+    ['invalid_prompt', false],
+  ])('fails a response the API reports as failed (%s) and keeps nothing from it (#277)', async (code, retried) => {
+    const failed = { ...baseResponse('failed', []), error: { code, message: 'Something went wrong.' } };
+    server.queueSse([
+      {
+        event: 'response.created',
+        data: { type: 'response.created', sequence_number: 0, response: baseResponse('in_progress', []) },
+      },
+      { event: 'response.failed', data: { type: 'response.failed', sequence_number: 1, response: failed } },
+    ]);
+    const conversation = new OpenAIResponsesConversation(createOpenAIClient('sk-test', baseURL), model, 'low');
+    conversation.addUserMessage({ text: 'hi' });
+    const before = conversation.serialize().messages;
+
+    const error = await conversation.runTurn(request()).catch((caught: unknown) => caught);
+    expect((error as Error).message).toBe(`The response failed (${code}): Something went wrong.`);
+    expect(retryDecision(error, 0) !== null).toBe(retried);
+    expect(conversation.serialize().messages).toEqual(before);
   });
 
   it('does not repair a batch whose calls already have outputs', () => {

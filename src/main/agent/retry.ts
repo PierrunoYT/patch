@@ -96,6 +96,8 @@ function transientReason(error: ErrorLike): string | null {
   }
 
   if (kind(error) === 'APIConnectionTimeoutError') return 'Request timed out';
+  // A Responses stream that ended before the response completed (#277).
+  if (kind(error) === 'StreamEndedError') return 'Connection problem (stream ended)';
   const code = networkCode(error);
   if (code && TRANSIENT_NETWORK_CODES.has(code)) return `Connection problem (${code})`;
   if (kind(error) === 'APIConnectionError' && code !== 'ECONNREFUSED') return 'Connection problem';
