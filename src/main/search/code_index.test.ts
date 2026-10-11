@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsStore, type SecretCipher } from '../settings';
+import { REDACTION_MARK } from '../tools/redact';
 import { ShellRunner } from '../tools/shell';
 import { Workspace } from '../tools/workspace';
 import { chunkFile } from './chunker';
@@ -483,6 +484,21 @@ describe('CodeIndex with a reranker', () => {
     const documents = reranker.seen!.documents.join('\n');
     expect(documents).toContain('addToCart');
     expect(documents).not.toContain('hunter2hunter2');
+  });
+
+  it('masks secrets in the query before it leaves to the embedding and the reranker (#286)', async () => {
+    const embedder = new FakeEmbedder();
+    const reranker = new FakeReranker('addToCart');
+    const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000, reranker);
+    const token = `ghp_${'a'.repeat(36)}`;
+
+    // A model can copy a token it read straight into its search query, and both services are third parties.
+    await index.searchDetailed(`fix the login that stores ${token}`, 2, signal);
+
+    expect(embedder.inputs.filter((input) => input === 'query')).toHaveLength(1);
+    const sent = embedder.calls[embedder.inputs.indexOf('query')];
+    expect(sent).toEqual([`fix the login that stores ${REDACTION_MARK}`]);
+    expect(reranker.seen!.query).toBe(`fix the login that stores ${REDACTION_MARK}`);
   });
 
   it('falls back to the embedding order when reranking fails, and says so', async () => {

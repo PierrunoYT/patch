@@ -196,7 +196,10 @@ export class CodeIndex implements CodeSearch {
     onProgress?: (progress: UpdateProgress) => void,
   ): Promise<SearchResult> {
     await this.update(signal, onProgress);
-    const [queryVector] = await this.embedder.embed([query], 'query', signal);
+    // The query leaves the machine for the embedding and the rerank service, so a secret the model copied into it
+    // is masked first, the way a web search query is (#73) and the way the documents below already are.
+    const sent = redactSecrets(query);
+    const [queryVector] = await this.embedder.embed([sent], 'query', signal);
     if (!queryVector) throw new Error('The embedding service returned no vector for the query.');
     const q = normalize(Float32Array.from(queryVector));
 
@@ -231,7 +234,7 @@ export class CodeIndex implements CodeSearch {
 
     try {
       const ranked = await this.reranker.rerank(
-        query,
+        sent,
         candidates.map((hit) => redactSecrets(`${hit.path}\n${hit.text}`)),
         Math.min(limit, candidates.length),
         signal,
