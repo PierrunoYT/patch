@@ -5,17 +5,16 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix the Oct 11 audit findings, the Git panel filters first',
-      'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix.',
+      'Fix the Oct 11 audit findings: the allow-list and the guard next',
+      'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed.',
       [
-        '#274 is fixed: the Git panel also neutralizes filters from .git/config.worktree',
-        '#273 (high): the Git panel blanks filters only from the superproject’s config, so a submodule’s own config (which a sandboxed command can plant) still runs a filter program on status',
-        '#275: allowed commands still run programs or write files through rg --pre, sed -i, sort --outp, tar --to-command and fd -x; chained with #273 this skips every card',
+        '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
+        '#275: allowed commands still run programs or write files through rg --pre, sed -i, sort --outp, tar --to-command and fd -x, without an approval card',
         '#276: the protected-config guard deletes .vscode, .github or AGENTS.md created by the user or an approved edit while a sandboxed command ran',
         '#277 and #278: a failed Responses stream becomes an empty answer, and compacting a Responses chat on a custom base URL goes to api.openai.com',
         '#279 to #282: an allow rule skips the plan and remember cards; the app window and the Browser panel can read local files over file://; project:open takes any folder',
       ],
-      'Order: #273 and #274, then #275 and #276, then the provider bugs, then the renderer defence-in-depth items.',
+      'Order: #275 and #276, then the provider bugs, then the renderer defence-in-depth items.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',

@@ -21,6 +21,8 @@ export function hardenedConfig(localFilterNames: string[]): string[] {
     'safe.bareRepository=explicit',
     'core.fsmonitor=false',
     'core.hooksPath=/dev/null',
+    // Checkout and restore would otherwise follow the repository's submodule.recurse into each submodule (#273).
+    'submodule.recurse=false',
     ...localFilterNames.flatMap((name) => [
       `filter.${name}.clean=`,
       `filter.${name}.smudge=`,
@@ -127,6 +129,11 @@ export function isRepoAboveHome(topLevel: string, projectRoot: string, home: str
   };
   return top !== normalize(projectRoot) && contains(home);
 }
+
+// Status and diffs report a submodule whose commit changed, but do not look inside its working tree (#273). Git would
+// run `git status` in each submodule, with the submodule's own config and .gitattributes, so its filters would run;
+// a submodule's .git is a working-tree entry that a sandboxed command can replace with planted metadata.
+const SUBMODULES = '--ignore-submodules=dirty';
 
 // New files larger than this are not counted for the line counts in the Git panel.
 const MAX_COUNTED_BYTES = 2 * 1024 * 1024;
@@ -236,7 +243,7 @@ export class GitService {
   private async projectStatus(): Promise<{ status: StatusResult; files: GitFile[]; renames: Map<string, string> }> {
     const repo = await this.repo();
     const prefix = await repo.revparse(['--show-prefix']).catch(() => '');
-    const status = await repo.status(['--', '.']);
+    const status = await repo.status([SUBMODULES, '--', '.']);
     return { status, ...projectFiles(status, prefix) };
   }
 
@@ -246,7 +253,7 @@ export class GitService {
     if (files.length === 0) return files;
     const repo = await this.repo();
     // --relative limits the counts to the project folder and names files relative to it, as the status does.
-    const safe = ['--no-ext-diff', '--no-textconv', '--no-renames', '--relative', '--numstat'];
+    const safe = ['--no-ext-diff', '--no-textconv', SUBMODULES, '--no-renames', '--relative', '--numstat'];
     const hasHead = await repo.revparse(['--verify', 'HEAD']).then(
       () => true,
       () => false,
@@ -298,7 +305,7 @@ export class GitService {
   async push(): Promise<GitStatus> {
     if (!(await this.isRepo())) throw new Error('This project is not a Git repository.');
     const repo = await this.repo();
-    const status = await repo.status();
+    const status = await repo.status([SUBMODULES]);
     if (!status.current) throw new Error('Check out a branch before pushing.');
     await this.refuseProjectCommands(PUSH_COMMANDS);
     if (status.tracking) {
@@ -358,7 +365,7 @@ export class GitService {
       );
       // No external diff programs or textconv drivers: the repository's config could name any command. --relative
       // names files relative to the project folder, as the panel lists them.
-      const safe = ['--no-ext-diff', '--no-textconv', '--relative'];
+      const safe = ['--no-ext-diff', '--no-textconv', SUBMODULES, '--relative'];
       if (hasHead) {
         parts.push(await (await this.repo()).diff([...safe, 'HEAD', '--', ...paths]));
       } else {

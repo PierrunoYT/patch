@@ -8,6 +8,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -725,6 +726,46 @@ describe('GitService with a hostile repository config', () => {
     expect(existsSync(marker('wt-clean'))).toBe(false);
     expect(existsSync(marker('wt-smudge'))).toBe(false);
   });
+
+  // A submodule has its own config and .gitattributes, and its .git is a working-tree entry a sandboxed command can
+  // replace. Git's own status and diff look inside each submodule, which would run the submodule's filters (#273).
+  it('does not run filters of a submodule', async () => {
+    await initRepo();
+    const source = mkdtempSync(join(tmpdir(), 'cc-git-submodule-'));
+    try {
+      cpSync(templates!.committed, source, { recursive: true });
+      const run = (args: string[], cwd = root) => expect(spawnSync('git', args, { cwd }).status).toBe(0);
+      run(['-c', 'protocol.file.allow=always', 'submodule', 'add', '--quiet', source, 'm']);
+      run(['commit', '-qm', 'submodule']);
+      const command = markerCommand('sub-clean');
+      run(['config', 'filter.evil.clean', command], join(root, 'm'));
+      run(['config', 'filter.evil.smudge', command], join(root, 'm'));
+      run(['config', 'filter.evil.process', command], join(root, 'm'));
+      writeFileSync(join(root, 'm', '.gitattributes'), '*.txt filter=evil\n');
+      // Same size, newer time: Git must read the file again to tell whether it changed, through the clean filter.
+      const later = new Date(Date.now() + 10_000);
+      utimesSync(join(root, 'm', 'a.txt'), later, later);
+      writeFileSync(join(root, 'a.txt'), 'two\n');
+
+      expect(kinds((await service.status()).files)).toContainEqual({ path: 'a.txt', status: 'modified' });
+      expect((await service.context())?.files).toContainEqual({ path: 'a.txt', status: 'modified' });
+      expect(await service.diff(null)).toContain('+two');
+      await service.commit('with a submodule');
+      await service.discardAll();
+      expect(existsSync(marker('sub-clean'))).toBe(false);
+
+      // A new commit in the submodule is still listed: only its working tree is not looked into.
+      const off = ['clean', 'smudge', 'process'].flatMap((key) => ['-c', `filter.evil.${key}=`]);
+      run(
+        [...off, '-c', 'user.name=Test', '-c', 'user.email=t@example.com', 'commit', '-q', '--allow-empty', '-m', 'x'],
+        join(root, 'm'),
+      );
+      expect(kinds((await service.status()).files)).toEqual([{ path: 'm', status: 'modified' }]);
+      expect(existsSync(marker('sub-clean'))).toBe(false);
+    } finally {
+      rmSync(source, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('parseConfigListing', () => {
@@ -811,6 +852,7 @@ describe('filterNames and hardenedConfig', () => {
       'safe.bareRepository=explicit',
       'core.fsmonitor=false',
       'core.hooksPath=/dev/null',
+      'submodule.recurse=false',
       'filter.evil.clean=',
       'filter.evil.smudge=',
       'filter.evil.process=',

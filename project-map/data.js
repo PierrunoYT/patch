@@ -585,6 +585,14 @@ const D = {
     ['20e224d', 'fix(plan): ask before changes in plan mode until a plan is approved'],
   ],
   issues: [
+    [
+      294,
+      'Sandboxed commands can replace a submodule’s .git, which host Git recurses into',
+      'sandbox',
+      'medium',
+      0,
+      '10-11',
+    ],
     [293, 'Unverified: proxy checks only the TLS name; stacked drive-letter definitions', 'sandbox', 'low', 0, '10-11'],
     [
       292,
@@ -667,7 +675,6 @@ const D = {
       0,
       '10-11',
     ],
-    [273, 'Git panel status runs submodule filter programs outside the sandbox', 'sandbox', 'high', 0, '10-11'],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
@@ -744,7 +751,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 209,
+  closedCount: 210,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
