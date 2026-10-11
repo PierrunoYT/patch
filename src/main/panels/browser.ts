@@ -1,4 +1,7 @@
+import { realpath } from 'node:fs/promises';
 import { isIP } from 'node:net';
+import { dirname, isAbsolute, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { WebContents } from 'electron';
 import type { BrowserController, PageLoadResult } from '../tools/browser';
 import { bareHostname, isLocalHostname, resolveDestination } from '../tools/net_address';
@@ -9,6 +12,55 @@ function hostnameOf(url: string): string {
     return new URL(url).hostname;
   } catch {
     return '';
+  }
+}
+
+// The local path of a file:// URL, or null when it has none on this platform.
+function filePath(url: string): string | null {
+  try {
+    return /^file:/i.test(url) ? fileURLToPath(url) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isInside(folder: string, path: string): boolean {
+  const rest = relative(folder, path);
+  return rest === '' || (rest !== '..' && !rest.startsWith(`..${sep}`) && !isAbsolute(rest));
+}
+
+// Where a request in the user's session comes from: the page the user's webview shows, and whether the request is
+// that page's own load (a top-level navigation) rather than a frame or resource inside it.
+export interface UserRequestSource {
+  pageUrl: string;
+  mainFrame: boolean;
+}
+
+const NETWORK_URL = /^(https?|wss?|ftp):/i;
+
+// The user's session has its own file:// rule, independent of what the agent opened (#281). The user may open any
+// file page, but what that page loads stays in the page's own folder, and the page gets no network, so a malicious
+// index.html in a cloned repository cannot read ~/.ssh or another project and upload it. Web pages cannot load
+// file:// themselves; a file:// frame or resource inside one is refused anyway.
+export function allowsUserRequest(url: string, { pageUrl, mainFrame }: UserRequestSource): boolean {
+  if (mainFrame) return true;
+  const page = filePath(pageUrl);
+  if (page === null) return !/^file:/i.test(url);
+  if (NETWORK_URL.test(url)) return false;
+  if (!/^file:/i.test(url)) return true;
+  const target = filePath(url);
+  return target !== null && isInside(dirname(page), target);
+}
+
+// Whether a file:// request is inside its page's folder once links are resolved; false when either does not exist.
+async function sameFolderOnDisk(url: string, source: UserRequestSource | undefined): Promise<boolean> {
+  const page = source && filePath(source.pageUrl);
+  const target = filePath(url);
+  if (!page || !target) return false;
+  try {
+    return isInside(await realpath(dirname(page)), await realpath(target));
+  } catch {
+    return false;
   }
 }
 
@@ -69,16 +121,19 @@ export class BrowserService implements BrowserController {
 
   // Asked by both panel sessions' request filters for every request, frames and sub-resources included: those never
   // fire will-navigate, so a project page could otherwise show a file from outside the project in an <iframe> and a
-  // screenshot would hand it to the model. file:// is checked in both sessions; web pages cannot load file://
-  // themselves. Network requests are refused only in the agent's session: all of them while it shows a project file,
-  // and those to this machine or the local network while it shows a page that is not itself local, so a public page
-  // cannot frame or fetch a local service or cloud metadata for a screenshot to pass on (#235). This check sees names
-  // and address literals; checkRequest also resolves the names.
-  allowsRequest(url: string, fromAgentSession = true): boolean {
-    if (fromAgentSession && this.offline && /^(https?|wss?|ftp):/i.test(url)) return false;
-    if (fromAgentSession && this.publicPage && /^(https?|wss?):/i.test(url) && isLocalHostname(hostnameOf(url))) {
-      return false;
-    }
+  // screenshot would hand it to the model. The user's session follows allowsUserRequest. In the agent's session,
+  // file:// requests follow the policy of the page the agent opened, and network requests are refused all of them
+  // while it shows a project file, and those to this machine or the local network while it shows a page that is not
+  // itself local, so a public page cannot frame or fetch a local service or cloud metadata for a screenshot to pass on
+  // (#235). This check sees names and address literals; checkRequest also resolves the names.
+  allowsRequest(
+    url: string,
+    fromAgentSession = true,
+    source: UserRequestSource = { pageUrl: '', mainFrame: false },
+  ): boolean {
+    if (!fromAgentSession) return allowsUserRequest(url, source);
+    if (this.offline && NETWORK_URL.test(url)) return false;
+    if (this.publicPage && /^(https?|wss?):/i.test(url) && isLocalHostname(hostnameOf(url))) return false;
     if (!/^file:/i.test(url) || !this.isNavigationAllowed) return true;
     return this.isNavigationAllowed(url);
   }
@@ -86,9 +141,12 @@ export class BrowserService implements BrowserController {
   // allowsRequest, and for a public page also what each host name resolves to: a public name that resolves to this
   // machine, the local network or cloud metadata is refused too (#260). Names are resolved once per page. Chromium
   // resolves the name again itself, so a name whose answer changes in between (DNS rebinding) is not fully covered.
-  async checkRequest(url: string, fromAgentSession = true): Promise<boolean> {
-    if (!this.allowsRequest(url, fromAgentSession)) return false;
-    if (!fromAgentSession || !this.publicPage || !/^(https?|wss?):/i.test(url)) return true;
+  // In the user's session a file inside the page's folder may still be a link to one outside it, so both are compared
+  // again with links resolved.
+  async checkRequest(url: string, fromAgentSession = true, source?: UserRequestSource): Promise<boolean> {
+    if (!this.allowsRequest(url, fromAgentSession, source)) return false;
+    if (!fromAgentSession) return source?.mainFrame || !/^file:/i.test(url) || (await sameFolderOnDisk(url, source));
+    if (!this.publicPage || !/^(https?|wss?):/i.test(url)) return true;
     const host = hostnameOf(url);
     if (!host || isIP(bareHostname(host)) !== 0) return true;
     let local = this.resolved.get(host);

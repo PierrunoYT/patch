@@ -155,15 +155,16 @@ function start(): void {
     },
   );
   for (const name of BROWSER_PARTITIONS) {
-    session
-      .fromPartition(name)
-      .webRequest.onBeforeRequest(
-        { urls: ['<all_urls>'] },
-        (details, callback) =>
-          void browser
-            .checkRequest(details.url, name === AGENT_BROWSER_PARTITION)
-            .then((allowed) => callback({ cancel: !allowed })),
-      );
+    session.fromPartition(name).webRequest.onBeforeRequest(
+      { urls: ['<all_urls>'] },
+      (details, callback) =>
+        void browser
+          .checkRequest(details.url, name === AGENT_BROWSER_PARTITION, {
+            pageUrl: details.webContents && !details.webContents.isDestroyed() ? details.webContents.getURL() : '',
+            mainFrame: details.resourceType === 'mainFrame',
+          })
+          .then((allowed) => callback({ cancel: !allowed })),
+    );
   }
   // A new chat or project gets an empty agent browser. The app starts with one anyway: its session is not saved.
   const resetAgentBrowser = () => void browser.reset().catch((error: unknown) => appLog.warn('browser', error));

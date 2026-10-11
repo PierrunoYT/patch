@@ -1,4 +1,8 @@
 import { EventEmitter } from 'node:events';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { WebContents } from 'electron';
 import { describe, expect, it, vi } from 'vitest';
 import { BrowserService } from './browser';
@@ -118,6 +122,43 @@ describe('BrowserService', () => {
     // A project file gets no network in the agent's session (#229); the user's own session is not limited.
     expect(service.allowsRequest('https://cdn.example/lib.js')).toBe(false);
     expect(service.allowsRequest('https://cdn.example/lib.js', false)).toBe(true);
+  });
+
+  it("confines a file page in the user's session to its folder, without network (#281)", async () => {
+    const root = mkdtempSync(join(tmpdir(), 'patch-browser-'));
+    try {
+      mkdirSync(join(root, 'repo', 'assets'), { recursive: true });
+      mkdirSync(join(root, 'home', '.ssh'), { recursive: true });
+      writeFileSync(join(root, 'repo', 'index.html'), '');
+      writeFileSync(join(root, 'repo', 'assets', 'app.js'), '');
+      writeFileSync(join(root, 'home', '.ssh', 'id_rsa'), 'secret');
+      // A link inside the repository to a folder outside it ('junction' needs no privilege on Windows).
+      symlinkSync(join(root, 'home', '.ssh'), join(root, 'repo', 'keys'), 'junction');
+      const url = (...parts: string[]) => pathToFileURL(join(root, ...parts)).href;
+      const page = { pageUrl: url('repo', 'index.html'), mainFrame: false };
+      const service = new BrowserService(() => {});
+      attach(service, new FakeGuest());
+
+      expect(await service.checkRequest(url('repo', 'assets', 'app.js'), false, page)).toBe(true);
+      expect(await service.checkRequest(url('home', '.ssh', 'id_rsa'), false, page)).toBe(false);
+      expect(await service.checkRequest(url('repo', 'keys', 'id_rsa'), false, page)).toBe(false);
+      expect(await service.checkRequest('https://attacker.example/?d=secret', false, page)).toBe(false);
+      expect(await service.checkRequest('ws://attacker.example/', false, page)).toBe(false);
+      // The user may still open any file, and a web page keeps its network but cannot load a file.
+      const navigation = { pageUrl: url('repo', 'index.html'), mainFrame: true };
+      expect(await service.checkRequest(url('home', '.ssh', 'id_rsa'), false, navigation)).toBe(true);
+      const web = { pageUrl: 'https://example.com/', mainFrame: false };
+      expect(await service.checkRequest('https://cdn.example/lib.js', false, web)).toBe(true);
+      expect(await service.checkRequest(url('repo', 'index.html'), false, web)).toBe(false);
+
+      // The agent's policy does not reach into the user's session, in either direction.
+      await service.open('https://example.com/', new AbortController().signal);
+      expect(await service.checkRequest(url('repo', 'assets', 'app.js'), false, page)).toBe(true);
+      await service.reset();
+      expect(await service.checkRequest(url('home', '.ssh', 'id_rsa'), false, page)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('takes the agent session off the network while it shows a project file (#229)', async () => {

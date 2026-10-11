@@ -15,9 +15,10 @@ builders.focus = () => {
         '#278 is fixed: compacting a Responses chat on a custom base URL goes to that URL, not to api.openai.com',
         '#279 is fixed: no permission rule skips the plan or remember card',
         "#280 is fixed: the app page's CSP allows no requests, so an injected script cannot fetch local files over file://",
-        '#281 and #282: the Browser panel can read local files over file://; project:open takes any folder',
+        "#281 is fixed: a file:// page in the user's Browser session loads only files in its own folder and gets no network",
+        '#282: project:open takes any folder from the renderer',
       ],
-      'Order: the renderer defence-in-depth items (#281, #282), then the low findings.',
+      'Order: #282, then the low findings.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',

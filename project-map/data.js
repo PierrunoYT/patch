@@ -205,7 +205,7 @@ const D = {
       desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
       list: [
         'terminal.ts (scrubbed environment, #153)',
-        'browser.ts (220; agent session offline for project files, #229; public pages kept off local addresses and names resolving to them, #235, #260)',
+        'browser.ts (278; agent session offline for project files, #229; public pages kept off local addresses and names resolving to them, #235, #260; user file pages confined to their folder, #281)',
         'git.ts (532; Git context for chats, #85; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
         'commit_message.ts',
       ],
@@ -406,7 +406,7 @@ const D = {
     ['security', 13],
     ['chat', 13],
     ['ui', 12],
-    ['panels', 9],
+    ['panels', 10],
     ['sandbox_approvals', 9],
     ['logging', 5],
     ['compact', 4],
@@ -640,14 +640,6 @@ const D = {
       0,
       '10-11',
     ],
-    [
-      281,
-      'A project HTML file in the Browser panel can read local files and upload them',
-      'security',
-      'medium',
-      0,
-      '10-11',
-    ],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
@@ -724,7 +716,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 216,
+  closedCount: 217,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

