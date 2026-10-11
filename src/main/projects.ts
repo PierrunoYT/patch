@@ -37,6 +37,15 @@ function withRealCasing(projects: ProjectInfo[]): ProjectInfo[] {
   return [...byPath.values()];
 }
 
+// The real path of an existing folder.
+export function folderPath(path: string): string {
+  const absolute = resolve(path);
+  if (!existsSync(absolute) || !statSync(absolute).isDirectory()) {
+    throw new Error(`Folder not found: ${path}`);
+  }
+  return realpathSync.native(absolute);
+}
+
 // Recent projects and their custom instructions, stored in userData/projects.json.
 export class ProjectStore {
   private projects: ProjectInfo[];
@@ -68,12 +77,14 @@ export class ProjectStore {
     if (this.currentPath === real) this.currentPath = this.openProjects.keys().next().value ?? null;
   }
 
+  // Whether the folder is open or in the recent list, so the user chose it before. Throws when it is not a folder.
+  isKnown(path: string): boolean {
+    const real = folderPath(path);
+    return this.openProjects.has(real) || this.projects.some((project) => project.path === real);
+  }
+
   open(path: string): ProjectInfo {
-    const absolute = resolve(path);
-    if (!existsSync(absolute) || !statSync(absolute).isDirectory()) {
-      throw new Error(`Folder not found: ${path}`);
-    }
-    const real = realpathSync.native(absolute);
+    const real = folderPath(path);
     let project = this.openProjects.get(real) ?? this.projects.find((candidate) => candidate.path === real);
     if (!project) {
       project = { path: real, name: basename(real) || real, instructions: '', lastOpened: '' };

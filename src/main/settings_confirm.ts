@@ -1,3 +1,4 @@
+import { isAbsolute, relative, sep } from 'node:path';
 import type { ProjectInfo, ProjectSettings } from '@shared/project';
 import type { McpServerConfig, SecretName, Settings } from '@shared/settings';
 import { delegateLabel } from './agent/permissions';
@@ -193,6 +194,21 @@ export function projectChangesToConfirm(current: ProjectInfo | null, patch: Proj
 }
 
 const MAX_SHOWN_INSTRUCTIONS = 600;
+
+// Opening a folder the user has not opened before, through project:open rather than the folder dialog (#282). Only
+// the recent-projects list calls it, so a new folder there came from somewhere else: the agent can change any file in
+// a project, so a script in the renderer could otherwise make the home folder the project and have the agent write a
+// startup script. `appFolders` are Patch's own data folders, whose settings and chats a project must not contain.
+export function projectOpenToConfirm(folder: string, home: string, appFolders: string[]): string[] {
+  const lines = [`Open ${folder} as a project: the assistant can read and change every file in it.`];
+  const contains = (inner: string) => {
+    const rest = relative(folder, inner);
+    return rest === '' || (rest !== '..' && !rest.startsWith(`..${sep}`) && !isAbsolute(rest));
+  };
+  if (contains(home)) lines.push('This folder is or contains your home folder.');
+  if (appFolders.some(contains)) lines.push("This folder contains Patch's own settings and chats.");
+  return lines;
+}
 
 // Lines of `after` (one entry per line, as the allow-lists are written) that `before` does not have.
 export function addedEntries(before: string, after: string): string[] {

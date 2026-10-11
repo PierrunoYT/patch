@@ -24,11 +24,11 @@ import {
 } from './search/code_index';
 import { buildMenu } from './menu';
 import { chromiumSandboxWarning } from './chromium_sandbox';
-import { ProjectStore } from './projects';
+import { folderPath, ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
 import { removeStaleTempFiles } from './storage/json_file';
-import { changesToConfirm, projectChangesToConfirm, secretToConfirm } from './settings_confirm';
+import { changesToConfirm, projectChangesToConfirm, projectOpenToConfirm, secretToConfirm } from './settings_confirm';
 import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
 import { releaseProjectGrant } from './tools/sandbox_windows';
 import { commandStopsSettled } from './tools/shell';
@@ -399,7 +399,24 @@ function start(): void {
     const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
     return result.canceled || !result.filePaths[0] ? null : openProject(result.filePaths[0]);
   });
-  handle('project:open', (path) => openProject(path));
+  // Only the recent-projects list calls this. A folder that is not in it was not chosen in the folder dialog, so it
+  // needs a native confirmation the renderer cannot answer (#282).
+  handle('project:open', async (path) => {
+    manager.requireIdle();
+    if (!projects.isKnown(path)) {
+      const folder = folderPath(path);
+      await confirmNatively(
+        'Open project',
+        'Open this folder as a project?',
+        projectOpenToConfirm(folder, app.getPath('home'), [app.getPath('userData')])
+          .map((line) => `• ${line}`)
+          .join('\n'),
+        'Open',
+        'The folder was not opened.',
+      );
+    }
+    return openProject(path);
+  });
   handle('project:current', () => projects.current());
   handle('project:list', () => projects.list());
   handle('project:opened', () => projects.opened());

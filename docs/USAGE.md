@@ -304,7 +304,7 @@ Besides the API keys, approvals and allow-lists described above, **Settings** ha
 - **Google search engine id**: with a Google API key, turns on web search.
 - **Maximum files to index for code search** (empty or below 1 uses the default, 2,000), and the current project's index status with a **Reindex** button.
 
-The project menu (the sliders button in the header) has **Open folder…**, the recent projects and **Project settings…** for the open project (its instructions and its own allow-lists, see above). **Remove from recent** is on each recent project's row on the welcome screen, shown when no project is open.
+The project menu (the sliders button in the header) has **Open folder…**, the recent projects and **Project settings…** for the open project (its instructions and its own allow-lists, see above). **Remove from recent** is on each recent project's row on the welcome screen, shown when no project is open. A recent project opens without asking; a folder that is not in the list can only be opened with **Open folder…** or after a native confirmation, so the assistant never gets a folder you did not choose.
 
 ## Side panel
 

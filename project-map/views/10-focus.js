@@ -5,7 +5,7 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix the Oct 11 audit findings: renderer hardening next',
+      'Fix the Oct 11 audit findings: the low ones next',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed.',
       [
         '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
@@ -16,9 +16,9 @@ builders.focus = () => {
         '#279 is fixed: no permission rule skips the plan or remember card',
         "#280 is fixed: the app page's CSP allows no requests, so an injected script cannot fetch local files over file://",
         "#281 is fixed: a file:// page in the user's Browser session loads only files in its own folder and gets no network",
-        '#282: project:open takes any folder from the renderer',
+        '#282 is fixed: project:open opens a folder that is not in the project list only after a native confirmation',
       ],
-      'Order: #282, then the low findings.',
+      'Order: the low findings (#283 to #293), then #294.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',

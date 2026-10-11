@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type McpServerConfig, type PermissionRule, type Settings } from '@shared/settings';
 import type { ProjectInfo } from '@shared/project';
 import { decidePermission } from './agent/permissions';
-import { addedEntries, changesToConfirm, projectChangesToConfirm, secretToConfirm } from './settings_confirm';
+import { join } from 'node:path';
+import {
+  addedEntries,
+  changesToConfirm,
+  projectChangesToConfirm,
+  projectOpenToConfirm,
+  secretToConfirm,
+} from './settings_confirm';
 
 const docs: McpServerConfig = { name: 'docs', transport: 'stdio', command: 'node', args: ['docs.js'] };
 const current: Settings = { ...DEFAULT_SETTINGS, mcpServers: [docs] };
@@ -387,5 +394,28 @@ describe('Claude Code settings (#261)', () => {
     const given = { ...current, claudeCodeUsesApiKey: true };
     expect(changesToConfirm(given, { claudeCodeUsesApiKey: true })).toEqual([]);
     expect(changesToConfirm(given, { claudeCodeUsesApiKey: false })).toEqual([]);
+  });
+});
+
+describe('projectOpenToConfirm (#282)', () => {
+  const home = join('/', 'home', 'me');
+  const userData = join(home, '.config', 'Patch');
+
+  it('names the folder, and warns about the home folder and the app data inside it', () => {
+    expect(projectOpenToConfirm(join(home, 'code', 'app'), home, [userData])).toEqual([
+      `Open ${join(home, 'code', 'app')} as a project: the assistant can read and change every file in it.`,
+    ]);
+    expect(projectOpenToConfirm(home, home, [userData]).slice(1)).toEqual([
+      'This folder is or contains your home folder.',
+      "This folder contains Patch's own settings and chats.",
+    ]);
+    expect(projectOpenToConfirm(join(home, '.config'), home, [userData]).slice(1)).toEqual([
+      "This folder contains Patch's own settings and chats.",
+    ]);
+    expect(projectOpenToConfirm(join('/', 'home'), home, []).slice(1)).toEqual([
+      'This folder is or contains your home folder.',
+    ]);
+    // A sibling whose name only starts with the folder's is not inside it.
+    expect(projectOpenToConfirm(join(home, '..me'), home, [join(home, '..me-data')])).toHaveLength(1);
   });
 });

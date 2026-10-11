@@ -68,6 +68,34 @@ describe('multiple open projects', () => {
     );
   }
 
+  const projectConfirmations = () =>
+    running.app.evaluate(() =>
+      (globalThis as unknown as { __patchProjectConfirmations: string[] }).__patchProjectConfirmations.slice(),
+    );
+  const answerProjectConfirmations = (response: number) =>
+    running.app.evaluate((_electron, value) => {
+      (globalThis as unknown as { __patchProjectResponse: number }).__patchProjectResponse = value;
+    }, response);
+
+  it('asks natively before opening a folder that is not in the project list (#282)', async () => {
+    await answerProjectConfirmations(1);
+    const error = await running.page.evaluate(
+      (path) =>
+        window.api.invoke('project:open', path).then(
+          () => '',
+          (error) => error.message,
+        ),
+      alpha,
+    );
+    await answerProjectConfirmations(0);
+    expect(error).toContain('The folder was not opened.');
+    expect(await running.page.evaluate(() => window.api.invoke('project:current'))).toBeNull();
+    expect(await running.page.evaluate(() => window.api.invoke('project:list'))).toEqual([]);
+    const asked = await projectConfirmations();
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toContain(`Open ${alpha} as a project`);
+  });
+
   it('keeps chats, drafts and workspace file reads separate when switching tabs', async () => {
     await running.page.evaluate((path) => window.api.invoke('project:open', path), alpha);
     // The IPC reply can arrive before the renderer restores this project's draft.
@@ -138,5 +166,13 @@ describe('multiple open projects', () => {
     await running.page.evaluate((id) => window.api.invoke('history:open', id), alphaId);
     expect((await waitFor((chat) => chat.id === alphaId)).resumable).toBe(true);
     expect(running.errors).toEqual([]);
+  });
+
+  it('opens a folder from the project list again without asking', async () => {
+    // Alpha and Beta were each confirmed once, after the cancelled first attempt.
+    expect(await projectConfirmations()).toHaveLength(3);
+    await running.page.evaluate((path) => window.api.invoke('project:open', path), beta);
+    expect((await running.page.evaluate(() => window.api.invoke('project:current')))?.path).toBe(beta);
+    expect(await projectConfirmations()).toHaveLength(3);
   });
 });

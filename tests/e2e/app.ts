@@ -107,17 +107,30 @@ export async function launchApp(
   // windows within the screen. Narrow windows hide parts of the footer, so give every run the same desktop layout.
   await page.setViewportSize({ width: 1400, height: 1000 });
   // Answer only Patch's native settings and terminal confirmations; browser confirms must remain under Playwright's
-  // control. Each one is recorded; a test sets __patchConfirmResponse to 1 to press Cancel.
+  // control. Each one is recorded; a test sets __patchConfirmResponse to 1 to press Cancel. Opening a new folder as a
+  // project (#282), which most tests do first, is recorded apart in __patchProjectConfirmations and answered with
+  // __patchProjectResponse.
   await app.evaluate(({ dialog }) => {
-    const state = globalThis as unknown as { __patchConfirmations: string[]; __patchConfirmResponse: number };
+    const state = globalThis as unknown as {
+      __patchConfirmations: string[];
+      __patchConfirmResponse: number;
+      __patchProjectConfirmations: string[];
+      __patchProjectResponse: number;
+    };
     state.__patchConfirmations = [];
     state.__patchConfirmResponse = 0;
+    state.__patchProjectConfirmations = [];
+    state.__patchProjectResponse = 0;
     const showMessageBox = dialog.showMessageBox;
     const answer = async (...args: unknown[]) => {
       const options = args.find((arg) => typeof arg === 'object' && arg !== null && 'message' in arg) as {
         detail?: string;
         title?: string;
       };
+      if (options?.title === 'Open project') {
+        state.__patchProjectConfirmations.push(options.detail ?? '');
+        return { response: state.__patchProjectResponse, checkboxChecked: false };
+      }
       if (options?.title !== 'Confirm settings' && options?.title !== 'Start terminal')
         return Reflect.apply(showMessageBox, dialog, args);
       state.__patchConfirmations.push(options?.detail ?? '');

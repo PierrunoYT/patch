@@ -67,7 +67,7 @@ const D = {
         'chat_store.ts (201; a damaged chat file is skipped when the index is rebuilt, #249)',
         'app_log.ts (error + crash logging; shares tool-result redaction, #153)',
         'stall_monitor.ts (48; logs a blocked event loop and stalled file system calls, slow background saves too, #138)',
-        'settings_confirm.ts (236, ordered protective-rule confirmation; every switch to Auto and new project instructions, #157; names the program an MCP server resolves to, #142; unencrypted key save, #35)',
+        'settings_confirm.ts (262, ordered protective-rule confirmation; every switch to Auto and new project instructions, #157; names the program an MCP server resolves to, #142; unencrypted key save, #35; opening a folder not in the project list, #282)',
         'projects.ts',
         'files.ts',
         'ipc.ts',
@@ -415,7 +415,7 @@ const D = {
     ['settings', 7],
     ['undo', 4],
     ['images', 4],
-    ['projects', 3],
+    ['projects', 5],
     ['retry', 3],
     ['transcript_view', 6],
     ['crash_kill', 2],
@@ -632,14 +632,6 @@ const D = {
       0,
       '10-11',
     ],
-    [
-      282,
-      'project:open accepts any folder from the renderer without a native prompt',
-      'security',
-      'medium',
-      0,
-      '10-11',
-    ],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
@@ -716,7 +708,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 217,
+  closedCount: 218,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

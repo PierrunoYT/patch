@@ -14,6 +14,20 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('ProjectStore', () => {
+  it('knows only folders that are open or in the project list (#282)', () => {
+    mkdirSync(join(dir, 'Other'));
+    const store = new ProjectStore(join(dir, 'projects.json'));
+    expect(store.isKnown(join(dir, 'Work'))).toBe(false);
+    store.open(join(dir, 'Work'));
+    expect(store.isKnown(join(dir, 'Work', '.'))).toBe(true);
+    expect(store.isKnown(join(dir, 'Other'))).toBe(false);
+    // Closed but still listed, and remembered after a restart.
+    store.close(join(dir, 'Work'));
+    expect(store.isKnown(join(dir, 'Work'))).toBe(true);
+    expect(new ProjectStore(join(dir, 'projects.json')).isKnown(join(dir, 'Work'))).toBe(true);
+    expect(() => store.isKnown(join(dir, 'missing'))).toThrow('Folder not found');
+  });
+
   it.runIf(process.platform === 'win32')('treats the same folder typed with different casing as one project', () => {
     const store = new ProjectStore(join(dir, 'projects.json'));
     const first = store.open(join(dir, 'Work'));
