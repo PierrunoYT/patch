@@ -111,7 +111,7 @@ builders.overview = () => {
             'li',
             null,
             h('b', null, 'Security is the largest issue theme: '),
-            `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues concern security. #143–#145 are fixed in this snapshot: protected-path approvals, native file handles and safe sandbox roots. Remaining sandbox hardening is mostly medium severity.`,
+            `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues concern security. The Oct 11 audit opened #273–#293; its two high findings are Git panel filters that still run outside the sandbox (#273, #274).`,
           ),
           h(
             'li',
@@ -135,7 +135,7 @@ builders.overview = () => {
         h(
           'div',
           { class: 'callout', style: 'margin-top:12px' },
-          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100), protected toolchains such as the official Node are copied once, not per command (#108), and a large project is granted once instead of on every command (#103). The .git check before each command no longer blocks the app (#112). Most Oct 9 audit findings are fixed; the macOS items remain (see the Focus tab). Next, #101 once Node bundles libuv 1.53. See',
+          'Short answer: agent commands are sandboxed with read-only Git metadata, and the Oct 5–6 security reviews found no critical issue. Protective-rule confirmations (#114), HTML-only Markdown (#115) and chat errors kept out of logs (#116) are fixed. Overlapping Windows commands keep .git protected (#100), protected toolchains such as the official Node are copied once, not per command (#108), and a large project is granted once instead of on every command (#103). The .git check before each command no longer blocks the app (#112). Most Oct 9 audit findings are fixed; the macOS items remain. The Oct 11 audit found Git panel filters that run outside the sandbox (#273, #274) and an allow-list gap (#275); see the Focus tab. See',
           h(
             'a',
             {
