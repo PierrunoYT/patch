@@ -5,16 +5,16 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix the Oct 11 audit findings: the protected-config guard next',
+      'Fix the Oct 11 audit findings: the provider bugs next',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed.',
       [
         '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
         '#275 is fixed: rg --pre, tar --to-command, fd -x, abbreviated options such as sort --outp, and sed, awk and perl with other arguments ask even when allowed',
-        '#276: the protected-config guard deletes .vscode, .github or AGENTS.md created by the user or an approved edit while a sandboxed command ran',
+        '#276 is fixed: the protected-config guard moves a new entry aside instead of deleting it, and leaves one the edit tools wrote to',
         '#277 and #278: a failed Responses stream becomes an empty answer, and compacting a Responses chat on a custom base URL goes to api.openai.com',
         '#279 to #282: an allow rule skips the plan and remember cards; the app window and the Browser panel can read local files over file://; project:open takes any folder',
       ],
-      'Order: #276, then the provider bugs, then the renderer defence-in-depth items.',
+      'Order: the provider bugs, then the renderer defence-in-depth items.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',
@@ -51,7 +51,7 @@ builders.focus = () => {
         '#146 to #148 are fixed: fetch_url and browser ask before local addresses in Auto mode, macOS blocks Unix sockets with network on, and the agent browses in its own session',
         '#127 is fixed: the project’s existing top-level editor, agent and CI configuration (.vscode, .claude, .agents, .patch, .github, .mcp.json, AGENTS.md and others) is read-only in every sandbox backend, like .git',
       ],
-      'Next: protect symlinked configuration names and nested copies (#271; #262 now removes protected entries a command created), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux and Windows, #97) to macOS and containers (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
+      'Next: protect symlinked configuration names and nested copies (#271; #262 now moves protected entries a command created aside), narrow remaining macOS reads (#96; command temp is now project-local), and bring host-filtered networking (done on Linux and Windows, #97) to macOS and containers (#102 is closed: the approval card and settings say loopback services and abstract sockets are reachable, and a real-bubblewrap test checks it). Native-platform tests and packaged builds still need their own hosts.',
     ],
     [
       'Work through the medium findings from the Oct 7 code review',
@@ -89,7 +89,7 @@ builders.focus = () => {
       'The Oct 6 comparison of Codex, Gemini CLI, Anthropic Sandbox Runtime and OpenHands found useful patterns without a reason to replace AppContainer. These are proposed enhancements, not claims of reproduced sandbox escapes.',
       [
         '#126: approve exact extra read/write paths for one command instead of dropping the sandbox',
-        '#271: protect symlinked top-level configuration names and nested editor configuration (absent entries are removed after a command since #262)',
+        '#271: protect symlinked top-level configuration names and nested editor configuration (absent entries are moved aside after a command since #262)',
         '#128: add an OS-restricted file executor; #144 now provides native no-follow handles, but the helper still runs with the user’s permissions',
         '#97 and #87 are done on Linux and Windows: allow-list commands go through a filtering proxy (own network namespace on Linux, no network capability plus a named-pipe relay on Windows), and MCP stdio servers can opt in; macOS remains',
       ],

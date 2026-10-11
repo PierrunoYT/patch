@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -6,9 +15,13 @@ import { isGuardedPath } from './guard';
 import {
   createdProtectedEntries,
   isProtectedConfigName,
+  notePatchWrite,
+  patchWriteMark,
   protectedConfigPaths,
   protectedConfigSnapshot,
-  removeCreatedProtectedEntries,
+  quarantineCreatedProtectedEntries,
+  settleCreatedProtectedEntries,
+  writtenByPatchSince,
 } from './sandbox_config';
 
 describe('protectedConfigPaths', () => {
@@ -104,11 +117,50 @@ describe('entries a command creates (#262)', () => {
     expect(createdProtectedEntries(root, before)).toEqual([]);
   });
 
-  it('removes what was created and leaves nothing behind', () => {
+  it('moves what was created aside, keeping its content, under a name nothing reads (#276)', () => {
     const before = protectedConfigSnapshot(root);
     mkdirSync(join(root, '.vscode'));
     writeFileSync(join(root, '.vscode', 'tasks.json'), '{}');
-    expect(removeCreatedProtectedEntries(root, createdProtectedEntries(root, before))).toEqual(['.vscode']);
-    expect(readdirSync(root)).toEqual([]);
+    const moved = quarantineCreatedProtectedEntries(root, createdProtectedEntries(root, before));
+    const target = moved.get('.vscode')!;
+    expect(target).toMatch(/^\.vscode\.patch-quarantine-/);
+    expect(isProtectedConfigName(target)).toBe(false);
+    expect(readdirSync(root)).toEqual([target]);
+    expect(readFileSync(join(root, target, 'tasks.json'), 'utf8')).toBe('{}');
+  });
+
+  it('moves a created entry aside once no other command runs, and only reports it before', () => {
+    const before = protectedConfigSnapshot(root);
+    const mark = patchWriteMark();
+    writeFileSync(join(root, 'AGENTS.md'), 'planted');
+    expect(settleCreatedProtectedEntries(root, before, mark, false)).toMatch(/another command is still running/);
+    expect(readdirSync(root)).toEqual(['AGENTS.md']);
+    expect(settleCreatedProtectedEntries(root, before, mark, true)).toMatch(/Patch moved AGENTS\.md to AGENTS\.md\./);
+    expect(readdirSync(root)).toEqual([expect.stringMatching(/^AGENTS\.md\.patch-quarantine-/)]);
+    expect(settleCreatedProtectedEntries(root, before, mark, true)).toBe('');
+  });
+
+  it('leaves an entry the edit tools wrote to while the command ran, with a note (#276)', () => {
+    const before = protectedConfigSnapshot(root);
+    const mark = patchWriteMark();
+    mkdirSync(join(root, '.vscode'));
+    writeFileSync(join(root, '.vscode', 'launch.json'), '{}');
+    notePatchWrite(root, '.vscode/launch.json');
+    notePatchWrite(root, 'src/other.ts');
+    mkdirSync(join(root, '.github'));
+    const note = settleCreatedProtectedEntries(root, before, mark, true);
+    expect(note).toMatch(/\.vscode appeared while the command ran, and the edit tools wrote to it too/);
+    expect(note).toMatch(/Patch moved \.github to \.github\.patch-quarantine-/);
+    expect(existsSync(join(root, '.vscode', 'launch.json'))).toBe(true);
+    expect(existsSync(join(root, '.github'))).toBe(false);
+  });
+
+  it('does not count an edit made before the command started', () => {
+    notePatchWrite(root, join(root, 'CLAUDE.md'));
+    const before = protectedConfigSnapshot(root);
+    const mark = patchWriteMark();
+    writeFileSync(join(root, 'CLAUDE.md'), 'planted');
+    expect(writtenByPatchSince(root, 'claude.md', mark)).toBe(false);
+    expect(settleCreatedProtectedEntries(root, before, mark, true)).toMatch(/Patch moved CLAUDE\.md/);
   });
 });

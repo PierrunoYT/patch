@@ -37,7 +37,7 @@ import {
   type PathGrants,
 } from './sandbox_grants';
 import { AddedEntries } from './added_entries';
-import { createdProtectedEntries, protectedConfigSnapshot, removeCreatedProtectedEntries } from './sandbox_config';
+import { patchWriteMark, protectedConfigSnapshot, settleCreatedProtectedEntries } from './sandbox_config';
 import { buildHelperRequest, exceedsEntryLimit, GRANT_ENTRY_LIMIT, HelperProcess } from './sandbox_windows';
 import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
@@ -381,7 +381,8 @@ export class ShellRunner {
 
   // Starts a command and, when it is sandboxed, notes which protected entries the project lacks. A sandbox cannot
   // guard a path that does not exist yet, so `guard` (called once the command ended) finds what the command created
-  // there and removes it, or only reports it while another sandboxed command is still running (#262).
+  // there and moves it aside, or only reports it while another sandboxed command is still running (#262), or when
+  // Patch's own edit tools wrote to it meanwhile (#276).
   private async spawn(
     command: string,
     access: CommandAccess,
@@ -389,11 +390,13 @@ export class ShellRunner {
   ): Promise<{ child: CommandProcess; sandbox: SandboxKind; guard: () => string }> {
     let root = '';
     let before = new Set<string>();
+    let mark = 0;
     let counted = false;
     let done = false;
     const begin = () => {
       root = this.cwd();
       before = protectedConfigSnapshot(root);
+      mark = patchWriteMark();
       this.sandboxedRunning++;
       counted = true;
     };
@@ -404,18 +407,7 @@ export class ShellRunner {
     const guard = () => {
       if (done) return '';
       release();
-      const created = createdProtectedEntries(root, before);
-      if (created.length === 0) return '';
-      const removable = this.sandboxedRunning === 0;
-      const removed = removable ? removeCreatedProtectedEntries(root, created) : [];
-      appLog.warn('sandbox', 'A sandboxed command created protected project configuration.', {
-        count: created.length,
-        removed: removed.length,
-      });
-      const names = created.join(', ');
-      return removed.length === created.length
-        ? `\n[Patch removed ${names}: sandboxed commands may not create editor, agent or CI configuration. Use the edit tools for it.]`
-        : `\n[The command created ${names}, which sandboxed commands may not create. Patch left it in place because another command is still running: check it before using it.]`;
+      return settleCreatedProtectedEntries(root, before, mark, this.sandboxedRunning === 0);
     };
     try {
       const started = await this.spawnProcess(command, access, begin, signal);

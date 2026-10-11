@@ -3,6 +3,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { ToolError } from './types';
 import { trustedHelper } from './native_integrity';
+import { notePatchWrite } from './sandbox_config';
 import { isPackagedElectron } from './sandbox_windows';
 import type { Workspace } from './workspace';
 
@@ -96,13 +97,19 @@ export async function readProjectFile(workspace: Workspace, path: string): Promi
 }
 
 export async function changeProjectFiles(workspace: Workspace, changes: Change[]): Promise<void> {
-  await execute(
-    workspace,
-    changes.map(({ path, before, after }) => ({
-      kind: 'change',
-      path,
-      before: before?.toString('base64') ?? null,
-      after: after?.toString('base64') ?? null,
-    })),
-  );
+  try {
+    await execute(
+      workspace,
+      changes.map(({ path, before, after }) => ({
+        kind: 'change',
+        path,
+        before: before?.toString('base64') ?? null,
+        after: after?.toString('base64') ?? null,
+      })),
+    );
+  } finally {
+    // Also after a failure, which may leave a folder the helper created: the sandbox guard must not take a protected
+    // entry the edit tools wrote for one a sandboxed command created (#276).
+    for (const { path } of changes) notePatchWrite(workspace.root, path);
+  }
 }

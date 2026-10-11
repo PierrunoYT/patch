@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { changeProjectFiles, readProjectFile } from './file_operations';
+import { patchWriteMark, writtenByPatchSince } from './sandbox_config';
 import { Workspace } from './workspace';
 import { readFileTool, writeFileTool, editFileTool } from './files';
 import { applyPatchTool } from './apply_patch';
@@ -55,6 +56,15 @@ describe('native project file operations (#144)', () => {
     expect(readFileSync(join(project, 'sub/x.txt'))).toEqual(bytes('changed\r\n'));
     await changeProjectFiles(workspace, [{ path: 'nested/deeper/new.bin', before: content, after: null }]);
     expect(existsSync(join(project, 'nested/deeper/new.bin'))).toBe(false);
+  });
+
+  it('records writes to protected configuration for the sandbox guard (#276)', async () => {
+    const mark = patchWriteMark();
+    await changeProjectFiles(workspace, [{ path: '.vscode/launch.json', before: null, after: bytes('{}') }]);
+    await changeProjectFiles(workspace, [{ path: join(project, 'AGENTS.md'), before: null, after: bytes('x') }]);
+    expect(writtenByPatchSince(workspace.root, '.vscode', mark)).toBe(true);
+    expect(writtenByPatchSince(workspace.root, 'agents.md', mark)).toBe(true);
+    expect(writtenByPatchSince(workspace.root, '.github', mark)).toBe(false);
   });
 
   it('accepts absolute root aliases without erasing links below that root', async () => {
