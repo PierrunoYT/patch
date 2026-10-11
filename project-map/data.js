@@ -667,7 +667,6 @@ const D = {
       0,
       '10-11',
     ],
-    [274, 'Git panel does not disable filters defined in .git/config.worktree', 'security', 'high', 0, '10-11'],
     [273, 'Git panel status runs submodule filter programs outside the sandbox', 'sandbox', 'high', 0, '10-11'],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
@@ -745,7 +744,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 208,
+  closedCount: 209,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

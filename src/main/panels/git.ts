@@ -12,9 +12,10 @@ import { Workspace } from '../tools/workspace';
 // Git reads the repository's own .git/config, which can name commands to run: core.fsmonitor on status, clean and
 // smudge filters (enabled by .gitattributes) on status, add and checkout, and diff drivers on diff. A folder from an
 // untrusted source must not be able to run anything just because the Git panel was opened, so every call turns
-// these off: fsmonitor is disabled, the filter drivers the repository defines in its local config are neutralized
-// (filters configured globally by the user, such as git-lfs, keep working), and diffs skip external drivers and
-// textconv. Hooks are disabled too: sandboxed commands can redirect core.hooksPath to a writable project folder.
+// these off: fsmonitor is disabled, the filter drivers the repository defines in its local or worktree config are
+// neutralized (filters configured globally by the user, such as git-lfs, keep working), and diffs skip external
+// drivers and textconv. Hooks are disabled too: sandboxed commands can redirect core.hooksPath to a writable project
+// folder.
 export function hardenedConfig(localFilterNames: string[]): string[] {
   return [
     'safe.bareRepository=explicit',
@@ -74,9 +75,9 @@ export function filterNames(configListing: string): string[] {
   return [...new Set(names)];
 }
 
-// From `git config --local --includes --show-origin --null --list` run in `root`: the filter drivers it defines, and
-// every file the result depends on (each file an entry came from, and each file an include names, which may not
-// exist or may have no entries yet).
+// From `git config --local|--worktree --includes --show-origin --null --list` run in `root`: the filter drivers it
+// defines, and every file the result depends on (each file an entry came from, and each file an include names, which
+// may not exist or may have no entries yet).
 export function parseConfigListing(listing: string, root: string): { filters: string[]; files: string[] } {
   const parts = listing.split('\0');
   const keys: string[] = [];
@@ -168,9 +169,11 @@ export class GitService {
       : [];
     const unique = [...new Set(known)];
     const key = dirs ? statKey(unique) : null;
-    const listing = await plain
-      .raw(['config', '--local', '--includes', '--show-origin', '--null', '--list'])
-      .catch(() => '');
+    // The worktree config too: with extensions.worktreeConfig, Git reads filters from .git/config.worktree, which
+    // --local leaves out (#274). Without that extension --worktree lists the local config again.
+    const list = (scope: '--local' | '--worktree') =>
+      plain.raw(['config', scope, '--includes', '--show-origin', '--null', '--list']).catch(() => '');
+    const listing = (await list('--local')) + (await list('--worktree'));
     const { filters, files } = parseConfigListing(listing, this.workspace.root);
     const all = [...new Set([...unique, ...files])];
     const repo = simpleGit({

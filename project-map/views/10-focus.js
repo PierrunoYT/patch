@@ -8,7 +8,8 @@ builders.focus = () => {
       'Fix the Oct 11 audit findings, the Git panel filters first',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix.',
       [
-        '#273 and #274 (high): the Git panel blanks filters only from the superproject’s .git/config, so a submodule’s config (which a sandboxed command can plant) or .git/config.worktree still runs a filter program on status',
+        '#274 is fixed: the Git panel also neutralizes filters from .git/config.worktree',
+        '#273 (high): the Git panel blanks filters only from the superproject’s config, so a submodule’s own config (which a sandboxed command can plant) still runs a filter program on status',
         '#275: allowed commands still run programs or write files through rg --pre, sed -i, sort --outp, tar --to-command and fd -x; chained with #273 this skips every card',
         '#276: the protected-config guard deletes .vscode, .github or AGENTS.md created by the user or an approved edit while a sandboxed command ran',
         '#277 and #278: a failed Responses stream becomes an empty answer, and compacting a Responses chat on a custom base URL goes to api.openai.com',

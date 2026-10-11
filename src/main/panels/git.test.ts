@@ -705,6 +705,26 @@ describe('GitService with a hostile repository config', () => {
     await service.discard('a.txt');
     expect(existsSync(marker('inc-clean'))).toBe(false);
   });
+
+  it('neutralizes a filter defined in the worktree config (#274)', async () => {
+    await initRepo();
+    config('extensions.worktreeConfig', 'true');
+    expect(
+      spawnSync('git', ['config', '--worktree', 'filter.wt.clean', markerCommand('wt-clean')], { cwd: root }).status,
+    ).toBe(0);
+    expect(
+      spawnSync('git', ['config', '--worktree', 'filter.wt.smudge', markerCommand('wt-smudge')], { cwd: root }).status,
+    ).toBe(0);
+    writeFileSync(join(root, '.gitattributes'), '*.txt filter=wt\n');
+    writeFileSync(join(root, 'a.txt'), 'two\n');
+
+    expect(kinds((await service.status()).files)).toContainEqual({ path: 'a.txt', status: 'modified' });
+    expect(await service.diff('a.txt')).toContain('+two');
+    await service.discard('a.txt');
+    expect(readFileSync(join(root, 'a.txt'), 'utf8')).toBe('one\n');
+    expect(existsSync(marker('wt-clean'))).toBe(false);
+    expect(existsSync(marker('wt-smudge'))).toBe(false);
+  });
 });
 
 describe('parseConfigListing', () => {
