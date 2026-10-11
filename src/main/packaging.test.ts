@@ -18,6 +18,23 @@ describe('macOS packaging security', () => {
   });
 });
 
+describe('app page CSP', () => {
+  // The packaged page is a file:// page, for which 'self' matches every local file: a renderer script must not be
+  // able to fetch one (#280).
+  it('lets the app page make no requests', () => {
+    const page = new DOMParser().parseFromString(readFileSync('src/renderer/index.html', 'utf8'), 'text/html');
+    const policy = page.querySelector('meta[http-equiv="Content-Security-Policy"]')!.getAttribute('content')!;
+    const directives = new Map(
+      policy.split(';').map((part: string) => {
+        const [name, ...sources] = part.trim().split(/\s+/);
+        return [name, sources];
+      }),
+    );
+    expect(directives.get('connect-src')).toEqual(["'none'"]);
+    expect(directives.get('default-src')).toEqual(["'self'"]);
+  });
+});
+
 describe('packaged dependencies', () => {
   it('packages application output without mutable test logs or scratch files beside it', () => {
     const files = [

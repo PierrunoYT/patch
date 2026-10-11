@@ -26,7 +26,7 @@ builders.safety = () => {
           layer(
             'Sandboxed renderer',
             'var(--c-renderer)',
-            'contextIsolation + sandbox, no Node, strict CSP, no navigation. DOM built with h(); HTML only from DOMPurify-sanitized markdown/diff.',
+            'contextIsolation + sandbox, no Node, strict CSP (connect-src none), no navigation. DOM built with h(); HTML only from DOMPurify-sanitized markdown/diff.',
             'window.ts, dom.ts, markdown.ts',
           ),
           layer(

@@ -30,6 +30,15 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     resolve: { alias: shared },
+    // The app page makes no requests of its own, so its CSP has connect-src 'none': for a file:// page 'self' would
+    // match every local file (#280). Only the dev server's page needs a connection, for hot reloading.
+    plugins: [
+      {
+        name: 'patch-dev-connect-src',
+        apply: 'serve',
+        transformIndexHtml: (html: string) => html.replace("connect-src 'none'", "connect-src 'self'"),
+      },
+    ],
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/renderer/index.html'),
