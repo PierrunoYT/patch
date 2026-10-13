@@ -5,6 +5,17 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
+      'Fix the Oct 13 Electron + Rust audit findings (#296–#305)',
+      'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching.',
+      [
+        '#296 (high): sandbox-helper --stdio wraps stdout and stderr in owning Handle structs, closing the helper process’s own standard handles when its copy threads finish',
+        '#297 and #298: file-helper and sandbox-helper read stdin and target files without a byte cap before caller limits apply, and net-bridge.exe is omitted from __PATCH_NATIVE_DIGESTS__ and copied writable into the AppContainer temp folder',
+        '#301, #303 and #304 (medium): BrowserService.checkRequest caches DNS lookups per page while Chromium resolves names again; exceedsEntryLimit walks toolchain folders synchronously on the main thread; ProxyRelay and net-bridge spawn unbounded OS threads per connection',
+        '#299, #300, #302 and #305 (low): Jobs stores raw HANDLE as usize and misses a Drop guard on LPPROC_THREAD_ATTRIBUTE_LIST; isAppPageUrl checks devRendererUrl with startsWith; openInEditor passes unscrubbed env and allows %VAR% in file paths on Windows; runtime renderer packages sit in devDependencies',
+      ],
+      'Order: #296 and #298 first, then #297, #301, #303 and #304, then the low-severity cleanup items.',
+    ],
+    [
       'Fix the Oct 11 audit findings: the low ones next',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed.',
       [

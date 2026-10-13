@@ -111,7 +111,7 @@ builders.overview = () => {
             'li',
             null,
             h('b', null, 'Security is the largest issue theme: '),
-            `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues concern security. The Oct 11 audit opened #273–#293; both high findings, Git panel filters from submodules and the worktree config (#273, #274), are fixed.`,
+            `${D.issues.filter((issue) => issue[2] === 'security').length} of ${D.issues.length} open issues concern security. The Oct 11 audit’s high findings (#273, #274) are fixed; the Oct 13 Electron + Rust audit opened #296–#305.`,
           ),
           h(
             'li',
