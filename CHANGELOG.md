@@ -30,6 +30,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Performance
 
+- The first sandboxed command on Windows no longer freezes the app while Patch counts the files in toolchain folders (`.rustup`, `.cargo`, `.nvm`), PATH entries and granted paths: they are counted asynchronously, at most once each per session (fixes #303).
 - Long transcripts stream faster: a streaming answer is rendered without syntax highlighting until it ends, and an event for the newest transcript item copies the list instead of calling a function for every item (fixes #200).
 - `grep` and `glob` reuse a small pool of regex workers instead of starting one per call; a worker that timed out or was stopped is never reused (fixes #201).
 - Full chat saves of a listed chat write the file in the background like checkpoints, and chat files are written without indentation (fixes #118).

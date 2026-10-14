@@ -11,7 +11,7 @@ import {
   systemLaunchEnv,
   type SandboxSupport,
 } from './sandbox';
-import { buildHelperRequest, exceedsEntryLimit } from './sandbox_windows';
+import { buildHelperRequest, withEntryLimits } from './sandbox_windows';
 
 export interface McpLaunch {
   command: string;
@@ -77,22 +77,24 @@ export async function mcpSandboxLaunch(
     const childEnv = sandboxEnv(hostEnv, 'win32', state, tmpdir());
     const merged: Record<string, string> = { ...(config.env ?? {}) };
     for (const [key, value] of Object.entries(childEnv)) if (value !== undefined) merged[key] ??= value;
-    const request = buildHelperRequest({
-      id: 1,
-      shell: { file: command, args: config.args ?? [] },
-      // Only the working folder becomes a drive the server can walk up from (Node resolves the real path of its script,
-      // which fails on a folder whose parents are hidden), so a server that names ${project} starts in the project.
-      cwd: project?.cwd ?? state,
-      env: merged,
-      network: config.sandboxNetwork === true,
-      home,
-      exists: (path) => existsSync(path),
-      protectedPaths: project?.protectedPaths ?? [],
-      writable: project ? [state] : [],
-      workspace: true,
-      tooLarge: (path) => exceedsEntryLimit(path),
-      limits: { timeoutMs: 0 },
-    });
+    const request = await withEntryLimits((tooLarge) =>
+      buildHelperRequest({
+        id: 1,
+        shell: { file: command, args: config.args ?? [] },
+        // Only the working folder becomes a drive the server can walk up from (Node resolves the real path of its script,
+        // which fails on a folder whose parents are hidden), so a server that names ${project} starts in the project.
+        cwd: project?.cwd ?? state,
+        env: merged,
+        network: config.sandboxNetwork === true,
+        home,
+        exists: (path) => existsSync(path),
+        protectedPaths: project?.protectedPaths ?? [],
+        writable: project ? [state] : [],
+        workspace: true,
+        tooLarge,
+        limits: { timeoutMs: 0 },
+      }),
+    );
     const requestPath = join(state, '.patch-sandbox-request.json');
     writeFileSync(requestPath, `${JSON.stringify(request)}\n`);
     return { command: helper, args: ['--stdio', requestPath], env: definedEnv(hostEnv) };

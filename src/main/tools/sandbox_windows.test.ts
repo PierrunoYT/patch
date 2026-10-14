@@ -7,13 +7,16 @@ import { appLog } from '../app_log';
 import {
   buildHelperRequest,
   exceedsEntryLimit,
+  GRANT_ENTRY_LIMIT,
   helperCandidates,
   HelperProcess,
   isPackagedElectron,
+  measureEntryLimit,
   parseHelperEvent,
   releaseProjectGrant,
   revokeProjectGrant,
   windowsPolicy,
+  withEntryLimits,
   type HelperRequest,
 } from './sandbox_windows';
 
@@ -237,6 +240,35 @@ describe('exceedsEntryLimit', () => {
       expect(exceedsEntryLimit(root, 7)).toBe(true);
       expect(exceedsEntryLimit(root, 8)).toBe(false);
       expect(exceedsEntryLimit(join(root, 'missing'), 5)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('measures without blocking, and a policy builder sees only measured answers (#303)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'patch-grant-size-async-'));
+    try {
+      mkdirSync(join(root, 'a', 'b'), { recursive: true });
+      for (let i = 0; i < 6; i++) writeFileSync(join(root, 'a', 'b', `f${i}`), '');
+      expect(await measureEntryLimit(root, 100)).toBe(false);
+      expect(await measureEntryLimit(root, 7)).toBe(true);
+      // The same folder asked twice at once is read once; both get the answer.
+      expect(await Promise.all([measureEntryLimit(root, 5), measureEntryLimit(root, 5)])).toEqual([true, true]);
+
+      // A big folder with a small bin: the builder asks about the bin only once the folder is known to be big.
+      const big = join(root, 'big');
+      mkdirSync(join(big, 'bin'), { recursive: true });
+      for (let i = 0; i <= GRANT_ENTRY_LIMIT; i++) writeFileSync(join(big, `f${i}`), '');
+      const asked: Array<Record<string, boolean>> = [];
+      const result = await withEntryLimits((tooLarge) => {
+        const answers: Record<string, boolean> = { big: tooLarge(big) };
+        if (answers.big) answers.bin = tooLarge(join(big, 'bin'));
+        asked.push(answers);
+        return answers;
+      });
+      expect(result).toEqual({ big: true, bin: false });
+      // Unmeasured folders read as small until measured, and the last run asked about nothing new.
+      expect(asked).toEqual([{ big: false }, { big: true, bin: false }, { big: true, bin: false }]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

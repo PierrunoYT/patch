@@ -148,7 +148,7 @@ const D = {
         'registry.ts',
         'shell.ts (746; refuses sensitive roots, #145; project-local macOS temp, #144; streaming UTF-8 and process-tree cleanup; asynchronous sandbox probes)',
         'shell_leftovers.ts (163; finds and kills what a Windows shell left running through its parent pid, #165; lists the process tree of an MCP server it stops, #117)',
-        'sandbox_windows.ts (Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152), filtered-network proxy pipe, #97, workspace cwd for MCP, #87, and the project-grant revoke on close, #103)',
+        'sandbox_windows.ts (folder sizes for grants measured off the main thread, #303; Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152), filtered-network proxy pipe, #97, workspace cwd for MCP, #87, and the project-grant revoke on close, #103)',
         'sandbox.ts (safe canonical project roots before Git preparation, #145; project-only Seatbelt writes and command-local temp, #144; asynchronous support probes, #112; bubblewrap in a limited systemd user scope, #104; enforced allow-list on Linux and Windows, #97)',
         'files.ts (393; native no-follow reads and writes, #144; read-before-write and UTF-8-only edits; edit_file refuses a file changed after its preview, #255)',
         'file_operations.ts (104; resource-only packaged helper lookup and original-path native requests, #144)',
@@ -592,14 +592,6 @@ const D = {
   issues: [
     [305, 'Runtime renderer dependencies sit in devDependencies in package.json', 'release', 'low', 0, '10-13'],
     [
-      303,
-      'exceedsEntryLimit walks toolchain and grant folders synchronously on the main thread',
-      'perf',
-      'medium',
-      0,
-      '10-13',
-    ],
-    [
       302,
       'openInEditor passes unscrubbed env and allows cmd.exe %VAR% expansion in file paths',
       'security',
@@ -745,7 +737,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 226,
+  closedCount: 227,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

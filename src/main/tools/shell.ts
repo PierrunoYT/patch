@@ -38,7 +38,13 @@ import {
 } from './sandbox_grants';
 import { AddedEntries } from './added_entries';
 import { patchWriteMark, protectedConfigSnapshot, settleCreatedProtectedEntries } from './sandbox_config';
-import { buildHelperRequest, exceedsEntryLimit, GRANT_ENTRY_LIMIT, HelperProcess } from './sandbox_windows';
+import {
+  buildHelperRequest,
+  GRANT_ENTRY_LIMIT,
+  HelperProcess,
+  measureEntryLimit,
+  withEntryLimits,
+} from './sandbox_windows';
 import { killWindowsLeftovers } from './shell_leftovers';
 import { defineTool, truncateOutput } from './types';
 
@@ -559,7 +565,7 @@ export class ShellRunner {
     const protectedPaths = launchEnv.protectedPaths;
     // Granting a folder rewrites the permissions of every file in it before the command runs, so a huge one is refused.
     for (const path of [...grants.read, ...grants.write])
-      if (exceedsEntryLimit(path))
+      if (await measureEntryLimit(path))
         throw new Error(
           `The Windows sandbox cannot grant "${path}": it holds more than ${GRANT_ENTRY_LIMIT} entries. Grant a narrower path. The command was not run.`,
         );
@@ -571,24 +577,27 @@ export class ShellRunner {
         return path;
       }
     };
-    const request = buildHelperRequest({
-      id: this.nextKey,
-      shell: inner,
-      cwd: launchEnv.cwd,
-      env: {
-        ...sandboxEnv(this.env(), 'win32', real(homedir()), real(tmpdir()), this.sandbox()),
-        CI: '1',
-        FORCE_COLOR: '0',
-        NO_COLOR: '1',
-      },
-      network,
-      home: real(homedir()),
-      exists: (path) => existsSync(path),
-      protectedPaths,
-      grants: hasResolvedGrants(grants) ? grants : undefined,
-      refresh: this.added.take(launchEnv.cwd),
-      tooLarge: (path) => exceedsEntryLimit(path),
-    });
+    // The folders it may grant are measured off the main thread first (#303).
+    const request = await withEntryLimits((tooLarge) =>
+      buildHelperRequest({
+        id: this.nextKey,
+        shell: inner,
+        cwd: launchEnv.cwd,
+        env: {
+          ...sandboxEnv(this.env(), 'win32', real(homedir()), real(tmpdir()), this.sandbox()),
+          CI: '1',
+          FORCE_COLOR: '0',
+          NO_COLOR: '1',
+        },
+        network,
+        home: real(homedir()),
+        exists: (path) => existsSync(path),
+        protectedPaths,
+        grants: hasResolvedGrants(grants) ? grants : undefined,
+        refresh: this.added.take(launchEnv.cwd),
+        tooLarge,
+      }),
+    );
     let proxy: FilteringProxy | undefined;
     if (filtered) {
       // A proxy that cannot start leaves the command without any network; it is not run unfiltered instead.

@@ -1,6 +1,7 @@
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, readdirSync, realpathSync, type Dirent } from 'node:fs';
+import { readdir } from 'node:fs/promises';
 import { PassThrough } from 'node:stream';
 import { basename, join, win32 } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -85,11 +86,12 @@ const HOME_READ_ONLY_WINDOWS = [
 export const GRANT_ENTRY_LIMIT = 5000;
 
 const sizeCache = new Map<string, boolean>();
+const sizeKey = (path: string, limit: number) => `${limit}|${process.platform === 'win32' ? path.toLowerCase() : path}`;
 
 // True when the folder holds more than `limit` entries. Stops counting at the limit, and remembers the answer for
 // the life of the app (a toolchain folder does not shrink).
 export function exceedsEntryLimit(path: string, limit = GRANT_ENTRY_LIMIT): boolean {
-  const key = `${limit}|${process.platform === 'win32' ? path.toLowerCase() : path}`;
+  const key = sizeKey(path, limit);
   const known = sizeCache.get(key);
   if (known !== undefined) return known;
   let count = 0;
@@ -108,6 +110,54 @@ export function exceedsEntryLimit(path: string, limit = GRANT_ENTRY_LIMIT): bool
   const result = count > limit;
   sizeCache.set(key, result);
   return result;
+}
+
+const measuring = new Map<string, Promise<boolean>>();
+
+// exceedsEntryLimit without blocking the main process: the folders are read asynchronously (#303). The answer goes into
+// the same cache, and a folder being measured is measured once.
+export function measureEntryLimit(path: string, limit = GRANT_ENTRY_LIMIT): Promise<boolean> {
+  const key = sizeKey(path, limit);
+  const known = sizeCache.get(key);
+  if (known !== undefined) return Promise.resolve(known);
+  let pending = measuring.get(key);
+  if (!pending) {
+    pending = (async () => {
+      let count = 0;
+      const folders = [path];
+      while (folders.length > 0 && count <= limit) {
+        const dir = folders.pop() as string;
+        let entries: Dirent[];
+        try {
+          entries = await readdir(dir, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        count += entries.length;
+        for (const entry of entries) if (entry.isDirectory()) folders.push(join(dir, entry.name));
+      }
+      sizeCache.set(key, count > limit);
+      measuring.delete(key);
+      return count > limit;
+    })();
+    measuring.set(key, pending);
+  }
+  return pending;
+}
+
+// Runs a synchronous policy builder whose `tooLarge` answers come only from the cache: every folder it asks about that
+// is not measured yet is measured asynchronously, and the builder runs again, until it asks about nothing new (#303).
+export async function withEntryLimits<T>(build: (tooLarge: (path: string) => boolean) => T): Promise<T> {
+  for (;;) {
+    const missing = new Set<string>();
+    const result = build((path) => {
+      const known = sizeCache.get(sizeKey(path, GRANT_ENTRY_LIMIT));
+      if (known === undefined) missing.add(path);
+      return known ?? false;
+    });
+    if (missing.size === 0) return result;
+    await Promise.all([...missing].map((path) => measureEntryLimit(path)));
+  }
 }
 
 export interface WindowsPolicyInput {
