@@ -173,7 +173,7 @@ const D = {
         'regex_worker.ts (grep/glob patterns off the main process, pooled workers)',
         'browser.ts',
         'mcp.ts (stdio servers start in userData/mcp with an absolute command; ${project} opts a server into the project, #142; stopping one kills its whole process tree, #117; approval cards show the call arguments, #230)',
-        'net_proxy.ts (253; host-filtering proxy for allow-list commands on Linux and Windows, #97; CONNECT relays only TLS naming the checked host, #239)',
+        'net_proxy.ts (277; host-filtering proxy for allow-list commands on Linux and Windows, #97; CONNECT relays only TLS naming the checked host, #239; loopback TCP mode pinning the agent browser’s public pages, #301)',
         'mcp_sandbox.ts (bubblewrap or AppContainer --stdio launch for a stdio server with sandbox: true, fails closed on macOS, #87)',
         'task.ts (273; task, finder and oracle subagents, plus the self-review runner, #83)',
         'todo.ts',
@@ -205,7 +205,7 @@ const D = {
       desc: 'Back ends for the side panels: terminal (node-pty), browser, git (simple-git), commit message suggestion.',
       list: [
         'terminal.ts (scrubbed environment, #153)',
-        'browser.ts (278; agent session offline for project files, #229; public pages kept off local addresses and names resolving to them, #235, #260; user file pages confined to their folder, #281)',
+        'browser.ts (287; agent session offline for project files, #229; public pages kept off local addresses and names resolving to them, #235, #260, through a pinning proxy, #301; user file pages confined to their folder, #281)',
         'git.ts (532; Git context for chats, #85; link-safe discard, hook/filter hardening, implicit bare-repository discovery refusal and no project-file credential/SSH/signing programs on push or commit)',
         'commit_message.ts',
       ],
@@ -607,7 +607,6 @@ const D = {
       0,
       '10-13',
     ],
-    [301, 'BrowserService.checkRequest caches DNS lookups per page (DNS rebinding)', 'security', 'medium', 0, '10-13'],
     [
       300,
       'isAppPageUrl checks devRendererUrl with startsWith instead of comparing URL origins',
@@ -746,7 +745,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 224,
+  closedCount: 225,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

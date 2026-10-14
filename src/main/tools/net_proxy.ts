@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { request as httpRequest, createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { connect, isIP, type Socket } from 'node:net';
+import { connect, isIP, type AddressInfo, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
@@ -20,14 +20,23 @@ export const PROXY_PORT = 3128;
 const PORTS = new Set([80, 443]);
 
 export interface FilteringProxy {
+  // The Unix socket or named pipe, or for a TCP proxy (`tcp: true`) 127.0.0.1:port.
   socketPath: string;
+  // The loopback port of a TCP proxy.
+  port?: number;
   close(): Promise<void>;
 }
 
 export interface ProxyPolicy {
-  allowedHosts: string;
-  // Tests only: other ports, and a resolver that can name a loopback fixture as public.
-  ports?: ReadonlySet<number>;
+  // The hosts commands may reach, or null for any host: the agent browser's public pages (#301), where only local
+  // destinations are refused.
+  allowedHosts: string | null;
+  // The ports allowed: 80 and 443 when absent, or 'any'. Tests use other ports.
+  ports?: ReadonlySet<number> | 'any';
+  // Whether a CONNECT tunnel must carry TLS naming the checked host (#239); true when absent. The browser's tunnels
+  // also carry plain WebSockets, and its pages may reach any public host anyway, so it relies on the pinned address.
+  tlsName?: boolean;
+  // Tests only: a resolver that can name a loopback fixture as public.
   resolve?: (host: string) => Promise<{ address: string; local: string | null }>;
 }
 
@@ -43,10 +52,13 @@ export async function checkDestination(
   policy: ProxyPolicy,
 ): Promise<{ refused: string } | { address: string }> {
   const bare = bareHostname(host);
-  if (!(policy.ports ?? PORTS).has(port)) return { refused: `port ${port} is not allowed (only 80 and 443)` };
+  const ports = policy.ports ?? PORTS;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return { refused: `port ${port} is not valid` };
+  if (ports !== 'any' && !ports.has(port)) return { refused: `port ${port} is not allowed (only 80 and 443)` };
   // URL parsing normalizes the name the same way the allow-list entries are matched.
   const url = `https://${isIP(bare) === 6 ? `[${bare}]` : bare}/`;
-  if (!isNetworkUrlAllowed(url, policy.allowedHosts)) return { refused: `${bare} is not on the network allow-list` };
+  if (policy.allowedHosts !== null && !isNetworkUrlAllowed(url, policy.allowedHosts))
+    return { refused: `${bare} is not on the network allow-list` };
   try {
     const destination = await (policy.resolve ?? resolvePublic)(bare);
     if (destination.local) return { refused: `${bare} resolves to a local address (${destination.local})` };
@@ -156,13 +168,15 @@ function parseTarget(target: string): { host: string; port: number } | null {
 }
 
 // On Windows the proxy listens on a named pipe that only this user can open; sandbox-helper relays the command's
-// AppContainer to it. Elsewhere it is a Unix socket in a private folder, mounted into the sandbox.
+// AppContainer to it. Elsewhere it is a Unix socket in a private folder, mounted into the sandbox. With `tcp` it listens
+// on a loopback port instead, for Chromium, which takes only host:port proxies (the agent browser, #301).
 export async function startFilteringProxy(
   policy: ProxyPolicy,
   platform: NodeJS.Platform = process.platform,
+  { tcp = false }: { tcp?: boolean } = {},
 ): Promise<FilteringProxy> {
-  const folder = platform === 'win32' ? null : mkdtempSync(join(tmpdir(), 'patch-net-'));
-  const socketPath = folder ? join(folder, 'proxy.sock') : `\\\\.\\pipe\\patch-net-${randomBytes(16).toString('hex')}`;
+  const folder = tcp || platform === 'win32' ? null : mkdtempSync(join(tmpdir(), 'patch-net-'));
+  let socketPath = folder ? join(folder, 'proxy.sock') : `\\\\.\\pipe\\patch-net-${randomBytes(16).toString('hex')}`;
   const open = new Set<Socket>();
   const track = (socket: Socket) => {
     open.add(socket);
@@ -219,6 +233,12 @@ export async function startFilteringProxy(
       };
       upstream.once('connect', () => {
         client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+        if (policy.tlsName === false) {
+          if (head.length > 0) upstream.write(head);
+          upstream.pipe(client);
+          client.pipe(upstream);
+          return;
+        }
         void readClientHello(client, head).then((hello) => {
           const wanted = bareHostname(target.host);
           const name = hello?.name ? bareHostname(hello.name) : null;
@@ -237,10 +257,14 @@ export async function startFilteringProxy(
   });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(socketPath, () => resolve());
+    if (tcp) server.listen(0, '127.0.0.1', () => resolve());
+    else server.listen(socketPath, () => resolve());
   });
+  const port = tcp ? (server.address() as AddressInfo).port : undefined;
+  if (port !== undefined) socketPath = `127.0.0.1:${port}`;
   return {
     socketPath,
+    port,
     close: () =>
       new Promise<void>((resolve) => {
         for (const socket of open) socket.destroy();

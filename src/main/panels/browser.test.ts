@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { WebContents } from 'electron';
 import { describe, expect, it, vi } from 'vitest';
-import { BrowserService } from './browser';
+import { BrowserService, type BrowserNetwork } from './browser';
 
 class FakeGuest extends EventEmitter {
   destroyed = false;
@@ -163,11 +163,11 @@ describe('BrowserService', () => {
 
   it('takes the agent session off the network while it shows a project file (#229)', async () => {
     const calls: string[] = [];
-    const setOffline = vi.fn(async (offline: boolean) => void calls.push(offline ? 'offline' : 'online'));
+    const setNetwork = vi.fn(async (mode: BrowserNetwork) => void calls.push(mode));
     const service = new BrowserService(
       () => {},
       async () => {},
-      setOffline,
+      setNetwork,
     );
     const guest = new FakeGuest();
     guest.loadURL.mockImplementation(async (url: string) => void calls.push(`load ${url}`));
@@ -185,16 +185,24 @@ describe('BrowserService', () => {
     // The user's own browser session keeps its network.
     expect(service.allowsRequest('https://example.com/', false)).toBe(true);
 
-    // Opening a web page replaces the file page before the network comes back.
+    // Opening a public web page replaces the file page before the network comes back, through the pinning proxy (#301).
     calls.length = 0;
     await service.open('https://example.com/', new AbortController().signal);
-    expect(calls).toEqual(['load about:blank', 'online', 'load https://example.com/']);
+    expect(calls).toEqual(['load about:blank', 'public', 'load https://example.com/']);
     expect(service.allowsRequest('https://example.com/app.js')).toBe(true);
 
-    // A reset after a file page brings the network back too.
+    // A local page goes direct, but only once the public page is gone; from direct to public needs no blank page.
+    calls.length = 0;
+    await service.open('http://localhost:5173/', new AbortController().signal);
+    expect(calls).toEqual(['load about:blank', 'direct', 'load http://localhost:5173/']);
+    calls.length = 0;
+    await service.open('https://example.org/', new AbortController().signal);
+    expect(calls).toEqual(['public', 'load https://example.org/']);
+
+    // A reset after a file page brings the direct network back too.
     await service.open('file:///project/page.html', new AbortController().signal, () => true);
     await service.reset();
-    expect(setOffline).toHaveBeenLastCalledWith(false);
+    expect(setNetwork).toHaveBeenLastCalledWith('direct');
     expect(service.allowsRequest('https://example.com/')).toBe(true);
   });
 

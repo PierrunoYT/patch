@@ -69,6 +69,10 @@ const LOAD_TIMEOUT_MS = 20_000;
 const MAX_SCREENSHOT_WIDTH = 1280;
 const MAX_CONSOLE_MESSAGES = 200;
 
+// How the agent's session reaches the network: directly (no page yet, or a page on this machine or the local network),
+// not at all (a project file, #229), or through the pinning proxy (a public page, #301).
+export type BrowserNetwork = 'direct' | 'offline' | 'public';
+
 // Controls the agent's page in the browser panel. The renderer owns two <webview> elements: the user's, in their
 // persistent session, and the agent's, in a separate in-memory session. Only the agent's guest webContents is handed to
 // this class when it attaches, so the agent can load pages, read console output and take screenshots without ever
@@ -79,9 +83,12 @@ export class BrowserService implements BrowserController {
   // No policy until the agent opens a page: the user browses freely until then.
   private isNavigationAllowed: ((url: string) => boolean) | null = null;
   private blockedNavigation: string | null = null;
-  // Set while the agent's page is a project file. Such a page opens without asking, even in Ask mode, and may read
-  // other project files (.env), so its session gets no network at all and nothing it reads can leave (#229).
-  private offline = false;
+  // 'offline' while the agent's page is a project file. Such a page opens without asking, even in Ask mode, and may read
+  // other project files (.env), so its session gets no network at all and nothing it reads can leave (#229). 'public'
+  // while it is a public web page: every connection then goes through a proxy that resolves the name itself, refuses
+  // local addresses and dials only the address it checked, so a name that rebinds to 127.0.0.1 between Patch's check
+  // and Chromium's own lookup gets nowhere (#301).
+  private network: BrowserNetwork = 'direct';
   // Set while the agent's page is a web page on a public host: it may not reach local addresses (#235).
   private publicPage = false;
   // Whether each host name a public page loaded from resolves to a local address, per page (#260).
@@ -91,9 +98,9 @@ export class BrowserService implements BrowserController {
     private readonly show: () => void,
     // Deletes the agent session's cookies, storage and cache.
     private readonly clearStorage: () => Promise<void> = async () => {},
-    // Cuts the agent session off from every network, or restores it. The request filter alone misses what Chromium
-    // sends outside it, such as DNS prefetching and WebRTC.
-    private readonly setOffline: (offline: boolean) => Promise<void> = async () => {},
+    // Switches the agent session's network (offline, through the pinning proxy, or direct). The request filter alone
+    // misses what Chromium sends outside it, such as DNS prefetching and WebRTC, and cannot pin what a name resolves to.
+    private readonly setNetworkMode: (mode: BrowserNetwork) => Promise<void> = async () => {},
     // Resolves a host name the way fetch_url does; tests pass a stub.
     private readonly resolve: (host: string) => Promise<{ local: string | null }> = resolveDestination,
   ) {}
@@ -132,15 +139,16 @@ export class BrowserService implements BrowserController {
     source: UserRequestSource = { pageUrl: '', mainFrame: false },
   ): boolean {
     if (!fromAgentSession) return allowsUserRequest(url, source);
-    if (this.offline && NETWORK_URL.test(url)) return false;
+    if (this.network === 'offline' && NETWORK_URL.test(url)) return false;
     if (this.publicPage && /^(https?|wss?):/i.test(url) && isLocalHostname(hostnameOf(url))) return false;
     if (!/^file:/i.test(url) || !this.isNavigationAllowed) return true;
     return this.isNavigationAllowed(url);
   }
 
   // allowsRequest, and for a public page also what each host name resolves to: a public name that resolves to this
-  // machine, the local network or cloud metadata is refused too (#260). Names are resolved once per page. Chromium
-  // resolves the name again itself, so a name whose answer changes in between (DNS rebinding) is not fully covered.
+  // machine, the local network or cloud metadata is refused too (#260). Names are resolved once per page, for an early
+  // and clear refusal; a name whose answer changes afterwards (DNS rebinding) is caught by the proxy a public page's
+  // connections go through, which checks every connection again (#301).
   // In the user's session a file inside the page's folder may still be a link to one outside it, so both are compared
   // again with links resolved.
   async checkRequest(url: string, fromAgentSession = true, source?: UserRequestSource): Promise<boolean> {
@@ -161,13 +169,14 @@ export class BrowserService implements BrowserController {
     return !(await local);
   }
 
-  // Takes the agent's session off the network before a project file loads, and back on before a web page loads. A
-  // file page still showing is replaced first, so its scripts never run with the network back on.
-  private async setNetwork(guest: WebContents, offline: boolean): Promise<void> {
-    if (offline === this.offline) return;
-    if (!offline) await guest.loadURL('about:blank').catch(() => {});
-    await this.setOffline(offline);
-    this.offline = offline;
+  // Sets the agent's session network before a page loads. A page still showing is replaced first when its session
+  // would get more network than it has (a file page going online, a public page going direct), so its scripts never
+  // run with it.
+  private async setNetwork(guest: WebContents, mode: BrowserNetwork): Promise<void> {
+    if (mode === this.network) return;
+    if (this.network === 'offline' || mode === 'direct') await guest.loadURL('about:blank').catch(() => {});
+    await this.setNetworkMode(mode);
+    this.network = mode;
   }
 
   // A new chat or project starts the agent's browser afresh: no page, no history, no cookies or storage from before.
@@ -181,9 +190,9 @@ export class BrowserService implements BrowserController {
       await guest.loadURL('about:blank').catch(() => {});
       guest.navigationHistory.clear();
     }
-    if (this.offline) {
-      await this.setOffline(false);
-      this.offline = false;
+    if (this.network !== 'direct') {
+      await this.setNetworkMode('direct');
+      this.network = 'direct';
     }
     await this.clearStorage();
   }
@@ -224,8 +233,8 @@ export class BrowserService implements BrowserController {
     try {
       // The chat may have been stopped while waiting for the panel, before the abort listener existed.
       if (signal.aborted) throw new Error('Stopped.');
-      await this.setNetwork(guest, /^file:/i.test(url));
       this.publicPage = /^https?:/i.test(url) && !isLocalHostname(hostnameOf(url));
+      await this.setNetwork(guest, /^file:/i.test(url) ? 'offline' : this.publicPage ? 'public' : 'direct');
       this.resolved = new Map();
       await Promise.race([
         guest.loadURL(url).catch((loadError: Error) => {

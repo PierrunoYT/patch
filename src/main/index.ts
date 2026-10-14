@@ -30,6 +30,7 @@ import { SettingsStore } from './settings';
 import { removeStaleTempFiles } from './storage/json_file';
 import { changesToConfirm, projectChangesToConfirm, projectOpenToConfirm, secretToConfirm } from './settings_confirm';
 import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
+import { startFilteringProxy, type FilteringProxy } from './tools/net_proxy';
 import { releaseProjectGrant } from './tools/sandbox_windows';
 import { commandStopsSettled } from './tools/shell';
 import { Workspace } from './tools/workspace';
@@ -136,6 +137,15 @@ function start(): void {
   const llm = new LlmService(settings);
   // The agent browses in its own in-memory session, never the user's persistent one (#148).
   const agentBrowserSession = session.fromPartition(AGENT_BROWSER_PARTITION);
+  // Any public host and port, never a local one. A failed start is retried with the next public page.
+  let browserProxy: Promise<FilteringProxy> | undefined;
+  const startBrowserProxy = () =>
+    startFilteringProxy({ allowedHosts: null, ports: 'any', tlsName: false }, process.platform, { tcp: true }).catch(
+      (error: unknown) => {
+        browserProxy = undefined;
+        throw error;
+      },
+    );
   const browser = new BrowserService(
     () => send(mainWindow, 'panel:show', 'browser'),
     async () => {
@@ -144,12 +154,17 @@ function start(): void {
       await agentBrowserSession.clearAuthCache();
     },
     // Offline means every connection goes to a proxy that does not exist, loopback included (Chromium otherwise sends
-    // localhost past a proxy), so DNS prefetching and WebRTC cannot reach the network either (#229).
-    async (offline) => {
+    // localhost past a proxy), so DNS prefetching and WebRTC cannot reach the network either (#229). A public page's
+    // connections all go through Patch's pinning proxy, loopback included, which refuses local destinations on every
+    // connection and dials only the address it checked (#301). It starts with the first public page.
+    async (mode) => {
+      const proxy = mode === 'public' ? await (browserProxy ??= startBrowserProxy()) : null;
       await agentBrowserSession.setProxy(
-        offline
+        mode === 'offline'
           ? { mode: 'fixed_servers', proxyRules: 'http://0.0.0.0:9', proxyBypassRules: '<-loopback>' }
-          : { mode: 'system' },
+          : proxy
+            ? { mode: 'fixed_servers', proxyRules: `http://${proxy.socketPath}`, proxyBypassRules: '<-loopback>' }
+            : { mode: 'system' },
       );
       await agentBrowserSession.closeAllConnections();
     },
