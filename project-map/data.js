@@ -641,14 +641,6 @@ const D = {
       0,
       '10-11',
     ],
-    [
-      290,
-      'A file changed right after a run is not reported as changed (flaky session test)',
-      'tests',
-      'low',
-      0,
-      '10-11',
-    ],
     [289, 'Claude Code chats: subagent tool cards end as "(stopped)"', 'other', 'low', 0, '10-11'],
     [288, 'Read tools and the code index follow hard links out of the project', 'security', 'low', 0, '10-11'],
     [287, 'ChatGPT tokens and MCP secrets saved as plain text without confirmation', 'security', 'low', 0, '10-11'],
@@ -738,7 +730,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 227,
+  closedCount: 228,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

@@ -343,6 +343,28 @@ describe('telling the model about Git and outside changes (#85)', () => {
     chat.dispose();
   });
 
+  it('notices a read file written the moment the run reports it is done (#290)', async () => {
+    root = mkdtempSync(join(tmpdir(), 'cc-session-'));
+    const file = join(root, 'a.ts');
+    writeFileSync(file, 'one');
+    const conversation = new ScriptedTurns();
+    let writeWhenIdle = false;
+    const { chat } = session(conversation, () => false, {
+      projectPath: root,
+      readFiles: [[file, 'hash']],
+      // A formatter or watcher that writes as soon as the chat is idle: before the fix, the baseline was taken after.
+      onEvent: (event) => {
+        if (writeWhenIdle && event.type === 'busy' && !event.busy) writeFileSync(file, 'written when idle');
+      },
+    });
+    writeWhenIdle = true;
+    await chat.send({ text: 'first' });
+    writeWhenIdle = false;
+    await chat.send({ text: 'second' });
+    expect(conversation.sent[1]).toContain('Changed outside this chat since your last turn: a.ts (modified).');
+    chat.dispose();
+  });
+
   it('ends as a stop when stopped while Git is read, keeping the message for Resume', async () => {
     let answer: (git: GitContext) => void = () => {};
     const { chat, conversation } = gitChat({ git: () => new Promise((resolve) => (answer = resolve)) });

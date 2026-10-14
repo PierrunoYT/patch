@@ -351,10 +351,12 @@ export class ChatSession {
   }
 
   // Records the read files' sizes and times and the Git HEAD after a run, so the next message can tell what changed
-  // outside the chat. Runs in the background; the next message waits for it.
-  private takeBaseline(): void {
-    const paths = [...this.readFiles.keys()];
-    const baseline = Promise.all([this.readGit(), fileStamps(paths)]).then(([git, stamps]) => {
+  // outside the chat. The file stamps are taken before the run counts as finished, so a file written right after it
+  // (a formatter, a watcher, the user) is never folded into the baseline (#290); Git is read in the background and the
+  // next message waits for it.
+  private async takeBaseline(): Promise<void> {
+    const stamps = await fileStamps([...this.readFiles.keys()]);
+    const baseline = this.readGit().then((git) => {
       if (git) this.gitHead = { branch: git.branch, head: git.head };
       return { git: git ? { branch: git.branch, head: git.head } : null, stamps };
     });
@@ -418,8 +420,8 @@ export class ChatSession {
       this.running = false;
       this.rejectPendingApprovals();
       if (stopped || providerFailure) this.setResumable(true);
+      if (!this.disposed) await this.takeBaseline();
       this.emit({ type: 'busy', busy: false });
-      if (!this.disposed) this.takeBaseline();
       this.keepAlivesLeft = KEEP_ALIVE_MAX;
       this.scheduleKeepAlive();
     }
