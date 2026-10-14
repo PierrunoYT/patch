@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Seek, SeekFrom, Write};
 use std::os::windows::{
     ffi::OsStrExt,
     fs::{MetadataExt, OpenOptionsExt},
@@ -176,8 +176,7 @@ fn reopen(path: &Path, expected: &[u8]) -> io::Result<File> {
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0)
         .open(path)?;
     regular(&file, true)?;
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
+    let bytes = crate::read_limited(&mut file)?;
     if bytes != expected {
         return Err(invalid("File changed during the operation; read it again."));
     }
@@ -392,9 +391,7 @@ impl Root {
             Err(e) => return Err(e),
         };
         regular(&file, false)?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        Ok(Some(bytes))
+        Ok(Some(crate::read_limited(&mut file)?))
     }
 
     pub fn prepare(
@@ -438,9 +435,7 @@ impl Root {
         };
         let current = if let Some(file) = &mut file {
             regular(file, true)?;
-            let mut bytes = Vec::new();
-            file.read_to_end(&mut bytes)?;
-            Some(bytes)
+            Some(crate::read_limited(file)?)
         } else {
             None
         };

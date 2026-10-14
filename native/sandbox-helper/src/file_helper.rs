@@ -11,6 +11,28 @@ mod platform;
 #[path = "file_ops/windows.rs"]
 mod platform;
 
+// The largest file the file tools read or write, and the largest request (Base64 inflates content by a third). Both
+// are checked here, before anything is buffered whole, not only by the caller's own limits (#297).
+const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_REQUEST_BYTES: u64 = 128 * 1024 * 1024;
+
+fn too_large() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        "The file is larger than 16 MB, the most the file tools read or change.",
+    )
+}
+
+// Reads a whole file, refusing one larger than MAX_FILE_BYTES without reading past the limit.
+fn read_limited(file: &mut impl Read) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    Read::take(&mut *file, MAX_FILE_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_FILE_BYTES {
+        return Err(too_large());
+    }
+    Ok(bytes)
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Request {
@@ -79,6 +101,12 @@ fn execute(request: Request) -> Result<Vec<Option<String>>, String> {
                     .map(|s| STANDARD.decode(s))
                     .transpose()
                     .map_err(|e| e.to_string())?;
+                if after
+                    .as_ref()
+                    .is_some_and(|bytes| bytes.len() as u64 > MAX_FILE_BYTES)
+                {
+                    return Err(too_large().to_string());
+                }
                 pending.push(
                     root.prepare(parts(&path)?, before, after)
                         .map_err(|e| e.to_string())?,
@@ -118,8 +146,12 @@ fn main() {
     let result = (|| {
         let mut input = String::new();
         io::stdin()
+            .take(MAX_REQUEST_BYTES + 1)
             .read_to_string(&mut input)
             .map_err(|e| e.to_string())?;
+        if input.len() as u64 > MAX_REQUEST_BYTES {
+            return Err("The file operation is too large.".to_string());
+        }
         execute(serde_json::from_str(&input).map_err(|e| format!("Invalid file operation: {e}"))?)
     })();
     let output = match result {
@@ -132,6 +164,42 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_and_writes_only_files_up_to_the_size_limit() {
+        let base = std::env::temp_dir().join(format!("patch-file-limit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let limit = MAX_FILE_BYTES as usize;
+        std::fs::write(base.join("fits.bin"), vec![b'a'; limit]).unwrap();
+        // Sparse on most file systems: the helper must refuse it without reading it whole.
+        let big = std::fs::File::create(base.join("big.bin")).unwrap();
+        big.set_len(MAX_FILE_BYTES * 64).unwrap();
+        drop(big);
+        let root = platform::Root::open(&base).unwrap();
+        assert_eq!(
+            root.read(&["fits.bin".into()]).unwrap().unwrap().len(),
+            limit
+        );
+        let refused = root.read(&["big.bin".into()]).unwrap_err();
+        assert!(refused.to_string().contains("larger than 16 MB"));
+        assert!(root.prepare(vec!["big.bin".into()], None, None).is_err());
+        drop(root);
+        let request = |after: &[u8]| Request {
+            root: base.to_string_lossy().into_owned(),
+            operations: vec![Operation::Change {
+                path: "new.bin".into(),
+                before: None,
+                after: Some(STANDARD.encode(after)),
+            }],
+        };
+        let refused = execute(request(&vec![b'b'; limit + 1])).unwrap_err();
+        assert!(refused.contains("larger than 16 MB"));
+        assert!(!base.join("new.bin").exists());
+        execute(request(b"small")).unwrap();
+        assert_eq!(std::fs::read(base.join("new.bin")).unwrap(), b"small");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
 
     #[test]
     fn a_failing_change_undoes_the_ones_before_it() {

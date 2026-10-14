@@ -625,14 +625,6 @@ const D = {
       '10-13',
     ],
     [
-      297,
-      'file-helper and sandbox-helper read stdin and target files without a size cap',
-      'tools',
-      'medium',
-      0,
-      '10-13',
-    ],
-    [
       294,
       'Sandboxed commands can replace a submodule’s .git, which host Git recurses into',
       'sandbox',
@@ -754,7 +746,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 223,
+  closedCount: 224,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

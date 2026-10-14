@@ -1,6 +1,6 @@
 use std::ffi::CString;
 use std::fs::File;
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Seek, SeekFrom, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
@@ -173,9 +173,7 @@ impl Root {
             Err(e) => return Err(e),
         };
         regular(&file, false)?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        Ok(Some(bytes))
+        Ok(Some(crate::read_limited(&mut file)?))
     }
 
     pub fn prepare(
@@ -199,9 +197,7 @@ impl Root {
         };
         let current = if let Some(file) = &mut file {
             regular(file, true)?;
-            let mut bytes = Vec::new();
-            file.read_to_end(&mut bytes)?;
-            Some(bytes)
+            Some(crate::read_limited(file)?)
         } else {
             None
         };

@@ -276,8 +276,19 @@ pub fn serve() {
     }
     let jobs: Jobs = Arc::new(Mutex::new(HashMap::new()));
     let mut workers = Vec::new();
-    for line in std::io::stdin().lock().lines() {
-        let Ok(line) = line else { break };
+    let mut input = std::io::stdin().lock();
+    loop {
+        let line = match read_request_line(&mut input) {
+            Ok(Some(line)) => line,
+            Ok(None) => break,
+            Err(message) => {
+                emitter.send(&Event::Error {
+                    id: None,
+                    message: &message,
+                });
+                break;
+            }
+        };
         if line.trim().is_empty() {
             continue;
         }
@@ -2124,6 +2135,27 @@ fn bridge_source() -> Result<PathBuf> {
     }
 }
 
+// Patch's requests are small JSON lines (a command, its environment and path grants). One longer than this is refused
+// and ends the session instead of being buffered without bound (#297). None at the end of input.
+const MAX_REQUEST_LINE: u64 = 16 * 1024 * 1024;
+
+fn read_request_line(input: &mut impl BufRead) -> Result<Option<String>> {
+    let mut bytes = Vec::new();
+    let read = input
+        .take(MAX_REQUEST_LINE + 1)
+        .read_until(b'\n', &mut bytes)
+        .map_err(|e| format!("cannot read the sandbox request: {e}"))?;
+    if read == 0 {
+        return Ok(None);
+    }
+    if bytes.len() as u64 > MAX_REQUEST_LINE {
+        return Err("sandbox request is too large".into());
+    }
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| "sandbox request is not UTF-8".into())
+}
+
 fn run(request: &Request, emitter: &Emitter, jobs: &Jobs) -> Result<()> {
     run_inner(request, Some(emitter), jobs).map(|_| ())
 }
@@ -2829,6 +2861,30 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn request_lines_are_read_one_at_a_time_and_capped() {
+        let mut input = std::io::Cursor::new(b"{\"a\":1}\n\nlast".to_vec());
+        assert_eq!(
+            read_request_line(&mut input).unwrap().as_deref(),
+            Some("{\"a\":1}\n")
+        );
+        assert_eq!(
+            read_request_line(&mut input).unwrap().as_deref(),
+            Some("\n")
+        );
+        assert_eq!(
+            read_request_line(&mut input).unwrap().as_deref(),
+            Some("last")
+        );
+        assert_eq!(read_request_line(&mut input).unwrap(), None);
+        // A line over the cap is refused after reading at most the cap and one byte, not buffered whole.
+        let mut long = std::io::Cursor::new(vec![b'x'; MAX_REQUEST_LINE as usize + 10]);
+        assert!(read_request_line(&mut long)
+            .unwrap_err()
+            .contains("too large"));
+        assert_eq!(long.position(), MAX_REQUEST_LINE + 1);
+    }
 
     #[test]
     fn sensitive_path_comparison_is_component_aware_and_case_insensitive() {

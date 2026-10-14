@@ -58,6 +58,9 @@ function projectRelative(workspace: Workspace, path: string): string {
   return relative(root, absolute).split(sep).join('/');
 }
 
+// A read returns one file of at most 16 MB (MAX_FILE_BYTES in file_helper.rs) as Base64 in JSON.
+const MAX_HELPER_OUTPUT = 24 * 1024 * 1024;
+
 async function execute(workspace: Workspace, operations: Operation[]): Promise<(Buffer | null)[]> {
   const input = JSON.stringify({
     root: workspace.root,
@@ -71,7 +74,20 @@ async function execute(workspace: Workspace, operations: Operation[]): Promise<(
   return new Promise((resolve, reject) => {
     const child = spawn(helperPath(), [], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     const output: Buffer[] = [];
-    child.stdout.on('data', (data: Buffer) => output.push(data));
+    let size = 0;
+    child.stdout.on('data', (data: Buffer) => {
+      size += data.length;
+      // The helper refuses files over 16 MB itself (#297); this bounds what is buffered here whatever it sends.
+      if (size > MAX_HELPER_OUTPUT) {
+        child.stdout.destroy();
+        child.kill();
+        reject(
+          new ToolError('The native file helper sent more than the largest file it may read. No file was changed.'),
+        );
+        return;
+      }
+      output.push(data);
+    });
     // The helper never writes file content to stderr; drain it without logging paths or contents.
     child.stderr.resume();
     child.on('error', reject);

@@ -8,6 +8,7 @@ import {
   writeFileSync,
   existsSync,
   linkSync,
+  truncateSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -65,6 +66,20 @@ describe('native project file operations (#144)', () => {
     expect(writtenByPatchSince(workspace.root, '.vscode', mark)).toBe(true);
     expect(writtenByPatchSince(workspace.root, 'agents.md', mark)).toBe(true);
     expect(writtenByPatchSince(workspace.root, '.github', mark)).toBe(false);
+  });
+
+  it('refuses to read or write a file over 16 MB inside the helper (#297)', async () => {
+    // Sparse: a helper that read it whole would buffer a gigabyte before the caller's own size checks.
+    writeFileSync(join(project, 'huge.bin'), '');
+    truncateSync(join(project, 'huge.bin'), 1024 ** 3);
+    await expect(readProjectFile(workspace, 'huge.bin')).rejects.toThrow(/larger than 16 MB/);
+    await expect(
+      changeProjectFiles(workspace, [{ path: 'huge.bin', before: null, after: bytes('x') }]),
+    ).rejects.toThrow(/larger than 16 MB/);
+    await expect(
+      changeProjectFiles(workspace, [{ path: 'big.txt', before: null, after: Buffer.alloc(16 * 1024 ** 2 + 1) }]),
+    ).rejects.toThrow(/larger than 16 MB/);
+    expect(existsSync(join(project, 'big.txt'))).toBe(false);
   });
 
   it('records a protected write spelled through an alias of the project root (#276)', async () => {
