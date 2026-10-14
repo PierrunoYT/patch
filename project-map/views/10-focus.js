@@ -49,11 +49,11 @@ builders.focus = () => {
       'A full audit with a second pass found no Windows sandbox escape on its own; the worst issues were chains past the approval card. Most of its findings are fixed: the agent browser goes offline for project files and keeps public pages off local addresses (#229, #235), MCP cards show arguments (#230), Initialize stops sandboxed processes first (#231), the proxy checks TLS server names (#239), plan mode and permission rules are enforced as documented (#237, #238), and secrets stay out of embeddings and truncated output (#234, #253). A public page cannot reach local services by a name that resolves to one (#260), a failed patch is undone in the native helper (#242), and only the Patch sandbox can read the Windows toolchain cache (#151).',
       [
         '#240 is fixed: a message the API refuses with 400 or 413 is taken back, user images are checked by their bytes and size, and tool-result images become text for a model that takes none',
-        '#232 (macOS): Seatbelt lets commands read and write every user tty; denying it also breaks programs that open their own pty',
+        '#232 is fixed: Seatbelt denies /dev/ptmx and every /dev/ttys*, so a command cannot read or print into another terminal; programs that open their own pty need an unsandboxed run',
         '#257 (macOS, unverified): hard links into the project may get past the hidden home folder and read-only .git',
         '#259 is fixed: the native file helper replaces a file through a flushed temporary file and a rename, so a crash leaves the old or the new file, never a short one',
       ],
-      'The macOS items need a Mac to verify.',
+      '#257 needs a Mac to verify; the #232 regression test runs on the macOS CI job.',
     ],
     [
       'Continue with medium sandbox hardening: #96 and #271',

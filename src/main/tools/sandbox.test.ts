@@ -308,6 +308,16 @@ describe('seatbeltProfile', () => {
     expect(profile).not.toContain('network');
   });
 
+  it('denies every pseudo-terminal, including other terminals’ ttys, after the broad read and write grants', () => {
+    const profile = seatbeltProfile({ ...env(), grants: { read: ['/dev'], write: ['/dev'] } }, false);
+    expect(profile).not.toContain('pseudo-tty');
+    expect(profile).not.toContain('ttys[0-9]');
+    const lines = profile.split('\n');
+    const deny = lines.indexOf('(deny file-read* file-write* (literal "/dev/ptmx") (regex #"^/dev/(ttys|pty)"))');
+    expect(deny).toBeGreaterThan(-1);
+    expect(deny).toBeGreaterThan(lines.findLastIndex((line) => line.startsWith('(allow file-')));
+  });
+
   it('allows the network when asked and escapes quotes in paths', () => {
     expect(seatbeltProfile(env(), true)).toContain('(allow network*)');
     expect(seatbeltProfile({ ...env(), cwd: '/a"b' }, false)).toContain('(subpath "/a\\"b")');

@@ -368,7 +368,6 @@ export function seatbeltProfile(
     // names (PyTorch); a broader grant would let a command open host processes' segments by name.
     '(allow ipc-posix-sem)',
     '(allow ipc-posix-shm-read-data ipc-posix-shm-write-create ipc-posix-shm-write-unlink (ipc-posix-name-regex #"^/__KMP_REGISTERED_LIB_[0-9]+$"))',
-    '(allow pseudo-tty)',
     // Later rules win: read everything, hide the home folder, then open the folders builds need.
     '(allow file-read*)',
     `(deny file-read* ${subpath(env.home)})`,
@@ -384,10 +383,12 @@ export function seatbeltProfile(
   // A second writable host tree would let a command move an opened file outside the project while a direct-edit
   // helper still holds its descriptor (#144). Command temp must therefore remain inside the project on macOS.
   const writable = [env.cwd, ...(env.grants?.write ?? [])];
-  lines.push(
-    `(allow file-write* ${writable.map(subpath).join(' ')} (literal "/dev/null") (literal "/dev/tty") (regex #"^/dev/ttys[0-9]+$"))`,
-  );
+  lines.push(`(allow file-write* ${writable.map(subpath).join(' ')} (literal "/dev/null") (literal "/dev/tty"))`);
   lines.push(`(deny file-write* ${env.protectedPaths.map(subpath).join(' ')})`);
+  // Commands run on pipes and need no terminal of their own. Seatbelt matches device paths, so it cannot tell a pty
+  // the command opened from another terminal's, and every pty would let a command read keystrokes typed there (a sudo
+  // password in the terminal panel) or print into it. Programs that need a pty must run unsandboxed (#232).
+  lines.push('(deny file-read* file-write* (literal "/dev/ptmx") (regex #"^/dev/(ttys|pty)"))');
   // A project in a writable temp tree must not move out from under the pathname-based deny rule.
   for (let path = env.cwd; path !== '/'; path = posix.dirname(path)) {
     lines.push(`(deny file-write-unlink (literal ${sbplString(path)}))`);

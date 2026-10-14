@@ -39,6 +39,7 @@ const probeSource = String.raw`
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <stdlib.h>
 #include <sys/sysctl.h>
 #include <unistd.h>
 
@@ -91,6 +92,27 @@ int main(int argc, char **argv) {
     int result = sysctlbyname(argv[2], value, &size, NULL, 0);
     int saved = errno;
     printf("{\"entered\":true,\"read\":%s,\"error\":%d}\n", result == 0 ? "true" : "false", saved);
+    return 0;
+  }
+  if (strcmp(argv[1], "holdpty") == 0) {
+    int master = posix_openpt(O_RDWR | O_NOCTTY);
+    if (master < 0 || grantpt(master) != 0 || unlockpt(master) != 0) return 1;
+    printf("{\"entered\":true,\"path\":\"%s\"}\n", ptsname(master));
+    fflush(stdout);
+    char buffer[1];
+    while (read(0, buffer, 1) > 0) {
+    }
+    close(master);
+    return 0;
+  }
+  if (strcmp(argv[1], "open") == 0) {
+    if (argc != 4) return 64;
+    int flags = strcmp(argv[3], "write") == 0 ? O_WRONLY : strcmp(argv[3], "both") == 0 ? O_RDWR : O_RDONLY;
+    errno = 0;
+    int fd = open(argv[2], flags | O_NOCTTY | O_NONBLOCK);
+    int saved = errno;
+    if (fd >= 0) close(fd);
+    printf("{\"entered\":true,\"opened\":%s,\"error\":%d}\n", fd >= 0 ? "true" : "false", saved);
     return 0;
   }
   if (strcmp(argv[1], "sem") == 0) {
@@ -180,6 +202,7 @@ type ProbeResult = {
   read?: boolean;
   renamed?: boolean;
   error?: number;
+  path?: string;
 };
 
 describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${skipReason})` : ''}`, () => {
@@ -350,6 +373,41 @@ describe.skipIf(!available)(`real macOS Seatbelt regressions${skipReason ? ` (${
     const name = `/patch-sem-${process.pid}`;
     expect(runHostProbe('sem', name)).toMatchObject({ entered: true, opened: true });
     expect(runSandboxedProbe(['sem', name])).toMatchObject({ entered: true, opened: true });
+  });
+
+  it('cannot read or write another terminal’s tty, or open a new pseudo-terminal (#232)', async () => {
+    // A host process holds a pty open, standing in for a Terminal tab or the terminal panel.
+    const holder = spawn(probe, ['holdpty'], { cwd: project, stdio: ['pipe', 'pipe', 'inherit'] });
+    try {
+      const line = await new Promise<string>((resolve, reject) => {
+        let output = '';
+        holder.stdout.on('data', (data: Buffer) => {
+          output += data.toString();
+          if (output.includes('\n')) resolve(output.trim());
+        });
+        holder.once('error', reject);
+        holder.once('exit', (code) => reject(new Error(`pty holder exited with ${String(code)}`)));
+      });
+      const tty = (JSON.parse(line) as ProbeResult).path!;
+      expect(tty).toMatch(/^\/dev\/ttys[0-9]+$/);
+      // Host controls show the tty itself can be opened, so a denial below comes from Seatbelt.
+      expect(runHostProbe('open', tty, 'read')).toMatchObject({ entered: true, opened: true });
+      expect(runHostProbe('open', tty, 'write')).toMatchObject({ entered: true, opened: true });
+      expect(runHostProbe('open', '/dev/ptmx', 'both')).toMatchObject({ entered: true, opened: true });
+      for (const network of [false, true]) {
+        expect(runSandboxedProbe(['open', tty, 'read'], network)).toMatchObject({ entered: true, opened: false });
+        expect(runSandboxedProbe(['open', tty, 'write'], network)).toMatchObject({ entered: true, opened: false });
+        expect(runSandboxedProbe(['open', '/dev/ptmx', 'both'], network)).toMatchObject({
+          entered: true,
+          opened: false,
+        });
+      }
+      // The command's own null device stays writable.
+      expect(runSandboxedProbe(['open', '/dev/null', 'write'])).toMatchObject({ entered: true, opened: true });
+    } finally {
+      holder.stdin.end();
+      holder.kill();
+    }
   });
 
   it('blocks LaunchServices from starting a disposable application', () => {

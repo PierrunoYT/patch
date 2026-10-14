@@ -165,7 +165,7 @@ const D = {
         'sandbox_grants.ts (per-command read_paths and write_paths: canonical, exact, approved with the command and re-resolved at start, never network, #126)',
         'sandbox_grants.test.ts (resolution, overlaps, links, refusals and the mount arguments of each backend)',
         'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; entries a command created while absent are removed afterwards, #262; links and nested copies are #271)',
-        'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, shared-memory, semaphore and sysctl probes; skipped off macOS)',
+        'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, other-terminal tty and pty, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
         'apply_patch.ts (405; refuses files changed after the preview, #267; native batched mutations with original paths and byte snapshots, #144; same-path moves and UTF-8 checks; context lines keep the file text, #246; Windows names and case-only duplicates refused up front, #242)',
         'glob.ts',
@@ -695,7 +695,6 @@ const D = {
       '10-10',
     ],
     [257, 'macOS sandbox may allow hard links past hidden home and read-only .git', 'sandbox', 'low', 0, '10-09'],
-    [232, 'macOS sandbox lets commands read and write other terminals’ ttys', 'sandbox', 'high', 0, '10-09'],
     [
       227,
       'Windows sandbox: use the OS process security environment (PSEC) where available',
@@ -761,7 +760,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 221,
+  closedCount: 222,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
