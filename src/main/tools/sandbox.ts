@@ -1,8 +1,9 @@
 import { execFile } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { dirname, join, parse, posix, relative, resolve, sep } from 'node:path';
+import { dirname, join, parse, posix, relative, resolve, sep, win32 } from 'node:path';
 import type { SandboxMode, SandboxNetwork } from '@shared/settings';
 import { isNetworkUrlAllowed } from '../agent/allowed_network_hosts';
+import { trustedHelper } from './native_integrity';
 import { DEFAULT_LIMITS, findHelper, isPackagedElectron } from './sandbox_windows';
 import { protectedConfigPaths } from './sandbox_config';
 import { validateSandboxGit } from './sandbox_git';
@@ -28,7 +29,8 @@ export interface SandboxSupport {
   bwrap: boolean;
   // `systemd-run --user --scope` works, so bubblewrap commands can get process and memory limits (#104).
   scope?: boolean;
-  // Path of the net-bridge helper, so bubblewrap commands can get network filtered by host (#97).
+  // Path of the net-bridge helper, so bubblewrap and AppContainer commands can get network filtered by host (#97). On
+  // Windows sandbox-helper runs the copy next to itself; this records that it is there and trusted (#298).
   netBridge?: string | null;
   seatbelt: boolean;
   // Path of sandbox-helper.exe (Windows AppContainer).
@@ -118,7 +120,7 @@ export function filtersNetwork(
   platform: NodeJS.Platform,
 ): boolean {
   if (config.mode !== 'auto' || config.network !== 'allow-list' || access.network || access.unsandboxed) return false;
-  if (platform === 'win32') return Boolean(support.appcontainer);
+  if (platform === 'win32') return Boolean(support.appcontainer) && Boolean(support.netBridge);
   return platform === 'linux' && support.bwrap && Boolean(support.netBridge);
 }
 
@@ -589,29 +591,38 @@ export async function refreshSandboxSupport(
 
 // What this machine supports, from the last finished probes. Never blocks: call refreshSandboxSupport first.
 export function detectSandboxSupport(platform: NodeJS.Platform = process.platform): SandboxSupport {
+  const appcontainer = platform === 'win32' ? findHelper() : null;
   return {
     bwrap: platform === 'linux' && known(BWRAP_PROBE),
     scope: platform === 'linux' && known(SCOPE_PROBE),
-    netBridge: platform === 'linux' ? findNetBridge() : null,
+    netBridge: platform === 'linux' || appcontainer ? findNetBridge(platform, appcontainer) : null,
     seatbelt: platform === 'darwin' && existsSync('/usr/bin/sandbox-exec'),
-    appcontainer: platform === 'win32' ? findHelper() : null,
+    appcontainer,
     container: known(DOCKER_PROBE) ? 'docker' : known(PODMAN_PROBE) ? 'podman' : null,
   };
 }
 
-// The net-bridge helper (#97): in a packaged app only the copy in its resources folder, never one from a checkout.
-export function findNetBridge(): string | null {
+// The net-bridge helper (#97): in a packaged app only the copy in its resources folder, never one from a checkout, and
+// only with the digest it was built with (#298). On Windows sandbox-helper starts the copy next to itself, so that one is
+// checked; without a trusted bridge the allow-list setting leaves commands with no network instead.
+export function findNetBridge(platform: NodeJS.Platform = process.platform, helper?: string | null): string | null {
+  const name = platform === 'win32' ? 'net-bridge.exe' : 'net-bridge';
   const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
-  const packaged = isPackagedElectron(process.versions.electron, process.execPath, process.platform);
-  const paths = packaged
-    ? resources
-      ? [join(resources, 'net-bridge')]
-      : []
-    : [
-        join(__dirname, '../../native/sandbox-helper/target/release/net-bridge'),
-        join(__dirname, '../../../native/sandbox-helper/target/release/net-bridge'),
-      ];
-  return paths.find((path) => existsSync(path)) ?? null;
+  const packaged = isPackagedElectron(process.versions.electron, process.execPath, platform);
+  const paths =
+    platform === 'win32'
+      ? helper
+        ? [win32.join(win32.dirname(helper), name)]
+        : []
+      : packaged
+        ? resources
+          ? [join(resources, name)]
+          : []
+        : [
+            join(__dirname, '../../native/sandbox-helper/target/release', name),
+            join(__dirname, '../../../native/sandbox-helper/target/release', name),
+          ];
+  return paths.find((path) => existsSync(path) && (!packaged || trustedHelper(path))) ?? null;
 }
 
 // Probes every sandbox program, for tests that pick their cases from what the machine has.

@@ -537,6 +537,24 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
       ).toMatch(/^(ENOTFOUND|EAI_AGAIN|EAI_FAIL)$/);
     }, 90_000);
 
+    it('keeps the bridge copy in the writable temp folder read-only to the command (#298)', async () => {
+      // net-bridge.exe sits next to the command's npm cache, in the temporary root the command may change. (TEMP is
+      // no guide: Windows points an AppContainer process's TEMP at its package folder.)
+      const probe = `
+const fs = require('fs'), path = require('path');
+const root = path.dirname(process.env.NPM_CONFIG_CACHE), bridge = path.join(root, 'net-bridge.exe');
+const attempt = (action) => { try { action(); return 'ok'; } catch (e) { return e.code; } };
+console.log(JSON.stringify({
+  exists: fs.existsSync(bridge),
+  rootWritable: attempt(() => fs.writeFileSync(path.join(root, 'probe.txt'), 'x')),
+  write: attempt(() => fs.appendFileSync(bridge, 'x')),
+  rename: attempt(() => fs.renameSync(bridge, path.join(root, 'moved.exe'))),
+  remove: attempt(() => fs.unlinkSync(bridge)),
+}));`;
+      const result = JSON.parse(await filtered(sandboxNode, ['--no-warnings', '-e', probe])) as Record<string, unknown>;
+      expect(result).toEqual({ exists: true, rootWritable: 'ok', write: 'EPERM', rename: 'EPERM', remove: 'EPERM' });
+    }, 90_000);
+
     it('lets nothing out once the proxy is gone', async () => {
       const gone = await startFilteringProxy({ allowedHosts: 'allowed.test', ports: new Set([sitePort]) });
       await gone.close();

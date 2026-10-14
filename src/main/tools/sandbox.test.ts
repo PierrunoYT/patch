@@ -194,11 +194,20 @@ describe('wantsNetwork', () => {
 
   it('filters the allow-list setting by host in the Windows AppContainer too (#97)', () => {
     const list = { ...config, network: 'allow-list' as const };
-    const windows: SandboxSupport = { ...none, appcontainer: 'C:\\Patch\\resources\\sandbox-helper.exe' };
+    const windows: SandboxSupport = {
+      ...none,
+      appcontainer: 'C:\\Patch\\resources\\sandbox-helper.exe',
+      netBridge: 'C:\\Patch\\resources\\net-bridge.exe',
+    };
     expect(decideSandbox('npm install', list, windows, {}, 'win32')).toEqual({
       kind: 'appcontainer',
       network: false,
       filtered: true,
+    });
+    // A missing or untrusted net-bridge.exe (#298) leaves the command with no network, never unfiltered.
+    expect(decideSandbox('npm install', list, { ...windows, netBridge: null }, {}, 'win32')).toEqual({
+      kind: 'appcontainer',
+      network: false,
     });
     expect(decideSandbox('npm install', list, windows, { network: true }, 'win32')).toEqual({
       kind: 'appcontainer',

@@ -160,8 +160,8 @@ const D = {
         'sandbox_git.ts (313; asynchronous check with a per-project fingerprint cache, #112; a .git reservation file Git refuses (an empty folder plus a protected HEAD folder inside another repository), confined metadata pointers, trusted system links above the project and protected includes)',
         'sandbox_git.integration.test.ts (no Git, Husky, gitfiles/worktrees, metadata write and hard-link denial)',
         'added_entries.ts (60; Windows: entries added to the project since the last sandboxed command, which the helper makes inherit the project grant again, #140)',
-        'native_integrity.ts (42; a packaged Windows build runs sandbox-helper.exe and file-helper.exe only when they match the digests taken at build time, #149)',
-        'pe_digest.ts (33; SHA-256 of an executable that code signing does not change)',
+        'native_integrity.ts (42; a packaged build runs sandbox-helper.exe, file-helper.exe and net-bridge only when they match the digests taken at build time, #149, #298)',
+        'pe_digest.ts (39; SHA-256 of an executable that code signing does not change, or of the Linux net-bridge)',
         'sandbox_grants.ts (per-command read_paths and write_paths: canonical, exact, approved with the command and re-resolved at start, never network, #126)',
         'sandbox_grants.test.ts (resolution, overlaps, links, refusals and the mount arguments of each backend)',
         'sandbox_config.ts (54; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; entries a command created while absent are removed afterwards, #262; links and nested copies are #271)',
@@ -625,14 +625,6 @@ const D = {
       '10-13',
     ],
     [
-      298,
-      'net-bridge omitted from native helper integrity checks and copied writable into temp',
-      'sandbox',
-      'medium',
-      0,
-      '10-13',
-    ],
-    [
       297,
       'file-helper and sandbox-helper read stdin and target files without a size cap',
       'tools',
@@ -762,7 +754,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 222,
+  closedCount: 223,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

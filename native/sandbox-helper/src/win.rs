@@ -2560,8 +2560,14 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     // AppContainer cannot run it from the install folder), and has no network capability of its own.
     let relay = match (&request.proxy, &bridge) {
         (Some(proxy), Some(bridge)) => {
-            fs::copy(bridge, temporary_root.join("net-bridge.exe"))
+            let copy = temporary_root.join("net-bridge.exe");
+            fs::copy(bridge, &copy)
                 .map_err(|e| format!("cannot prepare the network bridge: {e}"))?;
+            // The folder is writable for the command; the bridge in it is not, so nothing inside can swap or change
+            // the program the command's network goes through (#298). Patch checked the source's digest.
+            let copy = copy.to_str().ok_or("non-Unicode temporary root")?;
+            protect_acl(copy, sid)?;
+            edit_acl(copy, sid, FILE_READ_EXECUTE, Change::Grant)?;
             Some(ProxyRelay::start(&profile, sid, proxy)?)
         }
         _ => None,

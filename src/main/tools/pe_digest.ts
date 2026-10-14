@@ -4,6 +4,12 @@ import { createHash } from 'node:crypto';
 // the certificate table entry, and appends the certificate (padded to 8 bytes), so those are left out, as Authenticode's
 // own image hash leaves them out. A digest taken when the helper is built therefore still matches it after a release
 // build signs it. Returns null for a file that is not a PE image.
+// The digest a bundled helper is pinned by: peDigest for a Windows executable, a plain SHA-256 for the Linux net-bridge,
+// which nothing rewrites after the build.
+export function helperDigest(name: string, bytes: Buffer): string | null {
+  return name.toLowerCase().endsWith('.exe') ? peDigest(bytes) : createHash('sha256').update(bytes).digest('hex');
+}
+
 export function peDigest(bytes: Buffer): string | null {
   if (bytes.length < 0x40 || bytes.readUInt16LE(0) !== 0x5a4d) return null;
   const pe = bytes.readUInt32LE(0x3c);

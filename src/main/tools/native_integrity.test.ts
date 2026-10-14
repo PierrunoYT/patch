@@ -1,10 +1,10 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { trustedHelper } from './native_integrity';
-import { peDigest } from './pe_digest';
+import { helperDigest, peDigest } from './pe_digest';
 
 function image(code: Buffer): Buffer {
   const header = Buffer.alloc(0x98 + 112 + 16 * 8);
@@ -41,5 +41,18 @@ describe('trustedHelper', () => {
   it('refuses a helper with no digest from the build, and a missing one', () => {
     expect(trustedHelper(helper, {})).toBe(false);
     expect(trustedHelper(join(dir, 'file-helper.exe'), { 'file-helper.exe': peDigest(bytes)! })).toBe(false);
+  });
+
+  it('pins the Linux net-bridge, which is not a PE image, by a plain SHA-256 (#298)', () => {
+    const bridge = join(dir, 'net-bridge');
+    const elf = Buffer.concat([Buffer.from('\x7fELF'), randomBytes(2048)]);
+    writeFileSync(bridge, elf);
+    const digests = { 'net-bridge': createHash('sha256').update(elf).digest('hex') };
+    expect(helperDigest('net-bridge', elf)).toBe(digests['net-bridge']);
+    expect(trustedHelper(bridge, digests)).toBe(true);
+    writeFileSync(bridge, Buffer.concat([Buffer.from('\x7fELF'), randomBytes(4096)]));
+    expect(trustedHelper(bridge, digests)).toBe(false);
+    // net-bridge.exe is a PE image, pinned like the other Windows helpers.
+    expect(helperDigest('net-bridge.exe', bytes)).toBe(peDigest(bytes));
   });
 });

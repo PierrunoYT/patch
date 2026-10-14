@@ -6,13 +6,13 @@ builders.focus = () => {
   const items = [
     [
       'Fix the Oct 13 Electron + Rust audit findings (#297–#305)',
-      'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed.',
+      'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command.',
       [
-        '#297 and #298: file-helper and sandbox-helper read stdin and target files without a byte cap before caller limits apply, and net-bridge.exe is omitted from __PATCH_NATIVE_DIGESTS__ and copied writable into the AppContainer temp folder',
+        '#297: file-helper and sandbox-helper read stdin and target files without a byte cap before caller limits apply',
         '#301, #303 and #304 (medium): BrowserService.checkRequest caches DNS lookups per page while Chromium resolves names again; exceedsEntryLimit walks toolchain folders synchronously on the main thread; ProxyRelay and net-bridge spawn unbounded OS threads per connection',
         '#299, #300, #302 and #305 (low): Jobs stores raw HANDLE as usize and misses a Drop guard on LPPROC_THREAD_ATTRIBUTE_LIST; isAppPageUrl checks devRendererUrl with startsWith; openInEditor passes unscrubbed env and allows %VAR% in file paths on Windows; runtime renderer packages sit in devDependencies',
       ],
-      'Order: #298 first, then #297, #301, #303 and #304, then the low-severity cleanup items.',
+      'Order: #297 first, then #301, #303 and #304, then the low-severity cleanup items.',
     ],
     [
       'Fix the Oct 11 audit findings: the low ones next',

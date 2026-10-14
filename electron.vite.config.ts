@@ -1,16 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
-import { peDigest } from './src/main/tools/pe_digest';
+import { helperDigest } from './src/main/tools/pe_digest';
 
 const shared = { '@shared': resolve(__dirname, 'src/shared') };
 
-// Digests of the Windows helpers that `npm run build` compiled just before this, so a packaged build runs only those
-// (native_integrity.ts, #149). Empty where they were not built.
+// Digests of the native helpers that `npm run build` compiled just before this, so a packaged build runs only those
+// (native_integrity.ts, #149), net-bridge included (#298). Empty where they were not built.
 const digests: Record<string, string> = {};
-for (const name of ['sandbox-helper.exe', 'file-helper.exe']) {
+for (const name of ['sandbox-helper.exe', 'file-helper.exe', 'net-bridge.exe', 'net-bridge']) {
   const path = resolve(__dirname, 'native/sandbox-helper/target/release', name);
-  const digest = existsSync(path) ? peDigest(readFileSync(path)) : null;
+  const digest = existsSync(path) ? helperDigest(name, readFileSync(path)) : null;
   if (digest) digests[name] = digest;
 }
 
