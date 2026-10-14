@@ -794,6 +794,7 @@ impl ProxyRelay {
             pipe_io::Event::new().map_err(|e| format!("cannot start the network relay: {e}"))?,
         );
         let (accepting, pipe_name, proxy) = (stop.clone(), name.clone(), proxy.to_string());
+        let slots = crate::slots::Slots::default();
         thread::spawn(move || {
             let mut next = Some(first);
             loop {
@@ -807,8 +808,14 @@ impl ProxyRelay {
                 if pipe.accept(&accepting).is_err() {
                     return;
                 }
+                // Over the cap the client is disconnected at once (#304).
+                let Some(slot) = slots.take() else {
+                    drop(pipe);
+                    continue;
+                };
                 let proxy = proxy.clone();
                 thread::spawn(move || {
+                    let _slot = slot;
                     // A proxy that is gone lets nothing through: the bridge's client sees the connection close.
                     if let Ok(upstream) = pipe_io::connect(&proxy, Duration::from_secs(5)) {
                         pipe_io::relay(pipe, upstream);

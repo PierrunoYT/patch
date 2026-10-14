@@ -15,6 +15,8 @@
 #[path = "pipe_io.rs"]
 mod pipe_io;
 
+mod slots;
+
 #[cfg(unix)]
 fn main() {
     use std::io::{self, Read, Write};
@@ -51,10 +53,17 @@ fn main() {
         done();
     }
 
+    let slots = slots::Slots::default();
     thread::spawn(move || {
         for client in listener.incoming().flatten() {
+            // Over the cap the client is closed at once (#304).
+            let Some(slot) = slots.take() else {
+                drop(client);
+                continue;
+            };
             let socket = socket.clone();
             thread::spawn(move || {
+                let _slot = slot;
                 // The proxy may be gone (the command outlived it): the client just sees the connection close.
                 let Ok(upstream) = UnixStream::connect(&socket) else {
                     return;
@@ -173,10 +182,19 @@ fn main() {
         stop.set();
     }
 
+    let slots = slots::Slots::default();
     thread::spawn(move || {
         for client in listener.incoming().flatten() {
+            // Over the cap the client is closed at once (#304).
+            let Some(slot) = slots.take() else {
+                drop(client);
+                continue;
+            };
             let pipe = pipe.clone();
-            thread::spawn(move || forward(client, &pipe));
+            thread::spawn(move || {
+                let _slot = slot;
+                forward(client, &pipe)
+            });
         }
     });
 

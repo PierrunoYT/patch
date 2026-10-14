@@ -8,10 +8,10 @@ builders.focus = () => {
       'Fix the Oct 13 Electron + Rust audit findings (#299–#305)',
       'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command. #297 is fixed too: the native helpers refuse files over 16 MB and cap their input.',
       [
-        '#303 and #304 (medium): exceedsEntryLimit walks toolchain folders synchronously on the main thread; ProxyRelay and net-bridge spawn unbounded OS threads per connection',
+        '#303 (medium): exceedsEntryLimit walks toolchain folders synchronously on the main thread',
         '#299, #300, #302 and #305 (low): Jobs stores raw HANDLE as usize and misses a Drop guard on LPPROC_THREAD_ATTRIBUTE_LIST; isAppPageUrl checks devRendererUrl with startsWith; openInEditor passes unscrubbed env and allows %VAR% in file paths on Windows; runtime renderer packages sit in devDependencies',
       ],
-      '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked. Order: #303 and #304, then the low-severity cleanup items.',
+      '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, and #304: the network relay and net-bridge serve at most 64 connections at once. Order: #303, then the low-severity cleanup items.',
     ],
     [
       'Fix the Oct 11 audit findings: the low ones next',

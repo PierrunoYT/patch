@@ -3,6 +3,8 @@
 #[cfg(windows)]
 mod pipe_io;
 mod proto;
+#[cfg(windows)]
+mod slots;
 mod text;
 #[cfg(windows)]
 mod win;
