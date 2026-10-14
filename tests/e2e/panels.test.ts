@@ -247,7 +247,9 @@ describe('side panels', () => {
       // The user signs in with their own browser in the panel.
       await running.page.getByLabel('Address').fill(`${origin}/login`);
       await running.page.getByLabel('Address').press('Enter');
-      await expect.poll(() => cookieNames('persist:browser')).toContain('patch_user_session');
+      // The user's webview loads the page and stores the cookie on its own schedule; on a busy CI runner that takes
+      // longer than expect.poll's 1 s default.
+      await expect.poll(() => cookieNames('persist:browser'), { timeout: 15_000 }).toContain('patch_user_session');
 
       await running.page.evaluate(() => window.api.invoke('settings:update', { allowedNetworkHosts: '127.0.0.1' }));
       claude.script(
