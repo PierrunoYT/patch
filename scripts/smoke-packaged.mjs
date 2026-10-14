@@ -6,7 +6,7 @@
 // missing. Last, it chats with a local stand-in for the Claude API and approves a file edit from its card. Exits
 // non-zero, with what it saw, when anything fails.
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -124,6 +124,12 @@ writeFileSync(
     },
     secrets: { anthropicApiKey: 'plain:sk-ant-smoke' },
   }),
+);
+// Listed as a recent project, since project:open asks natively before opening a folder that is not (#282), and a
+// packaged app has no hook to answer that dialog. The store keeps real paths (macOS temp is behind /var).
+writeFileSync(
+  join(profile, 'projects.json'),
+  JSON.stringify([{ path: realpathSync.native(project), name: 'smoke', instructions: '', lastOpened: '' }]),
 );
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
