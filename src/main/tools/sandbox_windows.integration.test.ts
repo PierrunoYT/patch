@@ -1227,10 +1227,13 @@ describe.skipIf(!helper)('Project write grant (real helper, #103)', () => {
     const entry = await runner.startBackground('Start-Sleep -Seconds 120');
     try {
       await expect.poll(() => acl(project), { timeout: 30_000 }).toMatch(capability);
+      // The grant is in place before the command starts; stopping it during preparation would test something else.
+      await expect.poll(() => entry.process.pid, { timeout: 30_000 }).toBeDefined();
       expect(await revokeProjectGrant(project, helper)).toMatch(/still run/);
       expect(acl(project)).toMatch(capability);
     } finally {
-      const closed = once(entry.process, 'close');
+      // Not events.once: it rejects on the error a run stopped during preparation reports, before 'close'.
+      const closed = new Promise((resolve) => entry.process.once('close', resolve));
       runner.stopBackground(entry.id);
       await closed;
     }
