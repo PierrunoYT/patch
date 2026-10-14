@@ -40,27 +40,32 @@ function helperPath(): string {
   return helper;
 }
 
+// The path relative to the project root, as the caller spelled it below the root. An absolute input may spell the root
+// through a system alias (/tmp or /var on macOS, or a Windows 8.3 name): its outermost root-equivalent prefix is used,
+// and components below the project root are never canonicalized.
+function projectRelative(workspace: Workspace, path: string): string {
+  const absolute = resolve(workspace.root, path);
+  let root = workspace.root;
+  if (isAbsolute(path)) {
+    for (let parent = dirname(absolute); parent !== dirname(parent); parent = dirname(parent)) {
+      try {
+        if (realpathSync.native(parent) === workspace.root) root = parent;
+      } catch {
+        // Missing parents are created by the native helper, never by a host pathname write.
+      }
+    }
+  }
+  return relative(root, absolute).split(sep).join('/');
+}
+
 async function execute(workspace: Workspace, operations: Operation[]): Promise<(Buffer | null)[]> {
   const input = JSON.stringify({
     root: workspace.root,
     operations: operations.map((operation) => {
       workspace.resolve(operation.path);
-      const absolute = resolve(workspace.root, operation.path);
-      let root = workspace.root;
-      if (isAbsolute(operation.path)) {
-        // An absolute input may spell the root through a system alias (/tmp on macOS, or Windows 8.3).
-        // Use its outermost root-equivalent prefix; never canonicalize components below the project root.
-        for (let parent = dirname(absolute); parent !== dirname(parent); parent = dirname(parent)) {
-          try {
-            if (realpathSync.native(parent) === workspace.root) root = parent;
-          } catch {
-            // Missing parents are created by the native helper, never by a host pathname write.
-          }
-        }
-      }
       // Keep the caller's spelling for the native no-follow walk. Using the canonical target here would erase
       // a link introduced after the approval check, including a link to a protected file inside the project.
-      return { ...operation, path: relative(root, absolute).split(sep).join('/') };
+      return { ...operation, path: projectRelative(workspace, operation.path) };
     }),
   });
   return new Promise((resolve, reject) => {
@@ -110,6 +115,7 @@ export async function changeProjectFiles(workspace: Workspace, changes: Change[]
   } finally {
     // Also after a failure, which may leave a folder the helper created: the sandbox guard must not take a protected
     // entry the edit tools wrote for one a sandboxed command created (#276).
-    for (const { path } of changes) notePatchWrite(workspace.root, path);
+    // Relative through any root alias, or an absolute path spelled with one would name `..` here, not the entry.
+    for (const { path } of changes) notePatchWrite(workspace.root, projectRelative(workspace, path));
   }
 }

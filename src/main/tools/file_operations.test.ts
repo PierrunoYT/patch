@@ -67,6 +67,16 @@ describe('native project file operations (#144)', () => {
     expect(writtenByPatchSince(workspace.root, '.github', mark)).toBe(false);
   });
 
+  it('records a protected write spelled through an alias of the project root (#276)', async () => {
+    // Like /var on macOS or a Windows 8.3 temp folder, the alias resolves to the root but is not spelled like it.
+    const alias = join(fixture, 'root-alias');
+    symlinkSync(project, alias, process.platform === 'win32' ? 'junction' : 'dir');
+    const mark = patchWriteMark();
+    await changeProjectFiles(workspace, [{ path: join(alias, '.github/ci.yml'), before: null, after: bytes('x') }]);
+    expect(readFileSync(join(project, '.github/ci.yml'), 'utf8')).toBe('x');
+    expect(writtenByPatchSince(workspace.root, '.github', mark)).toBe(true);
+  });
+
   it('accepts absolute root aliases without erasing links below that root', async () => {
     const alias = join(fixture, 'root-alias');
     symlinkSync(project, alias, process.platform === 'win32' ? 'junction' : 'dir');
