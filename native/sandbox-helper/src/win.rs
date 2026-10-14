@@ -2704,15 +2704,15 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     } = stderr;
     drop((out_write, err_write, input));
     let readers = if stdio {
-        let our_out = Handle(HANDLE(std::io::stdout().as_raw_handle()));
-        let our_err = Handle(HANDLE(std::io::stderr().as_raw_handle()));
+        // The helper's own standard handles belong to the standard library, so they are borrowed, never closed
+        // here: closing them would let a handle opened during cleanup reuse the value (#296).
+        let to_out = SendHandle(HANDLE(std::io::stdout().as_raw_handle()));
+        let to_err = SendHandle(HANDLE(std::io::stderr().as_raw_handle()));
         let our_in = SendHandle(HANDLE(std::io::stdin().as_raw_handle()));
         let input_write = input_write.expect("stdio keeps the input pipe");
         let to_in = SendHandle(input_write.0);
         let from_out = SendHandle(out_read.0);
-        let to_out = SendHandle(our_out.0);
         let from_err = SendHandle(err_read.0);
-        let to_err = SendHandle(our_err.0);
         vec![
             thread::spawn(move || {
                 copy_pipe(our_in, to_in);
@@ -2720,11 +2720,11 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
             }),
             thread::spawn(move || {
                 copy_pipe(from_out, to_out);
-                drop((out_read, our_out));
+                drop(out_read);
             }),
             thread::spawn(move || {
                 copy_pipe(from_err, to_err);
-                drop((err_read, our_err));
+                drop(err_read);
             }),
         ]
     } else {

@@ -639,14 +639,6 @@ const D = {
       '10-13',
     ],
     [
-      296,
-      'serve_stdio wraps stdout and stderr in owning Handle, closing standard handles on exit',
-      'sandbox',
-      'high',
-      0,
-      '10-13',
-    ],
-    [
       294,
       'Sandboxed commands can replace a submodule’s .git, which host Git recurses into',
       'sandbox',
@@ -769,7 +761,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 220,
+  closedCount: 221,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
