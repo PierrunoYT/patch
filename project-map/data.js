@@ -590,6 +590,7 @@ const D = {
     ['7013d5b', 'fix(security): run only the native helpers a packaged Windows build was built with'],
   ],
   issues: [
+    [306, 'File tools start a native helper per call and send file bytes as Base64 JSON', 'perf', 'low', 0, '10-14'],
     [305, 'Runtime renderer dependencies sit in devDependencies in package.json', 'release', 'low', 0, '10-13'],
     [
       302,
