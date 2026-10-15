@@ -25,8 +25,9 @@ builders.focus = () => {
         "#280 is fixed: the app page's CSP allows no requests, so an injected script cannot fetch local files over file://",
         "#281 is fixed: a file:// page in the user's Browser session loads only files in its own folder and gets no network",
         '#282 is fixed: project:open opens a folder that is not in the project list only after a native confirmation',
+        '#286 is fixed: search_code masks secrets in the query before sending it for embedding and reranking',
       ],
-      'Order: the low findings (#283 to #293), then #294.',
+      'Order: the remaining low findings (#283 to #293), then #294.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',

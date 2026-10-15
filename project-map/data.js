@@ -217,11 +217,11 @@ const D = {
       proc: 'main',
       files: 2,
       tests: 1,
-      lines: 580,
-      testLines: 606,
+      lines: 583,
+      testLines: 622,
       desc: 'Embedding code index for the search_code tool: Voyage voyage-code-4 embeddings and rerank-3 reranking through OpenRouter.',
       list: [
-        'code_index.ts (551; single index refresh per search with progress, #186; credential files skipped and secrets masked before embedding, #234; dispose() on a key change, #248)',
+        'code_index.ts (554; single index refresh per search with progress, #186; credential files skipped and secrets masked in chunks, reranker documents and the query itself, #234, #286; dispose() on a key change, #248)',
         'chunker.ts',
       ],
     },
@@ -398,7 +398,7 @@ const D = {
     { a: 'main/llm', f: 9, c: 120, src: 2302, tl: 3223 },
     { a: 'main/tools', f: 35, c: 796, src: 6531, tl: 9644 },
     { a: 'main/panels', f: 4, c: 87, src: 829, tl: 1314 },
-    { a: 'main/other', f: 16, c: 244, src: 3911, tl: 3706 },
+    { a: 'main/other', f: 16, c: 245, src: 3914, tl: 3722 },
     { a: 'shared', f: 8, c: 100, src: 1445, tl: 1149 },
     { a: 'renderer', f: 7, c: 23, src: 6695, tl: 242 },
     { a: 'preload', f: 0, c: 0, src: 37, tl: 0 },
@@ -459,13 +459,13 @@ const D = {
     [629, 'main/index.ts'],
     [615, 'renderer/src/views/transcript.ts'],
     [600, 'main/chat_manager.ts'],
+    [554, 'main/search/code_index.ts'],
     [551, 'main/agent/claude_code.ts'],
-    [551, 'main/search/code_index.ts'],
     [532, 'main/panels/git.ts'],
     [511, 'main/llm/codex_auth.ts'],
     [485, 'main/settings.ts'],
   ],
-  changelogEntries: 312,
+  changelogEntries: 313,
   docs: [
     ['docs/PERFORMANCE.md', 539],
     ['docs/USAGE.md', 321],
@@ -636,7 +636,6 @@ const D = {
     [289, 'Claude Code chats: subagent tool cards end as "(stopped)"', 'other', 'low', 0, '10-11'],
     [288, 'Read tools and the code index follow hard links out of the project', 'security', 'low', 0, '10-11'],
     [287, 'ChatGPT tokens and MCP secrets saved as plain text without confirmation', 'security', 'low', 0, '10-11'],
-    [286, 'search_code sends its query to OpenRouter without redaction', 'security', 'low', 0, '10-11'],
     [285, 'apply_patch drops the BOM when line 1 changes; write_file drops CRLF and BOM', 'tools', 'low', 0, '10-11'],
     [284, 'An unreadable settings or projects file is treated as missing and later erased', 'other', 'low', 0, '10-11'],
     [
@@ -722,7 +721,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 229,
+  closedCount: 230,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;

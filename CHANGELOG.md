@@ -37,6 +37,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- `search_code` now runs the query through `redactSecrets` before sending it to OpenRouter for embedding and reranking, like the indexed chunks and `web_search` (fixes #286).
 - Windows sandbox helper (`native/sandbox-helper`): `Jobs` holds an `Arc<Handle>` for each running job instead of a raw `usize`, `LPPROC_THREAD_ATTRIBUTE_LIST` is freed on early returns as well as after process creation, and mutex locks recover from poison instead of panicking (fixes #299).
 - A file the chat read that changed right as a run ended (a formatter or file watcher writing as soon as the agent stops) was not reported to the model as changed outside the chat: its size and time were taken in the background after the run, so the change could become part of the baseline. They are now taken before the run reports it is done (fixes #290).
 - The native file helper read a whole file into memory before Patch's size checks ran, so an edit of, or a read raced against, a multi-gigabyte file could exhaust memory in the helper and the app. It now refuses files over 16 MB (to read or write) without reading past the limit, caps its request at 128 MB, and the app stops collecting its output past 24 MB; the sandbox helper caps each request line at 16 MB (fixes #297).
