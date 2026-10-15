@@ -59,7 +59,9 @@ fn write_in_place(file: &mut File, bytes: &[u8]) -> io::Result<()> {
 // The new file gets the old one's mode, and its owner where that is allowed. When no file can be created in the folder
 // (it is not writable), it is written in place as before.
 fn replace(change: &mut Pending, bytes: &[u8]) -> io::Result<()> {
-    let leaf = change.parts.last().unwrap().clone();
+    let Some(leaf) = change.parts.last().cloned() else {
+        return Err(invalid("A file path is required."));
+    };
     let (Some(parent), Some(old)) = (change.parent.as_ref(), change.file.as_mut()) else {
         return Err(invalid("Missing the file to replace."));
     };
@@ -160,14 +162,13 @@ impl Root {
     }
 
     pub fn read(&self, parts: &[String]) -> io::Result<Option<Vec<u8>>> {
+        let Some(leaf) = parts.last() else {
+            return Err(invalid("A file path is required."));
+        };
         let Some(parent) = self.parent(parts, false, &mut Vec::new())? else {
             return Ok(None);
         };
-        let mut file = match open_at(
-            &parent,
-            parts.last().unwrap(),
-            libc::O_RDONLY | libc::O_NONBLOCK,
-        ) {
+        let mut file = match open_at(&parent, leaf, libc::O_RDONLY | libc::O_NONBLOCK) {
             Ok(file) => file,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e),
@@ -182,13 +183,12 @@ impl Root {
         before: Option<Vec<u8>>,
         after: Option<Vec<u8>>,
     ) -> io::Result<Pending> {
+        let Some(leaf) = parts.last() else {
+            return Err(invalid("A file path is required."));
+        };
         let parent = self.parent(&parts, false, &mut Vec::new())?;
         let mut file = match &parent {
-            Some(parent) => match open_at(
-                parent,
-                parts.last().unwrap(),
-                libc::O_RDWR | libc::O_NONBLOCK,
-            ) {
+            Some(parent) => match open_at(parent, leaf, libc::O_RDWR | libc::O_NONBLOCK) {
                 Ok(file) => Some(file),
                 Err(e) if e.kind() == io::ErrorKind::NotFound => None,
                 Err(e) => return Err(e),
@@ -218,20 +218,28 @@ impl Root {
     }
 
     pub fn apply(&self, change: &mut Pending) -> io::Result<()> {
-        let leaf = change.parts.last().unwrap();
+        let Some(leaf) = change.parts.last().cloned() else {
+            return Err(invalid("A file path is required."));
+        };
         if let Some(bytes) = &change.after {
-            if change.file.is_none() {
-                if change.parent.is_none() {
-                    change.parent = self.parent(&change.parts, true, &mut change.created_dirs)?;
+            let file = match change.file.as_mut() {
+                Some(file) => file,
+                None => {
+                    let parent = match change.parent.as_ref() {
+                        Some(parent) => parent,
+                        None => {
+                            let parent = self
+                                .parent(&change.parts, true, &mut change.created_dirs)?
+                                .ok_or_else(|| invalid("Missing parent folder."))?;
+                            change.parent.insert(parent)
+                        }
+                    };
+                    let file =
+                        open_at(parent, &leaf, libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL)?;
+                    change.created_file = true;
+                    change.file.insert(file)
                 }
-                change.file = Some(open_at(
-                    change.parent.as_ref().unwrap(),
-                    leaf,
-                    libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
-                )?);
-                change.created_file = true;
-            }
-            let file = change.file.as_mut().unwrap();
+            };
             regular(file, true)?;
             change.written = true;
             if change.created_file {
@@ -242,7 +250,11 @@ impl Root {
                 replace(change, &bytes)?;
             }
         } else if change.file.is_some() {
-            unlink_at(change.parent.as_ref().unwrap(), leaf, 0)?;
+            let parent = change
+                .parent
+                .as_ref()
+                .ok_or_else(|| invalid("Missing parent folder."))?;
+            unlink_at(parent, &leaf, 0)?;
             change.deleted = true;
         }
         Ok(())
@@ -252,7 +264,9 @@ impl Root {
     // bytes, a created file and the folders created for it are removed, and a deleted file is written again with its
     // old bytes and mode.
     pub fn undo(&self, change: &mut Pending) -> io::Result<()> {
-        let leaf = change.parts.last().unwrap().clone();
+        let Some(leaf) = change.parts.last().cloned() else {
+            return Err(invalid("A file path is required."));
+        };
         if change.deleted {
             let (Some(parent), Some(before)) = (change.parent.as_ref(), &change.before) else {
                 return Err(invalid("Missing the original content to restore."));

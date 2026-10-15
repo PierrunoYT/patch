@@ -47,9 +47,7 @@ pub struct Pending {
 
 // Marks the file behind a handle for deletion when its last handle closes, or takes the mark back.
 fn set_delete_on_close(file: &File, delete: bool) -> io::Result<()> {
-    let disposition = FILE_DISPOSITION_INFO {
-        DeleteFile: delete.into(),
-    };
+    let disposition = FILE_DISPOSITION_INFO { DeleteFile: delete };
     unsafe {
         SetFileInformationByHandle(
             HANDLE(file.as_raw_handle()),
@@ -353,9 +351,12 @@ impl Root {
         create: bool,
         created: &mut Vec<PathBuf>,
     ) -> io::Result<(PathBuf, Vec<File>)> {
+        let Some((leaf, parents)) = parts.split_last() else {
+            return Err(invalid("A file path is required."));
+        };
         let mut path = self.path.clone();
         let mut handles = Vec::new();
-        for component in &parts[..parts.len() - 1] {
+        for component in parents {
             path.push(component);
             match directory(&path) {
                 Ok(handle) => handles.push(handle),
@@ -370,7 +371,7 @@ impl Root {
                 Err(e) => return Err(e),
             }
         }
-        path.push(parts.last().unwrap());
+        path.push(leaf);
         Ok((path, handles))
     }
 
@@ -458,23 +459,25 @@ impl Root {
 
     pub fn apply(&self, change: &mut Pending) -> io::Result<()> {
         if let Some(bytes) = &change.after {
-            if change.file.is_none() {
-                // Rewalk (and retain) any previously missing parents before creating the file exclusively.
-                let (path, parents) = self.parent(&change.parts, true, &mut change.created_dirs)?;
-                change.path = path;
-                change._parents = parents;
-                change.file = Some(
-                    OpenOptions::new()
+            let file = match change.file.as_mut() {
+                Some(file) => file,
+                None => {
+                    // Rewalk (and retain) any previously missing parents before creating the file exclusively.
+                    let (path, parents) =
+                        self.parent(&change.parts, true, &mut change.created_dirs)?;
+                    change.path = path;
+                    change._parents = parents;
+                    let file = OpenOptions::new()
                         .write(true)
                         .create_new(true)
                         .access_mode(CREATED_FILE_ACCESS)
                         .share_mode(FILE_SHARE_READ.0)
                         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0)
-                        .open(&change.path)?,
-                );
-                change.created_file = true;
-            }
-            let file = change.file.as_mut().unwrap();
+                        .open(&change.path)?;
+                    change.created_file = true;
+                    change.file.insert(file)
+                }
+            };
             regular(file, true)?;
             change.written = true;
             if change.created_file {

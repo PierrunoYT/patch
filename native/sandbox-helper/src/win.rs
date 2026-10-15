@@ -9,7 +9,7 @@ use std::io::{BufRead, Read, Write};
 use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use windows::core::{Error, PCWSTR, PWSTR};
@@ -72,6 +72,38 @@ impl Drop for LocalMem {
             unsafe {
                 LocalFree(Some(HLOCAL(self.0)));
             }
+        }
+    }
+}
+
+struct AttributeList {
+    _buffer: Vec<u8>,
+    list: LPPROC_THREAD_ATTRIBUTE_LIST,
+}
+
+impl AttributeList {
+    fn new(count: u32) -> Result<Self> {
+        let mut size = 0usize;
+        unsafe {
+            let _ = InitializeProcThreadAttributeList(None, count, None, &mut size);
+        }
+        let mut buffer = vec![0u8; size];
+        let list = LPPROC_THREAD_ATTRIBUTE_LIST(buffer.as_mut_ptr() as *mut c_void);
+        unsafe {
+            InitializeProcThreadAttributeList(Some(list), count, None, &mut size)
+                .map_err(|e| describe("InitializeProcThreadAttributeList", e))?;
+        }
+        Ok(Self {
+            _buffer: buffer,
+            list,
+        })
+    }
+}
+
+impl Drop for AttributeList {
+    fn drop(&mut self) {
+        unsafe {
+            DeleteProcThreadAttributeList(self.list);
         }
     }
 }
@@ -240,21 +272,32 @@ pub struct Emitter(Arc<Mutex<std::io::Stdout>>);
 
 impl Emitter {
     fn send(&self, event: &Event) {
-        let mut out = self.0.lock().unwrap();
+        let mut out = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         let _ = writeln!(out, "{}", encode_event(event));
         let _ = out.flush();
     }
 }
 
-// Jobs of the commands in flight, so end of input or a kill message can stop them.
-// Some(0) is preparation, None is cancellation, Some(handle) is a running job.
-type Jobs = Arc<Mutex<HashMap<u64, Option<usize>>>>;
+// Jobs of the commands in flight, so end of input or a kill message can stop them. Holding an `Arc<Handle>` keeps
+// the kernel job handle alive while `kill_job` calls `TerminateJobObject` (#299).
+#[derive(Clone)]
+enum JobState {
+    Preparing,
+    Running(Arc<Handle>),
+    Cancelled,
+}
+
+type Jobs = Arc<Mutex<HashMap<u64, JobState>>>;
 
 fn ensure_active(jobs: &Jobs, id: u64) -> Result<()> {
-    if jobs.lock().unwrap().get(&id).copied().flatten().is_none() {
-        Err("sandbox command stopped during preparation".to_string())
-    } else {
+    let active = jobs.lock().unwrap_or_else(PoisonError::into_inner);
+    if matches!(
+        active.get(&id),
+        Some(JobState::Preparing | JobState::Running(_))
+    ) {
         Ok(())
+    } else {
+        Err("sandbox command stopped during preparation".to_string())
     }
 }
 
@@ -295,7 +338,9 @@ pub fn serve() {
         match parse_message(&line) {
             Ok(Message::Run(request)) => {
                 let (emitter, jobs) = (emitter.clone(), jobs.clone());
-                jobs.lock().unwrap().insert(request.id, Some(0));
+                jobs.lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .insert(request.id, JobState::Preparing);
                 workers.push(thread::spawn(move || {
                     let id = request.id;
                     if let Err(message) = run(&request, &emitter, &jobs) {
@@ -304,7 +349,9 @@ pub fn serve() {
                             message: &message,
                         });
                     }
-                    jobs.lock().unwrap().remove(&id);
+                    jobs.lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .remove(&id);
                 }));
             }
             // On a worker like a run, so a slow revoke (it waits for the permission lock) never delays reading the
@@ -365,28 +412,34 @@ pub fn serve_stdio(path: &str) {
         }
     };
     let jobs: Jobs = Arc::new(Mutex::new(HashMap::new()));
-    jobs.lock().unwrap().insert(request.id, Some(0));
+    jobs.lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(request.id, JobState::Preparing);
     match run_inner(&request, None, &jobs) {
         Ok(code) => std::process::exit(code),
         Err(message) => {
             eprintln!("Patch sandbox: {message}");
-            jobs.lock().unwrap().remove(&request.id);
+            jobs.lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(&request.id);
             std::process::exit(126);
         }
     }
 }
 
 fn kill_job(jobs: &Jobs, id: Option<u64>) {
-    for (job_id, job) in jobs.lock().unwrap().iter_mut() {
+    for (job_id, job) in jobs
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .iter_mut()
+    {
         if id.is_none() || id == Some(*job_id) {
-            if let Some(handle) = *job {
-                if handle != 0 {
-                    unsafe {
-                        let _ = TerminateJobObject(HANDLE(handle as *mut c_void), 1);
-                    }
+            if let JobState::Running(handle) = job {
+                unsafe {
+                    let _ = TerminateJobObject(handle.0, 1);
                 }
             }
-            *job = None;
+            *job = JobState::Cancelled;
         }
     }
 }
@@ -2529,17 +2582,10 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     let input_write = if stdio { Some(input_write) } else { None };
     let mut inherited = [input.0, stdout.write.0, stderr.write.0];
 
-    let mut list_size = 0usize;
+    let attributes = AttributeList::new(2)?;
     unsafe {
-        let _ = InitializeProcThreadAttributeList(None, 2, None, &mut list_size);
-    }
-    let mut list_buffer = vec![0u8; list_size];
-    let list = LPPROC_THREAD_ATTRIBUTE_LIST(list_buffer.as_mut_ptr() as *mut c_void);
-    unsafe {
-        InitializeProcThreadAttributeList(Some(list), 2, None, &mut list_size)
-            .map_err(|e| describe("InitializeProcThreadAttributeList", e))?;
         UpdateProcThreadAttribute(
-            list,
+            attributes.list,
             0,
             PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES as usize,
             Some(&mut security as *mut _ as *const c_void),
@@ -2549,7 +2595,7 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
         )
         .map_err(|e| describe("UpdateProcThreadAttribute (container)", e))?;
         UpdateProcThreadAttribute(
-            list,
+            attributes.list,
             0,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize,
             Some(inherited.as_mut_ptr() as *const c_void),
@@ -2566,7 +2612,7 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     startup.StartupInfo.hStdInput = input.0;
     startup.StartupInfo.hStdOutput = stdout.write.0;
     startup.StartupInfo.hStdError = stderr.write.0;
-    startup.lpAttributeList = list;
+    startup.lpAttributeList = attributes.list;
 
     // An ordinary AppContainer cannot traverse a Windows 11 volume root, even when its project
     // itself is granted. A temporary drive makes that project the root without exposing its parents.
@@ -2708,7 +2754,7 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
             &mut info,
         )
     };
-    unsafe { DeleteProcThreadAttributeList(list) };
+    drop(attributes);
     created.map_err(|e| describe(&format!("Starting {}", request.command), e))?;
     let process = Handle(info.hProcess);
     let thread_handle = Handle(info.hThread);
@@ -2717,7 +2763,7 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
     let job = match make_job(request).and_then(|job| {
         unsafe { AssignProcessToJobObject(job.0, process.0) }
             .map_err(|e| describe("AssignProcessToJobObject", e))?;
-        Ok(job)
+        Ok(Arc::new(job))
     }) {
         Ok(job) => job,
         Err(message) => {
@@ -2728,14 +2774,17 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
         }
     };
     {
-        let mut active = jobs.lock().unwrap();
-        if active.get(&id).copied().flatten().is_none() {
+        let mut active = jobs.lock().unwrap_or_else(PoisonError::into_inner);
+        if !matches!(
+            active.get(&id),
+            Some(JobState::Preparing | JobState::Running(_))
+        ) {
             unsafe {
                 let _ = TerminateProcess(process.0, 1);
             }
             return Err("sandbox command stopped during preparation".to_string());
         }
-        active.insert(id, Some(job.0 .0 as usize));
+        active.insert(id, JobState::Running(job.clone()));
     }
 
     // Only the command holds the write ends now, so the readers end when it and its children are gone.
@@ -2833,7 +2882,9 @@ fn run_inner(request: &Request, emitter: Option<&Emitter>, jobs: &Jobs) -> Resul
             let _ = reader.join();
         }
     }
-    jobs.lock().unwrap().remove(&id);
+    jobs.lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .remove(&id);
     drop(job);
     drop(toolchain_drive);
     // Cleanup runs under the permission lock, like setup. A failure is reported with the command's output, not
@@ -3020,13 +3071,30 @@ mod tests {
 
     #[test]
     fn cancelled_preparation_never_registers_a_running_command() {
-        let jobs: Jobs = Arc::new(Mutex::new(HashMap::from([(7, Some(0))])));
+        let jobs: Jobs = Arc::new(Mutex::new(HashMap::from([(7, JobState::Preparing)])));
         ensure_active(&jobs, 7).unwrap();
         kill_job(&jobs, Some(7));
         assert!(ensure_active(&jobs, 7)
             .unwrap_err()
             .contains("stopped during preparation"));
-        assert_eq!(jobs.lock().unwrap().get(&7), Some(&None));
+        assert!(matches!(
+            jobs.lock().unwrap().get(&7),
+            Some(JobState::Cancelled)
+        ));
+        // A poisoned lock still lets ensure_active and kill_job inspect and stop commands (#299).
+        let poisoned = jobs.clone();
+        let _ = thread::spawn(move || {
+            let _guard = poisoned.lock().unwrap();
+            panic!("poison");
+        })
+        .join();
+        assert!(jobs.lock().is_err());
+        jobs.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(8, JobState::Preparing);
+        ensure_active(&jobs, 8).unwrap();
+        kill_job(&jobs, Some(8));
+        assert!(ensure_active(&jobs, 8).is_err());
     }
 
     #[test]

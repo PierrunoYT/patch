@@ -8,9 +8,9 @@ builders.focus = () => {
       'Fix the Oct 13 Electron + Rust audit findings (#299–#305)',
       'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command. #297 is fixed too: the native helpers refuse files over 16 MB and cap their input.',
       [
-        '#299, #300, #302 and #305 (low): Jobs stores raw HANDLE as usize and misses a Drop guard on LPPROC_THREAD_ATTRIBUTE_LIST; isAppPageUrl checks devRendererUrl with startsWith; openInEditor passes unscrubbed env and allows %VAR% in file paths on Windows; runtime renderer packages sit in devDependencies',
+        '#300, #302 and #305 (low): isAppPageUrl checks devRendererUrl with startsWith; openInEditor passes unscrubbed env and allows %VAR% in file paths on Windows; runtime renderer packages sit in devDependencies',
       ],
-      '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, and #304: the network relay and net-bridge serve at most 64 connections at once, and #303: folder sizes for Windows grants are measured off the main thread. The low-severity items remain.',
+      '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, #304: the network relay and net-bridge serve at most 64 connections at once, #303: folder sizes for Windows grants are measured off the main thread, and #299: the Windows sandbox helper keeps Arc<Handle> in Jobs, frees its attribute list on early returns and recovers poisoned mutexes. The remaining low-severity items are next.',
     ],
     [
       'Fix the Oct 11 audit findings: the low ones next',

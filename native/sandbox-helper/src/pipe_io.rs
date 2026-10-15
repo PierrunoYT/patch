@@ -17,7 +17,7 @@ pub fn wide(text: &str) -> Vec<u16> {
 }
 
 fn io_error(error: windows::core::Error) -> io::Error {
-    io::Error::from_raw_os_error((error.code().0 & 0xffff) as i32)
+    io::Error::from_raw_os_error(error.code().0 & 0xffff)
 }
 
 // A manual-reset event: once set, every wait that includes it returns at once.

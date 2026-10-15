@@ -609,14 +609,6 @@ const D = {
       '10-13',
     ],
     [
-      299,
-      'Windows sandbox helper: Jobs stores raw HANDLE as usize; attribute list and mutex unwraps',
-      'sandbox',
-      'low',
-      0,
-      '10-13',
-    ],
-    [
       294,
       'Sandboxed commands can replace a submodule’s .git, which host Git recurses into',
       'sandbox',
@@ -730,7 +722,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 228,
+  closedCount: 229,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2797;
