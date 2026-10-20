@@ -50,6 +50,13 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('current tool list is authoritative');
   });
 
+  it('tells the agent to locate before reading and not to read more than the task needs', () => {
+    const prompt = buildSystemPrompt(input());
+    expect(prompt).toContain('read only what the task needs');
+    expect(prompt).toContain('do not re-read a file you have read unless it may have changed');
+    expect(prompt).toContain('Stop exploring as soon as you can act');
+  });
+
   it('appends project instructions', () => {
     const prompt = buildSystemPrompt(input({ customInstructions: 'Use tabs.' }));
     expect(prompt.endsWith('# Project instructions from the user\nUse tabs.')).toBe(true);

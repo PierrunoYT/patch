@@ -368,6 +368,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
+- The agent reads less: the system prompt now tells it to locate with `grep`, `find_definition` and `find_references` before reading, to read only the files or line ranges the task needs, not to re-read unchanged files or read neighbouring files, tests and docs unless the task touches them, and to stop exploring once it can act (`src/main/agent/system_prompt.ts`).
 - The Git panel keeps one Git service per open project instead of building one, with an extra `git config` run, on every call. Its list of the repository's filter drivers is read again whenever the local config or a file it includes changes, so a filter added later is still neutralized (fixes #199).
 - A failed tool card says why it failed: its summary and result chip carry the error's first line, up to 80 characters ("grep failed (Invalid regular expression: …)"), and the full message stays in its output. Screen readers announce the same summary, and the agent benchmark records it (fixes #47).
 - The project ignore file is `.patchignore` (`.gitignore` syntax, applied after `.gitignore`). The old name `.ccignore` is still read, before `.patchignore`, so existing projects keep their rules (fixes #38).
