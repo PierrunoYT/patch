@@ -6,6 +6,7 @@ import type { SettingsStore, ChatGptSession } from '../settings';
 import { appLog } from '../app_log';
 import { testEndpoint } from './endpoints';
 import { OpenAIResponsesConversation } from './openai_responses';
+import { dropUnknownStreamEvents } from './sse_filter';
 import {
   ChatGptSignInRequiredError,
   MissingApiKeyError,
@@ -452,7 +453,7 @@ export function createCodexOpenAIClient(baseURL: string, auth: { accessToken(): 
       const headers = new Headers(init?.headers);
       headers.set('Authorization', `Bearer ${auth.accessToken()}`);
       headers.set('ChatGPT-Account-ID', auth.accountId());
-      return fetch(input, { ...init, headers });
+      return fetch(input, { ...init, headers }).then(dropUnknownStreamEvents);
     },
   });
 }

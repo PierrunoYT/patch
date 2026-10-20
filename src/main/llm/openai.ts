@@ -15,6 +15,7 @@ import {
   type CompactionPlan,
   type CompactionState,
 } from './compaction';
+import { dropUnknownStreamEvents } from './sse_filter';
 import { toolInputSchema } from './tool_schema';
 import type {
   CompletionClient,
@@ -39,7 +40,12 @@ const MAX_HISTORY_TOKENS = 100_000;
 // Background calls (chat titles) keep the SDK's silent retries.
 // The base URL is always explicit, so OPENAI_BASE_URL cannot redirect the key (#64).
 export function createOpenAIClient(apiKey: string, baseURL?: string, maxRetries = 0): OpenAI {
-  return new OpenAI({ apiKey, baseURL: baseURL || OPENAI_API_URL, maxRetries });
+  return new OpenAI({
+    apiKey,
+    baseURL: baseURL || OPENAI_API_URL,
+    maxRetries,
+    fetch: (input, init) => fetch(input, init).then(dropUnknownStreamEvents),
+  });
 }
 
 function textOf(content: unknown): string {
