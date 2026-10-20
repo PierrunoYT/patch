@@ -93,7 +93,12 @@ export function isUnknownStreamEvent(block: string, responses = false): boolean 
 }
 
 export function dropUnknownStreamEvents(response: Response, responses = false): Response {
-  if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) return response;
+  const contentType = response.headers.get('content-type') ?? '';
+  // The ChatGPT backend can send its stream with no content-type, so a successful Responses reply is filtered unless it
+  // says JSON. An error body is never filtered: its text is not an event and would be dropped as an untyped one.
+  const isStream =
+    contentType.includes('text/event-stream') || (responses && response.ok && !contentType.includes('json'));
+  if (!response.body || !isStream) return response;
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let pending = '';

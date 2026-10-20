@@ -43,6 +43,17 @@ describe('dropUnknownStreamEvents', () => {
     expect(await response.text()).toBe(sse('data: {"type":"response.created"}', 'data: {"type":"response.completed"}'));
   });
 
+  it('filters a successful Responses stream that has no content-type', async () => {
+    const body = sse('data: {"type":"response.created"}', 'data: {"type":"codex.rate_limits"}');
+    const response = dropUnknownStreamEvents(new Response(body), true);
+    expect(await response.text()).toBe(sse('data: {"type":"response.created"}'));
+  });
+
+  it('never filters an error body that has no content-type', async () => {
+    const original = new Response('Unsupported parameter: truncation', { status: 400 });
+    expect(dropUnknownStreamEvents(original, true)).toBe(original);
+  });
+
   it('leaves non-stream responses alone', async () => {
     const original = new Response('{"type":"nope"}', { headers: { 'content-type': 'application/json' } });
     expect(dropUnknownStreamEvents(original)).toBe(original);
