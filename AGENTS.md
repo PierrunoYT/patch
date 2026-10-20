@@ -16,7 +16,9 @@ npm run build        # output in out/
 npm run pack         # unpacked app in dist/
 ```
 
-Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit` before finishing a change. Run `npm test` for user-visible changes.
+Run `npm run format`, `npm run lint` and `npm run typecheck` before finishing a change. Run the full unit suite once: `npm run test:unit` for non-user-visible changes, or `npm test` for user-visible changes (it already includes the unit suite, build and full end-to-end suite). If the full unit suite already passed for the same inputs, run `npm run test:e2e` instead of `npm test` to complete user-visible validation without repeating it.
+
+Use focused tests while iterating, then complete the required full suites before finishing; focused tests are not a replacement. Reuse a passing stage only while its relevant source, tests, dependencies, configuration and build inputs remain unchanged; otherwise rerun the affected checks. See [Validation workflow](docs/DEVELOPMENT.md#validation-workflow) for examples and Windows constraints.
 
 ## Layout
 
@@ -33,7 +35,7 @@ Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit
 After every change, fix or feature:
 
 1. Update the docs the change affects: `README.md`, `docs/`, `CHANGELOG.md` and the `project-map/` page. Open work is tracked in [GitHub issues](https://github.com/PierrunoYT/patch/issues), not in a file: reference the issue a change fixes (`Fixes #n` in the commit message closes it), and open an issue for follow-up work you leave undone (`gh issue list` first, to avoid duplicates).
-2. Run `npm run format`, `npm run lint`, `npm run typecheck` and `npm run test:unit` (and `npm test` for user-visible changes).
+2. Run formatting, lint, type checks and the full suites described under Commands above. Choose one test route, not both: `npm test`, or `npm run test:unit` followed by `npm run test:e2e` for user-visible changes; non-user-visible changes need only the full unit suite. Do not rerun a passing unit suite through `npm test` unless its inputs changed.
 3. Make a commit for that change, with a Conventional Commit message. One change per commit; don't batch unrelated work.
 4. Push to `main` only. Don't create or push other branches, and don't open pull requests.
 

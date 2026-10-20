@@ -25,6 +25,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Documentation
 
+- Contributor and agent guidance explains focused-test iteration and equivalent full-validation routes, avoiding a duplicate unit-suite run while preserving native sandbox and end-to-end coverage.
 - `docs/WINDOWS_SANDBOX_RESEARCH.md`: what changed outside Patch for Windows sandboxing (Microsoft Execution Containers GA, the OS process security environment, libuv 1.53 for `node --test`, how Codex sandboxes), with follow-up issues #226 and #227. It also records a test of the MXC SDK on Windows 11 25H2: isolation held without ACL changes and with no first-command cost, but git, npm and PowerShell fail in projects under the user profile until Windows ships PSEC 1.1 enumeration, so the helper stays.
 - README, `docs/ARCHITECTURE.md` and `docs/DEVELOPMENT.md` describe Claude Code chats: the installed-CLI prerequisite and Windows Git Bash, the API-key opt-in (off by default), what Patch's permissions, shared settings, file backups, Undo and redaction do not cover in these chats, the native Windows boundary, the agent seam, usage accounting and the opt-in end-to-end test (follow-up to #261).
 

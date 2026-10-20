@@ -136,7 +136,7 @@ Details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#security-model).
 
 - [User guide](docs/USAGE.md) — approvals, plan mode, allow-lists, project skills, MCP servers, the research subagent, stop and resume, chat history and export
 - [Architecture](docs/ARCHITECTURE.md) — processes, IPC contract, agent loop, providers, tools, storage, security model
-- [Development guide](docs/DEVELOPMENT.md) — setup, scripts, tests, where to change things
+- [Development guide](docs/DEVELOPMENT.md) — setup, scripts, tests, where to change things; [validation workflow](docs/DEVELOPMENT.md#validation-workflow) explains focused iteration and full checks without duplicate unit runs
 - [Performance](docs/PERFORMANCE.md) — long-chat measurements and what was changed
 - [Windows sandboxing research](docs/WINDOWS_SANDBOX_RESEARCH.md) — outside developments (Microsoft Execution Containers, the OS process security environment, libuv for `node --test`) and how they relate to open issues
 - [Contributing](CONTRIBUTING.md)

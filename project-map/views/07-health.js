@@ -26,6 +26,11 @@ builders.health = () => {
       'How well each part is checked. The main process has dense unit tests; the UI relies on end-to-end tests; CI runs the tests on Windows, Linux and macOS.',
     ),
     h(
+      'p',
+      { class: 'small muted' },
+      'Local validation: format, lint and typecheck, then test:unit for non-user-visible changes; for visible changes use npm test once, or test:unit and test:e2e once each. Focused tests help iteration but do not replace full suites. Reuse passes only while relevant inputs stay unchanged. Native builds, sandbox integration coverage and Windows file serialization remain required. See docs/DEVELOPMENT.md, Validation workflow.',
+    ),
+    h(
       'div',
       { class: 'grid kpis' },
       h(
