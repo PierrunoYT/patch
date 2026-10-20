@@ -150,6 +150,67 @@ describe('chat end to end (mock Claude API)', () => {
     expect(readFileSync(join(project, 'notes.txt'), 'utf8')).toContain('mango');
   });
 
+  it('does not run an automatic check with host rights when the command sandbox is off', async () => {
+    const marker = join(project, 'check-ran.txt');
+    const checkCommand = `node -e "require('fs').writeFileSync('check-ran.txt','ok')"`;
+    await running.page.evaluate((path) => window.api.invoke('project:open', path), project);
+    await running.page.evaluate(() => window.api.invoke('settings:set-secret', 'anthropicApiKey', 'sk-ant-e2e'));
+    await running.page.evaluate(() => window.api.invoke('chat:new'));
+    await running.page.evaluate(() =>
+      window.api.invoke('settings:update', { sandboxMode: 'off', approvalMode: 'ask' }),
+    );
+    await running.page.evaluate(
+      ({ path, command }) =>
+        window.api.invoke('project:update-settings', path, {
+          instructions: '',
+          allowedCommands: '',
+          allowedNetworkHosts: '',
+          checkCommand: command,
+        }),
+      { path: project, command: checkCommand },
+    );
+    try {
+      claude.script(
+        {
+          blocks: [
+            {
+              type: 'tool_use',
+              id: 'checked-edit',
+              name: 'write_file',
+              input: { path: 'check-fixture.txt', content: 'safe test\n' },
+            },
+          ],
+          stopReason: 'tool_use',
+        },
+        { blocks: [{ type: 'text', text: 'Edit done.' }], stopReason: 'end_turn' },
+      );
+      await running.page.evaluate(() => window.api.invoke('chat:send', { text: 'Create a test fixture' }));
+      const pending = await waitFor((current) =>
+        current.transcript.find((item) => item.kind === 'tool' && item.status === 'awaiting-approval'),
+      );
+      await running.page.evaluate((id) => window.api.invoke('chat:decide', id, { approved: true }), pending.id);
+      const current = await waitForIdle();
+      expect(readFileSync(join(project, 'check-fixture.txt'), 'utf8')).toBe('safe test\n');
+      expect(existsSync(marker)).toBe(false);
+      expect(JSON.stringify(claude.agentRequests.at(-1).messages)).toContain(
+        'skipped because the command sandbox is off',
+      );
+      expect(current.transcript.at(-1)).toMatchObject({ text: 'Edit done.' });
+    } finally {
+      await running.page.evaluate(
+        (path) =>
+          window.api.invoke('project:update-settings', path, {
+            instructions: '',
+            allowedCommands: '',
+            allowedNetworkHosts: '',
+            checkCommand: '',
+          }),
+        project,
+      );
+      await running.page.evaluate(() => window.api.invoke('settings:update', { sandboxMode: 'auto' }));
+    }
+  });
+
   it('sends a strict edit schema and approves each edit in a batched response separately', async () => {
     await invoke(`window.api.invoke('chat:new')`);
     const requestStart = claude.agentRequests.length;

@@ -507,9 +507,12 @@ export class ChatManager {
       onDroppedFields: this.deps.onDroppedFields,
       selfReview: { mode: () => this.deps.settings.get().selfReview, run: createReviewRunner(subagents) },
       afterEdits: (paths, signal) => {
-        // The project's check command, read on every batch so a change applies at once. The user set it in Project
-        // settings and confirmed it there, so it runs without a card, in the sandbox like any command.
+        // A configured check may run code from files the model just edited. Without a sandbox, it must not silently
+        // bypass the command approval that a normal run_command would need.
         const command = this.deps.projects.get(workspace.root)?.checkCommand ?? '';
+        if (command.trim() && this.deps.settings.get().sandboxMode === 'off') {
+          return Promise.resolve('Check after edits skipped because the command sandbox is off. Run it manually.');
+        }
         return checker.check(command, paths, signal);
       },
       onEditApplied: this.deps.edits ? (toolId, edit) => this.deps.edits!.record(session.id, toolId, edit) : undefined,
