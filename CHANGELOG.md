@@ -8,6 +8,13 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ## [Unreleased]
 
+### Changed
+
+- The agent reads less: the system prompt now tells it to locate with `grep`, `find_definition` and `find_references` before reading, to read only the files or line ranges the task needs, not to re-read unchanged files or read neighbouring files, tests and docs unless the task touches them, and to stop exploring once it can act (`src/main/agent/system_prompt.ts`).
+- The composer model picker now opens a themed, grouped menu above the input instead of the native dropdown, with keyboard navigation and a clear selected-model indicator.
+- Composer settings, attachment and Send controls now stay on one line; in narrow panes the settings scroll horizontally while Send remains visible.
+- The composer separates model and mode settings from message actions, softens the focused border, and hides the empty token count and inactive Stop button so controls no longer wrap into an uneven cluster in narrow panes.
+
 ### Added
 
 - Settings → Effort has an Auto choice: each message is sent at medium effort for questions and lookups and at high for requests to change something or plan, long messages and messages with images (`autoEffort` in `src/shared/models.ts`; the agent sets it on the conversation before each message). The effort setting now also applies to an open chat from its next message (fixes #79).
@@ -38,8 +45,12 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
-- A ChatGPT (Codex) or OpenAI-compatible reply no longer ends with "Unhandled response stream event: unknown" when the server sends a stream event the OpenAI SDK does not know: those events are dropped before the SDK reads the stream (`src/main/llm/sse_filter.ts`).
+- A ChatGPT (Codex) or OpenAI-compatible reply no longer ends with "Unhandled response stream event: unknown" when the server sends a stream event the OpenAI SDK does not know: those events are dropped before the SDK reads the stream, also when the server sends the stream with no content-type (`src/main/llm/sse_filter.ts`). Error bodies are never filtered.
 - A command's output in the chat no longer jumps back to the top each time the card updates: the output block keeps its scroll position, and keeps following new output when it was at the bottom.
+- Opening a project file in an external editor no longer passes credential-bearing host environment variables, and Windows refuses `%` in file names instead of letting `cmd.exe` expand it (fixes #302).
+- An automatic project check no longer runs edited code with the user's full rights without a command approval when the sandbox is off; it is skipped with a note to run it manually (fixes #292).
+- Without OS encryption, saving MCP credentials or starting ChatGPT sign-in now asks for native confirmation before those values could be stored as plaintext, as API keys already did (fixes #287).
+- Only HTTPS links from the app page are handed to the OS browser; plain HTTP and other schemes are blocked.
 - `search_code` now runs the query through `redactSecrets` before sending it to OpenRouter for embedding and reranking, like the indexed chunks and `web_search` (fixes #286).
 - Windows sandbox helper (`native/sandbox-helper`): `Jobs` holds an `Arc<Handle>` for each running job instead of a raw `usize`, `LPPROC_THREAD_ATTRIBUTE_LIST` is freed on early returns as well as after process creation, and mutex locks recover from poison instead of panicking (fixes #299).
 - A file the chat read that changed right as a run ended (a formatter or file watcher writing as soon as the agent stops) was not reported to the model as changed outside the chat: its size and time were taken in the background after the run, so the change could become part of the baseline. They are now taken before the run reports it is done (fixes #290).
@@ -369,7 +380,6 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Changed
 
-- The agent reads less: the system prompt now tells it to locate with `grep`, `find_definition` and `find_references` before reading, to read only the files or line ranges the task needs, not to re-read unchanged files or read neighbouring files, tests and docs unless the task touches them, and to stop exploring once it can act (`src/main/agent/system_prompt.ts`).
 - The Git panel keeps one Git service per open project instead of building one, with an extra `git config` run, on every call. Its list of the repository's filter drivers is read again whenever the local config or a file it includes changes, so a filter added later is still neutralized (fixes #199).
 - A failed tool card says why it failed: its summary and result chip carry the error's first line, up to 80 characters ("grep failed (Invalid regular expression: …)"), and the full message stays in its output. Screen readers announce the same summary, and the agent benchmark records it (fixes #47).
 - The project ignore file is `.patchignore` (`.gitignore` syntax, applied after `.gitignore`). The old name `.ccignore` is still read, before `.patchignore`, so existing projects keep their rules (fixes #38).

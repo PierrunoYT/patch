@@ -5,16 +5,27 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix the Oct 13 Electron + Rust audit findings (#299–#305)',
-      'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command. #297 is fixed too: the native helpers refuse files over 16 MB and cap their input.',
+      'Fix what using Patch on itself showed (#312–#316)',
+      'Running Patch from a build inside its own repository made the sandbox refuse the project, so every command asked to run unsandboxed; the agent also over-read files, apply_patch gave no help on an ambiguous hunk, and the log said too little about failed requests and too much about stream events.',
       [
-        '#300, #302 and #305 (low): isAppPageUrl checks devRendererUrl with startsWith; openInEditor passes unscrubbed env and allows %VAR% in file paths on Windows; runtime renderer packages sit in devDependencies',
+        '#312 (medium): the sandbox refuses a project root that contains the running app’s install folder',
+        '#313: apply_patch should list where an ambiguous hunk matches',
+        '#314: re-reads of an unchanged file should cost a short note',
+        '#315 and #316: log the reason a chat request failed, and log dropped stream events once',
+      ],
+      '#312 first: it decides whether commands can run sandboxed while developing Patch with Patch.',
+    ],
+    [
+      'Finish the Oct 13 Electron + Rust audit findings (#299–#305)',
+      'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command. #297 is fixed too: the native helpers refuse files over 16 MB and cap their input; #302 is fixed: editor launches scrub credential-like environment variables and refuse Windows % expansion in file names.',
+      [
+        '#300 and #305 (low): isAppPageUrl checks devRendererUrl with startsWith in dev; runtime renderer packages sit in devDependencies',
       ],
       '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, #304: the network relay and net-bridge serve at most 64 connections at once, #303: folder sizes for Windows grants are measured off the main thread, and #299: the Windows sandbox helper keeps Arc<Handle> in Jobs, frees its attribute list on early returns and recovers poisoned mutexes. The remaining low-severity items are next.',
     ],
     [
       'Fix the Oct 11 audit findings: the low ones next',
-      'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed.',
+      'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed. #292 is fixed: the automatic check is skipped with a note when the sandbox is off. #287 is fixed: plaintext MCP credentials and ChatGPT sign-in require native confirmation.',
       [
         '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
         '#275 is fixed: rg --pre, tar --to-command, fd -x, abbreviated options such as sort --outp, and sed, awk and perl with other arguments ask even when allowed',
@@ -27,7 +38,7 @@ builders.focus = () => {
         '#282 is fixed: project:open opens a folder that is not in the project list only after a native confirmation',
         '#286 is fixed: search_code masks secrets in the query before sending it for embedding and reranking',
       ],
-      'Order: the remaining low findings (#283 to #293), then #294.',
+      'Order: the remaining open low findings (#283 to #293, excluding #287 and #292), then #294.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',
