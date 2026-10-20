@@ -38,14 +38,14 @@ describe('user interface', () => {
   it('keeps navigation and prompt controls usable at desktop sizes', async () => {
     for (const size of [
       { width: 1440, height: 900 },
+      { width: 1000, height: 600 },
       { width: 800, height: 500 },
     ]) {
       await running.page.setViewportSize(size);
-      await running.page
-        .locator('.composer-controls')
-        .getByLabel('Model', { exact: true })
-        .selectOption('claude-sonnet-5-5');
-      expect(await running.page.getByLabel('Model', { exact: true }).inputValue()).toBe('claude-sonnet-5-5');
+      const modelButton = running.page.locator('.composer-controls').getByRole('button', { name: 'Model' });
+      await modelButton.click();
+      await running.page.getByRole('menuitemradio', { name: 'Claude Sonnet 5.5' }).click();
+      expect(await modelButton.textContent()).toContain('Claude Sonnet 5.5');
       // A new viewport size is laid out on the next frames.
       await running.page.evaluate(
         () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
@@ -55,9 +55,12 @@ describe('user interface', () => {
         const send = document.querySelector('.composer-send')!.getBoundingClientRect();
         const attach = document.querySelector('[aria-label="Attach images"]')!.getBoundingClientRect();
         const model = document.querySelector('.model-pill')!.getBoundingClientRect();
+        const mode = document.querySelector('.mode-toggle')!.getBoundingClientRect();
         const box = document.querySelector('.composer-box')!;
+        const settings = document.querySelector('.composer-controls')!;
         const controls = document.querySelector('.header-controls')!.getBoundingClientRect();
-        const actions = document.querySelector('.composer-right')!.getBoundingClientRect();
+        const actions = document.querySelector('.composer-actions')!.getBoundingClientRect();
+        const plan = document.querySelector('.plan-pill')!.getBoundingClientRect();
         return {
           width: innerWidth,
           height: innerHeight,
@@ -70,9 +73,15 @@ describe('user interface', () => {
             (child) => `${child.className}=${Math.round(child.getBoundingClientRect().width)}/${child.scrollWidth}`,
           ),
           composerOverflow: box.scrollWidth - box.clientWidth,
+          settingsOverflow: settings.scrollWidth - settings.clientWidth,
           attachCenter: attach.top + attach.height / 2,
-          modelCenter: model.top + model.height / 2,
           sendCenter: send.top + send.height / 2,
+          modelCenter: model.top + model.height / 2,
+          modeCenter: mode.top + mode.height / 2,
+          planCenter: plan.top + plan.height / 2,
+          sendAtRight: Math.abs(send.right - actions.right),
+          tokensVisible: getComputedStyle(document.querySelector('.composer-tokens')!).display !== 'none',
+          stopVisible: getComputedStyle(document.querySelector('.composer-stop')!).display !== 'none',
           controlsOverlapActions:
             controls.left < actions.right &&
             controls.right > actions.left &&
@@ -86,13 +95,22 @@ describe('user interface', () => {
       expect(geometry.overflow, geometry.widths.join(' ')).toBeLessThanOrEqual(geometry.width);
       expect(geometry.composerOverflow).toBeLessThanOrEqual(1);
       expect(geometry.controlsOverlapActions).toBe(false);
-      if (size.width === 1440) {
-        expect(Math.abs(geometry.attachCenter - geometry.modelCenter)).toBeLessThanOrEqual(1);
-        expect(Math.abs(geometry.attachCenter - geometry.sendCenter)).toBeLessThanOrEqual(1);
+      for (const center of [geometry.modelCenter, geometry.modeCenter, geometry.planCenter, geometry.attachCenter]) {
+        // The settings' thin horizontal scrollbar takes a few pixels below its controls.
+        expect(Math.abs(center - geometry.sendCenter)).toBeLessThanOrEqual(6);
       }
+      if (size.width === 800) {
+        expect(geometry.settingsOverflow).toBeGreaterThan(0);
+        await running.page.locator('.plan-switch').scrollIntoViewIfNeeded();
+        expect(await running.page.locator('.composer-send').isVisible()).toBe(true);
+      }
+      expect(geometry.sendAtRight).toBeLessThanOrEqual(1);
+      expect(geometry.tokensVisible).toBe(false);
+      expect(geometry.stopVisible).toBe(false);
       await shot(`layout-${size.width}`);
     }
-    await running.page.getByLabel('Model', { exact: true }).selectOption('claude-opus-5-5');
+    await running.page.getByRole('button', { name: 'Model' }).click();
+    await running.page.getByRole('menuitemradio', { name: 'Claude Opus 5.5' }).click();
     const toggle = running.page.getByTitle('Show or hide the sidebar');
     await toggle.click();
     expect(await running.page.locator('.sidebar').isVisible()).toBe(false);

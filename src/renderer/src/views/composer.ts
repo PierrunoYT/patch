@@ -138,8 +138,16 @@ export class Composer {
         h(
           'div',
           { class: 'composer-row' },
-          h('div', { class: 'composer-left' }, this.attachButton, this.controls),
-          h('div', { class: 'composer-right' }, this.tokenCount, this.resumeButton, this.stopButton, this.sendButton),
+          this.controls,
+          h(
+            'div',
+            { class: 'composer-actions' },
+            this.attachButton,
+            this.tokenCount,
+            this.resumeButton,
+            this.stopButton,
+            this.sendButton,
+          ),
         ),
       ),
       h(
@@ -394,6 +402,7 @@ export class Composer {
 
   private updateTokens(): void {
     const text = messageWithMentions(this.input.value.trim(), this.mentions);
+    this.tokenCount.hidden = text.length === 0;
     this.tokenCount.textContent = `${formatTokens(estimateTokens(text))} tokens`;
   }
 

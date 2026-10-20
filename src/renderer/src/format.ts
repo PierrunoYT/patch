@@ -40,3 +40,11 @@ export function writePreference(key: string, value: string): void {
     // Ignore.
   }
 }
+
+// The model menu's group for a model id. Claude Code ids also start with 'claude-', so they are checked first.
+export function modelGroup(id: string): 'Claude' | 'OpenAI' | 'Claude Code' | 'Other' {
+  if (id.startsWith('claude-code/')) return 'Claude Code';
+  if (id.startsWith('claude-')) return 'Claude';
+  if (id.startsWith('gpt-')) return 'OpenAI';
+  return 'Other';
+}

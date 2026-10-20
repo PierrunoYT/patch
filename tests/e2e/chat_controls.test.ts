@@ -125,16 +125,18 @@ describe('chat list, composer controls and status bar (mock Claude API)', () => 
         .getByRole('button', { name: /Today chat/ })
         .getAttribute('aria-current'),
     ).toBe('false');
-    const model = page().locator('.composer-controls').getByLabel('Model', { exact: true });
+    const model = page().locator('.composer-controls').getByRole('button', { name: 'Model' });
     expect(await model.isDisabled()).toBe(true);
     expect(await model.getAttribute('title')).toContain('A chat keeps its model');
   });
 
   it("uses the picker's model for a new chat, adds the chat to the list, then locks the picker", async () => {
     await page().evaluate(() => window.api.invoke('chat:new'));
-    const model = page().locator('.composer-controls').getByLabel('Model', { exact: true });
+    const model = page().locator('.composer-controls').getByRole('button', { name: 'Model' });
     await expect.poll(() => model.isEnabled()).toBe(true);
-    await model.selectOption('claude-sonnet-5-5');
+    await model.click();
+    await page().getByRole('menuitemradio', { name: 'Claude Sonnet 5.5' }).click();
+    await expect.poll(() => model.textContent()).toContain('Claude Sonnet 5.5');
     await expect
       .poll(() => page().evaluate(() => window.api.invoke('settings:get').then((settings) => settings.model)))
       .toBe('claude-sonnet-5-5');
@@ -155,6 +157,24 @@ describe('chat list, composer controls and status bar (mock Claude API)', () => 
         .count(),
     ).toBe(1);
     await expect.poll(() => model.isDisabled()).toBe(true);
+  });
+
+  it('groups models and supports keyboard and outside-click dismissal', async () => {
+    await page().evaluate(() => window.api.invoke('chat:new'));
+    const model = page().getByRole('button', { name: 'Model' });
+    await model.focus();
+    await model.press('ArrowDown');
+    const menu = page().getByRole('menu', { name: 'Choose model' });
+    await expect.poll(() => menu.isVisible()).toBe(true);
+    expect(await menu.locator('.model-menu-heading').allTextContents()).toEqual(['Claude', 'OpenAI', 'Claude Code']);
+    const selected = menu.getByRole('menuitemradio', { checked: true });
+    await expect.poll(() => selected.evaluate((element) => element === document.activeElement)).toBe(true);
+    await selected.press('Escape');
+    await expect.poll(() => menu.isVisible()).toBe(false);
+    await expect.poll(() => model.getAttribute('aria-expanded')).toBe('false');
+    await model.click();
+    await page().getByLabel('Message').click();
+    await expect.poll(() => menu.isVisible()).toBe(false);
   });
 
   it('switches between Ask and Auto, and turns Plan Mode on and off', async () => {

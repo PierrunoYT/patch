@@ -335,6 +335,7 @@ body {
 
 .app {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 48px minmax(0, 1fr) 28px;
   height: 100vh;
 }
@@ -554,6 +555,12 @@ body {
   flex-wrap: wrap;
 }
 
+.approval-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .model-pill,
 .plan-pill {
   display: flex;
@@ -574,6 +581,32 @@ body {
   background: var(--patch-raised);
 }
 
+.model-pill {
+  color: var(--patch-text);
+  font-family: var(--bs-font-sans-serif);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.model-pill[aria-expanded='true'],
+.model-pill:focus-visible {
+  border-color: var(--patch-accent);
+  background: var(--patch-raised);
+}
+
+.model-pill:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.model-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plan-pill:hover {
   border-color: var(--patch-faint);
 }
@@ -585,41 +618,73 @@ body {
   background: var(--patch-accent);
 }
 
-.model-select {
-  appearance: none;
-  max-width: 200px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--patch-text);
-  font-family: var(--bs-font-sans-serif);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
-  cursor: pointer;
-}
-
-.model-select:focus {
-  outline: none;
-}
-
-.model-pill:focus-within {
-  border-color: var(--patch-accent);
-}
-
-.model-select:disabled {
-  cursor: default;
-  opacity: 1;
-}
-
-.model-select option {
-  background: var(--patch-surface);
-  color: var(--patch-text);
-}
-
 .model-caret {
   color: var(--patch-muted);
   font-size: 14px;
+}
+
+/* Portaled to the body so the horizontally scrolling composer controls cannot clip the menu. */
+.model-menu:not([hidden]) {
+  position: fixed;
+  z-index: 1100;
+  display: block;
+  width: 280px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--patch-border);
+  border-radius: 10px;
+  background: var(--patch-surface);
+  box-shadow: var(--patch-shadow);
+}
+
+.model-menu-heading {
+  padding: 9px 10px 4px;
+  color: var(--patch-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.model-menu-heading:not(:first-child) {
+  margin-top: 5px;
+  border-top: 1px solid var(--patch-border);
+}
+
+.model-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--patch-text);
+  font: 12px var(--bs-font-sans-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-menu-item:hover,
+.model-menu-item:focus-visible {
+  background: var(--patch-hover);
+}
+
+.model-menu-item[aria-checked='true'] {
+  color: var(--patch-primary);
+  font-weight: 600;
+}
+
+.model-menu-check {
+  color: var(--patch-accent);
+  font-size: 16px;
+  visibility: hidden;
+}
+
+.model-menu-item[aria-checked='true'] .model-menu-check {
+  visibility: visible;
 }
 
 .mode-toggle {
@@ -716,6 +781,7 @@ body {
 /* Main split: chat list, chat, tool panels */
 .app-main {
   display: flex;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -1831,7 +1897,8 @@ body {
 }
 
 .composer-box:focus-within {
-  border-color: var(--patch-accent);
+  border-color: var(--patch-border-strong);
+  box-shadow: 0 0 0 2px var(--patch-accent-soft);
 }
 
 .composer-input {
@@ -1853,8 +1920,15 @@ body {
 }
 
 .composer-controls {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.composer-controls .header-controls {
+  gap: 6px 12px;
+  flex-wrap: nowrap;
 }
 
 .composer-controls .header-controls > * {
@@ -1864,9 +1938,12 @@ body {
 
 .composer-hint {
   display: flex;
-  justify-content: center;
   flex-wrap: wrap;
   gap: 6px;
+  max-width: 768px;
+  margin-right: auto;
+  margin-left: auto;
+  padding: 0 4px;
   margin-top: 10px;
   color: var(--patch-faint);
   font-size: 10px;
@@ -1875,9 +1952,8 @@ body {
 .composer-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .composer-attach {
@@ -1887,22 +1963,12 @@ body {
   padding: 4px;
 }
 
-.composer-left,
-.composer-right {
+.composer-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
   min-width: 0;
-  flex-wrap: wrap;
-}
-
-.composer-left {
-  flex: 1 1 420px;
-  flex-wrap: nowrap;
-}
-
-.composer-right {
-  flex-shrink: 0;
   margin-left: auto;
 }
 
@@ -1968,6 +2034,12 @@ body {
   font-size: 10px;
 }
 
+.composer-tokens[hidden],
+.composer-resume[hidden],
+.composer-stop:disabled {
+  display: none;
+}
+
 .composer-stop,
 .composer-resume {
   display: inline-flex;
@@ -2022,6 +2094,10 @@ body {
   font-weight: 600;
   line-height: 16px;
   transition: background-color 0.15s;
+}
+
+.composer-send {
+  margin-left: auto;
 }
 
 .composer-send:hover,

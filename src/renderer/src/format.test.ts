@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateTokens, formatDuration, formatTokens } from './format';
+import { estimateTokens, formatDuration, formatTokens, modelGroup } from './format';
 
 describe('display formats', () => {
   it('shortens token counts', () => {
@@ -22,5 +22,14 @@ describe('display formats', () => {
   it('estimates tokens from characters', () => {
     expect(estimateTokens('')).toBe(0);
     expect(estimateTokens('abcde')).toBe(2);
+  });
+});
+
+describe('modelGroup', () => {
+  it('puts Claude Code models in their own group, not in Claude', () => {
+    expect(modelGroup('claude-opus-5-5')).toBe('Claude');
+    expect(modelGroup('claude-code/claude-opus-5-5')).toBe('Claude Code');
+    expect(modelGroup('gpt-5')).toBe('OpenAI');
+    expect(modelGroup('custom-model')).toBe('Other');
   });
 });

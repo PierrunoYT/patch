@@ -15,7 +15,7 @@ import type { GitStatus } from '@shared/panels';
 import type { ProjectInfo } from '@shared/project';
 import { openaiCredentialMissing, type SettingsView } from '@shared/settings';
 import { h, icon, setChildren, sym } from './dom';
-import { formatTokens, readPreference, writePreference } from './format';
+import { formatTokens, modelGroup, readPreference, writePreference } from './format';
 import { Composer } from './views/composer';
 import { openHistoryDialog, openProjectSettingsDialog, openSettingsDialog } from './views/dialogs';
 import { Panels } from './views/panels';
@@ -84,11 +84,31 @@ export class App {
     onclick: () => this.toggleProjectMenu(),
   });
   private readonly projectMenu = h('div', { class: 'dropdown-menu dropdown-menu-end project-menu' });
-  private readonly modelSelect = h('select', {
-    class: 'model-select',
-    'aria-label': 'Model',
-    onchange: () => void this.chooseModel(),
-  }) as HTMLSelectElement;
+  private readonly modelButton = h(
+    'button',
+    {
+      class: 'model-pill',
+      type: 'button',
+      'aria-label': 'Model',
+      'aria-haspopup': 'menu',
+      'aria-expanded': 'false',
+      onclick: () => this.toggleModelMenu(),
+      onkeydown: (event: KeyboardEvent) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          this.openModelMenu();
+        }
+      },
+    },
+    h('span', { class: 'model-name' }),
+    sym('expand_more', 'model-caret'),
+  );
+  private readonly modelMenu = h('div', {
+    class: 'model-menu',
+    role: 'menu',
+    'aria-label': 'Choose model',
+    hidden: true,
+  });
   private readonly askButton = h(
     'button',
     { class: 'mode-option', onclick: () => void this.setMode('ask') },
@@ -181,6 +201,7 @@ export class App {
     this.chat = newerSnapshot(snapshot, pushed as ChatSnapshot | null);
 
     root.replaceChildren(this.layout());
+    document.body.appendChild(this.modelMenu);
     this.applyTheme();
     this.renderAll();
     void this.renderProjects();
@@ -234,6 +255,9 @@ export class App {
     this.setPanelVisible(readPreference('panelVisible') !== 'false');
     this.panels.show('terminal');
     document.addEventListener('click', (event) => {
+      if (!this.modelMenu.contains(event.target as Node) && !this.modelButton.contains(event.target as Node)) {
+        this.closeModelMenu();
+      }
       if (!this.projectMenu.contains(event.target as Node) && !this.projectButton.contains(event.target as Node)) {
         this.projectMenu.classList.remove('show');
       }
@@ -241,6 +265,8 @@ export class App {
       const link = (event.target as HTMLElement).closest('a');
       if (link && !/^https?:/i.test(link.getAttribute('href') ?? '')) event.preventDefault();
     });
+    window.addEventListener('resize', () => this.placeModelMenu());
+    this.composer.controls.addEventListener('scroll', () => this.placeModelMenu());
 
     this.composer.focus();
   }
@@ -332,24 +358,28 @@ export class App {
     return h(
       'div',
       { class: 'header-controls' },
-      h(
-        'label',
-        { class: 'model-pill', title: 'Model for this chat' },
-        this.modelSelect,
-        sym('expand_more', 'model-caret'),
-      ),
-      h('div', { class: 'mode-toggle', role: 'group', 'aria-label': 'Approval mode' }, this.askButton, this.autoButton),
+      this.modelButton,
       h(
         'div',
-        {
-          class: 'plan-pill',
-          title: 'Plan mode: before multi-step changes, the assistant shows its plan for approval',
-          onclick: (event: Event) => {
-            if (event.target !== this.planSwitch) this.planSwitch.click();
+        { class: 'approval-controls' },
+        h(
+          'div',
+          { class: 'mode-toggle', role: 'group', 'aria-label': 'Approval mode' },
+          this.askButton,
+          this.autoButton,
+        ),
+        h(
+          'div',
+          {
+            class: 'plan-pill',
+            title: 'Plan mode: before multi-step changes, the assistant shows its plan for approval',
+            onclick: (event: Event) => {
+              if (event.target !== this.planSwitch) this.planSwitch.click();
+            },
           },
-        },
-        h('span', { 'aria-hidden': 'true' }, 'Plan Mode'),
-        this.planSwitch,
+          h('span', { 'aria-hidden': 'true' }, 'Plan Mode'),
+          this.planSwitch,
+        ),
       ),
     );
   }
@@ -453,18 +483,17 @@ export class App {
     const options: Array<{ id: string; label: string }> = MODEL_OPTIONS.some((option) => option.id === model)
       ? MODEL_OPTIONS
       : [...MODEL_OPTIONS, { id: model, label: model }];
-    // Rebuilt only when the model changes: the header is rendered on every streamed frame, and a rebuilt list would
-    // close the picker while it is open.
-    if (this.modelSelect.value !== model || this.modelSelect.options.length !== options.length) {
-      this.modelSelect.replaceChildren(...options.map((option) => h('option', { value: option.id }, option.label)));
-      this.modelSelect.value = model;
-    }
-    this.modelSelect.disabled = started || this.chat.busy;
-    this.modelSelect.title = started
+    if (started || this.chat.busy) this.closeModelMenu();
+    this.modelButton.disabled = started || this.chat.busy;
+    this.modelButton.title = started
       ? 'A chat keeps its model. Start a new chat to use another one.'
       : 'Model for this chat';
     this.composer.setImagesBlocked(acceptsImages(model) ? null : imagesNotSupportedMessage(model));
     const label = options.find((option) => option.id === model)?.label ?? model;
+    this.modelButton.querySelector('.model-name')!.textContent = label;
+    for (const item of this.modelMenu.querySelectorAll('[role="menuitemradio"]')) {
+      item.setAttribute('aria-checked', String((item as HTMLElement).dataset.model === model));
+    }
     this.engineLabel.replaceChildren(h('span', { class: 'status-muted' }, 'Engine:'), ` ${label}`);
 
     const agentFile = this.chat.agentFile;
@@ -710,12 +739,91 @@ export class App {
     await api.invoke('settings:update', { planMode: !this.settings.planMode }).catch((error) => this.toast(error));
   }
 
-  private async chooseModel(): Promise<void> {
-    const model = this.modelSelect.value;
-    await api.invoke('settings:update', { model }).catch((error) => {
-      this.modelSelect.value = this.settings.model;
-      this.toast(error);
-    });
+  private toggleModelMenu(): void {
+    if (this.modelMenu.hidden) this.openModelMenu();
+    else this.closeModelMenu();
+  }
+
+  private openModelMenu(): void {
+    if (this.modelButton.disabled || !this.modelMenu.hidden) return;
+    const model = this.chat.transcript.length ? this.chat.model : this.settings.model;
+    const options = MODEL_OPTIONS.some((option) => option.id === model)
+      ? MODEL_OPTIONS
+      : [...MODEL_OPTIONS, { id: model, label: model }];
+    const groups = [
+      { label: 'Claude', entries: options.filter((option) => modelGroup(option.id) === 'Claude') },
+      { label: 'OpenAI', entries: options.filter((option) => modelGroup(option.id) === 'OpenAI') },
+      { label: 'Claude Code', entries: options.filter((option) => modelGroup(option.id) === 'Claude Code') },
+      { label: 'Other', entries: options.filter((option) => modelGroup(option.id) === 'Other') },
+    ];
+    const items: HTMLButtonElement[] = [];
+    this.modelMenu.replaceChildren();
+    for (const group of groups) {
+      if (!group.entries.length) continue;
+      this.modelMenu.appendChild(h('div', { class: 'model-menu-heading', role: 'presentation' }, group.label));
+      for (const option of group.entries) {
+        const item = h(
+          'button',
+          {
+            class: 'model-menu-item',
+            type: 'button',
+            role: 'menuitemradio',
+            'aria-checked': String(option.id === model),
+            dataset: { model: option.id },
+            onclick: () => {
+              this.closeModelMenu(true);
+              void api.invoke('settings:update', { model: option.id }).catch((error) => this.toast(error));
+            },
+          },
+          h('span', {}, option.label),
+          sym('check', 'model-menu-check'),
+        );
+        items.push(item);
+        this.modelMenu.appendChild(item);
+      }
+    }
+    this.modelMenu.onkeydown = (event) => {
+      const index = items.indexOf(document.activeElement as HTMLButtonElement);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeModelMenu(true);
+      } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const next =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? items.length - 1
+              : (index + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length;
+        items[next]?.focus();
+      } else if (event.key === 'Tab') {
+        this.closeModelMenu();
+      }
+    };
+    this.modelMenu.hidden = false;
+    this.placeModelMenu();
+    this.modelButton.setAttribute('aria-expanded', 'true');
+    (items.find((item) => item.dataset.model === model) ?? items[0])?.focus();
+  }
+
+  // Puts the open menu above the Model button. The composer's settings scroll sideways in a narrow window, and
+  // scrolling the button into view for a click must not close the menu it just opened: the menu follows the button,
+  // and closes only when the button is scrolled out of the settings' view.
+  private placeModelMenu(): void {
+    if (this.modelMenu.hidden) return;
+    const rect = this.modelButton.getBoundingClientRect();
+    const area = this.composer.controls.getBoundingClientRect();
+    if (rect.right <= area.left || rect.left >= area.right) return this.closeModelMenu();
+    this.modelMenu.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - 288))}px`;
+    this.modelMenu.style.maxHeight = `${Math.max(100, rect.top - 16)}px`;
+    this.modelMenu.style.top = `${Math.max(8, rect.top - this.modelMenu.offsetHeight - 8)}px`;
+  }
+
+  private closeModelMenu(restoreFocus = false): void {
+    if (this.modelMenu.hidden) return;
+    this.modelMenu.hidden = true;
+    this.modelButton.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) this.modelButton.focus();
   }
 
   // Git state for the status bar and the Git tab's badge; refreshed when the project changes and after each run.
