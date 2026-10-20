@@ -38,6 +38,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- A ChatGPT (Codex) or OpenAI-compatible reply no longer ends with "Unhandled response stream event: unknown" when the server sends a stream event the OpenAI SDK does not know: those events are dropped before the SDK reads the stream (`src/main/llm/sse_filter.ts`).
 - A command's output in the chat no longer jumps back to the top each time the card updates: the output block keeps its scroll position, and keeps following new output when it was at the bottom.
 - `search_code` now runs the query through `redactSecrets` before sending it to OpenRouter for embedding and reranking, like the indexed chunks and `web_search` (fixes #286).
 - Windows sandbox helper (`native/sandbox-helper`): `Jobs` holds an `Arc<Handle>` for each running job instead of a raw `usize`, `LPPROC_THREAD_ATTRIBUTE_LIST` is freed on early returns as well as after process creation, and mutex locks recover from poison instead of panicking (fixes #299).
