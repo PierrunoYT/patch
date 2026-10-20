@@ -27,7 +27,17 @@ function morph(target: HTMLElement, source: HTMLElement): void {
   for (const { name } of [...target.attributes]) if (!source.hasAttribute(name)) target.removeAttribute(name);
   for (const { name, value } of [...source.attributes])
     if (target.getAttribute(name) !== value) target.setAttribute(name, value);
+  // The scrollable blocks (command output) are new elements after the swap and would start at the top again, so
+  // their positions are carried over: a block that was at the bottom keeps following new output.
+  const scrolls = [...target.querySelectorAll<HTMLElement>('.tool-output, .tool-command')].map((block) => ({
+    atBottom: block.scrollHeight - block.scrollTop - block.clientHeight < 8,
+    top: block.scrollTop,
+  }));
   target.replaceChildren(...source.childNodes);
+  target.querySelectorAll<HTMLElement>('.tool-output, .tool-command').forEach((block, index) => {
+    const before = scrolls[index];
+    if (before) block.scrollTop = before.atBottom ? block.scrollHeight : before.top;
+  });
 }
 
 // Keyboard focus inside an item that is updated in place. Focusable controls carry `data-focus-key`, so the matching
