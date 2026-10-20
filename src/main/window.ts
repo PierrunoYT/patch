@@ -86,8 +86,11 @@ function logWindowProblems(window: BrowserWindow): void {
 // loaded in the built-in browser (<webview>) never get a preload script or Node access.
 function hardenWebContents(window: BrowserWindow, onAgentBrowserAttached: (guest: WebContents) => void): void {
   const openExternally = ({ url }: { url: string }) => {
-    if (/^https?:\/\//i.test(url)) {
-      shell.openExternal(url);
+    try {
+      const destination = new URL(url);
+      if (destination.protocol === 'https:') void shell.openExternal(destination.href);
+    } catch {
+      // Invalid or non-HTTPS destinations never reach the operating system.
     }
     return { action: 'deny' as const };
   };

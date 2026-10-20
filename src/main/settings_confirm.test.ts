@@ -273,6 +273,23 @@ describe('changesToConfirm', () => {
     expect(changesToConfirm(current, { mcpServers: [] })).toEqual([]);
   });
 
+  it('asks before saving MCP credentials as plaintext without an OS keyring', () => {
+    const http: McpServerConfig = {
+      name: 'web',
+      transport: 'http',
+      url: 'https://mcp.test/',
+      headers: { Authorization: 'throwaway-test-value' },
+    };
+    const patch = { mcpServers: [{ ...docs, env: { TOKEN: 'throwaway-test-value', KEPT: '' } }, http] };
+    const changes = changesToConfirm(current, patch, {}, (command) => command, false);
+    expect(changes).toEqual([
+      'Set TOKEN for the MCP server "docs": node docs.js',
+      'Save MCP credentials unencrypted: this system cannot encrypt them, so they are stored as plain text in settings.json, readable by anyone who can read your profile folder.',
+    ]);
+    expect(changes.join(' ')).not.toContain('throwaway-test-value');
+    expect(changesToConfirm(current, patch, {}, (command) => command, true)).toEqual(changes.slice(0, 1));
+  });
+
   it('asks before adding a rule that allows calls or delegates them, not for other rules', () => {
     const allow = { tool: 'run_command', action: 'allow' as const };
     const delegate = { tool: ['fetch_url'], action: 'delegate' as const, to: 'check' };

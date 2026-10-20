@@ -50,6 +50,45 @@ describe('window security', () => {
     expect(running.page.url()).toBe(before);
   });
 
+  it('opens only HTTPS links from the app page with the OS', async () => {
+    const isolated = await launchApp();
+    try {
+      await isolated.app.evaluate(({ shell }) => {
+        const state = globalThis as unknown as {
+          __openedUrls: string[];
+          __originalOpenExternal: typeof shell.openExternal;
+        };
+        state.__openedUrls = [];
+        state.__originalOpenExternal = shell.openExternal;
+        shell.openExternal = async (url) => {
+          state.__openedUrls.push(url);
+        };
+      });
+      await isolated.page.evaluate(() => {
+        for (const href of ['http://example.invalid/plain', 'https://example.invalid/secure']) {
+          const link = document.createElement('a');
+          link.href = href;
+          link.target = '_blank';
+          document.body.append(link);
+          link.click();
+          link.remove();
+        }
+      });
+      await expect
+        .poll(() =>
+          isolated.app.evaluate(() => (globalThis as unknown as { __openedUrls: string[] }).__openedUrls.slice()),
+        )
+        .toEqual(['https://example.invalid/secure']);
+    } finally {
+      await isolated.app.evaluate(({ shell }) => {
+        shell.openExternal = (
+          globalThis as unknown as { __originalOpenExternal: typeof shell.openExternal }
+        ).__originalOpenExternal;
+      });
+      await isolated.close();
+    }
+  });
+
   it.each(['', 'other', 'persist:other'])('rejects a webview using partition "%s"', async (partition) => {
     const isolated = await launchApp();
     try {
@@ -162,6 +201,58 @@ describe('window security', () => {
     expect(asked).toHaveLength(2);
     expect(asked.every((text) => text.includes('Auto mode'))).toBe(true);
     await update({ approvalMode: 'ask' });
+  });
+
+  it('confirms plaintext ChatGPT and MCP credentials before they can be saved', async () => {
+    const { app, page } = running;
+    await app.evaluate(({ safeStorage }) => {
+      (
+        globalThis as unknown as { __patchEncryptionCheck: typeof safeStorage.isEncryptionAvailable }
+      ).__patchEncryptionCheck = safeStorage.isEncryptionAvailable;
+      safeStorage.isEncryptionAvailable = () => false;
+      (globalThis as unknown as { __patchConfirmResponse: number }).__patchConfirmResponse = 1;
+    });
+    try {
+      const signIn = await page.evaluate(() =>
+        window.api.invoke('chatgpt:sign-in').then(
+          () => 'signed in',
+          (error: Error) => error.message,
+        ),
+      );
+      expect(signIn).toContain('cancelled');
+      const mcp = await page.evaluate(() =>
+        window.api
+          .invoke('settings:update', {
+            mcpServers: [
+              {
+                name: 'example',
+                transport: 'http',
+                url: 'https://mcp.example/',
+                headers: { Authorization: 'test-only' },
+              },
+            ],
+          })
+          .then(
+            () => 'saved',
+            (error: Error) => error.message,
+          ),
+      );
+      expect(mcp).toContain('cancelled');
+      const confirmations = await app.evaluate(() =>
+        (globalThis as unknown as { __patchConfirmations: string[] }).__patchConfirmations.slice(-2),
+      );
+      expect(confirmations[0]).toContain('ChatGPT tokens unencrypted');
+      expect(confirmations[1]).toContain('MCP credentials unencrypted');
+      expect(confirmations.join(' ')).not.toContain('test-only');
+      expect((await page.evaluate(() => window.api.invoke('settings:get'))).mcpServers).toEqual([]);
+    } finally {
+      await app.evaluate(({ safeStorage }) => {
+        safeStorage.isEncryptionAvailable = (
+          globalThis as unknown as { __patchEncryptionCheck: typeof safeStorage.isEncryptionAvailable }
+        ).__patchEncryptionCheck;
+        (globalThis as unknown as { __patchConfirmResponse: number }).__patchConfirmResponse = 0;
+      });
+    }
   });
 
   it('confirms the first terminal of a project natively, and starts none when cancelled (#157)', async () => {

@@ -11,10 +11,15 @@ import { delegateLabel } from './agent/permissions';
 // Saving a key while the system cannot encrypt it writes it to settings.json as plain text (#35). Removing a key, or
 // saving one that can be encrypted, needs no confirmation.
 export function secretToConfirm(name: SecretName, value: string, canEncrypt: boolean): string[] {
-  if (canEncrypt || !value.trim()) return [];
-  return [
-    `Save the ${SECRET_LABELS[name]} unencrypted: this system cannot encrypt it, so it is stored as plain text in settings.json, readable by anyone who can read your profile folder.`,
-  ];
+  return value.trim() ? unencryptedSecretToConfirm(`the ${SECRET_LABELS[name]}`, canEncrypt) : [];
+}
+
+export function unencryptedSecretToConfirm(label: string, canEncrypt: boolean, plural = false): string[] {
+  return canEncrypt
+    ? []
+    : [
+        `Save ${label} unencrypted: this system cannot encrypt ${plural ? 'them' : 'it'}, so ${plural ? 'they are' : 'it is'} stored as plain text in settings.json, readable by anyone who can read your profile folder.`,
+      ];
 }
 
 const SECRET_LABELS: Record<SecretName, string> = {
@@ -33,6 +38,7 @@ export function changesToConfirm(
   patch: Partial<Settings>,
   storedHeaders: Record<string, string[]> = {},
   resolveProgram: (command: string) => string | null = (command) => command,
+  canEncrypt = true,
 ): string[] {
   const changes: string[] = [];
 
@@ -82,7 +88,10 @@ export function changesToConfirm(
   }
 
   if (Array.isArray(patch.mcpServers)) {
+    let savingCredentials = false;
     for (const server of patch.mcpServers) {
+      if (Object.values(server.env ?? {}).some(Boolean) || Object.values(server.headers ?? {}).some(Boolean))
+        savingCredentials = true;
       const before = current.mcpServers.find((candidate) => candidate.name === server.name);
       if (server.transport !== 'stdio') {
         // Headers are stored by server name and kept when the dialog leaves them out or empty, so a new URL under an
@@ -103,6 +112,7 @@ export function changesToConfirm(
         changes.push(`${what} MCP server "${server.name}": ${commandLine(server)}${runs}${boundary}`);
       }
     }
+    if (savingCredentials) changes.push(...unencryptedSecretToConfirm('MCP credentials', canEncrypt, true));
   }
 
   // The OpenAI API key goes to this host. Going back to the official API (empty) needs no confirmation.

@@ -28,7 +28,13 @@ import { folderPath, ProjectStore } from './projects';
 import { RendererErrorReporter } from './renderer_errors';
 import { SettingsStore } from './settings';
 import { removeStaleTempFiles } from './storage/json_file';
-import { changesToConfirm, projectChangesToConfirm, projectOpenToConfirm, secretToConfirm } from './settings_confirm';
+import {
+  changesToConfirm,
+  projectChangesToConfirm,
+  projectOpenToConfirm,
+  secretToConfirm,
+  unencryptedSecretToConfirm,
+} from './settings_confirm';
 import { launchConfig, McpHub, resolveCommand } from './tools/mcp';
 import { startFilteringProxy, type FilteringProxy } from './tools/net_proxy';
 import { releaseProjectGrant } from './tools/sandbox_windows';
@@ -384,7 +390,9 @@ function start(): void {
         return null;
       }
     };
-    await confirmChanges(changesToConfirm(settings.get(), patch, settings.mcpHeaderNames(), mcpProgram));
+    await confirmChanges(
+      changesToConfirm(settings.get(), patch, settings.mcpHeaderNames(), mcpProgram, settings.canEncrypt()),
+    );
     return settings.update(patch);
   });
   handle('settings:set-secret', async (name, value) => {
@@ -392,7 +400,10 @@ function start(): void {
     await confirmChanges(secretToConfirm(name, value, settings.canEncrypt()));
     return settings.setSecret(name, value);
   });
-  handle('chatgpt:sign-in', () => signInWithChatGpt(settings, { openUrl: (url) => shell.openExternal(url) }));
+  handle('chatgpt:sign-in', async () => {
+    await confirmChanges(unencryptedSecretToConfirm('the ChatGPT tokens', settings.canEncrypt(), true));
+    return signInWithChatGpt(settings, { openUrl: (url) => shell.openExternal(url) });
+  });
   handle('chatgpt:sign-out', () => signOutChatGpt(settings));
   settings.on('change', (view) => send(mainWindow, 'settings:changed', view));
 
