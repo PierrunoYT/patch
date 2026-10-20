@@ -180,6 +180,26 @@ describe('openInEditor', () => {
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
 
+  it.runIf(process.platform === 'win32')('does not expand environment variables in a project file name', () => {
+    writeFileSync(join(dir, '%USERNAME%.txt'), '');
+    expect(() => openInEditor('code', dir, '%USERNAME%.txt')).toThrow('Unsupported characters in file path.');
+    expect(mocks.spawn).not.toHaveBeenCalled();
+  });
+
+  it('does not pass host credentials to the editor process', () => {
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, '');
+    const previous = process.env.PATCH_AUDIT_TOKEN;
+    process.env.PATCH_AUDIT_TOKEN = 'throwaway-test-value';
+    try {
+      openInEditor('code', dir, 'a.txt');
+      expect(mocks.spawn.mock.calls[0]![2].env).not.toHaveProperty('PATCH_AUDIT_TOKEN');
+    } finally {
+      if (previous === undefined) delete process.env.PATCH_AUDIT_TOKEN;
+      else process.env.PATCH_AUDIT_TOKEN = previous;
+    }
+  });
+
   it.runIf(process.platform !== 'win32')('refuses file names that the shell would expand on macOS and Linux', () => {
     for (const name of ['$(touch pwned).js', '`id`.js', '$HOME.js', 'a\\b.js']) {
       expect(() => openInEditor('code', dir, name)).toThrow('Unsupported characters in file path.');

@@ -3,6 +3,7 @@ import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { dialog, type BrowserWindow } from 'electron';
 import type { ImageAttachment } from '@shared/ipc';
+import { scrubEnv } from './tools/env';
 import { Workspace } from './tools/workspace';
 
 const IMAGE_TYPES: Record<string, ImageAttachment['mediaType']> = {
@@ -78,13 +79,12 @@ export function splitCommand(command: string): string[] {
 export function openInEditor(editorCommand: string, projectRoot: string, path: string): void {
   const file = new Workspace(projectRoot).resolve(path);
   const windows = process.platform === 'win32';
-  // A quote or line break in the path is refused everywhere; cmd.exe on Windows only expands %VAR% inside double
-  // quotes, which runs nothing. The other characters stay refused on macOS and Linux as before.
-  const unsafe = windows ? /["\r\n]/ : /["\r\n$`\\]/;
+  // cmd.exe expands %VAR% even inside quotes, so reject it in project-derived file names.
+  const unsafe = windows ? /["%\r\n]/ : /["\r\n$`\\]/;
   if (unsafe.test(file)) throw new Error('Unsupported characters in file path.');
   const [program, ...args] = splitCommand(editorCommand.trim() || 'code');
   if (!program) throw new Error('The editor command is empty.');
-  const options = { detached: true, stdio: 'ignore', windowsHide: true } as const;
+  const options = { detached: true, stdio: 'ignore', windowsHide: true, env: scrubEnv(process.env) } as const;
   let child;
   if (windows) {
     // Launchers such as code.cmd cannot be started without cmd.exe (Node.js refuses .cmd files without a shell), so
