@@ -44,7 +44,10 @@ export function createOpenAIClient(apiKey: string, baseURL?: string, maxRetries 
     apiKey,
     baseURL: baseURL || OPENAI_API_URL,
     maxRetries,
-    fetch: (input, init) => fetch(input, init).then(dropUnknownStreamEvents),
+    fetch: (input, init) =>
+      fetch(input, init).then((response) =>
+        dropUnknownStreamEvents(response, String(input instanceof Request ? input.url : input).includes('/responses')),
+      ),
   });
 }
 

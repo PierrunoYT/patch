@@ -14,6 +14,11 @@ describe('isUnknownStreamEvent', () => {
     expect(isUnknownStreamEvent('data: [DONE]')).toBe(false);
     expect(isUnknownStreamEvent(': keep-alive')).toBe(false);
   });
+
+  it('flags an untyped event only on a Responses stream', () => {
+    expect(isUnknownStreamEvent('data: {"rate":1}', true)).toBe(true);
+    expect(isUnknownStreamEvent('data: {"rate":1}')).toBe(false);
+  });
 });
 
 describe('dropUnknownStreamEvents', () => {

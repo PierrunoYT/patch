@@ -1,3 +1,5 @@
+import { appLog } from '../app_log';
+
 // The OpenAI SDK's Responses stream accumulator throws "Unhandled response stream event: unknown" on an event type it
 // does not know. ChatGPT's Codex backend (and some compatible servers) send extra events such as rate-limit updates,
 // so a reply that streamed fine would still fail the turn. This drops those events before the SDK reads the stream.
@@ -64,28 +66,43 @@ const KNOWN_EVENT_TYPES = new Set([
   'error',
 ]);
 
-// True for an SSE block that carries a typed JSON event the SDK does not know. Anything else (chat completions
-// chunks, which have no type, comments, [DONE], unparsable data) passes through untouched.
-export function isUnknownStreamEvent(block: string): boolean {
+// The type of a typed JSON event in an SSE block: null when the event has none, undefined when the block is not a JSON
+// event at all (comments, [DONE], unparsable data), which the SDK does not reject.
+function eventType(block: string): string | null | undefined {
   const data = block
     .split(/\r?\n/)
     .filter((line) => line.startsWith('data:'))
     .map((line) => line.slice(5).trimStart())
     .join('\n');
-  if (!data.startsWith('{')) return false;
+  if (!data.startsWith('{')) return undefined;
   try {
     const type = (JSON.parse(data) as { type?: unknown }).type;
-    return typeof type === 'string' && !KNOWN_EVENT_TYPES.has(type);
+    return typeof type === 'string' ? type : null;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-export function dropUnknownStreamEvents(response: Response): Response {
+// True for an SSE block the SDK would reject. A Responses stream needs a known type on every event; chat completions
+// chunks have none, so there an untyped event passes.
+export function isUnknownStreamEvent(block: string, responses = false): boolean {
+  const type = eventType(block);
+  if (type === undefined) return false;
+  if (type === null) return responses;
+  return !KNOWN_EVENT_TYPES.has(type);
+}
+
+export function dropUnknownStreamEvents(response: Response, responses = false): Response {
   if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) return response;
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let pending = '';
+  const keep = (block: string): boolean => {
+    if (!isUnknownStreamEvent(block, responses)) return true;
+    // Only the event's type name is logged, never its content.
+    appLog.warn('llm', `Dropped an unknown stream event: ${String(eventType(block))}`);
+    return false;
+  };
   const filtered = response.body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
@@ -93,12 +110,12 @@ export function dropUnknownStreamEvents(response: Response): Response {
         const blocks = pending.split(/\r?\n\r?\n/);
         pending = blocks.pop() ?? '';
         for (const block of blocks) {
-          if (!isUnknownStreamEvent(block)) controller.enqueue(encoder.encode(`${block}\n\n`));
+          if (keep(block)) controller.enqueue(encoder.encode(`${block}\n\n`));
         }
       },
       flush(controller) {
         pending += decoder.decode();
-        if (pending && !isUnknownStreamEvent(pending)) controller.enqueue(encoder.encode(pending));
+        if (pending && keep(pending)) controller.enqueue(encoder.encode(pending));
       },
     }),
   );

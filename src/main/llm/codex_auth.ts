@@ -453,7 +453,7 @@ export function createCodexOpenAIClient(baseURL: string, auth: { accessToken(): 
       const headers = new Headers(init?.headers);
       headers.set('Authorization', `Bearer ${auth.accessToken()}`);
       headers.set('ChatGPT-Account-ID', auth.accountId());
-      return fetch(input, { ...init, headers }).then(dropUnknownStreamEvents);
+      return fetch(input, { ...init, headers }).then((response) => dropUnknownStreamEvents(response, true));
     },
   });
 }
