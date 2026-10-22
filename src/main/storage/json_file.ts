@@ -18,13 +18,21 @@ import { appLog } from '../app_log';
 
 // Reads a JSON file, returning `fallback` if it is missing or unreadable. A file that exists but is not valid JSON is
 // renamed to `<file>.corrupt-<timestamp>` first, so the next write to the path does not destroy what a hand edit, a
-// sync tool or a crash left behind.
-export function readJson<T>(path: string, fallback: T): T {
+// sync tool or a crash left behind. With `failOnReadError`, a file that exists but cannot be read (locked by antivirus
+// or a sync tool, no permission) throws instead of reading as missing: the store would start empty and its next save
+// would erase the file (#284).
+export function readJson<T>(path: string, fallback: T, options: { failOnReadError?: boolean } = {}): T {
   let text: string;
   try {
     text = readFileSync(path, 'utf8');
-  } catch {
-    return fallback;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (!options.failOnReadError || code === 'ENOENT') return fallback;
+    appLog.error('storage', 'A file could not be read.', { file: basename(path), code: code ?? 'unknown' });
+    throw new Error(
+      `Patch could not read ${basename(path)} (${code ?? 'unknown error'}). Close any program that holds the file, such as a sync tool or antivirus scan, and start Patch again. The file was not changed.`,
+      { cause: error },
+    );
   }
   try {
     return JSON.parse(text) as T;

@@ -64,7 +64,7 @@ export class SettingsStore extends EventEmitter {
     private readonly cipher: SecretCipher,
   ) {
     super();
-    const raw = readJson<unknown>(path, null);
+    const raw = readJson<unknown>(path, null, { failOnReadError: true });
     const stored: Partial<Record<keyof StoredSettings, unknown>> = isRecord(raw) ? raw : {};
     this.settings = sanitize({
       ...DEFAULT_SETTINGS,

@@ -202,6 +202,15 @@ export const grepTool = defineTool({
   },
 });
 
+// An overwrite keeps the file's CRLF line endings and its BOM when the new content has none, like edit_file and
+// apply_patch do (#285). Content that already has CRLF is left as the model wrote it.
+export function keepFileFormat(before: string, content: string): string {
+  let result = content;
+  if (detectEol(before) === '\r\n' && !result.includes('\r\n')) result = result.replace(/\n/g, '\r\n');
+  if (before.startsWith('\uFEFF') && !result.startsWith('\uFEFF')) result = `\uFEFF${result}`;
+  return result;
+}
+
 export const writeFileTool = defineTool({
   name: 'write_file',
   description:
@@ -224,14 +233,18 @@ export const writeFileTool = defineTool({
       before = requireUtf8ForEdit(bytes, path).toString('utf8');
     }
     const rel = context.workspace.relative(file);
-    return { title: existsSync(file) ? `Overwrite ${rel}` : `Create ${rel}`, diff: unifiedDiff(rel, before, content) };
+    return {
+      title: existsSync(file) ? `Overwrite ${rel}` : `Create ${rel}`,
+      diff: unifiedDiff(rel, before, keepFileFormat(before, content)),
+    };
   },
-  async run({ path, content }, context) {
-    refuseRedacted(content);
+  async run({ path, content: given }, context) {
+    refuseRedacted(given);
     const file = context.workspace.resolve(path);
     const rel = context.workspace.relative(file);
     const previous = await readProjectFile(context.workspace, path);
     const exists = previous !== null;
+    const content = exists ? keepFileFormat(previous.toString('utf8'), given) : given;
     if (exists) requireRead(file, path, context);
     // Keep the exact previous bytes for Undo.
     if (previous !== null) {

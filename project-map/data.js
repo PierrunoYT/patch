@@ -626,8 +626,6 @@ const D = {
     ],
     [289, 'Claude Code chats: subagent tool cards end as "(stopped)"', 'other', 'low', 0, '10-11'],
     [288, 'Read tools and the code index follow hard links out of the project', 'security', 'low', 0, '10-11'],
-    [285, 'apply_patch drops the BOM when line 1 changes; write_file drops CRLF and BOM', 'tools', 'low', 0, '10-11'],
-    [284, 'An unreadable settings or projects file is treated as missing and later erased', 'other', 'low', 0, '10-11'],
     [
       283,
       'Guard lists miss hook managers, package-manager, CI, devcontainer and secret files',
@@ -711,7 +709,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 237,
+  closedCount: 239,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2873;

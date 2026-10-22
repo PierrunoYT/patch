@@ -82,6 +82,11 @@ describe('applyHunks', () => {
     lines: lines.map((line) => ({ prefix: line[0] as ' ' | '-' | '+', text: line.slice(1) })),
   });
 
+  it('keeps the BOM when the first line is replaced (#285)', () => {
+    expect(applyHunks('\uFEFFold\r\nline2\r\n', [hunk(null, '-old', '+new')], 'f')).toBe('\uFEFFnew\r\nline2\r\n');
+    expect(applyHunks('old\n', [hunk(null, '-old', '+new')], 'f')).toBe('new\n');
+  });
+
   it("keeps the file's own context lines when the hunk matched loosely (#246)", () => {
     // A BOM on the first line, which trim() would drop.
     const bom = applyHunks('﻿first\nsecond\n', [hunk(null, ' first', '-second', '+SECOND')], 'f');

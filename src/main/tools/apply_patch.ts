@@ -165,7 +165,11 @@ export function applyHunks(content: string, hunks: Hunk[], label: string): strin
     lines.splice(start, before.length, ...replacement);
     cursor = start + after.length;
   }
-  return lines.map((line, i) => (i === lines.length - 1 && !endsWithNewline ? line : line + (ends[i] || eol))).join('');
+  const result = lines
+    .map((line, i) => (i === lines.length - 1 && !endsWithNewline ? line : line + (ends[i] || eol)))
+    .join('');
+  // A hunk that replaces line 1 takes its text from the + lines, which have no BOM (#285).
+  return content.startsWith('\uFEFF') && !result.startsWith('\uFEFF') ? `\uFEFF${result}` : result;
 }
 
 // The endings of the lines a hunk leaves in place of the lines at `start`: a context line keeps its own, and an added
