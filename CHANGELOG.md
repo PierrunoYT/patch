@@ -45,6 +45,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- `apply_patch` now lists the first matching line numbers when a hunk matches several places, and its description says repetitive files need an `@@` anchor (#313).
+- Dropped unknown Responses stream events are logged once per event type at info instead of at warn on every turn (#316).
 - A ChatGPT (Codex) or OpenAI-compatible reply no longer ends with "Unhandled response stream event: unknown" when the server sends a stream event the OpenAI SDK does not know: those events are dropped before the SDK reads the stream, also when the server sends the stream with no content-type (`src/main/llm/sse_filter.ts`). Error bodies are never filtered.
 - A command's output in the chat no longer jumps back to the top each time the card updates: the output block keeps its scroll position, and keeps following new output when it was at the bottom.
 - Opening a project file in an external editor no longer passes credential-bearing host environment variables, and Windows refuses `%` in file names instead of letting `cmd.exe` expand it (fixes #302).

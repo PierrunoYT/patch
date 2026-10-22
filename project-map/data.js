@@ -596,10 +596,8 @@ const D = {
     ['87822f1', 'feat(tools): add find_definition and find_references navigation tools'],
   ],
   issues: [
-    [316, 'Dropped Responses stream events log a warning on every turn', 'other', 'low', 0, '10-21'],
     [315, 'A failed chat request is logged with no reason', 'other', 'low', 0, '10-21'],
     [314, 'The agent re-reads files it already read and reads more than the task needs', 'other', 'low', 0, '10-21'],
-    [313, 'apply_patch does not say where an ambiguous hunk matches', 'tools', 'low', 0, '10-21'],
     [312, 'Sandbox refuses a project that contains the running app’s install folder', 'sandbox', 'medium', 0, '10-21'],
     [306, 'File tools start a native helper per call and send file bytes as Base64 JSON', 'perf', 'low', 0, '10-14'],
     [305, 'Runtime renderer dependencies sit in devDependencies in package.json', 'release', 'low', 0, '10-13'],
@@ -715,7 +713,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 233,
+  closedCount: 235,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2873;

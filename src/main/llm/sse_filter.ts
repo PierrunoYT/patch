@@ -92,6 +92,8 @@ export function isUnknownStreamEvent(block: string, responses = false): boolean 
   return !KNOWN_EVENT_TYPES.has(type);
 }
 
+const loggedDropped = new Set<string>();
+
 export function dropUnknownStreamEvents(response: Response, responses = false): Response {
   const contentType = response.headers.get('content-type') ?? '';
   // The ChatGPT backend can send its stream with no content-type, so a successful Responses reply is filtered unless it
@@ -104,8 +106,12 @@ export function dropUnknownStreamEvents(response: Response, responses = false): 
   let pending = '';
   const keep = (block: string): boolean => {
     if (!isUnknownStreamEvent(block, responses)) return true;
-    // Only the event's type name is logged, never its content.
-    appLog.warn('llm', `Dropped an unknown stream event: ${String(eventType(block))}`);
+    // Only the event's type name is logged, never its content, and each type once per session (#316).
+    const type = String(eventType(block));
+    if (!loggedDropped.has(type)) {
+      loggedDropped.add(type);
+      appLog.info('llm', `Dropped an unknown stream event: ${type}`);
+    }
     return false;
   };
   const filtered = response.body.pipeThrough(
