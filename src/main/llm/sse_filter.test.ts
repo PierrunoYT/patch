@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { appLog } from '../app_log';
 import { dropUnknownStreamEvents, isUnknownStreamEvent } from './sse_filter';
 
 const sse = (...events: string[]) => events.map((e) => `${e}\n\n`).join('');
@@ -41,6 +42,19 @@ describe('dropUnknownStreamEvents', () => {
       new Response(stream, { headers: { 'content-type': 'text/event-stream' } }),
     );
     expect(await response.text()).toBe(sse('data: {"type":"response.created"}', 'data: {"type":"response.completed"}'));
+  });
+
+  it('logs each dropped event type once, at info', async () => {
+    const info = vi.spyOn(appLog, 'info').mockImplementation(() => {});
+    const warn = vi.spyOn(appLog, 'warn').mockImplementation(() => {});
+    const body = sse('data: {"type":"x.once"}', 'data: {"type":"x.once"}', 'data: {"type":"x.other"}');
+    await dropUnknownStreamEvents(new Response(body, { headers: { 'content-type': 'text/event-stream' } })).text();
+    expect(info.mock.calls.map(([, message]) => message)).toEqual([
+      'Dropped an unknown stream event: x.once',
+      'Dropped an unknown stream event: x.other',
+    ]);
+    expect(warn).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
   it('filters a successful Responses stream that has no content-type', async () => {

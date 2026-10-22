@@ -135,7 +135,12 @@ export function applyHunks(content: string, hunks: Hunk[], label: string): strin
         if (found.length === 0) continue;
         if (found.length > 1 && !hunk.anchor) {
           throw new ToolError(
-            `${label}: a hunk matches ${found.length} places. Add more context lines or an @@ anchor.`,
+            `${label}: a hunk matches ${found.length} places (at lines ${found
+              .slice(0, 5)
+              .map((at) => at + 1)
+              .join(
+                ', ',
+              )}${found.length > 5 ? ', …' : ''}). Add more context lines or an @@ anchor naming a line before the one you mean.`,
           );
         }
         start = found[0]!;
@@ -345,7 +350,7 @@ function describeChange(change: PlannedChange): string {
 export const applyPatchTool = defineTool({
   name: 'apply_patch',
   description:
-    "Change several files in one call with a patch in the Codex format: '*** Begin Patch', then any number of '*** Add File: path' (every line prefixed with +), '*** Delete File: path' and '*** Update File: path' (optionally followed by '*** Move to: new/path') blocks, then '*** End Patch'. An update has hunks that start with '@@' (optionally followed by text from a line before the change, such as a function header); inside a hunk, context lines start with a space, removed lines with - and added lines with +. Include about three lines of context around every change, and '*** End of File' after a hunk that sits at the end of the file. Existing files must be read first. All changes are checked before any file is written, so a failing patch changes nothing. Use edit_file for a single small change.",
+    "Change several files in one call with a patch in the Codex format: '*** Begin Patch', then any number of '*** Add File: path' (every line prefixed with +), '*** Delete File: path' and '*** Update File: path' (optionally followed by '*** Move to: new/path') blocks, then '*** End Patch'. An update has hunks that start with '@@' (optionally followed by text from a line before the change, such as a function header); inside a hunk, context lines start with a space, removed lines with - and added lines with +. Include about three lines of context around every change, and '*** End of File' after a hunk that sits at the end of the file. In repetitive files (CSS, changelogs, tests) a hunk can match several places: add an '@@' anchor or more context. Existing files must be read first. All changes are checked before any file is written, so a failing patch changes nothing. Use edit_file for a single small change.",
   schema: z.object({
     patch: z.string().describe('The whole patch, from *** Begin Patch to *** End Patch.'),
   }),

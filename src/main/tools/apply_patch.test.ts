@@ -117,7 +117,7 @@ describe('applyHunks', () => {
   it('uses an anchor to choose between repeated blocks', () => {
     const content = 'fn a\nx\nfn b\nx\n';
     expect(applyHunks(content, [hunk('fn b', '-x', '+y')], 'f')).toBe('fn a\nx\nfn b\ny\n');
-    expect(() => applyHunks(content, [hunk(null, '-x', '+y')], 'f')).toThrow('matches 2 places');
+    expect(() => applyHunks(content, [hunk(null, '-x', '+y')], 'f')).toThrow('matches 2 places (at lines 2, 4)');
   });
 
   it('tolerates whitespace differences but not different text', () => {
