@@ -36,6 +36,9 @@ describe('sandbox project root safety (#145)', () => {
       expect(() => validateSandboxRoot(parse(fixture).root, home, [appData])).toThrow(/narrower project root/);
       expect(() => validateSandboxRoot(appData, home, [appData])).toThrow(/narrower project root/);
       expect(() => validateSandboxRoot(join(appData, 'projects', 'one'), home, [appData])).toThrow(/narrower/);
+      // The error names the path the project overlaps (#312).
+      expect(() => validateSandboxRoot(fixture, home, [appData])).toThrow(realpathSync.native(home));
+      expect(() => validateSandboxRoot(join(home, 'work'), home, [project, appData])).toThrow(project);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }

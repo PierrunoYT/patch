@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { abortableSleep, isTransientError, MAX_RETRIES, retryDecision } from './retry';
+import { abortableSleep, failureDetails, isTransientError, MAX_RETRIES, retryDecision } from './retry';
 
 // Half of the jitter range, so the delay is exactly the backoff.
 const middle = () => 0.5;
@@ -301,5 +301,25 @@ describe('abortableSleep', () => {
     const controller = new AbortController();
     controller.abort();
     await expect(abortableSleep(1000, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('failureDetails: what the app log records (#315)', () => {
+  it('keeps the class, status and code, never the message', () => {
+    const error = Object.assign(new Error('echoed prompt text'), {
+      name: 'APIError',
+      status: 529,
+      error: { type: 'error', error: { type: 'overloaded_error', message: 'echoed prompt text' } },
+    });
+    expect(failureDetails(error)).toEqual({ errorClass: 'APIError', status: 529, code: 'overloaded_error' });
+  });
+
+  it('finds a network code on the cause and drops a code that is not a short identifier', () => {
+    const fetchFailed = new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+    expect(failureDetails(fetchFailed)).toEqual({ errorClass: 'TypeError', code: 'ECONNRESET' });
+    expect(failureDetails(Object.assign(new Error('x'), { code: 'has spaces and text' }))).toEqual({
+      errorClass: 'Error',
+    });
+    expect(failureDetails('plain string')).toEqual({ errorClass: 'string' });
   });
 });

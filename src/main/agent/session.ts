@@ -27,7 +27,7 @@ import {
   type GitContext,
   type GitHead,
 } from './project_context';
-import { isTransientError } from './retry';
+import { failureDetails, isTransientError } from './retry';
 
 export interface SavedChat {
   version: 1;
@@ -411,6 +411,10 @@ export class ChatSession {
         // A transient provider error that outlasted the retries, or asked for a longer wait than they allow, leaves
         // the chat after its last finished tool batch (#247).
         providerFailure = isTransientError(error);
+        appLog.error('chat-request', 'Chat request failed', {
+          provider: this.options.conversation.provider,
+          ...failureDetails(error),
+        });
         this.emit({ type: 'error', id: randomUUID(), text: error instanceof Error ? error.message : String(error) });
       }
     } finally {

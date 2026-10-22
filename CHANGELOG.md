@@ -45,6 +45,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- A failed chat request is logged with its provider, error class, HTTP status and a short error code (never the message), so `app.log.jsonl` shows why it failed (#315).
+- The sandbox's "refused this project root" error now names the path the project overlaps and suggests running Patch from outside the project (#312).
 - `apply_patch` now lists the first matching line numbers when a hunk matches several places, and its description says repetitive files need an `@@` anchor (#313).
 - Dropped unknown Responses stream events are logged once per event type at info instead of at warn on every turn (#316).
 - A ChatGPT (Codex) or OpenAI-compatible reply no longer ends with "Unhandled response stream event: unknown" when the server sends a stream event the OpenAI SDK does not know: those events are dropped before the SDK reads the stream, also when the server sends the stream with no content-type (`src/main/llm/sse_filter.ts`). Error bodies are never filtered.
