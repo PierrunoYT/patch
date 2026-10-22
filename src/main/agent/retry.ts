@@ -76,6 +76,23 @@ export function isTransientError(error: unknown): boolean {
   return transientReason(error) !== null;
 }
 
+// What the app log records about a failed chat request: only the error class, HTTP status and a short code, never the
+// message, which can echo the prompt or a response body (#315).
+export function failureDetails(error: unknown): Record<string, string | number> {
+  if (!isObject(error)) return { errorClass: typeof error };
+  const label = (value: string | null): string | undefined =>
+    value && /^[\w.:-]{1,64}$/.test(value) ? value : undefined;
+  const details: Record<string, string | number | undefined> = {
+    errorClass: label(kind(error)) ?? 'Error',
+    status: typeof error.status === 'number' ? error.status : undefined,
+    code: label(streamedErrorType(error)) ?? label(networkCode(error)),
+  };
+  return Object.fromEntries(Object.entries(details).filter(([, value]) => value !== undefined)) as Record<
+    string,
+    string | number
+  >;
+}
+
 function transientReason(error: ErrorLike): string | null {
   const status = typeof error.status === 'number' ? error.status : null;
   if (status !== null) {

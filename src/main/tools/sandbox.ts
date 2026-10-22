@@ -666,16 +666,21 @@ export function validateSandboxRoot(cwd: string, home: string, sensitivePaths: s
   const root = parse(project).root;
   const projectKey = fold(project);
   const homeKey = fold(canonical(home));
-  const unsafe =
-    projectKey === fold(root) ||
-    containsPath(projectKey, homeKey) ||
-    sensitivePaths.some((path) => {
-      const boundary = fold(canonical(path));
-      return containsPath(projectKey, boundary) || containsPath(boundary, projectKey);
-    });
-  if (unsafe) {
+  // The first path the project root overlaps, named in the error so the cause is visible (#312).
+  const overlap = overlappedPath();
+  function overlappedPath(): string | null {
+    if (projectKey === fold(root)) return root;
+    if (containsPath(projectKey, homeKey)) return canonical(home);
+    return (
+      sensitivePaths.find((path) => {
+        const boundary = fold(canonical(path));
+        return containsPath(projectKey, boundary) || containsPath(boundary, projectKey);
+      }) ?? null
+    );
+  }
+  if (overlap !== null) {
     throw new Error(
-      'Sandbox refused this project root because it overlaps a sensitive system or application directory. Choose a narrower project root, or request an explicitly approved unsandboxed run. The command was not run.',
+      `Sandbox refused this project root because it overlaps a sensitive system or application directory (${overlap}). Choose a narrower project root, run Patch from outside this project, or request an explicitly approved unsandboxed run. The command was not run.`,
     );
   }
   return project;
