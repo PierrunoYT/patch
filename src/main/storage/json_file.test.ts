@@ -130,6 +130,16 @@ describe('readJson', () => {
     writeJson(file, { n: 1 });
     expect(readdirSync(dir)).toHaveLength(2);
   });
+
+  it('throws for a file that exists but cannot be read when asked to, and reads a missing one as the fallback (#284)', () => {
+    // A folder in the file's place fails with EISDIR, like a file another program has locked fails with EBUSY.
+    const file = join(dir, 'data.json');
+    mkdirSync(file);
+    expect(() => readJson(file, { n: 0 }, { failOnReadError: true })).toThrow(/could not read data\.json \(EISDIR\)/);
+    expect(readJson(file, { n: 0 })).toEqual({ n: 0 });
+    expect(readJson(join(dir, 'missing.json'), { n: 0 }, { failOnReadError: true })).toEqual({ n: 0 });
+    expect(existsSync(file)).toBe(true);
+  });
 });
 
 describe('writeJsonLater', () => {

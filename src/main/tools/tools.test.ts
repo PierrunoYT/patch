@@ -280,6 +280,19 @@ describe('file tools', () => {
     },
   );
 
+  it('write_file keeps the CRLF endings and BOM of a file it overwrites, and leaves new files alone (#285)', async () => {
+    const file = join(root, 'script.ps1');
+    writeFileSync(file, '\uFEFFWrite-Host "a"\r\nline2\r\n');
+    await call(readFileTool, { path: 'script.ps1' });
+    const input = { path: 'script.ps1', content: 'Write-Host "b"\nline2\n' };
+    expect(await writeFileTool.preview!(input as never, context)).toBeDefined();
+    await call(writeFileTool, input);
+    expect(readFileSync(file, 'utf8')).toBe('\uFEFFWrite-Host "b"\r\nline2\r\n');
+
+    await call(writeFileTool, { path: 'fresh.txt', content: 'a\nb\n' });
+    expect(readFileSync(join(root, 'fresh.txt'), 'utf8')).toBe('a\nb\n');
+  });
+
   it('reads with line numbers and ranges', async () => {
     const full = await call(readFileTool, { path: 'src/app.ts' });
     expect(full.content).toContain('1\tconst a = 1;');

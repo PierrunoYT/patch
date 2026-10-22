@@ -53,7 +53,7 @@ export class ProjectStore {
   private readonly openProjects = new Map<string, ProjectInfo>();
 
   constructor(private readonly file: string) {
-    const stored = readJson<unknown>(file, []);
+    const stored = readJson<unknown>(file, [], { failOnReadError: true });
     this.projects = withRealCasing(
       (Array.isArray(stored) ? (stored as ProjectInfo[]) : []).filter((project) => typeof project?.path === 'string'),
     );

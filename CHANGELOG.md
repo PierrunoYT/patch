@@ -45,6 +45,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- A settings or projects file that exists but cannot be read (locked by antivirus or a sync tool, no permission) now stops start-up with a message instead of reading as empty, so the next save can no longer erase API keys, projects or MCP secrets; the error code is logged (#284).
+- `apply_patch` keeps a file's BOM when a hunk replaces line 1, and `write_file` keeps the CRLF line endings and BOM of a file it overwrites (#285).
 - A failed chat request is logged with its provider, error class, HTTP status and a short error code (never the message), so `app.log.jsonl` shows why it failed (#315).
 - The sandbox's "refused this project root" error now names the path the project overlaps and suggests running Patch from outside the project (#312).
 - `apply_patch` now lists the first matching line numbers when a hunk matches several places, and its description says repetitive files need an `@@` anchor (#313).
