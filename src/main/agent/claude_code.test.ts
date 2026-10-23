@@ -11,6 +11,7 @@ import type {
 import { applyChatEvent, type ApprovalDecision, type ChatEvent, type TranscriptItem } from '@shared/chat';
 import { ClaudeCodeAgent, ClaudeCodeConversation, type QueryFunction } from './claude_code';
 import type { SessionUsage } from './claude_code';
+import { REDACTION_MARK, setKnownSecrets } from '../tools/redact';
 
 type Params = { prompt: AsyncIterable<SDKUserMessage>; options?: Options };
 type Details = Parameters<CanUseTool>[2];
@@ -284,6 +285,37 @@ describe('ClaudeCodeAgent: tool cards', () => {
     const [read, bash] = transcript().filter((item) => item.kind === 'tool');
     expect(read).toMatchObject({ id: 't1', status: 'done', path: 'a.ts', summary: 'Read a.ts' });
     expect(bash).toMatchObject({ id: 't2', status: 'error', output: 'boom', preview: { command: 'npm test' } });
+  });
+
+  it('redacts secrets and saved keys in tool output and error summaries before showing them (#291)', async () => {
+    const saved = 'saved-key-in-no-known-format-0123';
+    setKnownSecrets([saved]);
+    try {
+      const { query } = queued([
+        [
+          init('s1'),
+          assistant('m1', [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'env' } }]),
+          toolResult('t1', `ANTHROPIC_API_KEY=sk-ant-api03-${'a'.repeat(40)}\nPATCH_KEY=${saved}`),
+          assistant('m2', [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'deploy' } }]),
+          toolResult('t2', `auth failed for ${saved}`, true),
+          success(),
+        ],
+      ]);
+      const { agent, events } = harness(query);
+
+      await agent.send(text, signalNow());
+
+      const ends = events.filter((event) => event.type === 'tool-end');
+      const shown = JSON.stringify(ends);
+      expect(shown).not.toContain('sk-ant-api03');
+      expect(shown).not.toContain(saved);
+      expect(ends).toMatchObject([
+        { id: 't1', status: 'done', output: `ANTHROPIC_API_KEY=${REDACTION_MARK}\nPATCH_KEY=${REDACTION_MARK}` },
+        { id: 't2', status: 'error', output: `auth failed for ${REDACTION_MARK}` },
+      ]);
+    } finally {
+      setKnownSecrets([]);
+    }
   });
 
   it('shows a declined call as declined when its error result comes back', async () => {

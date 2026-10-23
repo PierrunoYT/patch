@@ -25,7 +25,7 @@ builders.focus = () => {
       '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, #304: the network relay and net-bridge serve at most 64 connections at once, #303: folder sizes for Windows grants are measured off the main thread, and #299: the Windows sandbox helper keeps Arc<Handle> in Jobs, frees its attribute list on early returns and recovers poisoned mutexes. What is left from it is #306 (a helper process per file-tool call).',
     ],
     [
-      'Finish the Oct 11 audit findings: #291 and #294',
+      'Finish the Oct 11 audit findings: #294',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed. #292 is fixed: the automatic check is skipped with a note when the sandbox is off. #287 is fixed: plaintext MCP credentials and ChatGPT sign-in require native confirmation.',
       [
         '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
@@ -40,7 +40,7 @@ builders.focus = () => {
         '#286 is fixed: search_code masks secrets in the query before sending it for embedding and reranking',
         '#283 to #285 and #288 to #290 are fixed: more hook, package-manager, CI, dev-container and agent files are guarded, an unreadable settings file stops start-up instead of being erased, BOM and CRLF survive write_file and apply_patch, search and the code index skip hard-linked files, Claude Code subagent tool cards finish, and file times are taken before a run reports it is done',
       ],
-      'Order: #291 (medium, whether Claude Code’s Bash sees the shared API key), then #294. #293 is fixed: a stacked drive-letter definition no longer counts as live, and the proxy’s TLS-name limit (Host header, ECH) is documented.',
+      'Next: #294 (a sandboxed command can replace a submodule’s .git). #293 is fixed: a stacked drive-letter definition no longer counts as live, and the proxy’s TLS-name limit (Host header, ECH) is documented. #291 is fixed: Claude Code starts with its subprocess credential scrub, so its Bash commands, hooks and MCP servers do not see the forwarded API key, and its tool output is redacted on the cards and in the saved chat.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',

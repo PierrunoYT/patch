@@ -57,12 +57,18 @@ export function findClaudeCode(configured: string, options: FindOptions = {}): s
 
 // The environment Claude Code runs with: the app's own, with Claude Code's non-essential traffic (telemetry, error
 // reports, update checks) turned off, as Patch has none. With an API key, Claude Code uses it instead of its own
-// sign-in, and a Claude base URL set in Patch goes with it.
+// sign-in, and a Claude base URL set in Patch goes with it. Claude Code passes its whole environment to its Bash
+// commands, hooks and stdio MCP servers unless the subprocess scrub is on, so `env` would print the key (#291); the
+// scrub removes it and other credential-like variables from them, as scrubEnv does for Patch's own commands.
 export function claudeCodeEnv(
   base: NodeJS.ProcessEnv,
   apiKey: { key: string; baseUrl: string } | null,
 ): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...base, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' };
+  const env: Record<string, string | undefined> = {
+    ...base,
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+    CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1',
+  };
   if (apiKey) {
     env.ANTHROPIC_API_KEY = apiKey.key;
     // A token or helper set up for Claude Code would win over the key.

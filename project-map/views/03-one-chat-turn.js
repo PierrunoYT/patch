@@ -267,7 +267,7 @@ builders.flow = () => {
           h(
             'p',
             { class: 'small', style: 'margin:0' },
-            '/compact runs in Claude Code’s own resumed session, so its history is externally owned. MCP tools, leaving plan mode and sandbox-disabled Bash always ask for approval, even in Auto mode. Patch’s Undo, secret redaction and prompt-cache keep-alive do not apply to these tools.',
+            '/compact runs in Claude Code’s own resumed session, so its history is externally owned. MCP tools, leaving plan mode and sandbox-disabled Bash always ask for approval, even in Auto mode. Patch’s Undo and prompt-cache keep-alive do not apply to these tools; their output is redacted on the cards and in the saved chat, not in what Claude Code sends to the model, and its commands start without credential variables (#291).',
           ),
         ),
       ),

@@ -38,7 +38,7 @@ builders.safety = () => {
           layer(
             'External Claude Code layer',
             'var(--c-ext)',
-            'Claude Code runs its own tools, which do not pass Patch permission rules, workspace confinement, protected-file checks or secret redaction. Native Windows commands are unsandboxed; Claude Code’s sandbox on macOS, Linux and WSL2 follows its own settings. Its CLI config, hooks and MCP servers are trusted. MCP tools, ExitPlanMode and sandbox-disabled Bash always ask.',
+            'Claude Code runs its own tools, which do not pass Patch permission rules, workspace confinement or protected-file checks. Their output is redacted only on the cards and in the saved chat; its commands, hooks and MCP servers start without the API key and other credential variables (#291). Native Windows commands are unsandboxed; Claude Code’s sandbox on macOS, Linux and WSL2 follows its own settings. Its CLI config, hooks and MCP servers are trusted. MCP tools, ExitPlanMode and sandbox-disabled Bash always ask.',
             'agent/claude_code.ts, agent/claude_code_launch.ts',
           ),
           layer(

@@ -9,6 +9,7 @@ import type {
   SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk/core';
 import { appLog } from '../app_log';
+import { redactSecrets } from '../tools/redact';
 import type { ApprovalDecision, ChatEvent, UsageTotals } from '@shared/chat';
 import { claudeCapabilities, claudeCodeModelId, type Effort } from '@shared/models';
 import type { ApprovalMode } from '@shared/settings';
@@ -467,9 +468,12 @@ class TurnView {
     this.emit({ type: 'tool-start', id, name, preview: view.preview, awaitingApproval });
   }
 
-  private finishTool(id: string, output: string, isError: boolean | undefined): void {
+  // The output is redacted like Patch's own tool results before it is shown or saved (#291). Claude Code has already
+  // sent it to the model unredacted.
+  private finishTool(id: string, rawOutput: string, isError: boolean | undefined): void {
     const call = this.shown.get(id);
     if (!call) return;
+    const output = redactSecrets(rawOutput);
     this.shown.delete(id);
     const view = describeClaudeCodeTool(call.name, call.input, this.options.cwd);
     const started = this.startedAt.get(id);
