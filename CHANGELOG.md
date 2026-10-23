@@ -11,6 +11,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 ### Changed
 
 - The agent reads less: the system prompt now tells it to locate with `grep`, `find_definition` and `find_references` before reading, to read only the files or line ranges the task needs, not to re-read unchanged files or read neighbouring files, tests and docs unless the task touches them, and to stop exploring once it can act (`src/main/agent/system_prompt.ts`).
+- A repeated `read_file` of the same lines of an unchanged file in one run returns a one-line note instead of the text, so re-reads no longer cost the whole page again. The file stays marked as read, and `reread: true` returns the text when the model no longer has it (fixes #314).
 - The composer model picker now opens a themed, grouped menu above the input instead of the native dropdown, with keyboard navigation and a clear selected-model indicator.
 - Composer settings, attachment and Send controls now stay on one line; in narrow panes the settings scroll horizontally while Send remains visible.
 - The composer separates model and mode settings from message actions, softens the focused border, and hides the empty token count and inactive Stop button so controls no longer wrap into an uneven cluster in narrow panes.

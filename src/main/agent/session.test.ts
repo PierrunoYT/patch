@@ -2,8 +2,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import type { ApprovalDecision, ChatEvent } from '@shared/chat';
 import type { Conversation, TurnRequest, TurnResult } from '../llm/types';
+import { defineTool } from '../tools/types';
 import type { GitContext } from './project_context';
 import { ChatSession, type ChatAgentHooks, type ChatSessionOptions } from './session';
 
@@ -392,6 +394,45 @@ describe('telling the model about Git and outside changes (#85)', () => {
     await none.chat.send({ text: 'hi' });
     expect(none.conversation.sent[0]).toBe('hi');
     none.chat.dispose();
+  });
+});
+
+describe('pages read_file has shown (#314)', () => {
+  // Calls the probe tool once per message, then answers.
+  class ProbeConversation extends IdleConversation {
+    private calls = 0;
+    override async runTurn(request: TurnRequest): Promise<TurnResult> {
+      const result = await super.runTurn(request);
+      return this.calls++ % 2 === 0
+        ? {
+            ...result,
+            text: '',
+            toolCalls: [{ id: `p${this.calls}`, name: 'probe', input: {} }],
+            stopReason: 'tool_use',
+          }
+        : result;
+    }
+  }
+
+  it('shares one record across a run and starts a new one with the next run', async () => {
+    const seen: number[] = [];
+    const probe = defineTool({
+      name: 'probe',
+      description: 'Records what the chat has shown so far.',
+      schema: z.object({}),
+      requiresApproval: false,
+      async run(_input, context) {
+        seen.push(context.shownReads!.size);
+        context.shownReads!.set(`file${seen.length}`, new Set(['page']));
+        return { content: 'ok' };
+      },
+    });
+    const { chat } = session(new ProbeConversation(), () => false, { tools: () => [probe] });
+    await chat.send({ text: 'one' });
+    await chat.send({ text: 'two' });
+    // The second run starts with nothing shown, though the first run recorded a page.
+    expect(seen).toEqual([0, 0]);
+    chat.dispose();
   });
 });
 
