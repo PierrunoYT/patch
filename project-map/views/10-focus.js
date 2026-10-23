@@ -16,13 +16,13 @@ builders.focus = () => {
       'Only #314 is left; the system prompt already tells the agent to read less.',
     ],
     [
-      'Finish the Oct 13 Electron + Rust audit findings (#299–#305)',
+      'The Oct 13 Electron + Rust audit findings (#299–#305) are fixed',
       'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command. #297 is fixed too: the native helpers refuse files over 16 MB and cap their input; #302 is fixed: editor launches scrub credential-like environment variables and refuse Windows % expansion in file names.',
       [
         '#300 is fixed: isAppPageUrl compares the dev server by parsed origin, not by text prefix',
-        '#305 (low): runtime renderer packages sit in devDependencies',
+        '#305 is fixed: every runtime library is a production dependency, so CI’s audit checks it; moving them showed a critical DOMPurify and two high MCP SDK advisories the audit had missed, now updated',
       ],
-      '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, #304: the network relay and net-bridge serve at most 64 connections at once, #303: folder sizes for Windows grants are measured off the main thread, and #299: the Windows sandbox helper keeps Arc<Handle> in Jobs, frees its attribute list on early returns and recovers poisoned mutexes. The remaining low-severity items are next.',
+      '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, #304: the network relay and net-bridge serve at most 64 connections at once, #303: folder sizes for Windows grants are measured off the main thread, and #299: the Windows sandbox helper keeps Arc<Handle> in Jobs, frees its attribute list on early returns and recovers poisoned mutexes. What is left from it is #306 (a helper process per file-tool call).',
     ],
     [
       'Finish the Oct 11 audit findings: #291, #293 and #294',
