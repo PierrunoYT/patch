@@ -5,26 +5,27 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Fix what using Patch on itself showed (#312–#316)',
+      'Finish what using Patch on itself showed: #314',
       'Running Patch from a build inside its own repository made the sandbox refuse the project, so every command asked to run unsandboxed; the agent also over-read files, apply_patch gave no help on an ambiguous hunk, and the log said too little about failed requests and too much about stream events.',
       [
-        '#312 (medium): the sandbox refuses a project root that contains the running app’s install folder',
-        '#313: apply_patch should list where an ambiguous hunk matches',
+        '#312 is fixed: the refusal names the path the project overlaps and says to run Patch from outside the project',
+        '#313 is fixed: apply_patch lists the first lines an ambiguous hunk matches',
+        '#315 and #316 are fixed: a failed chat request logs its provider, error class, status and code, and each dropped stream event type is logged once',
         '#314: re-reads of an unchanged file should cost a short note',
-        '#315 and #316: log the reason a chat request failed, and log dropped stream events once',
       ],
-      '#312 first: it decides whether commands can run sandboxed while developing Patch with Patch.',
+      'Only #314 is left; the system prompt already tells the agent to read less.',
     ],
     [
       'Finish the Oct 13 Electron + Rust audit findings (#299–#305)',
       'An Electron, IPC and native-helper audit found strong process isolation, typed IPC schemas and handle-confined file operations, plus 10 issues across the Rust sidecar helpers, main-thread directory walks and browser DNS caching. The high one, #296 (sandbox-helper --stdio closed its own standard handles), is fixed, and so is #298: net-bridge is pinned by digest like the other helpers, and its Windows copy is read-only to the command. #297 is fixed too: the native helpers refuse files over 16 MB and cap their input; #302 is fixed: editor launches scrub credential-like environment variables and refuse Windows % expansion in file names.',
       [
-        '#300 and #305 (low): isAppPageUrl checks devRendererUrl with startsWith in dev; runtime renderer packages sit in devDependencies',
+        '#300 is fixed: isAppPageUrl compares the dev server by parsed origin, not by text prefix',
+        '#305 (low): runtime renderer packages sit in devDependencies',
       ],
       '#301 is fixed: a public page in the agent browser goes through a proxy that pins each connection to the address it checked, #304: the network relay and net-bridge serve at most 64 connections at once, #303: folder sizes for Windows grants are measured off the main thread, and #299: the Windows sandbox helper keeps Arc<Handle> in Jobs, frees its attribute list on early returns and recovers poisoned mutexes. The remaining low-severity items are next.',
     ],
     [
-      'Fix the Oct 11 audit findings: the low ones next',
+      'Finish the Oct 11 audit findings: #291, #293 and #294',
       'A full audit with a second pass found the renderer, IPC, workspace confinement and approval logic sound, but a few places where untrusted content can still run code outside the sandbox, plus some data-loss and provider bugs. Each finding has an issue with its location, reproduction and fix. Both high findings are fixed. #292 is fixed: the automatic check is skipped with a note when the sandbox is off. #287 is fixed: plaintext MCP credentials and ChatGPT sign-in require native confirmation.',
       [
         '#273 and #274 are fixed: the Git panel no longer looks inside submodules, whose own config could name filters, and also neutralizes filters from .git/config.worktree; host Git in a terminal still recurses into a submodule whose .git a sandboxed command replaced (#294)',
@@ -37,8 +38,9 @@ builders.focus = () => {
         "#281 is fixed: a file:// page in the user's Browser session loads only files in its own folder and gets no network",
         '#282 is fixed: project:open opens a folder that is not in the project list only after a native confirmation',
         '#286 is fixed: search_code masks secrets in the query before sending it for embedding and reranking',
+        '#283 to #285 and #288 to #290 are fixed: more hook, package-manager, CI, dev-container and agent files are guarded, an unreadable settings file stops start-up instead of being erased, BOM and CRLF survive write_file and apply_patch, search and the code index skip hard-linked files, Claude Code subagent tool cards finish, and file times are taken before a run reports it is done',
       ],
-      'Order: the remaining open low findings (#283 to #293, excluding #287 and #292), then #294.',
+      'Order: #291 (medium, whether Claude Code’s Bash sees the shared API key), then #293 (unverified sandbox items) and #294.',
     ],
     [
       'The Oct 10 audit is fixed: approval bypasses and untrusted Claude Code settings',
