@@ -184,7 +184,7 @@ builders.deps = () => {
         h(
           'p',
           { class: 'small muted', style: 'margin:6px 0 0' },
-          'Runtime dependencies: @anthropic-ai/sdk, openai, zod, node-pty, simple-git, diff, ignore, linkedom, @mozilla/readability. Renderer libraries (marked, DOMPurify, highlight.js, xterm, bootstrap…) and the MCP SDK client (@modelcontextprotocol/sdk) are devDependencies because Vite bundles them.',
+          'Every library the app runs is a dependency, so npm audit --omit=dev checks it (#305). Only @anthropic-ai/sdk, openai, zod, node-pty, simple-git, diff, ignore, linkedom and @mozilla/readability are packaged in node_modules; the renderer libraries (marked, DOMPurify, highlight.js, xterm, bootstrap…), the MCP SDK and the Claude Agent SDK are bundled by Vite, and build.files keeps them out of app.asar.',
         ),
       ),
     ),
