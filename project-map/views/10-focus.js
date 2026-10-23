@@ -5,15 +5,15 @@ builders.focus = () => {
   const mainRatios = D.testsByArea.filter((area) => area.a.startsWith('main/')).map((area) => area.tl / area.src);
   const items = [
     [
-      'Finish what using Patch on itself showed: #314',
+      'What using Patch on itself showed is fixed (#312–#316)',
       'Running Patch from a build inside its own repository made the sandbox refuse the project, so every command asked to run unsandboxed; the agent also over-read files, apply_patch gave no help on an ambiguous hunk, and the log said too little about failed requests and too much about stream events.',
       [
         '#312 is fixed: the refusal names the path the project overlaps and says to run Patch from outside the project',
         '#313 is fixed: apply_patch lists the first lines an ambiguous hunk matches',
         '#315 and #316 are fixed: a failed chat request logs its provider, error class, status and code, and each dropped stream event type is logged once',
-        '#314: re-reads of an unchanged file should cost a short note',
+        '#314 is fixed: a repeated read of the same lines of an unchanged file in one run costs a one-line note',
       ],
-      'Only #314 is left; the system prompt already tells the agent to read less.',
+      'A smaller default page, a warning after many reads and a measured before/after are left as a follow-up.',
     ],
     [
       'The Oct 13 Electron + Rust audit findings (#299–#305) are fixed',
