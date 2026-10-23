@@ -622,7 +622,6 @@ const D = {
       0,
       '10-11',
     ],
-    [289, 'Claude Code chats: subagent tool cards end as "(stopped)"', 'other', 'low', 0, '10-11'],
     [288, 'Read tools and the code index follow hard links out of the project', 'security', 'low', 0, '10-11'],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
@@ -699,7 +698,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 241,
+  closedCount: 242,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2873;

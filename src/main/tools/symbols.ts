@@ -1,7 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { fileSize, isBinaryFile, MAX_READ_BYTES } from './text_files';
+import { fileSize, isBinaryFile, isHardLinked, MAX_READ_BYTES } from './text_files';
 import { defineTool, ToolError, type ToolContext } from './types';
 
 const MAX_DEFINITIONS = 20;
@@ -66,7 +66,8 @@ async function searchableFiles(path: string, context: ToolContext): Promise<stri
 
 async function readText(file: string): Promise<string | null> {
   try {
-    if ((await fileSize(file)) > MAX_READ_BYTES || (await isBinaryFile(file))) return null;
+    if ((await fileSize(file)) > MAX_READ_BYTES || (await isBinaryFile(file)) || (await isHardLinked(file)))
+      return null;
     return await readFile(file, 'utf8');
   } catch {
     return null;

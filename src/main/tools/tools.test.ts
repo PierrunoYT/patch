@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   existsSync,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -579,6 +580,18 @@ describe('file tools', () => {
   it('greps across non-ignored files', async () => {
     const result = await call(grepTool, { pattern: 'const a' });
     expect(result.content).toBe('src/app.ts:1: const a = 1;');
+  });
+
+  it('leaves a hard-linked file out of grep, as it may be a file from outside the project (#288)', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'cc-outside-'));
+    try {
+      writeFileSync(join(outside, 'secret.txt'), 'const a = outside secret\n');
+      linkSync(join(outside, 'secret.txt'), join(root, 'src', 'linked.txt'));
+      const result = await call(grepTool, { pattern: 'const a' });
+      expect(result.content).toBe('src/app.ts:1: const a = 1;');
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it('treats a leading (?i) as ignore_case and explains other invalid patterns', async () => {

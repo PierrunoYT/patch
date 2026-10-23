@@ -45,6 +45,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- `grep`, `find_definition`, `find_references` and the code index skip hard-linked files, which can be a file from outside the project (`read_file` still reads them; part of #288).
+- Claude Code chats: a tool a Claude Code subagent ran with approval no longer ends as "(stopped)" after it succeeded (#289).
 - The edit tools now ask about, and sandboxed commands cannot change, more files that run outside the sandbox later: hook managers (pre-commit, Lefthook, simple-git-hooks), `.yarnrc.yml`, `.pnpmfile.cjs`, `.devcontainer/`, `*.code-workspace` and other agents' configuration (`GEMINI.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.roo/`, `.aider.conf.yml`); other CI files are protected from sandboxed commands like `.github`. `.git-credentials`, `*.env`, `credentials.json`, `*.tfvars` and Terraform state count as secrets (#283).
 - In development, the app page check compares the parsed origin of the dev server URL, so a host such as `http://localhost:5173.evil.example/` no longer passes as the dev server (#300).
 - A settings or projects file that exists but cannot be read (locked by antivirus or a sync tool, no permission) now stops start-up with a message instead of reading as empty, so the next save can no longer erase API keys, projects or MCP secrets; the error code is logged (#284).

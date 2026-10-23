@@ -7,7 +7,7 @@ import { appLog } from '../app_log';
 import { readJson, writeJson } from '../storage/json_file';
 import { isSecretPath } from '../tools/guard';
 import { redactSecrets } from '../tools/redact';
-import { fileSize, isBinaryFile } from '../tools/text_files';
+import { fileSize, isBinaryFile, isHardLinked } from '../tools/text_files';
 import { defineTool, type AgentTool, type CodeSearch } from '../tools/types';
 import type { Workspace } from '../tools/workspace';
 import { chunkFile } from './chunker';
@@ -307,7 +307,12 @@ export class CodeIndex implements CodeSearch {
         try {
           const info = await stat(absolute);
           if (existing && existing.mtimeMs === info.mtimeMs && existing.size === info.size) continue;
-          if (info.size > MAX_FILE_BYTES || info.size === 0 || (await isBinaryFile(absolute))) {
+          if (
+            info.size > MAX_FILE_BYTES ||
+            info.size === 0 ||
+            (await isBinaryFile(absolute)) ||
+            (await isHardLinked(absolute))
+          ) {
             if (existing) dirty = this.forget(path) || dirty;
             continue;
           }

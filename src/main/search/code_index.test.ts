@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -115,6 +124,21 @@ describe('CodeIndex', () => {
       expect(sent).not.toContain(secret);
     }
     expect(index.fileCount).toBe(3);
+  });
+
+  it('does not index a hard link, which may be a file from outside the project (#288)', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'cc-outside-'));
+    try {
+      writeFileSync(join(outside, 'secret.ts'), 'export const outsideSecret = 1;\n');
+      linkSync(join(outside, 'secret.ts'), join(root, 'src', 'linked.ts'));
+      const embedder = new FakeEmbedder();
+      const index = new CodeIndex(new Workspace(root), embedder, indexDir, () => 1000);
+      await index.search('outside secret', 5, signal);
+      expect(embedder.calls.flat().join('\n')).not.toContain('outsideSecret');
+      expect(index.fileCount).toBe(2);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
   });
 
   it('leaves out a file that disappears during the scan instead of failing the update (#245)', async () => {

@@ -359,7 +359,9 @@ class TurnView {
         else this.subagentStep(message.parent_tool_use_id, message.message.content);
         return;
       case 'user':
-        if (message.parent_tool_use_id === null && Array.isArray(message.message.content)) {
+        // Results inside a subagent carry its id as the parent. A card exists for them only when canUseTool asked about
+        // the call, and it must end whatever the parent (#289); finishTool ignores ids without a card.
+        if (Array.isArray(message.message.content)) {
           for (const block of message.message.content) {
             if (block.type === 'tool_result')
               this.finishTool(block.tool_use_id, toolResultText(block.content), block.is_error);
