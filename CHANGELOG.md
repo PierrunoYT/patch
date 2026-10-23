@@ -45,6 +45,7 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- Windows sandbox: a drive letter whose current definition points elsewhere, with the run's folder only in an older stacked definition, no longer counts as already mapped, so the command no longer starts in the wrong folder (`DriveMapping::is_live`). The allow-list proxy's limits are documented: it checks the TLS server name, so a host on a shared CDN can still front another site there with the `Host` header or Encrypted Client Hello (fixes #293).
 - `grep`, `find_definition`, `find_references` and the code index skip hard-linked files, which can be a file from outside the project (`read_file` still reads them; part of #288).
 - Claude Code chats: a tool a Claude Code subagent ran with approval no longer ends as "(stopped)" after it succeeded (#289).
 - The edit tools now ask about, and sandboxed commands cannot change, more files that run outside the sandbox later: hook managers (pre-commit, Lefthook, simple-git-hooks), `.yarnrc.yml`, `.pnpmfile.cjs`, `.devcontainer/`, `*.code-workspace` and other agents' configuration (`GEMINI.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.roo/`, `.aider.conf.yml`); other CI files are protected from sandboxed commands like `.github`. `.git-credentials`, `*.env`, `credentials.json`, `*.tfvars` and Terraform state count as secrets (#283).
