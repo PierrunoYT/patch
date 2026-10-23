@@ -19,6 +19,7 @@ import { connect } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   buildHelperRequest,
@@ -403,6 +404,47 @@ console.log(JSON.stringify(${JSON.stringify(cases)}.map(([tool, secret, cache]) 
     const ordinary = await shell.run(`Set-Content -Path '${join(root, 'notes.txt')}' -Value ok`);
     expect(ordinary.exitCode, ordinary.output).toBe(0);
     expect(readFileSync(join(root, 'notes.txt'), 'utf8').trim()).toBe('ok');
+  }, 120_000);
+
+  it('moves aside a submodule .git that a sandboxed command replaced, which host Git would recurse into (#294)', async () => {
+    const project = mkdtempSync(join(homedir(), 'patch-sbx-submodule-'));
+    try {
+      const git = (cwd: string, ...args: string[]) =>
+        execFileSync(
+          'git',
+          ['-c', 'user.name=Patch', '-c', 'user.email=patch@example.com', '-c', 'protocol.file.allow=always', ...args],
+          { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+        );
+      const source = join(project, 'source');
+      const repo = join(project, 'repo');
+      for (const dir of [source, repo]) {
+        mkdirSync(dir);
+        git(dir, 'init', '-q', '-b', 'main');
+        writeFileSync(join(dir, 'readme.txt'), 'x\n');
+        git(dir, 'add', '.');
+        git(dir, 'commit', '-q', '-m', 'init');
+      }
+      // A file:// URL copies the objects; a plain path hard-links them, which the Git metadata check refuses.
+      git(repo, 'submodule', 'add', '-q', pathToFileURL(source).href, 'lib');
+      git(repo, 'commit', '-q', '-m', 'add lib');
+      const runner = new ShellRunner(
+        () => repo,
+        () => config,
+        undefined,
+        () => ({ ...sandboxEnv, PATH: repo }),
+      );
+      const pointer = join(repo, 'lib', '.git');
+      const result = await runner.run(
+        `Remove-Item -Force '${pointer}'; Set-Content -NoNewline -Path '${pointer}' -Value 'gitdir: ../planted'`,
+      );
+      expect(result.exitCode, result.output).toBe(0);
+      expect(result.output).toMatch(/Patch moved lib\\\.git to lib\\\.git\.patch-quarantine-/);
+      expect(existsSync(pointer)).toBe(false);
+      const [moved] = readdirSync(join(repo, 'lib')).filter((name) => name.startsWith('.git.patch-quarantine-'));
+      expect(readFileSync(join(repo, 'lib', moved!), 'utf8')).toBe('gitdir: ../planted');
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
   }, 120_000);
 
   it('lets a command change a file moved into the project after its grant (#140)', async () => {

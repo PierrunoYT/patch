@@ -39,6 +39,12 @@ import {
 import { AddedEntries } from './added_entries';
 import { patchWriteMark, protectedConfigSnapshot, settleCreatedProtectedEntries } from './sandbox_config';
 import {
+  settleChangedSubmoduleGit,
+  submodulePaths,
+  submoduleSnapshot,
+  type SubmoduleSnapshot,
+} from './sandbox_submodules';
+import {
   buildHelperRequest,
   GRANT_ENTRY_LIMIT,
   HelperProcess,
@@ -388,7 +394,8 @@ export class ShellRunner {
   // Starts a command and, when it is sandboxed, notes which protected entries the project lacks. A sandbox cannot
   // guard a path that does not exist yet, so `guard` (called once the command ended) finds what the command created
   // there and moves it aside, or only reports it while another sandboxed command is still running (#262), or when
-  // Patch's own edit tools wrote to it meanwhile (#276).
+  // Patch's own edit tools wrote to it meanwhile (#276). It also records each submodule's .git and moves aside one the
+  // command created or changed, which host Git would recurse into (#294).
   private async spawn(
     command: string,
     access: CommandAccess,
@@ -396,12 +403,14 @@ export class ShellRunner {
   ): Promise<{ child: CommandProcess; sandbox: SandboxKind; guard: () => string }> {
     let root = '';
     let before = new Set<string>();
+    let submodules: SubmoduleSnapshot | null = null;
     let mark = 0;
     let counted = false;
     let done = false;
-    const begin = () => {
+    const begin = (submodulePaths: string[]) => {
       root = this.cwd();
       before = protectedConfigSnapshot(root);
+      submodules = submoduleSnapshot(root, submodulePaths);
       mark = patchWriteMark();
       this.sandboxedRunning++;
       counted = true;
@@ -413,7 +422,10 @@ export class ShellRunner {
     const guard = () => {
       if (done) return '';
       release();
-      return settleCreatedProtectedEntries(root, before, mark, this.sandboxedRunning === 0);
+      const settled = this.sandboxedRunning === 0;
+      return (
+        settleCreatedProtectedEntries(root, before, mark, settled) + settleChangedSubmoduleGit(submodules, settled)
+      );
     };
     try {
       const started = await this.spawnProcess(command, access, begin, signal);
@@ -433,7 +445,7 @@ export class ShellRunner {
   private async spawnProcess(
     command: string,
     access: CommandAccess,
-    begin: () => void,
+    begin: (submodulePaths: string[]) => void,
     signal?: AbortSignal,
   ): Promise<{ child: CommandProcess; sandbox: SandboxKind }> {
     const decision = this.decide(command, access);
@@ -444,8 +456,9 @@ export class ShellRunner {
     const config = this.sandbox();
     const inner = shellCommand(command, decision.kind !== 'none');
     const grants = await this.approvedGrants(access);
+    const submodules = decision.kind === 'none' ? [] : await submodulePaths(this.cwd());
     signal?.throwIfAborted();
-    if (decision.kind !== 'none') begin();
+    if (decision.kind !== 'none') begin(submodules);
     if (decision.kind === 'appcontainer')
       return {
         child: await this.spawnInAppContainer(inner, decision.network, decision.filtered === true, grants, signal),

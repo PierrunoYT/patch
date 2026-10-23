@@ -140,14 +140,14 @@ const D = {
       id: 'tools',
       label: 'main/tools',
       proc: 'main',
-      files: 35,
-      tests: 37,
-      lines: 7374,
-      testLines: 10600,
+      files: 36,
+      tests: 38,
+      lines: 7610,
+      testLines: 10786,
       desc: 'Every model tool, plus fail-closed command sandboxes, a minimal native environment with native-confirmed extra variable/PATH settings (#95), credential-safe toolchain grants, package-aware Program Files toolchains with no-admin read-only staging and journaled copy cleanup (#106), protected Git metadata and editor/agent configuration (#127), Workspace.resolve confinement, protected-file guards, redaction, MCP and subagents. Non-Git folders, Husky and in-project gitfiles/shared metadata run sandboxed (#109); external metadata and writable config includes still refuse execution. Git writes need the panel or unsandboxed approval, which states loss of file confinement and unrestricted networking. Allow-list network is enforced by a filtering proxy on Linux and Windows; macOS and containers still request unrestricted network from matching URLs. Windows commands get private journaled temp/npm-cache roots, project PATH mapping and process-only PowerShell script policy; old Node pipe handling remains upstream (#101), so a sandboxed timeout tells the agent about the workaround. Project drive mappings are journaled before creation and recovered by exact letter/target after a crash (#94).',
       list: [
         'registry.ts',
-        'shell.ts (910; refuses sensitive roots, #145; project-local macOS temp, #144; streaming UTF-8 and process-tree cleanup; asynchronous sandbox probes)',
+        'shell.ts (916; refuses sensitive roots, #145; project-local macOS temp, #144; streaming UTF-8 and process-tree cleanup; asynchronous sandbox probes)',
         'shell_leftovers.ts (163; finds and kills what a Windows shell left running through its parent pid, #165; lists the process tree of an MCP server it stops, #117)',
         'sandbox_windows.ts (folder sizes for grants measured off the main thread, #303; Program Files candidates, protected Git paths, helper protocol (its log events go to the app log, #152), filtered-network proxy pipe, #97, workspace cwd for MCP, #87, and the project-grant revoke on close, #103)',
         'sandbox.ts (safe canonical project roots before Git preparation, #145; project-only Seatbelt writes and command-local temp, #144; asynchronous support probes, #112; bubblewrap in a limited systemd user scope, #104; enforced allow-list on Linux and Windows, #97)',
@@ -166,6 +166,8 @@ const D = {
         'sandbox_grants.ts (per-command read_paths and write_paths: canonical, exact, approved with the command and re-resolved at start, never network, #126)',
         'sandbox_grants.test.ts (resolution, overlaps, links, refusals and the mount arguments of each backend)',
         'sandbox_config.ts (170; top-level editor, agent and CI configuration read-only in every sandbox backend alongside .git, #127; entries a command created while absent are removed afterwards, #262; links and nested copies are #271)',
+        'sandbox_submodules.ts (223; each submodule’s .git, from the protected index and .git/modules, recorded before a sandboxed command and moved aside when the command created or changed it, #294)',
+        'sandbox_submodules.test.ts (144; real repositories: gitfile, nested, not checked out and in-tree submodules)',
         'sandbox_macos.integration.test.ts (real Seatbelt Mach-service, LaunchServices, network-off local endpoint, other-terminal tty and pty, shared-memory, semaphore and sysctl probes; skipped off macOS)',
         'env.ts (minimal native allow-list; built-in PowerShell module path; inherited startup/agent handles blocked)',
         'apply_patch.ts (405; refuses files changed after the preview, #267; native batched mutations with original paths and byte snapshots, #144; same-path moves and UTF-8 checks; context lines keep the file text, #246; Windows names and case-only duplicates refused up front, #242)',
@@ -397,7 +399,7 @@ const D = {
   testsByArea: [
     { a: 'main/agent', f: 17, c: 454, src: 3307, tl: 6143 },
     { a: 'main/llm', f: 10, c: 132, src: 2515, tl: 3366 },
-    { a: 'main/tools', f: 37, c: 885, src: 7374, tl: 10600 },
+    { a: 'main/tools', f: 38, c: 894, src: 7610, tl: 10786 },
     { a: 'main/panels', f: 4, c: 90, src: 933, tl: 1459 },
     { a: 'main/other', f: 16, c: 259, src: 4143, tl: 4053 },
     { a: 'shared', f: 8, c: 104, src: 1513, tl: 1189 },
@@ -616,6 +618,14 @@ const D = {
   ],
   issues: [
     [
+      329,
+      'Windows CI: the #145 app-data sandbox e2e test and the real-helper background-stop test fail intermittently',
+      'tests',
+      'low',
+      0,
+      '10-23',
+    ],
+    [
       324,
       'Agent reads: smaller default page, a warning after many reads, and a measured before/after',
       'perf',
@@ -624,14 +634,6 @@ const D = {
       '10-23',
     ],
     [306, 'File tools start a native helper per call and send file bytes as Base64 JSON', 'perf', 'low', 0, '10-14'],
-    [
-      294,
-      'Sandboxed commands can replace a submodule’s .git, which host Git recurses into',
-      'sandbox',
-      'medium',
-      0,
-      '10-11',
-    ],
     [272, 'Check after edits: suggest a check command and use language servers', 'tools', 'low', 0, '10-10'],
     [
       271,
@@ -707,7 +709,7 @@ const D = {
     other: 'Bugs',
     docs: 'Docs & naming',
   },
-  closedCount: 247,
+  closedCount: 248,
 };
 // src/renderer/src/styles.css, counted with the renderer's source lines.
 const RENDERER_CSS_LINES = 2873;
