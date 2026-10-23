@@ -23,7 +23,7 @@ export function isAppPageUrl(
   platform: NodeJS.Platform = process.platform,
 ): boolean {
   const dev = devRendererUrl(isPackaged, env);
-  if (dev && url.startsWith(dev)) return true;
+  if (dev && isUnderDevServer(url, dev)) return true;
   let path: string;
   try {
     const parsed = new URL(url);
@@ -39,4 +39,18 @@ export function isAppPageUrl(
     return platform === 'win32' || platform === 'darwin' ? normalized.toLowerCase() : normalized;
   };
   return comparable(path) === comparable(appPage);
+}
+
+// Parsed origins are compared, not the text: `http://localhost:5173.evil.example/` and `http://localhost:5173@evil.example/`
+// start with the dev server URL but are other hosts (#300). A dev URL with a path also needs the frame to be under it.
+function isUnderDevServer(url: string, dev: string): boolean {
+  try {
+    const frame = new URL(url);
+    const server = new URL(dev);
+    if (frame.origin !== server.origin || frame.origin === 'null') return false;
+    const base = server.pathname.endsWith('/') ? server.pathname : `${server.pathname}/`;
+    return frame.pathname === server.pathname || frame.pathname.startsWith(base);
+  } catch {
+    return false;
+  }
 }

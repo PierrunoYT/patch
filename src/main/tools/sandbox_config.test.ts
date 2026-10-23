@@ -74,6 +74,18 @@ describe('isProtectedConfigName', () => {
     '.envrc',
     '.husky',
     '.github',
+    '.pre-commit-config.yaml',
+    'lefthook.yml',
+    '.simple-git-hooks.json',
+    '.yarnrc.yml',
+    '.gitlab-ci.yml',
+    '.circleci',
+    'Jenkinsfile',
+    '.devcontainer',
+    'work.code-workspace',
+    'GEMINI.md',
+    '.cursorrules',
+    '.roo',
   ])('protects %s', (name) => expect(isProtectedConfigName(name)).toBe(true));
 
   it.each(['src', '.gitignore', 'package.json', 'README.md', '.env.example'])('leaves %s writable', (name) =>
@@ -89,6 +101,15 @@ describe('isProtectedConfigName', () => {
     'AGENTS.md',
     'CLAUDE.md',
     '.envrc',
+    '.pre-commit-config.yaml',
+    'lefthook.yml',
+    '.yarnrc.yml',
+    '.pnpmfile.cjs',
+    '.devcontainer/devcontainer.json',
+    'my.code-workspace',
+    'GEMINI.md',
+    '.cursorrules',
+    '.roo/rules.md',
   ])('is asked about by the edit tools: %s', (path) => {
     expect(isProtectedConfigName(path.split('/')[0]!)).toBe(true);
     expect(isGuardedPath(path)).toBe(true);

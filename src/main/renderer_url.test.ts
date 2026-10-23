@@ -37,6 +37,16 @@ describe('isAppPageUrl', () => {
     const env = { ELECTRON_RENDERER_URL: 'http://localhost:5173' };
     expect(isAppPageUrl('http://localhost:5173/', false, env)).toBe(true);
     expect(isAppPageUrl('http://localhost:5173/', true, env)).toBe(false);
+    expect(isAppPageUrl('http://localhost:5173/src/main.ts?t=1#x', false, env)).toBe(true);
+    // Hosts that merely start with the dev server URL (#300).
+    expect(isAppPageUrl('http://localhost:5173.evil.example/', false, env)).toBe(false);
+    expect(isAppPageUrl('http://localhost:5173@evil.example/', false, env)).toBe(false);
+    expect(isAppPageUrl('http://localhost:51730/', false, env)).toBe(false);
+    expect(isAppPageUrl('https://localhost:5173/', false, env)).toBe(false);
+    const withPath = { ELECTRON_RENDERER_URL: 'http://localhost:5173/app' };
+    expect(isAppPageUrl('http://localhost:5173/app', false, withPath)).toBe(true);
+    expect(isAppPageUrl('http://localhost:5173/app/x', false, withPath)).toBe(true);
+    expect(isAppPageUrl('http://localhost:5173/application', false, withPath)).toBe(false);
   });
 
   it('rejects other pages, other files and garbage', () => {

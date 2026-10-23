@@ -13,6 +13,12 @@ const SECRETS: RegExp[] = [
   /(^|\/)\.config\/gcloud\//i,
   // direnv files usually export tokens, and direnv runs them on cd.
   /(^|\/)\.envrc$/i,
+  // Git, cloud and Terraform credentials and state (#283).
+  /(^|\/)\.git-credentials$/i,
+  /\.env$/i,
+  /(^|\/)credentials\.json$/i,
+  /\.tfvars(\.json)?$/i,
+  /(^|\/)terraform\.tfstate(\.backup)?$/i,
 ];
 
 const GUARDED: RegExp[] = [
@@ -28,6 +34,16 @@ const GUARDED: RegExp[] = [
   /(^|\/)\.patch(\/|$)/i,
   // Husky's hooks run on git commit (direnv's .envrc is listed with the secrets).
   /(^|\/)\.husky(\/|$)/i,
+  // Other hook managers run on git commit, yarn and pnpm run the files their config names, and a dev container or
+  // workspace file can run a command when it is opened (#283). CI files (.gitlab-ci.yml, .circleci/ and so on) are left
+  // to the normal approval rules like .github, but sandboxed commands may not change them (sandbox_config.ts).
+  /(^|\/)(\.pre-commit-config\.yaml|\.?lefthook\.ya?ml|\.yarnrc\.yml|\.pnpmfile\.cjs)$/i,
+  /(^|\/)\.simple-git-hooks\.[^/]+$/i,
+  /(^|\/)\.devcontainer(\/|$)/i,
+  /\.code-workspace$/i,
+  // Other agents' configuration.
+  /(^|\/)\.(roo|clinerules|cursorrules|windsurfrules|aider\.conf\.yml)(\/|$)/i,
+  /^GEMINI\.md$/i,
   // Shell start-up files.
   /(^|\/)\.(bashrc|bash_profile|zshrc|zprofile|profile|zshenv)$/i,
   /(^|\/)\.config\/fish\//i,
