@@ -128,7 +128,9 @@ struct DriveMapping {
 const DRIVE_LETTERS: std::ops::RangeInclusive<u8> = b'D'..=b'Z';
 
 impl DriveMapping {
-    // Whether the drive letter is mapped to exactly this target right now.
+    // Whether the drive letter is mapped to exactly this target right now. QueryDosDeviceW lists the current
+    // definition first and older stacked ones after it; only the first is in effect, so a target further down the
+    // stack is not live and must be defined again (#293).
     fn is_live(&self) -> bool {
         let name = wide(&self.name);
         let mut buffer = vec![0u16; 4096];
@@ -136,7 +138,8 @@ impl DriveMapping {
         let wanted = format!(r"\??\{}", self.target);
         buffer[..length.min(buffer.len())]
             .split(|unit| *unit == 0)
-            .any(|entry| String::from_utf16_lossy(entry).eq_ignore_ascii_case(&wanted))
+            .next()
+            .is_some_and(|entry| String::from_utf16_lossy(entry).eq_ignore_ascii_case(&wanted))
     }
 
     // The mapping of another run's record that already points at `path` and is still defined, so runs in one project
@@ -3515,6 +3518,34 @@ mod tests {
         assert!(!mapping.is_live());
         drop((drive, second));
         fs::remove_dir(root).unwrap();
+    }
+
+    #[test]
+    fn a_target_under_a_newer_definition_of_the_letter_is_not_live() {
+        let _lock = PermissionLock::acquire().unwrap();
+        let root = std::env::temp_dir().join(profile_name());
+        let other = std::env::temp_dir().join(profile_name());
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(&other).unwrap();
+        let mapping = DriveMapping::reserve(root.to_str().unwrap(), &[]).unwrap();
+        let drive = ProjectDrive::define(&mapping, true).unwrap();
+        assert!(mapping.is_live());
+        // Another definition of the same letter on top: the letter now opens `other`, so `root` must be defined again
+        // instead of being taken as live (#293).
+        let newer = DriveMapping {
+            name: mapping.name.clone(),
+            target: other.to_str().unwrap().to_string(),
+        };
+        let stacked = ProjectDrive::define(&newer, false).unwrap();
+        assert!(!mapping.is_live());
+        assert!(newer.is_live());
+        drop(stacked);
+        assert!(mapping.is_live());
+        mapping.remove().unwrap();
+        assert!(!mapping.is_live());
+        drop(drive);
+        fs::remove_dir(root).unwrap();
+        fs::remove_dir(other).unwrap();
     }
 
     #[test]

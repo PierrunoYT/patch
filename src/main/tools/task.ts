@@ -181,6 +181,7 @@ async function runSubagent(
   role: SubagentRole = { preamble: SUBAGENT_PREAMBLE, conversation: options.createConversation, label: 'Subagent' },
 ) {
   let partial = '';
+  const shownReads = new Map<string, Set<string>>();
   const conversation = role.conversation();
   // Caches are per model: only a subagent on the chat's model can reuse the chat's cached tools and system prompt.
   // It then gets them unchanged, its role goes into its first message, and the tools it may not use are stand-ins.
@@ -198,7 +199,8 @@ async function runSubagent(
     decidePermission: options.decidePermission,
     requestApproval: () => Promise.resolve({ approved: false }),
     // Own read set: a file the subagent read is not a file the parent has read, so the read-before-edit guard holds.
-    toolContext: (signal, onProgress) => ({ ...context, signal, onProgress, readFiles: new Map() }),
+    // Its own record of shown pages too: the parent's results are not in the subagent's conversation (#314).
+    toolContext: (signal, onProgress) => ({ ...context, signal, onProgress, readFiles: new Map(), shownReads }),
     maxTurns: SUBAGENT_MAX_TURNS,
     emit: (event) => {
       // Interim text (a turn that also called tools) is only progress. The answer is taken from the outcome below.

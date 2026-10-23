@@ -30,7 +30,7 @@ const GREP_FILE_TIMEOUT_MS = 3000;
 export const readFileTool = defineTool({
   name: 'read_file',
   description:
-    'Read a text file from the project with line numbers. Pages default to 2,000 lines and contain at most 30,000 characters of numbered text. Use offset and limit for whole-line ranges. If a line exceeds the character budget, follow the returned offset and char_offset to read its remainder without losing text. Read a file before editing or overwriting it.',
+    'Read a text file from the project with line numbers. Pages default to 2,000 lines and contain at most 30,000 characters of numbered text. Use offset and limit for whole-line ranges. If a line exceeds the character budget, follow the returned offset and char_offset to read its remainder without losing text. Read a file before editing or overwriting it. Asking again for lines you already read in this task returns a short note while the file is unchanged; set reread to true only if that text is no longer in your context.',
   schema: z.object({
     path: z.string().describe('File path, relative to the project root.'),
     offset: z.number().int().min(1).optional().describe('First line to read (1-based).'),
@@ -43,10 +43,14 @@ export const readFileTool = defineTool({
       .describe(
         'Zero-based UTF-16 code-unit offset within the first requested line (default 0). Use the returned continuation value for an overlong line; subsequent lines start at 0. Must not split a Unicode surrogate pair.',
       ),
+    reread: z
+      .boolean()
+      .optional()
+      .describe('Return the text even if these lines were read before in this task and the file is unchanged.'),
   }),
   requiresApproval: false,
   parallelSafe: true,
-  async run({ path, offset = 1, limit = DEFAULT_READ_LINES, char_offset = 0 }, context) {
+  async run({ path, offset = 1, limit = DEFAULT_READ_LINES, char_offset = 0, reread = false }, context) {
     const file = context.workspace.resolve(path);
     if (!existsSync(file)) throw new ToolError(`File not found: ${path}`);
     if (statSync(file).isDirectory()) throw new ToolError(`${path} is a directory. Use list_directory.`);
@@ -71,9 +75,25 @@ export const readFileTool = defineTool({
       );
     }
     if (selected.length > 0) selected[0] = first.slice(char_offset);
-    context.readFiles.set(file, sha256(bytes));
+    const hash = sha256(bytes);
+    context.readFiles.set(file, hash);
 
     const rel = context.workspace.relative(file);
+    // The same page of the same content was already returned in this run (#314). The file stays marked as read.
+    const pageKey = `${hash}:${offset}:${limit}:${char_offset}`;
+    const shown = context.shownReads?.get(file);
+    if (shown?.has(pageKey) && !reread) {
+      return {
+        content: `(${rel} is unchanged since you read these lines earlier in this task; use that result. If its text is no longer in your context, call read_file again with reread: true.)`,
+        summary: `Read ${rel} (unchanged since the last read)`,
+        path: rel,
+      };
+    }
+    if (context.shownReads) {
+      // A changed file starts over: pages shown of older content no longer describe it.
+      const pages = shown && [...shown].every((key) => key.startsWith(`${hash}:`)) ? shown : new Set<string>();
+      context.shownReads.set(file, pages.add(pageKey));
+    }
     const page = fitLines(withLineNumbers(selected, offset).split('\n'), MAX_OUTPUT_CHARS);
     const last = offset + page.lines - 1;
     const notes: string[] = [];
