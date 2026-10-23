@@ -37,9 +37,10 @@ After every change, fix or feature:
 1. Update the docs the change affects: `README.md`, `docs/`, `CHANGELOG.md` and the `project-map/` page. Open work is tracked in [GitHub issues](https://github.com/PierrunoYT/patch/issues), not in a file: reference the issue a change fixes (`Fixes #n` in the commit message closes it), and open an issue for follow-up work you leave undone (`gh issue list` first, to avoid duplicates).
 2. Run formatting, lint, type checks and the full suites described under Commands above. Choose one test route, not both: `npm test`, or `npm run test:unit` followed by `npm run test:e2e` for user-visible changes; non-user-visible changes need only the full unit suite. Do not rerun a passing unit suite through `npm test` unless its inputs changed.
 3. Make a commit for that change, with a Conventional Commit message. One change per commit; don't batch unrelated work.
-4. Push to `main` only. Don't create or push other branches, and don't open pull requests.
+4. Don't push to `main`. Push the commits to a new branch based on the current `main` (`git fetch` first) and open a pull request with `gh pr create`. Describe what changed, name the issues it fixes, and list the validation you ran. One task per pull request; it may hold several commits when the task has several separate changes.
+5. Leave merging to the maintainer. Pull requests into `main` need one approving review (ruleset "Require approval on main"), so don't merge your own pull request, approve it, or bypass the rule with `--admin`.
 
-Don't leave a finished change uncommitted or its docs stale.
+Don't leave a finished change uncommitted, unpushed or without its pull request, or its docs stale.
 
 ### Keeping `project-map/` current
 
