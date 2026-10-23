@@ -302,39 +302,6 @@ describe('file tools', () => {
     expect(range.content).toContain('Showing lines 2-2 of 3');
   });
 
-  // #314: the same page of an unchanged file costs a short note the second time in a run.
-  it('answers a repeated read of an unchanged page with a note, and still lets the file be edited', async () => {
-    const ctx = { ...makeContext(), shownReads: new Map<string, Set<string>>() };
-    const first = await call(readFileTool, { path: 'src/app.ts' }, ctx);
-    expect(first.content).toContain('1\tconst a = 1;');
-
-    const again = await call(readFileTool, { path: 'src/app.ts' }, ctx);
-    expect(again.content).toMatch(/^\(src\/app\.ts is unchanged since you read these lines earlier/);
-    expect(again.content).not.toContain('const a = 1;');
-    expect(again.summary).toBe('Read src/app.ts (unchanged since the last read)');
-
-    // Another range, or asking for the text, returns it.
-    expect((await call(readFileTool, { path: 'src/app.ts', offset: 2 }, ctx)).content).toContain('2\tconst b = 2;');
-    const forced = await call(readFileTool, { path: 'src/app.ts', reread: true }, ctx);
-    expect(forced.content).toContain('1\tconst a = 1;');
-
-    // The file is still marked as read, so it can be edited after the note.
-    ctx.readFiles.clear();
-    await call(readFileTool, { path: 'src/app.ts' }, ctx);
-    await call(readFileTool, { path: 'src/app.ts' }, ctx);
-    await call(editFileTool, { path: 'src/app.ts', old_string: 'const a = 1;', new_string: 'const a = 3;' }, ctx);
-
-    // A changed file is read in full again.
-    const changed = await call(readFileTool, { path: 'src/app.ts' }, ctx);
-    expect(changed.content).toContain('1\tconst a = 3;');
-    expect((await call(readFileTool, { path: 'src/app.ts' }, ctx)).content).toMatch(/is unchanged/);
-  });
-
-  it('returns the text every time without a record of shown pages', async () => {
-    await call(readFileTool, { path: 'src/app.ts' });
-    expect((await call(readFileTool, { path: 'src/app.ts' })).content).toContain('1\tconst a = 1;');
-  });
-
   it.each(['one\ntwo\n', 'one\r\ntwo\r\n', 'one\ntwo'])(
     'does not count a line terminator as another line',
     async (text) => {

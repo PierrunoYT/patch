@@ -99,7 +99,7 @@ export interface ChatSessionOptions {
   planMode?: () => boolean;
   isPreApproved?: (toolName: string, input: unknown) => boolean;
   decidePermission?: AgentOptions['decidePermission'];
-  toolContext: (base: Pick<ToolContext, 'signal' | 'readFiles' | 'shownReads' | 'onProgress'>) => ToolContext;
+  toolContext: (base: Pick<ToolContext, 'signal' | 'readFiles' | 'onProgress'>) => ToolContext;
   smallModel: (conversation: Conversation) => CompletionClient | null;
   onDroppedFields?: (error: DroppedFieldError) => void;
   // Keeps what is needed to undo an approved edit. Throwing means the edit cannot be undone.
@@ -149,8 +149,6 @@ export class ChatSession {
   title: string;
   private transcript: TranscriptItem[];
   private readonly readFiles: Map<string, string | null>;
-  // Pages read_file has returned in the current run (ToolContext.shownReads, #314); cleared when a run starts.
-  private readonly shownReads = new Map<string, Set<string>>();
   private readonly agent: ChatAgent;
   private readonly approvals = new Map<string, (decision: ApprovalDecision) => void>();
   private controller: AbortController | null = null;
@@ -205,8 +203,7 @@ export class ChatSession {
         isPreApproved: options.isPreApproved,
         decidePermission: options.decidePermission,
         requestApproval: hooks.requestApproval,
-        toolContext: (signal, onProgress) =>
-          options.toolContext({ signal, onProgress, readFiles: this.readFiles, shownReads: this.shownReads }),
+        toolContext: (signal, onProgress) => options.toolContext({ signal, onProgress, readFiles: this.readFiles }),
         onCheckpoint: hooks.onCheckpoint,
         emit: hooks.emit,
         onDroppedFields: options.onDroppedFields,
@@ -397,8 +394,6 @@ export class ChatSession {
 
   private async run(work: (signal: AbortSignal) => Promise<boolean>): Promise<void> {
     this.stopKeepAlive();
-    // A run can follow a compaction, a trimmed history or a restart, after which earlier results may not be sent.
-    this.shownReads.clear();
     const controller = new AbortController();
     this.controller = controller;
     this.stopRequested = false;

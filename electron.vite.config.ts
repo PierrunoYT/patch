@@ -14,15 +14,12 @@ for (const name of ['sandbox-helper.exe', 'file-helper.exe', 'net-bridge.exe', '
   if (digest) digests[name] = digest;
 }
 
-// Runtime dependencies the main build bundles rather than leaving in node_modules: only the client code Patch imports
-// ends up in the app, without the MCP SDK's server side (express, hono, jose...; #40). packaging.test.ts checks this.
-export const BUNDLED_IN_MAIN = ['@modelcontextprotocol/sdk', '@anthropic-ai/claude-agent-sdk'];
-
 export default defineConfig({
   main: {
-    // Other dependencies stay in node_modules. package.json's build.files packages only those and their dependency
-    // trees, so the libraries Vite bundles into the main and renderer builds are not copied into app.asar (#305).
-    plugins: [externalizeDepsPlugin({ exclude: BUNDLED_IN_MAIN })],
+    // Production dependencies stay in node_modules and are packaged with their whole dependency tree. The MCP SDK is
+    // a dev dependency instead, so it is bundled: only its client code, which is all Patch imports, ends up in the
+    // app, without the SDK's server side (express, hono, jose...).
+    plugins: [externalizeDepsPlugin()],
     resolve: { alias: shared },
     define: { __PATCH_NATIVE_DIGESTS__: JSON.stringify(digests) },
   },

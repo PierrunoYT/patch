@@ -11,7 +11,6 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 ### Changed
 
 - The agent reads less: the system prompt now tells it to locate with `grep`, `find_definition` and `find_references` before reading, to read only the files or line ranges the task needs, not to re-read unchanged files or read neighbouring files, tests and docs unless the task touches them, and to stop exploring once it can act (`src/main/agent/system_prompt.ts`).
-- A repeated `read_file` of the same lines of an unchanged file in one run returns a one-line note instead of the text, so re-reads no longer cost the whole page again. The file stays marked as read, and `reread: true` returns the text when the model no longer has it (fixes #314).
 - The composer model picker now opens a themed, grouped menu above the input instead of the native dropdown, with keyboard navigation and a clear selected-model indicator.
 - Composer settings, attachment and Send controls now stay on one line; in narrow panes the settings scroll horizontally while Send remains visible.
 - The composer separates model and mode settings from message actions, softens the focused border, and hides the empty token count and inactive Stop button so controls no longer wrap into an uneven cluster in narrow panes.
@@ -46,7 +45,6 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
-- Windows sandbox: a drive letter whose current definition points elsewhere, with the run's folder only in an older stacked definition, no longer counts as already mapped, so the command no longer starts in the wrong folder (`DriveMapping::is_live`). The allow-list proxy's limits are documented: it checks the TLS server name, so a host on a shared CDN can still front another site there with the `Host` header or Encrypted Client Hello (fixes #293).
 - `grep`, `find_definition`, `find_references` and the code index skip hard-linked files, which can be a file from outside the project (`read_file` still reads them; part of #288).
 - Claude Code chats: a tool a Claude Code subagent ran with approval no longer ends as "(stopped)" after it succeeded (#289).
 - The edit tools now ask about, and sandboxed commands cannot change, more files that run outside the sandbox later: hook managers (pre-commit, Lefthook, simple-git-hooks), `.yarnrc.yml`, `.pnpmfile.cjs`, `.devcontainer/`, `*.code-workspace` and other agents' configuration (`GEMINI.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.roo/`, `.aider.conf.yml`); other CI files are protected from sandboxed commands like `.github`. `.git-credentials`, `*.env`, `credentials.json`, `*.tfvars` and Terraform state count as secrets (#283).
@@ -243,8 +241,6 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Security
 
-- Every library the app runs (DOMPurify, marked, highlight.js, diff2html, xterm, Bootstrap, the fonts, the MCP SDK and the Claude Agent SDK) is now a production dependency, so CI's `npm audit --omit=dev` checks it. `build.files` packages only what the main build leaves in `node_modules`, so `app.asar` stays the same size, and a unit test checks that list against `package-lock.json` (fixes #305).
-- Updated DOMPurify to 3.4.17 (GHSA-cg2g-xh64-v4q7, critical, and GHSA-mrv2-3pqr-j5jr), the MCP SDK to 1.32.1 (GHSA-22jm-h49p-29qw and GHSA-46jr-4wx8-v453, high), and Vite to 7.3.7 and ip-address to 10.7.4. CI's `npm audit --omit=dev` did not report them, because these runtime packages are listed as dev dependencies (#305).
 - A sandboxed command with filtered network could make Patch's sandbox helper (outside the sandbox's limits) and the network bridge start two threads for every connection it opened, without bound. Both now serve at most 64 connections at once and close any further one right away (fixes #304).
 - A public page in the agent's browser could still reach a local service by DNS rebinding: Patch checked each name once per page, but Chromium looked the name up again for every connection, so a name with a short TTL could answer public first and `127.0.0.1` or `169.254.169.254` later, and a screenshot could carry the local service's response to the model. While the agent shows a public page, its browser session now goes through a local proxy that resolves each connection itself, refuses local and private addresses and dials only the address it checked. That proxy does not use the system proxy settings (fixes #301).
 - The network bridge that filtered-network commands run under (`net-bridge.exe` on Windows, `net-bridge` on Linux) was the one bundled helper a packaged build did not check against the digest taken at build time, and on Windows its copy in the command's temporary folder was writable from inside the sandbox. A packaged build now runs only the bridge it was built with (otherwise allow-list commands get no network), and the Windows copy is read-only to the command (fixes #298).

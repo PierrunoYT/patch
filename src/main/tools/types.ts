@@ -69,11 +69,6 @@ export interface ToolContext {
   // (null: unknown, from a chat saved by an older version). Existing files must be read before they are overwritten
   // or edited, so the model never changes code it has not seen; write_file also refuses when the hash no longer matches.
   readFiles: Map<string, string | null>;
-  // What read_file has shown the model during this run: per absolute path, the content hash and the requested range of
-  // each page. Asking for the same page of an unchanged file again then gets a short note instead of the text (#314).
-  // The chat starts a new map with every run and compaction, since earlier tool results may no longer be in what is
-  // sent. Absent (tests): every read returns the text.
-  shownReads?: Map<string, Set<string>>;
   shell: ShellRunner;
   // The chat this call belongs to. Background commands are scoped to it, so another chat that shares the runner
   // cannot read or stop them. Absent (tests): one shared scope.
