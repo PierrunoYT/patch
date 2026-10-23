@@ -32,11 +32,36 @@ const PROTECTED_CONFIG = new Set(
     '.envrc',
     '.husky',
     '.github',
+    // Other hook managers and package managers, run on commit, install or CI (#283).
+    '.pre-commit-config.yaml',
+    'lefthook.yml',
+    'lefthook.yaml',
+    '.lefthook.yml',
+    '.lefthook.yaml',
+    '.yarnrc.yml',
+    '.pnpmfile.cjs',
+    // Other CI services.
+    '.gitlab-ci.yml',
+    '.circleci',
+    'azure-pipelines.yml',
+    'bitbucket-pipelines.yml',
+    '.travis.yml',
+    'Jenkinsfile',
+    // A dev container's initializeCommand runs on the host; other agents read their own configuration.
+    '.devcontainer',
+    'GEMINI.md',
+    '.cursorrules',
+    '.windsurfrules',
+    '.clinerules',
+    '.roo',
+    '.aider.conf.yml',
   ].map((name) => name.toLowerCase()),
 );
 
 export function isProtectedConfigName(name: string): boolean {
-  return PROTECTED_CONFIG.has(name.toLowerCase());
+  const lower = name.toLowerCase();
+  // Names with a variable part: a VS Code workspace file runs tasks when opened, .simple-git-hooks.* are Git hooks.
+  return PROTECTED_CONFIG.has(lower) || lower.endsWith('.code-workspace') || lower.startsWith('.simple-git-hooks.');
 }
 
 // The protected entries that exist in the project root, matched without regard to case (Windows and macOS file

@@ -34,6 +34,26 @@ describe('isGuardedPath', () => {
     'services/api/.envrc',
     '.husky/pre-commit',
     '.agents/skills/release.md',
+    // Hook managers, package managers, dev containers and other agents (#283).
+    '.pre-commit-config.yaml',
+    'lefthook.yml',
+    '.lefthook.yml',
+    '.simple-git-hooks.json',
+    '.yarnrc.yml',
+    '.pnpmfile.cjs',
+    '.devcontainer/devcontainer.json',
+    'my.code-workspace',
+    'GEMINI.md',
+    '.cursorrules',
+    '.roo/rules.md',
+    '.aider.conf.yml',
+    // More secret files.
+    '.git-credentials',
+    'config/prod.env',
+    'credentials.json',
+    'infra/prod.tfvars',
+    'terraform.tfstate',
+    'terraform.tfstate.backup',
   ])('guards %s', (path) => {
     expect(isGuardedPath(path)).toBe(true);
   });
@@ -50,6 +70,10 @@ describe('isGuardedPath', () => {
     'src/patch/index.ts',
     'src/keyboard.ts',
     '.ENV.EXAMPLE',
+    '.gitlab-ci.yml',
+    'Jenkinsfile',
+    'docs/GEMINI.md',
+    'src/environment.ts',
   ])('does not guard %s', (path) => {
     expect(isGuardedPath(path)).toBe(false);
   });

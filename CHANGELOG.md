@@ -45,6 +45,8 @@ Patch's changes are consolidated below as an unreleased baseline, not published 
 
 ### Fixed
 
+- The edit tools now ask about, and sandboxed commands cannot change, more files that run outside the sandbox later: hook managers (pre-commit, Lefthook, simple-git-hooks), `.yarnrc.yml`, `.pnpmfile.cjs`, `.devcontainer/`, `*.code-workspace` and other agents' configuration (`GEMINI.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.roo/`, `.aider.conf.yml`); other CI files are protected from sandboxed commands like `.github`. `.git-credentials`, `*.env`, `credentials.json`, `*.tfvars` and Terraform state count as secrets (#283).
+- In development, the app page check compares the parsed origin of the dev server URL, so a host such as `http://localhost:5173.evil.example/` no longer passes as the dev server (#300).
 - A settings or projects file that exists but cannot be read (locked by antivirus or a sync tool, no permission) now stops start-up with a message instead of reading as empty, so the next save can no longer erase API keys, projects or MCP secrets; the error code is logged (#284).
 - `apply_patch` keeps a file's BOM when a hunk replaces line 1, and `write_file` keeps the CRLF line endings and BOM of a file it overwrites (#285).
 - A failed chat request is logged with its provider, error class, HTTP status and a short error code (never the message), so `app.log.jsonl` shows why it failed (#315).
