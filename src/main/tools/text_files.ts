@@ -1,6 +1,6 @@
 import { isUtf8 } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { open, stat } from 'node:fs/promises';
+import { lstat, open, stat } from 'node:fs/promises';
 import { ToolError } from './types';
 
 // Fingerprint of a file's bytes (text is hashed as UTF-8, which is how the file tools write it).
@@ -26,6 +26,12 @@ export async function isBinaryFile(path: string): Promise<boolean> {
   } finally {
     await handle.close();
   }
+}
+
+// Whether other names point at the same file. A hard link inside the project can reach a file outside it, so search and
+// indexing leave such files out (#288).
+export async function isHardLinked(path: string): Promise<boolean> {
+  return (await lstat(path)).nlink > 1;
 }
 
 export async function fileSize(path: string): Promise<number> {

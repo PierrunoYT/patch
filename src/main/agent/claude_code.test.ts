@@ -33,11 +33,11 @@ const failed = (subtype: string, errors: string[], modelUsage: Record<string, Re
   msg({ type: 'result', subtype, is_error: true, errors, session_id: 's1', modelUsage });
 const assistant = (id: string, content: unknown[], parent: string | null = null) =>
   msg({ type: 'assistant', message: { id, content, usage: undefined }, parent_tool_use_id: parent });
-const toolResult = (toolUseId: string, content: unknown, isError = false) =>
+const toolResult = (toolUseId: string, content: unknown, isError = false, parent: string | null = null) =>
   msg({
     type: 'user',
     message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUseId, content, is_error: isError }] },
-    parent_tool_use_id: null,
+    parent_tool_use_id: parent,
   });
 const streamEvent = (event: Record<string, unknown>) => msg({ type: 'stream_event', parent_tool_use_id: null, event });
 const details = (toolUseID: string, extra: Partial<Details> = {}): Details =>
@@ -324,6 +324,28 @@ describe('ClaudeCodeAgent: tool cards', () => {
     const progress = events.filter((event) => event.type === 'tool-progress').map((event) => event.text);
     expect(progress).toEqual(['Search for TODO\n', 'Find files *.ts\n']);
     expect(transcript()).toMatchObject([{ kind: 'tool', id: 'agent1', status: 'done' }]);
+  });
+
+  it('finishes the card of a tool a subagent ran with approval instead of leaving it stopped (#289)', async () => {
+    const { query } = fakeQuery(async function* (params) {
+      yield init('s1');
+      yield assistant('m1', [
+        { type: 'tool_use', id: 'agent1', name: 'Agent', input: { description: 'Survey', prompt: 'go' } },
+      ]);
+      const input = { command: 'npm test', description: 'Run tests' };
+      await params.options!.canUseTool!('Bash', input, details('sub-bash'));
+      yield toolResult('sub-bash', 'ok', false, 'agent1');
+      yield toolResult('agent1', 'finished');
+      yield success();
+    });
+    const { agent, transcript } = harness(query, { requestApproval: async () => ({ approved: true }) });
+
+    await agent.send(text, signalNow());
+
+    expect(transcript()).toMatchObject([
+      { kind: 'tool', id: 'agent1', status: 'done' },
+      { kind: 'tool', id: 'sub-bash', status: 'done' },
+    ]);
   });
 
   it('closes a card whose result never came when the run fails', async () => {

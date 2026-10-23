@@ -9,6 +9,7 @@ import {
   detectEol,
   fileSize,
   isBinaryFile,
+  isHardLinked,
   MAX_READ_BYTES,
   sha256,
   withLineNumbers,
@@ -162,7 +163,8 @@ export const grepTool = defineTool({
     try {
       for (const file of files) {
         if (context.signal.aborted || matches.length >= GREP_MAX_MATCHES) break;
-        if ((await fileSize(file)) > MAX_READ_BYTES || (await isBinaryFile(file))) continue;
+        if ((await fileSize(file)) > MAX_READ_BYTES || (await isBinaryFile(file)) || (await isHardLinked(file)))
+          continue;
         const text = await readFile(file, 'utf8');
         const take = Math.min(GREP_MAX_PER_FILE, GREP_MAX_MATCHES - matches.length);
         const result = await worker.match({ text }, { take, timeoutMs: GREP_FILE_TIMEOUT_MS, signal: context.signal });
