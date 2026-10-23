@@ -108,7 +108,17 @@ describe('claudeCodeEnv', () => {
   const base = { PATH: '/bin', ANTHROPIC_BASE_URL: 'https://inherited.example', ANTHROPIC_AUTH_TOKEN: 'token' };
 
   it('keeps Claude Code on its own sign-in when no key is forwarded, and turns off its other traffic', () => {
-    expect(claudeCodeEnv(base, null)).toEqual({ ...base, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' });
+    expect(claudeCodeEnv(base, null)).toEqual({
+      ...base,
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+      CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1',
+    });
+  });
+
+  it('keeps the forwarded key and other credentials out of the commands Claude Code runs (#291)', () => {
+    const inherited = { ...base, CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '0' };
+    expect(claudeCodeEnv(inherited, { key: 'sk-ant-test', baseUrl: '' }).CLAUDE_CODE_SUBPROCESS_ENV_SCRUB).toBe('1');
+    expect(claudeCodeEnv(inherited, null).CLAUDE_CODE_SUBPROCESS_ENV_SCRUB).toBe('1');
   });
 
   it('gives the saved key to the configured base URL, replacing an inherited one', () => {
